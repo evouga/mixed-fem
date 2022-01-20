@@ -88,7 +88,7 @@ add_executable(
 # Include settings
 target_include_directories(libIGL-polyscope-example PUBLIC 
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/libigl/include" 
-  "${CMAKE_CURRENT_SOURCE_DIR}/deps/bartels/include" 
+  "${CMAKE_CURRENT_SOURCE_DIR}/deps/Bartels/include" 
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope/deps/args"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope/deps/json/include")
 

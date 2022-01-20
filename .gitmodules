@@ -4,6 +4,6 @@
 [submodule "deps/libigl"]
 	path = deps/libigl
 	url = https://github.com/libigl/libigl.git
-[submodule "deps/bartels"]
-	path = deps/bartels
-  url = https://github.com/dilevin/Bartels.git
+[submodule "deps/Bartels"]
+	path = deps/Bartels
+	url = https://github.com/dilevin/Bartels.git
