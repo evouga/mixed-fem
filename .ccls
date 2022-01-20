@@ -1,0 +1,5 @@
+%h %cpp -std=c++17
+%cpp %h -Iinclude/
+-Ideps/libigl/include
+-Ideps/bartels/include
+
