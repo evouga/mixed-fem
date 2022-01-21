@@ -17,6 +17,7 @@
 #include "linear_tetmesh_B.h"
 #include "fixed_point_constraint_matrix.h"
 #include "linear_tetmesh_mass_matrix.h"
+#include "linear_tet_mass_matrix.h"
 
 
 #include <unsupported/Eigen/CXX11/Tensor>
@@ -46,7 +47,7 @@ double h = 0.1;
 double density = 1000.0;
 double ym = 1e6;
 double mu = 0.45;
-double alpha = -0.01;
+double alpha = 100;
 double ih2 = 1/h/h;
 double grav = -9.8;
 
@@ -58,12 +59,91 @@ TensorFixedSize<double, Sizes<3, 9, 3, 6>> Te;
 
 // Local element matrices
 Matrix12d Me = density * Matrix12d::Identity();
+Vector6d I_vec = {1, 1, 1, 0, 0, 0}; // Identity is symmetric format
 
 VectorXd qt;    // current positions
 VectorXd q0;    // previous positions
 VectorXd q1;    // previous^2 positions
 VectorXd f_ext; // per-node external forces
 
+SparseMatrixd lhs;
+SimplicialLDLT<SparseMatrixd> kkt_solver;
+
+void build_kkt_lhs() {
+
+  VectorXd densities = VectorXd::Constant(meshT.rows(), density);
+  VectorXd vols;
+  igl::volume(meshV, meshT, vols);
+  sim::linear_tetmesh_dphi_dX(dphidX, meshV, meshT);
+
+  std::vector<Triplet<double>> trips;
+
+  for (int i = 0; i < meshT.rows(); ++i) {
+    // 1. Mass matrix terms
+    Matrix12d Me;
+    sim::linear_tet_mass_matrix(Me, meshT.row(i), densities(i), vols(i)); 
+
+    // mass matrix assembly
+    for (int j = 0; j < 4; ++j) {
+      int vid1 = meshT(i,j);
+      for (int k = 0; k < 4; ++k) {
+        int vid2 = meshT(i,k);
+        for (int l = 0; l < 3; ++l) {
+          for (int m = 0; m < 3; ++m) {
+            double val = ih2 * Me(3*j+l, 3*k+m);
+            trips.push_back(Triplet<double>(3*vid1+l, 3*vid2+m, val));
+          }
+        }
+      }
+    }
+
+    // 2. J matrix (and transpose) terms
+    // Local jacobian
+    Matrix<double,9,12> B = sim::flatten_multiply_right<
+      Matrix<double, 3,4>>(sim::unflatten<4,3>(dphidX.row(i)));
+
+    int offset = meshV.size(); // offset for off diagonal blocks
+
+    // Assembly for the i-th lagrange multiplier matrix which
+    // is associated with 4 vertices (for tetrahedra)
+    for (int j = 0; j < 9; ++j) {
+
+      // k-th vertex of the tetrahedra
+      for (int k = 0; k < 4; ++k) {
+        int vid = meshT(i,k); // vertex index
+
+        // x,y,z index for the k-th vertex
+        for (int l = 0; l < 3; ++l) {
+          double val = B(j,3*k+l); 
+          // subdiagonal term
+          trips.push_back(Triplet<double>(offset+9*i+j, 3*vid+l, val));
+
+          // superdiagonal term
+          trips.push_back(Triplet<double>(3*vid+l, offset+9*i+j, val));
+        }
+      }
+    }
+
+    // 3. Compliance matrix terms
+    // Each local term is equivalent and is a scaled diagonal matrix
+    double He = -1.0/alpha;
+    for (int j = 0; j < 9; ++j) {
+      trips.push_back(Triplet<double>(offset+9*i+j,offset+9*i+j, He));
+    }
+  }
+
+  int sz = meshV.size() + meshT.rows()*9;
+  lhs.resize(sz,sz);
+  lhs.setFromTriplets(trips.begin(), trips.end());
+  kkt_solver.compute(lhs);
+  if(kkt_solver.info()!=Success) {
+    std::cerr << " KKT prefactor failed! " << std::endl;
+  }
+  //Eigen::IOFormat CleanFmt(2, 0, ",", "\n", "[", "]");
+  //std::cout << "M: \n" << MatrixXd(ih2*M).format(CleanFmt) << std::endl;
+  //std::cout << "J: \n" << MatrixXd(J).format(CleanFmt) << std::endl;
+  //std::cout << "L: \n" << MatrixXd(lhs).format(CleanFmt) << std::endl;
+}
 
 void init_sim() {
 
@@ -89,7 +169,7 @@ void init_sim() {
   f_ext = M * Vector3d(0,grav,0).replicate(meshV.rows(),1);
 
   // Local arap inverse hessian
-  Vector9d Htmp = Vector9d::Ones() * alpha;
+  Vector9d Htmp = Vector9d::Ones() * -(1.0/alpha);
   WHiW = Htmp.asDiagonal();
   
   // J matrix (big jacobian guy)
@@ -119,11 +199,6 @@ void init_sim() {
   J.resize(9*meshT.rows(), meshV.size());
   J.setFromTriplets(trips.begin(),trips.end());
 
-
-  // |T| x 12
-  std::cout << "dphidX: " << dphidX.rows() << ", " 
-    << dphidX.cols() << std::endl;
-
   // Create local tensors used for reshaping vectors to matrices
   B_33.setValues({
       {
@@ -144,19 +219,19 @@ void init_sim() {
   });
   B_33s.setValues({
       {
-        {1., 0. , 0. ,0. ,0. ,0.},
-        {0., 0. , 0. ,0. ,0. ,1.},
-        {0., 0. , 0. ,0. ,1. ,0.} 
+        {1, 0, 0, 0, 0, 0},
+        {0, 0, 0, 0, 0, 1},
+        {0, 0, 0, 0, 1, 0} 
       },
       {
-        {0., 0. ,0. , 0. ,0. ,1.},
-        {0., 1. ,0. , 0. ,0. ,0.},
-        {0., 0. ,0. , 1. ,0. ,0.} 
+        {0, 0, 0, 0, 0, 1},
+        {0, 1, 0, 0, 0, 0},
+        {0, 0, 0, 1, 0, 0} 
       },  
       {
-        {0., 0., 0. , 0. ,1. ,0.},
-        {0., 0., 0. , 1. ,0. ,0.},
-        {0., 0., 1. , 0. ,0. ,0.} 
+        {0, 0, 0, 0, 1, 0},
+        {0, 0, 0, 1, 0, 0},
+        {0, 0, 1, 0, 0, 0} 
       }
   }); 
 
@@ -171,11 +246,12 @@ void init_sim() {
   // << T.dimension(2) << ", " << T.dimension(3) << std::endl;
   //Te = Map<Matrix<double,9,6>>(T.data(), T.dimension(0), T.dimension(1));
   //
-  Tensor<double, 2> He = B_33s.contract(B_33s, double_dims);
+  //Tensor<double, 2> He = B_33s.contract(B_33s, double_dims);
   //std::cout << "T: \n" << T << std::endl;
   //std::cout << "Te: \n" << Te << std::endl;
-  std::cout << "He: \n" << He << std::endl;
-  
+  //std::cout << "He: \n" << He << std::endl;
+
+  build_kkt_lhs();
 
 }
 
