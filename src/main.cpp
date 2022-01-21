@@ -45,7 +45,7 @@ MatrixXd dphidX;
 VectorXi pinnedV;
 
 // Simulation params
-double h = 0.05;//0.1;
+double h = 0.01;//0.1;
 double density = 1000.0;
 double ym = 1e6;
 double mu = 0.45;
@@ -211,9 +211,6 @@ void update_SR() {
     S[i] += -(S[i]-I_vec) + He_inv*W.transpose()*li;
 
     // 2. Solve rotation matrices
-    //const Vector6d& Si = S[i];
-
-    
     Matrix3f U,V; 
     Vector3f s; 
     Matrix3d Y;
@@ -225,10 +222,14 @@ void update_SR() {
     TensorFixedSize<double, Sizes<3,3,6>> Tel = Te.contract(l, dims_l);
     TensorFixedSize<double, Sizes<3,3>> Tels = Tel.contract(Si, dims_s);
     Y = Map<Matrix3d>(Tels.data(), 3, 3);
-    Matrix3f Yf = Y.cast<float>();
+    Matrix3f Yf = Y.cast<float>() + Matrix3f::Identity()*1e-2;
+    //std::cout << "Yf : \n " << Yf << std::endl;
+    //std::cout << "l: \n" << l << std::endl;
+    //std::cout << "Si: \n" << Si << std::endl;
+    //std::cout << "Tels: \n" << Tels << std::endl;
     igl::svd3x3(Yf, U, s, V);
-    std::cout <<" warning not updating r" << std::endl;
-    //R[i] = (U*V.transpose()).cast<double>();
+    //std::cout <<" warning not updating r" << std::endl;
+    R[i] = (U*V.transpose()).cast<double>();
   }
 
 }
@@ -388,7 +389,7 @@ void callback() {
 
   static int numPoints = 2000;
   static float param = 3.14;
-  static bool simulate = false;
+  static bool simulating = false;
   static bool show_pinned = false;
 
   ImGui::PushItemWidth(100);
@@ -398,7 +399,7 @@ void callback() {
     //addCurvatureScalar();
   }
 
-  ImGui::Checkbox("simulate",&simulate);
+  ImGui::Checkbox("simulate",&simulating);
   if(ImGui::Button("show pinned")) {
 
     double min_x = meshV.col(0).minCoeff();
@@ -422,12 +423,24 @@ void callback() {
 
   } 
 
-  if(ImGui::Button("sim step")) {
+  if(ImGui::Button("sim step") || simulating) {
+    for (int i = 0; i < R.size(); ++i) {
+      std::cout << "R0["<<i<<"]: \n" << R[i] << std::endl;
+    }
+    for (int i = 0; i < R.size(); ++i) {
+      std::cout << "S0["<<i<<"]: \n" << S[i] << std::endl;
+    }
     simulation_step();
     polyscope::getVolumeMesh("input mesh")
       ->updateVertexPositions(meshV);
     std::cout << "Jq: \n" << J*qt << std::endl;;
     std::cout << "la: \n" << la << std::endl;
+    for (int i = 0; i < R.size(); ++i) {
+      std::cout << "R["<<i<<"]: \n" << R[i] << std::endl;
+    }
+    for (int i = 0; i < R.size(); ++i) {
+      std::cout << "S["<<i<<"]: \n" << S[i] << std::endl;
+    }
   }
     
   //ImGui::SameLine();
