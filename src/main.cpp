@@ -32,17 +32,18 @@ MatrixXd meshV;
 MatrixXi meshF;
 MatrixXi meshT; // tetrahedra
 
-std::vector<Matrix3d> R;
+// F = RS
+std::vector<Matrix3d> R; // Per-element rotations
+std::vector<Vector6d> S; // Per-element symmetric deformation
 
-MatrixXd dphidX; 
 
 SparseMatrix<double> M; // mass matrix
 SparseMatrix<double> P; // pinning constraint
-SparseMatrix<double> J;
+SparseMatrix<double> J; // jacobian
+MatrixXd dphidX; 
 VectorXi pinnedV;
 
-polyscope::PointCloud* psCloud = nullptr;
-
+// Simulation params
 double h = 0.1;
 double density = 1000.0;
 double ym = 1e6;
@@ -57,17 +58,23 @@ TensorFixedSize<double, Sizes<3, 3, 9>> B_33;  // 9x1 -> 3x3
 TensorFixedSize<double, Sizes<3, 3, 6>> B_33s; // 6x1 -> 3x3 (symmetric)
 TensorFixedSize<double, Sizes<3, 9, 3, 6>> Te;
 
-// Local element matrices
-Matrix12d Me = density * Matrix12d::Identity();
 Vector6d I_vec = {1, 1, 1, 0, 0, 0}; // Identity is symmetric format
 
+// Configuration vectors & body forces
 VectorXd qt;    // current positions
 VectorXd q0;    // previous positions
 VectorXd q1;    // previous^2 positions
 VectorXd f_ext; // per-node external forces
 
+// KKT system
 SparseMatrixd lhs;
 SimplicialLDLT<SparseMatrixd> kkt_solver;
+VectorXd rhs;
+
+// ------------ TODO ------------------ //
+// 1. Not missing volume anywhere
+// 2. Tetrahedra pinning (for lambda)
+// ------------------------------------ //
 
 void build_kkt_lhs() {
 
@@ -145,6 +152,40 @@ void build_kkt_lhs() {
   //std::cout << "L: \n" << MatrixXd(lhs).format(CleanFmt) << std::endl;
 }
 
+void build_kkt_rhs() {
+  int sz = meshV.size() + meshT.rows()*9;
+  rhs.resize(sz);
+  rhs.setZero();
+
+  // positional forces 
+  rhs.segment(0, qt.size()) = f_ext - ih2*M*(qt - 2.0*q0 + q1);
+
+  // lagrange multiplier forces
+  
+  VectorXd Jq = J*qt;
+  array<IndexPair<int>, 2> dims = { 
+    IndexPair<int>(0, 0), IndexPair<int>(2, 1)
+  };
+  //Te = B_33.contract(B_33s, dims);
+  //TensorFixedSize<double, Sizes<3, 9, 3, 6>> Te;
+
+  for (int i = 0; i < meshT.rows(); ++i) {
+    // 1. W * st term
+    TensorMap<Tensor<double, 2>> Ri(R[i].data(), 3, 3);
+    TensorFixedSize<double, Sizes<9,6>> TR = Te.contract(Ri, dims);
+    Matrix<double,9,6> W = Map<Matrix<double,9,6>>(TR.data(),
+        TR.dimension(0), TR.dimension(1));
+
+    Vector9d Ws = W * (I_vec); 
+    //auto rhs_le = Je_ql*qe -Te * se - Te*(se-i_vec);
+    // 3. - W * Hinv * g term
+    rhs.segment(meshV.size() + 9*i, 9) = Ws;
+  }
+  rhs.segment(meshV.size(), 9*meshT.rows()) -= Jq;
+
+  std::cout << "Jq size: " << Jq.size() << std::endl;
+}
+
 void init_sim() {
 
   // Initial configuration vectors (assuming 0 initial velocity)
@@ -155,8 +196,10 @@ void init_sim() {
 
   // Initialize rotation matrices to identity
   R.resize(meshT.rows());
+  S.resize(meshT.rows());
   for (int i = 0; i < meshT.rows(); ++i) {
     R[i].setIdentity();
+    S[i] = I_vec;
   }
 
   // Mass matrix
@@ -237,11 +280,11 @@ void init_sim() {
 
   array<IndexPair<int>, 1> dims = {IndexPair<int>(1, 1)
   };
-  array<IndexPair<int>, 2> double_dims = { 
-    IndexPair<int>(0, 0), IndexPair<int>(1, 1)
-  };
+  //array<IndexPair<int>, 2> double_dims = { 
+  //  IndexPair<int>(0, 0), IndexPair<int>(1, 1)
+  //};
   
-  TensorFixedSize<double, Sizes<3, 9, 3, 6>> Te = B_33.contract(B_33s, dims);
+  Te = B_33.contract(B_33s, dims);
   //std::cout << "T dims: " << T.dimension(0) << ", " << T.dimension(1) << ", " 
   // << T.dimension(2) << ", " << T.dimension(3) << std::endl;
   //Te = Map<Matrix<double,9,6>>(T.data(), T.dimension(0), T.dimension(1));
@@ -252,6 +295,7 @@ void init_sim() {
   //std::cout << "He: \n" << He << std::endl;
 
   build_kkt_lhs();
+  build_kkt_rhs();
 
 }
 
