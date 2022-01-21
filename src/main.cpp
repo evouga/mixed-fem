@@ -4,6 +4,7 @@
 #include <igl/invert_diag.h>
 #include <igl/readMESH.h>
 #include <igl/volume.h>
+#include <igl/svd3x3.h>
 
 // Polyscope
 #include "polyscope/messages.h"
@@ -44,12 +45,12 @@ MatrixXd dphidX;
 VectorXi pinnedV;
 
 // Simulation params
-double h = 0.1;
+double h = 0.05;//0.1;
 double density = 1000.0;
 double ym = 1e6;
 double mu = 0.45;
 double alpha = 100;
-double ih2 = 1/h/h;
+double ih2 = 1.0/h/h;
 double grav = -9.8;
 
 DiagonalMatrix<double, 9> WHiW; // local kkt hessian sandwhich (-W(H^-1)W^T)
@@ -65,6 +66,7 @@ VectorXd qt;    // current positions
 VectorXd q0;    // previous positions
 VectorXd q1;    // previous^2 positions
 VectorXd f_ext; // per-node external forces
+VectorXd la;    // lambdas
 
 // KKT system
 SparseMatrixd lhs;
@@ -157,17 +159,14 @@ void build_kkt_rhs() {
   rhs.resize(sz);
   rhs.setZero();
 
-  // positional forces 
-  rhs.segment(0, qt.size()) = f_ext - ih2*M*(qt - 2.0*q0 + q1);
+  // Positional forces 
+  //rhs.segment(0, qt.size()) = f_ext - ih2*M*(qt - 2.0*q0 + q1);
+  rhs.segment(0, qt.size()) = f_ext + ih2*M*(q0 - q1);
 
-  // lagrange multiplier forces
-  
-  VectorXd Jq = J*qt;
+  // Lagrange multiplier forces
   array<IndexPair<int>, 2> dims = { 
     IndexPair<int>(0, 0), IndexPair<int>(2, 1)
   };
-  //Te = B_33.contract(B_33s, dims);
-  //TensorFixedSize<double, Sizes<3, 9, 3, 6>> Te;
 
   for (int i = 0; i < meshT.rows(); ++i) {
     // 1. W * st term
@@ -177,14 +176,63 @@ void build_kkt_rhs() {
         TR.dimension(0), TR.dimension(1));
 
     Vector9d Ws = W * (I_vec); 
-    //auto rhs_le = Je_ql*qe -Te * se - Te*(se-i_vec);
-    // 3. - W * Hinv * g term
+
+    // 2. - W * Hinv * g term
     rhs.segment(meshV.size() + 9*i, 9) = Ws;
   }
-  rhs.segment(meshV.size(), 9*meshT.rows()) -= Jq;
 
-  std::cout << "Jq size: " << Jq.size() << std::endl;
+  // 3. Jacobian term
+  rhs.segment(meshV.size(), 9*meshT.rows()) -= J*qt;
+  std::cout << "Jq size: " << (J*qt).size() << std::endl;
 }
+
+void update_SR() {
+
+  // Local hessian (constant for all elements)
+  Vector6d He_inv_vec;
+  He_inv_vec << 1,1,1,0.5,0.5,0.5;
+  He_inv_vec /= alpha;
+  DiagonalMatrix<double,6> He_inv = He_inv_vec.asDiagonal();
+
+  array<IndexPair<int>, 2> dims = { 
+    IndexPair<int>(0, 0), IndexPair<int>(2, 1)
+  };
+
+  for (int i = 0; i < meshT.rows(); ++i) {
+    Vector9d li = la.segment(9*i,9);
+
+    // 1. Update S[i] using new lambdas
+    TensorMap<Tensor<double, 2>> Ri(R[i].data(), 3, 3);
+    TensorFixedSize<double, Sizes<9,6>> TR = Te.contract(Ri, dims);
+    Matrix<double,9,6> W = Map<Matrix<double,9,6>>(TR.data(),
+        TR.dimension(0), TR.dimension(1));
+
+    // H^-1 * g = s^i - I
+    S[i] += -(S[i]-I_vec) + He_inv*W.transpose()*li;
+
+    // 2. Solve rotation matrices
+    //const Vector6d& Si = S[i];
+
+    
+    Matrix3f U,V; 
+    Vector3f s; 
+    Matrix3d Y;
+
+    array<IndexPair<int>, 1> dims_l = {IndexPair<int>(1, 0)};
+    array<IndexPair<int>, 1> dims_s = {IndexPair<int>(2, 0)};
+    TensorMap<Tensor<double, 1>> l(li.data(), 9);
+    TensorMap<Tensor<double, 1>> Si(S[i].data(), 6);
+    TensorFixedSize<double, Sizes<3,3,6>> Tel = Te.contract(l, dims_l);
+    TensorFixedSize<double, Sizes<3,3>> Tels = Tel.contract(Si, dims_s);
+    Y = Map<Matrix3d>(Tels.data(), 3, 3);
+    Matrix3f Yf = Y.cast<float>();
+    igl::svd3x3(Yf, U, s, V);
+    std::cout <<" warning not updating r" << std::endl;
+    //R[i] = (U*V.transpose()).cast<double>();
+  }
+
+}
+
 
 void init_sim() {
 
@@ -201,6 +249,10 @@ void init_sim() {
     R[i].setIdentity();
     S[i] = I_vec;
   }
+
+  // Initial lambdas
+  la.resize(9 * meshT.rows());
+  la.setZero();
 
   // Mass matrix
   VectorXd densities = VectorXd::Constant(meshT.rows(), density);
@@ -260,6 +312,7 @@ void init_sim() {
         {0, 0, 0, 0, 0, 0, 0, 0, 1},
       }
   });
+  //TODO confirm ordering is okay
   B_33s.setValues({
       {
         {1, 0, 0, 0, 0, 0},
@@ -280,11 +333,13 @@ void init_sim() {
 
   array<IndexPair<int>, 1> dims = {IndexPair<int>(1, 1)
   };
+  Te = B_33.contract(B_33s, dims);
+
+  // Ignore this shit
   //array<IndexPair<int>, 2> double_dims = { 
   //  IndexPair<int>(0, 0), IndexPair<int>(1, 1)
   //};
   
-  Te = B_33.contract(B_33s, dims);
   //std::cout << "T dims: " << T.dimension(0) << ", " << T.dimension(1) << ", " 
   // << T.dimension(2) << ", " << T.dimension(3) << std::endl;
   //Te = Map<Matrix<double,9,6>>(T.data(), T.dimension(0), T.dimension(1));
@@ -296,7 +351,37 @@ void init_sim() {
 
   build_kkt_lhs();
   build_kkt_rhs();
+  // update_SR();
+}
 
+void simulation_step() {
+  // Does each iteration use dq anywhere besides being a solution of
+  // the kkt solve?
+  // ds & lambda are used in the projection, but to confirm delta q
+  // is just one of the "end products"
+  //
+  int steps=1;//10;
+  VectorXd dq_la;
+  for (int i = 0; i < steps; ++i) {
+    // TODO partially inefficient right?
+    //  dq rows are fixed throughout the optimization, only lambda rows
+    //  change correct?
+    build_kkt_rhs();
+    dq_la = kkt_solver.solve(rhs);
+    la = dq_la.segment(meshV.size(),9*meshT.rows());
+    
+    // Update per-element R & S matrices
+    update_SR();
+  }
+
+  q1 = q0;
+  q0 = qt;
+  qt += dq_la.segment(0, meshV.size());
+
+    std::cout << "6: ";
+  // Initial configuration vectors (assuming 0 initial velocity)
+  MatrixXd tmp = Map<MatrixXd>(qt.data(), meshV.cols(), meshV.rows());
+  meshV = tmp.transpose();
 }
 
 void callback() {
@@ -336,6 +421,14 @@ void callback() {
         Eigen::Map<Eigen::VectorXi>(indices.data(),indices.size()));
 
   } 
+
+  if(ImGui::Button("sim step")) {
+    simulation_step();
+    polyscope::getVolumeMesh("input mesh")
+      ->updateVertexPositions(meshV);
+    std::cout << "Jq: \n" << J*qt << std::endl;;
+    std::cout << "la: \n" << la << std::endl;
+  }
     
   //ImGui::SameLine();
   //ImGui::InputInt("source vertex", &iVertexSource);
