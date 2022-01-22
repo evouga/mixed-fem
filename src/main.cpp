@@ -14,7 +14,7 @@
 #include "json/json.hpp"
 
 // Bartels
-#include "EigenTypes.h"
+#include <EigenTypes.h>
 #include "linear_tetmesh_B.h"
 #include "fixed_point_constraint_matrix.h"
 #include "linear_tetmesh_mass_matrix.h"
@@ -27,18 +27,30 @@
 #include <utility>
 
 #include <igl/rotation_matrix_from_directions.h>
+#include <chrono>
 
-using namespace Eigen; // fuck it
+#if defined(_OPENMP)
+#include <omp.h>
+#endif
+
+#if defined(SIM_USE_CHOLMOD)
+#include <Eigen/CholmodSupport>
+#endif
+
+
+using namespace std::chrono;
+using namespace Eigen;
 
 // The mesh, Eigen representation
 MatrixXd meshV;
 MatrixXi meshF;
 MatrixXi meshT; // tetrahedra
 
+VectorXd dq_la;
+
 // F = RS
 std::vector<Matrix3d> R; // Per-element rotations
 std::vector<Vector6d> S; // Per-element symmetric deformation
-
 
 SparseMatrix<double> M;     // mass matrix
 SparseMatrix<double> P;     // pinning constraint (for vertices)
@@ -48,21 +60,20 @@ MatrixXd dphidX;
 VectorXi pinnedV;
 
 // Simulation params
-double h = 0.01;//0.1;
+double h = 0.1;//0.1;
 double density = 1000.0;
 double ym = 1e6;
 double mu = 0.45;
-double alpha = 1e4;
+double alpha = 1e7; // 1e4;
 double ih2 = 1.0/h/h;
 double grav = -9.8;
-
-//DiagonalMatrix<double, 9> WHiW; // local kkt hessian sandwhich (-W(H^-1)W^T)
 
 TensorFixedSize<double, Sizes<3, 3, 9>> B_33;  // 9x1 -> 3x3
 TensorFixedSize<double, Sizes<3, 3, 6>> B_33s; // 6x1 -> 3x3 (symmetric)
 TensorFixedSize<double, Sizes<3, 9, 3, 6>> Te;
 
-Vector6d I_vec = {1, 1, 1, 0, 0, 0}; // Identity is symmetric format
+Matrix<double, 6,1> I_vec;
+
 
 // Configuration vectors & body forces
 VectorXd qt;    // current positions
@@ -75,12 +86,15 @@ VectorXd vols;  // per element volume
 
 // KKT system
 SparseMatrixd lhs;
+#if defined(SIM_USE_CHOLMOD)
+CholmodSimplicialLDLT<SparseMatrixd> kkt_solver;
+#else
 SimplicialLDLT<SparseMatrixd> kkt_solver;
+#endif
 VectorXd rhs;
 
 // ------------ TODO ------------------ //
 // 1. Not missing volume anywhere
-// 2. Tetrahedra pinning (for lambda)
 // ------------------------------------ //
 
 
@@ -92,7 +106,6 @@ Eigen::SparseMatrix<double> pinning_matrix(VectorXi to_keep, bool kkt) {
   int d = 3;
   int row =0;
   for (int i = 0; i < meshV.rows(); ++i) {
-    //if (!predicate(meshV(i,0), meshV(i,1), meshV(i,2))) {
     if (to_keep(i)) {
       for (int j = 0; j < d; ++j) {
         trips.push_back(T(row++, d*i + j, 1));
@@ -101,7 +114,6 @@ Eigen::SparseMatrix<double> pinning_matrix(VectorXi to_keep, bool kkt) {
   }
 
   int n = meshV.size();
-
   if (kkt) {
     for (int i = 0; i < meshT.rows(); ++i) {
       for (int j = 0; j < d*d; ++j) {
@@ -144,9 +156,19 @@ void build_kkt_lhs() {
 
     // 2. J matrix (and transpose) terms
     // Local jacobian
-    Matrix<double,9,12> B = sim::flatten_multiply_right<
-      Matrix<double, 3,4>>(sim::unflatten<4,3>(dphidX.row(i)));
+    Matrix<double, 4,3> dX = sim::unflatten<4,3>(dphidX.row(i));
 
+    // Local block
+    Matrix<double,9,12> B;
+    B  << dX(0,0), 0      , 0      , dX(1,0), 0      , 0      , dX(2,0), 0      , 0      , dX(3,0),       0,       0,
+          dX(0,1), 0      , 0      , dX(1,1), 0      , 0      , dX(2,1), 0      , 0      , dX(3,1),       0,       0, 
+          dX(0,2), 0      , 0      , dX(1,2), 0      , 0      , dX(2,2), 0      , 0      , dX(3,2),       0,       0, 
+          0      , dX(0,0), 0      , 0      , dX(1,0), 0      , 0      , dX(2,0), 0      , 0      , dX(3,0),       0,
+          0      , dX(0,1), 0      , 0      , dX(1,1), 0      , 0      , dX(2,1), 0      , 0      , dX(3,1),       0,
+          0      , dX(0,2), 0      , 0      , dX(1,2), 0      , 0      , dX(2,2), 0      , 0      , dX(3,2),       0,
+          0      , 0      , dX(0,0), 0      , 0      , dX(1,0), 0      , 0      , dX(2,0), 0      , 0      , dX(3,0),
+          0      , 0      , dX(0,1), 0      , 0      , dX(1,1), 0      , 0      , dX(2,1), 0      , 0      , dX(3,1),
+          0      , 0      , dX(0,2), 0      , 0      , dX(1,2), 0      , 0      , dX(2,2), 0      , 0      , dX(3,2); 
     int offset = meshV.size(); // offset for off diagonal blocks
 
     // Assembly for the i-th lagrange multiplier matrix which
@@ -181,6 +203,9 @@ void build_kkt_lhs() {
   lhs.resize(sz,sz);
   lhs.setFromTriplets(trips.begin(), trips.end());
 
+#if defined(SIM_USE_CHOLMOD)
+  std::cout << "using choldmod" << std::endl;
+#endif
   lhs = P_kkt * lhs * P_kkt.transpose();
   kkt_solver.compute(lhs);
   if(kkt_solver.info()!=Success) {
@@ -205,9 +230,9 @@ void build_kkt_rhs() {
     IndexPair<int>(0, 0), IndexPair<int>(2, 1)
   };
 
+  #pragma omp parallel for
   for (int i = 0; i < meshT.rows(); ++i) {
     // 1. W * st term
-    //TensorMap<Tensor<double, 2>> Ri(R[i].data(), 3, 3);
     TensorMap<Tensor<double, 2>> Ri(R[i].data(), 3, 3);
     TensorFixedSize<double, Sizes<9,6>> TR = Te.contract(Ri, dims);
     Matrix<double,9,6> W = Map<Matrix<double,9,6>>(TR.data(),
@@ -219,16 +244,18 @@ void build_kkt_rhs() {
     rhs.segment(qt.size() + 9*i, 9) = Ws;
 
     // Safe for 1 tet lolw
-    std::cout << "Ws - Jq (1 TET Only)" << std::endl; 
-    std::cout << (W*S[i]-(J*(P.transpose()*qt+b))).norm() << std::endl;;
+    //std::cout << "Ws - Jq (1 TET Only)" << std::endl; 
+    //std::cout << J*(P.transpose()*qt+b)<< std::endl;;
+    //std::cout << (W*S[i]-(J*(P.transpose()*qt+b))).norm() << std::endl;;
 
   }
 
   // 3. Jacobian term
   rhs.segment(qt.size(), 9*meshT.rows()) -= J*(P.transpose()*qt+b);
-  std::cout << "boom boom pow" << std::endl;
-  std::cout << "Jq size: " << (J*(P.transpose()*qt+b)).size() << std::endl;
+  //std::cout << "Jq size: " << (J*(P.transpose()*qt+b)).size() << std::endl;
 }
+
+//#define VERBOSE
 
 void update_SR() {
 
@@ -242,23 +269,38 @@ void update_SR() {
     IndexPair<int>(0, 0), IndexPair<int>(2, 1)
   };
 
+  double t_1=0,t_2=0,t_3=0,t_4=0,t_5=0; 
+  auto start = high_resolution_clock::now();
+  VectorXd def_grad = J*(P.transpose()*(qt+dq_la.segment(0, qt.rows()))+b);
+  auto end = high_resolution_clock::now();
+  t_1 = duration_cast<nanoseconds>(end-start).count()/1e6;
+
+  #pragma omp parallel for 
   for (int i = 0; i < meshT.rows(); ++i) {
-    Vector9d li = la.segment(9*i,9);
+    Vector9d li = la.segment(9*i,9)/alpha + def_grad.segment(9*i,9);
 
     // 1. Update S[i] using new lambdas
+    start = high_resolution_clock::now();
     TensorMap<Tensor<double, 2>> Ri(R[i].data(), 3, 3);
     TensorFixedSize<double, Sizes<9,6>> TR = Te.contract(Ri, dims);
     Matrix<double,9,6> W = Map<Matrix<double,9,6>>(TR.data(),
         TR.dimension(0), TR.dimension(1));
+    end = high_resolution_clock::now();
+    t_2 += duration_cast<nanoseconds>(end-start).count()/1e6;
 
     // H^-1 * g = s^i - I
-    S[i] += -(S[i]-I_vec) + He_inv*W.transpose()*li;
+    start = high_resolution_clock::now();
+    VectorXd ds = He_inv*W.transpose()*la.segment(9*i,9) -(S[i]-I_vec); 
+    S[i] += ds;
+    end = high_resolution_clock::now();
+    t_3 += duration_cast<nanoseconds>(end-start).count()/1e6;
 
     // 2. Solve rotation matrices
     Matrix3f U,V; 
     Vector3f s; 
     Matrix3d Y;
 
+    start = high_resolution_clock::now();
     array<IndexPair<int>, 1> dims_l = {IndexPair<int>(1, 0)};
     array<IndexPair<int>, 1> dims_s = {IndexPair<int>(2, 0)};
     TensorMap<Tensor<double, 1>> l(li.data(), 9);
@@ -266,38 +308,43 @@ void update_SR() {
     TensorFixedSize<double, Sizes<3,3,6>> Tel = Te.contract(l, dims_l);
     TensorFixedSize<double, Sizes<3,3>> Tels = Tel.contract(Si, dims_s);
     Y = Map<Matrix3d>(Tels.data(), 3, 3);
-    Matrix3f Yf = Y.cast<float>() + Matrix3f::Identity()*1e-2;
+    Matrix3f Yf = Y.cast<float>();
+    end = high_resolution_clock::now();
+    t_4 += duration_cast<nanoseconds>(end-start).count()/1e6;
+    start = high_resolution_clock::now();
     //std::cout << "Yf : \n " << Yf << std::endl;
     //std::cout << "l: \n" << l << std::endl;
     //std::cout << "Si: \n" << Si << std::endl;
     //std::cout << "Tels: \n" << Tels << std::endl;
     igl::svd3x3(Yf, U, s, V);
-    //std::cout <<" warning not updating r" << std::endl;
     R[i] = (U*V.transpose()).cast<double>();
-    R[i].transposeInPlace(); // NOTE TRANSPOSED!!!!
+    //R[i].transposeInPlace();
+    end = high_resolution_clock::now();
+    t_5 += duration_cast<nanoseconds>(end-start).count()/1e6;
   }
+  //std::cout << "Def grad: " << t_1 << "ms S[i]: " << t_2 << "ms ds: " << t_3
+  //  << "ms Yf: " << t_4 << "ms SVD: " << t_5 << std::endl;
 
 }
 
 
 void init_sim() {
 
-  Vector3d v1(1,0,0);
-  Vector3d v2(0.2,0.5,0);
-  Matrix3d Rot;
-  v2 /= v2.norm();
+  //rotate the mesh
+  /*Matrix3d R_test;
+  R_test << 0.707, -0.707, 0,
+            0.707, 0.707, 0,
+            0, 0, 1;*/
 
-  Rot =igl::rotation_matrix_from_directions(v1,v2);
+  I_vec << 1, 1, 1, 0, 0, 0; // Identity in symmetric format
 
   // Initialize rotation matrices to identity
   R.resize(meshT.rows());
   S.resize(meshT.rows());
   for (int i = 0; i < meshT.rows(); ++i) {
     R[i].setIdentity();
+    //R[i] = R_test;
     S[i] = I_vec;
-
-    //R[i] = Rot;
-    //R[i].transposeInPlace(); // NOTE TRANSPOSED!!!!
   }
 
   // Initial lambdas
@@ -315,17 +362,24 @@ void init_sim() {
 
   sim::linear_tetmesh_mass_matrix(M, meshV, meshT, densities, vols);
 
-  // Local arap inverse hessian
-  //Vector9d Htmp = Vector9d::Ones() * -(1.0/alpha);
-  //WHiW = Htmp.asDiagonal();
-  
   // J matrix (big jacobian guy)
   std::vector<Triplet<double>> trips;
   sim::linear_tetmesh_dphi_dX(dphidX, meshV, meshT);
   for (int i = 0; i < meshT.rows(); ++i) { 
+
+    Matrix<double, 4,3> dX = sim::unflatten<4,3>(dphidX.row(i));
+
     // Local block
-    Matrix<double,9,12> B = sim::flatten_multiply_right<
-      Matrix<double, 3,4>>(sim::unflatten<4,3>(dphidX.row(i)));
+    Matrix<double,9,12> B;
+    B  << dX(0,0), 0      , 0      , dX(1,0), 0      , 0      , dX(2,0), 0      , 0      , dX(3,0),       0,       0,
+          dX(0,1), 0      , 0      , dX(1,1), 0      , 0      , dX(2,1), 0      , 0      , dX(3,1),       0,       0, 
+          dX(0,2), 0      , 0      , dX(1,2), 0      , 0      , dX(2,2), 0      , 0      , dX(3,2),       0,       0, 
+          0      , dX(0,0), 0      , 0      , dX(1,0), 0      , 0      , dX(2,0), 0      , 0      , dX(3,0),       0,
+          0      , dX(0,1), 0      , 0      , dX(1,1), 0      , 0      , dX(2,1), 0      , 0      , dX(3,1),       0,
+          0      , dX(0,2), 0      , 0      , dX(1,2), 0      , 0      , dX(2,2), 0      , 0      , dX(3,2),       0,
+          0      , 0      , dX(0,0), 0      , 0      , dX(1,0), 0      , 0      , dX(2,0), 0      , 0      , dX(3,0),
+          0      , 0      , dX(0,1), 0      , 0      , dX(1,1), 0      , 0      , dX(2,1), 0      , 0      , dX(3,1),
+          0      , 0      , dX(0,2), 0      , 0      , dX(1,2), 0      , 0      , dX(2,2), 0      , 0      , dX(3,2);         
 
     // Assembly for the i-th lagrange multiplier matrix which
     // is associated with 4 vertices (for tetrahedra)
@@ -391,9 +445,9 @@ void init_sim() {
   double min_x = meshV.col(0).minCoeff();
   double max_x = meshV.col(0).maxCoeff();
   double pin_x = min_x + (max_x-min_x)*0.3;
-  //pinnedV = (meshV.col(0).array() < pin_x).cast<int>(); 
-  pinnedV.setOnes();
-  pinnedV(1) = 0;
+  pinnedV = (meshV.col(0).array() > pin_x).cast<int>(); 
+  //pinnedV.setOnes();
+  //pinnedV(1) = 0;
   polyscope::getVolumeMesh("input mesh")
     ->addVertexScalarQuantity("pinned", pinnedV);
   P = pinning_matrix(pinnedV, false);
@@ -401,14 +455,16 @@ void init_sim() {
 
   // Initial configuration vectors (assuming 0 initial velocity)
   MatrixXd tmp = meshV.transpose();
+  //MatrixXd tmp = (R_test*meshV.transpose());
   //MatrixXd tmp = Rot*meshV.transpose();
+
   qt = Map<VectorXd>(tmp.data(), meshV.size());
 
   b = qt - P.transpose()*P*qt;
   qt = P * qt;
   q0 = qt;
   q1 = qt;
-
+  dq_la = 0*qt;
 
   // Project out mass matrix pinned point
   M = P * M * P.transpose();
@@ -418,8 +474,8 @@ void init_sim() {
 
 
   build_kkt_lhs();
-  build_kkt_rhs();
-  // update_SR();
+ // build_kkt_rhs();
+ // update_SR();
 }
 
 void simulation_step() {
@@ -428,18 +484,32 @@ void simulation_step() {
   // ds & lambda are used in the projection, but to confirm delta q
   // is just one of the "end products"
   //
-  int steps=1;//10;
-  VectorXd dq_la;
+  int steps=2;//10;
+  
   for (int i = 0; i < steps; ++i) {
     // TODO partially inefficient right?
     //  dq rows are fixed throughout the optimization, only lambda rows
     //  change correct?
+
+    double t_rhs = 0, t_solve = 0, t_SR = 0; 
+    auto start = high_resolution_clock::now();
     build_kkt_rhs();
+    auto end = high_resolution_clock::now();
+    t_rhs = duration_cast<nanoseconds>(end-start).count()/1e6;
+    start = end;
     dq_la = kkt_solver.solve(rhs);
+    end = high_resolution_clock::now();
+    t_solve = duration_cast<nanoseconds>(end-start).count()/1e6;
+    start=end;
     la = dq_la.segment(qt.size(),9*meshT.rows());
     
     // Update per-element R & S matrices
     update_SR();
+    end = high_resolution_clock::now();
+    t_SR = duration_cast<nanoseconds>(end-start).count()/1e6;
+
+    std::cout << "Time kkt rhs: " << t_rhs << " solver: " << t_solve 
+      << " update S & R: " << t_SR << std::endl;
   }
 
   q1 = q0;
@@ -466,23 +536,10 @@ void callback() {
 
     double min_x = meshV.col(0).minCoeff();
     double max_x = meshV.col(0).maxCoeff();
-    double pin_x = min_x + (max_x-min_x)*0.3;
-    pinnedV = (meshV.col(0).array() < pin_x).cast<int>(); 
+    double pin_x = min_x + (max_x-min_x)*0.1;
+    pinnedV = (meshV.col(0).array() > pin_x).cast<int>(); 
     polyscope::getVolumeMesh("input mesh")
       ->addVertexScalarQuantity("pinned", pinnedV);
-
-    std::vector<int> indices;
-    for (int i = 0; i < pinnedV.size(); ++i) {
-      if (pinnedV(i) == 1)
-        indices.push_back(i);
-    }
-
-    // TODO don't we need one for tetrahedra too?
-    // If all 4 vertices are projected out, we should probably
-    // projec those tetrahedra out of things too
-    //sim::fixed_point_constraint_matrix(P,meshV,
-    //    Eigen::Map<Eigen::VectorXi>(indices.data(),indices.size()));
-
     P = pinning_matrix(pinnedV, false);
     P_kkt = pinning_matrix(pinnedV, true);
     //std::cout << "P: \n" << P << " Ptmp: \n" << Ptmp << std::endl;
@@ -490,23 +547,23 @@ void callback() {
   } 
 
   if(ImGui::Button("sim step") || simulating) {
-    for (int i = 0; i < R.size(); ++i) {
-      std::cout << "R0["<<i<<"]: \n" << R[i] << std::endl;
-    }
-    for (int i = 0; i < R.size(); ++i) {
-      std::cout << "S0["<<i<<"]: \n" << S[i] << std::endl;
-    }
+    //for (int i = 0; i < R.size(); ++i) {
+    //  std::cout << "R0["<<i<<"]: \n" << R[i] << std::endl;
+    //}
+    //for (int i = 0; i < R.size(); ++i) {
+    //  std::cout << "S0["<<i<<"]: \n" << S[i] << std::endl;
+    //}
     simulation_step();
     polyscope::getVolumeMesh("input mesh")
       ->updateVertexPositions(meshV);
-    std::cout << "Jq: \n" << J*(P.transpose()*qt+b) << std::endl;;
-    std::cout << "la: \n" << la << std::endl;
-    for (int i = 0; i < R.size(); ++i) {
-      std::cout << "R["<<i<<"]: \n" << R[i] << std::endl;
-    }
-    for (int i = 0; i < R.size(); ++i) {
-      std::cout << "S["<<i<<"]: \n" << S[i] << std::endl;
-    }
+    //std::cout << "Jq: \n" << J*(P.transpose()*qt+b) << std::endl;;
+    //std::cout << "la: \n" << la << std::endl;
+    //for (int i = 0; i < R.size(); ++i) {
+    //  std::cout << "R["<<i<<"]: \n" << R[i] << std::endl;
+    //}
+    //for (int i = 0; i < R.size(); ++i) {
+    //  std::cout << "S["<<i<<"]: \n" << S[i] << std::endl;
+    //}
   }
     
   //ImGui::SameLine();
@@ -568,3 +625,4 @@ int main(int argc, char **argv) {
 
   return 0;
 }
+

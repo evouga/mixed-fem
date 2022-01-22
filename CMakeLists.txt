@@ -15,13 +15,11 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 ### Compiler options
 set( CMAKE_EXPORT_COMPILE_COMMANDS 1 ) # Emit a compile flags file to support completion engines 
 
-
 set(CMAKE_CXX_STANDARD 14)
 
 if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
   # using Clang (linux or apple) or GCC
   message("Using clang/gcc compiler flags")
-  #SET(BASE_CXX_FLAGS "-std=c++11 -Wall -Wextra -g3")
   SET(BASE_CXX_FLAGS "-std=c++11 -g3")
   SET(DISABLED_WARNINGS " -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function -Wno-deprecated-declarations -Wno-missing-braces")
   SET(TRACE_INCLUDES " -H -Wno-error=unused-command-line-argument")
@@ -64,13 +62,21 @@ else()
   message( FATAL_ERROR "Unrecognized compiler [${CMAKE_CXX_COMPILER_ID}]" )
 endif()
 
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
+
 # Find Eigen
 find_package(Eigen3 3.3 REQUIRED NO_MODULE)
+find_package(OpenMP)
+find_package(BLAS)
+find_package(LAPACK)
+#find_package(SuiteSparse) # wasnt working on my m1
+find_package(CHOLMOD)
+
+message(${CMAKE_CXX_COMPILER})
 
 # Add polyscope
 message("\n\n == CMAKE recursively building Polyscope\n")
 add_subdirectory("deps/polyscope")
-
 # Add libIGL
 # With these lines commented out, we use libIGL in "header only" mode.  Uncomment to recurse and get the full package.
 # (and see the libIGL build documentation)
@@ -84,12 +90,45 @@ add_subdirectory("deps/polyscope")
 
 # Create an executable
 add_executable(
-        libIGL-polyscope-example
+        mixed_fem
         src/main.cpp
         )
 
+# Add OMP library and includes
+if(OpenMP_CXX_FOUND)
+    if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+        execute_process(
+            COMMAND brew --prefix libomp 
+            RESULT_VARIABLE BREW_OMP
+            OUTPUT_VARIABLE BREW_OMP_PREFIX
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+        include_directories(${BREW_OMP_PREFIX}/include)
+        target_link_libraries(mixed_fem OpenMP::OpenMP_CXX)
+        target_compile_definitions(mixed_fem PUBLIC -DSIM_USE_OPENMP)
+
+    elseif()
+        include_directories(${OpenMP_CXX_INCLUDE_DIRS})
+        target_link_libraries(mixed_fem OpenMP::OpenMP_CXX)
+        target_compile_definitions(mixed_fem PUBLIC -DSIM_USE_OPENMP)
+    endif()
+    
+endif()
+
+# Blas, lapack, and cholmod
+if(BLAS_FOUND)
+  target_link_libraries(mixed_fem ${BLAS_LIBRARIES})
+endif()
+if(LAPACK_FOUND)
+  target_link_libraries(mixed_fem ${LAPACK_LIBRARIES})
+endif()
+if(CHOLMOD_FOUND AND BLAS_FOUND AND LAPACK_FOUND)
+  target_link_libraries(mixed_fem ${CHOLMOD_LIBRARIES})
+  target_compile_definitions(mixed_fem PUBLIC -DSIM_USE_CHOLMOD)
+endif()
+
 # Include settings
-target_include_directories(libIGL-polyscope-example PUBLIC 
+target_include_directories(mixed_fem PUBLIC 
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/libigl/include" 
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/Bartels/include" 
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope/deps/args"
@@ -97,4 +136,5 @@ target_include_directories(libIGL-polyscope-example PUBLIC
 
 
 # Link settings
-target_link_libraries(libIGL-polyscope-example polyscope Eigen3::Eigen)
+target_link_libraries(mixed_fem polyscope Eigen3::Eigen)
+
