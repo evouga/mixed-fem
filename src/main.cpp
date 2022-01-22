@@ -64,7 +64,7 @@ double h = 0.1;//0.1;
 double density = 1000.0;
 double ym = 1e6;
 double mu = 0.45;
-double alpha = 1e7; // 1e4;
+double alpha = 2e7; // 1e4;
 double ih2 = 1.0/h/h;
 double grav = -9.8;
 
@@ -484,7 +484,7 @@ void simulation_step() {
   // ds & lambda are used in the projection, but to confirm delta q
   // is just one of the "end products"
   //
-  int steps=2;//10;
+  int steps=10;//10;
   
   for (int i = 0; i < steps; ++i) {
     // TODO partially inefficient right?
