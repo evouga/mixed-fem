@@ -149,7 +149,7 @@ ENDIF()
 
 # Include settings
 target_include_directories(mixed_fem PUBLIC 
-  "${CMAKE_CURRENT_SOURCE_DIR}/deps/Fastor" 
+  #"${CMAKE_CURRENT_SOURCE_DIR}/deps/Fastor" 
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/libigl/include" 
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/Bartels/include" 
   #"${CMAKE_CURRENT_SOURCE_DIR}/deps/osqp-cpp/include" 

@@ -3,8 +3,6 @@
 #define __SSE__
 #include "sse2neon.h"
 
-#include <Fastor/Fastor.h>
-
 // libigl
 #include <igl/boundary_facets.h>
 #include <igl/invert_diag.h>
@@ -81,9 +79,6 @@ double plane_d;
 TensorFixedSize<double, Sizes<3, 3, 9>> B_33;  // 9x1 -> 3x3
 TensorFixedSize<double, Sizes<3, 3, 6>> B_33s; // 6x1 -> 3x3 (symmetric)
 TensorFixedSize<double, Sizes<3, 9, 3, 6>> Te;
-Fastor::Tensor<double, 3, 3, 9> fB_33;   // 9x1 -> 3x3
-Fastor::Tensor<double, 3, 3, 6> fB_33s;  // 6x1 -> 3x3
-Fastor::Tensor<double, 9, 6, 3, 3> fTe;   // 9x1 -> 3x3
 
 Matrix<double, 6,1> I_vec;
 
@@ -305,37 +300,42 @@ void update_SR_fast() {
       if (i >= meshT.rows())
         break;
 
+
       Vector9d li = la.segment(9*i,9)/alpha + def_grad.segment(9*i,9);
 
       // 1. Update S[i] using new lambdas
-      //start = high_resolution_clock::now();
+      start = high_resolution_clock::now();
+      // (la    B ) : (R    C    s) 
+      //  1x9 9x3x3   3x3 3x3x6 6x1
+      //  we want (la B) : (R C)
+      Matrix<double,9,6> W;
+      W <<
+        R[i](0,0), 0,         0,         0,         R[i](0,2), R[i](0,1),
+        0,         R[i](0,1), 0,         R[i](0,2), 0,         R[i](0,0),
+        0,         0,         R[i](0,2), R[i](0,1), R[i](0,0), 0, 
+        R[i](1,0), 0,         0,         0,         R[i](1,2), R[i](1,1),
+        0,         R[i](1,1), 0,         R[i](1,2), 0,         R[i](1,0),
+        0,         0,         R[i](1,2), R[i](1,1), R[i](1,0), 0,  
+        R[i](2,0), 0,         0,         0,         R[i](2,2), R[i](2,1),
+        0,         R[i](2,1), 0,         R[i](2,2), 0        , R[i](2,0),
+        0,         0,         R[i](2,2), R[i](2,1), R[i](2,0), 0;
       //TensorMap<Tensor<double, 2>> Ri(R[i].data(), 3, 3);
       //TensorFixedSize<double, Sizes<9,6>> TR = Te.contract(Ri, dims);
       //Matrix<double,9,6> W = Map<Matrix<double,9,6>>(TR.data(),
       //    TR.dimension(0), TR.dimension(1));
-      
-      Fastor::TensorMap<double,3,3> Rmap(R[i].data());
-      auto Wf = torowmajor(Fastor::einsum<Fastor::Index<0,1,2,3>,
-                               Fastor::Index<2,3>>(fTe,Rmap));
-      Map<Matrix<double,9,6>> W(Wf.data());
-      //end = high_resolution_clock::now();
-      //t_2 += duration_cast<nanoseconds>(end-start).count()/1e6;
+      end = high_resolution_clock::now();
+      t_2 += duration_cast<nanoseconds>(end-start).count()/1e6;
 
       // H^-1 * g = s^i - I
-      //start = high_resolution_clock::now();
+      start = high_resolution_clock::now();
       Vector6d ds = He_inv*W.transpose()*la.segment(9*i,9) -(S[i]-I_vec); 
-
-      if (ii == 0) {
-      //std::cout << "W: \n" << W << " \n Wf: \n" << WW << std::endl;
-      }
-
       S[i] += ds;
-      //end = high_resolution_clock::now();
-      //t_3 += duration_cast<nanoseconds>(end-start).count()/1e6;
+      end = high_resolution_clock::now();
+      t_3 += duration_cast<nanoseconds>(end-start).count()/1e6;
 
       // 2. Solve rotation matrices
 
-      //start = high_resolution_clock::now();
+      start = high_resolution_clock::now();
       //array<IndexPair<int>, 1> dims_l = {IndexPair<int>(1, 0)};
       //array<IndexPair<int>, 1> dims_s = {IndexPair<int>(2, 0)};
       //TensorMap<Tensor<double, 1>> l(li.data(), 9);
@@ -345,20 +345,27 @@ void update_SR_fast() {
       //Matrix3d Y = Map<Matrix3d>(Tels.data(), 3, 3);
       //Y4.block(3*jj, 0, 3, 3) = Y.cast<float>();
 
-      Fastor::TensorMap<double,9> lmap(li.data()); //9633
-      Fastor::TensorMap<double,6> smap(S[i].data()); //9633
-      auto y1 = Fastor::einsum<Fastor::Index<0,1,2,3>,
-                               Fastor::Index<0>>(fTe,lmap);
-      auto y2 =  (Fastor::einsum<Fastor::Index<0,1,2>,
-                               Fastor::Index<0>>(y1,smap));
-      Map<Matrix3d> y3(y2.data());
-      Y4.block(3*jj, 0, 3, 3) = y3.cast<float>();
-      //std::cout << "Y: \n" << Y << " Y3 : \n" << y3 << std::endl;
-      //end = high_resolution_clock::now();
-      //t_4 += duration_cast<nanoseconds>(end-start).count()/1e6;
+      //  la    B     C    R   s
+      //  1x9 9x3x3 3x3x6 3x3 6x1 
+      //  we want [la   B ]  [ C    s]
+      //          1x9 9x3x3  3x3x6 6x1
+      Matrix3d Cs;
+      Cs << S[i](0), S[i](5), S[i](4), 
+            S[i](5), S[i](1), S[i](3), 
+            S[i](4), S[i](3), S[i](2); 
+      Matrix3d y4 = Map<Matrix3d>(li.data()).transpose()*Cs;
+      Y4.block(3*jj, 0, 3, 3) = y4.cast<float>();
+
+      //std::cout << (y4-Y).norm() << std::endl;
+      //if (i == 0) {
+      //  std::cout << "Y3: \n " << Y << std::endl;
+      //  std::cout << "Y3new: \n " << y4 << std::endl;
+      //}
+      end = high_resolution_clock::now();
+      t_4 += duration_cast<nanoseconds>(end-start).count()/1e6;
     }
     // Solve rotations
-    //auto start = high_resolution_clock::now();
+    auto start = high_resolution_clock::now();
     polar_svd3x3_sse(Y4,R4);
     for (int jj = 0; jj < 4; jj++) {
       int i = ii*4 +jj;
@@ -366,8 +373,8 @@ void update_SR_fast() {
         break;
       R[i] = R4.block(3*jj,0,3,3).cast<double>();
     }
-    //auto end = high_resolution_clock::now();
-    //t_5 += duration_cast<nanoseconds>(end-start).count()/1e6;
+    auto end = high_resolution_clock::now();
+    t_5 += duration_cast<nanoseconds>(end-start).count()/1e6;
   }
   //std::cout << "Def grad: " << t_1 << "ms S[i]: " << t_2 << "ms ds: " << t_3
   //  << "ms Yf: " << t_4 << "ms SVD: " << t_5 << std::endl;
@@ -561,46 +568,9 @@ void init_sim() {
         {0, 0, 1, 0, 0, 0} 
       }
   }); 
-  fB_33 = {
-      {
-        {1, 0, 0, 0, 0, 0, 0, 0, 0},
-        {0, 1, 0, 0, 0, 0, 0, 0, 0},
-        {0, 0, 1, 0, 0, 0, 0, 0, 0},
-      },
-      {
-        {0, 0, 0, 1, 0, 0, 0, 0, 0},
-        {0, 0, 0, 0, 1, 0, 0, 0, 0},
-        {0, 0, 0, 0, 0, 1, 0, 0, 0},
-      },
-      {
-        {0, 0, 0, 0, 0, 0, 1, 0, 0},
-        {0, 0, 0, 0, 0, 0, 0, 1, 0},
-        {0, 0, 0, 0, 0, 0, 0, 0, 1},
-      }
-  };
-  fB_33s = {
-      {
-        {1, 0, 0, 0, 0, 0},
-        {0, 0, 0, 0, 0, 1},
-        {0, 0, 0, 0, 1, 0} 
-      },
-      {
-        {0, 0, 0, 0, 0, 1},
-        {0, 1, 0, 0, 0, 0},
-        {0, 0, 0, 1, 0, 0} 
-      },  
-      {
-        {0, 0, 0, 0, 1, 0},
-        {0, 0, 0, 1, 0, 0},
-        {0, 0, 1, 0, 0, 0} 
-      }
-  }; 
-
   array<IndexPair<int>, 1> dims = {IndexPair<int>(1, 1)
   };
   Te = B_33.contract(B_33s, dims);
-  auto ff = Fastor::einsum<Fastor::Index<0,1,2>,Fastor::Index<3,1,4>>(fB_33,fB_33s);
-  fTe = Fastor::permute<Fastor::Index<1,3,2,0>>(ff);
 
   // Pinning matrices
   double min_x = meshV.col(0).minCoeff();
