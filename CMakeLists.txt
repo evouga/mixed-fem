@@ -90,15 +90,8 @@ add_subdirectory("deps/polyscope")
 #set(LIBIGL_WITH_OPENGL_GLFW_IMGUI OFF CACHE BOOL "Use ImGui" )
 #add_subdirectory("deps/libIGL")
 
-#message("\n\n == CMAKE recursively building OSQP\n")
-#set(OSQP-CPP_BUILD_TESTS OFF CACHE BOOL "Enable OSQP CPP Tests" )
-#add_subdirectory("deps/osqp-cpp")
-
-# Create an executable
-add_executable(
-        mixed_fem
-        src/main.cpp
-        )
+file(GLOB SOURCES ${PROJECT_SOURCE_DIR}/src/*.cpp)
+add_library(mixed_fem_lib SHARED ${SOURCES})
 
 # Add OMP library and includes
 if(OpenMP_CXX_FOUND)
@@ -110,27 +103,27 @@ if(OpenMP_CXX_FOUND)
             OUTPUT_STRIP_TRAILING_WHITESPACE
         )
         include_directories(${BREW_OMP_PREFIX}/include)
-        target_link_libraries(mixed_fem OpenMP::OpenMP_CXX)
-        target_compile_definitions(mixed_fem PUBLIC -DSIM_USE_OPENMP)
+        target_link_libraries(mixed_fem_lib OpenMP::OpenMP_CXX)
+        target_compile_definitions(mixed_fem_lib PUBLIC -DSIM_USE_OPENMP)
 
     elseif()
         include_directories(${OpenMP_CXX_INCLUDE_DIRS})
-        target_link_libraries(mixed_fem OpenMP::OpenMP_CXX)
-        target_compile_definitions(mixed_fem PUBLIC -DSIM_USE_OPENMP)
+        target_link_libraries(mixed_fem_lib OpenMP::OpenMP_CXX)
+        target_compile_definitions(mixed_fem_lib PUBLIC -DSIM_USE_OPENMP)
     endif()
     
 endif()
 
 # Blas, lapack, and cholmod
 if(BLAS_FOUND)
-  target_link_libraries(mixed_fem ${BLAS_LIBRARIES})
+  target_link_libraries(mixed_fem_lib ${BLAS_LIBRARIES})
 endif()
 if(LAPACK_FOUND)
-  target_link_libraries(mixed_fem ${LAPACK_LIBRARIES})
+  target_link_libraries(mixed_fem_lib ${LAPACK_LIBRARIES})
 endif()
 if(CHOLMOD_FOUND AND BLAS_FOUND AND LAPACK_FOUND)
-  target_link_libraries(mixed_fem ${CHOLMOD_LIBRARIES})
-  target_compile_definitions(mixed_fem PUBLIC -DSIM_USE_CHOLMOD)
+  target_link_libraries(mixed_fem_lib ${CHOLMOD_LIBRARIES})
+  target_compile_definitions(mixed_fem_lib PUBLIC -DSIM_USE_CHOLMOD)
 endif()
 
 TRY_COMPILE(COMPILER_SUPPORTS_ARM_NEON ${CMAKE_BINARY_DIR}
@@ -139,25 +132,24 @@ TRY_COMPILE(COMPILER_SUPPORTS_AVX    ${CMAKE_BINARY_DIR}
   ${PROJECT_SOURCE_DIR}//cmake/check_isa.cpp COMPILE_DEFINITIONS ${FLAGS_AVX})
 
 if (COMPILER_SUPPORTS_ARM_NEON)
-  target_compile_definitions(mixed_fem PUBLIC -DUSE_NEON_IMPLEMENTATION)
+  target_compile_definitions(mixed_fem_lib PUBLIC -DUSE_NEON_IMPLEMENTATION)
 elseif(COMPILER_SUPPORTS_AVX)  
-  target_compile_definitions(mixed_fem PUBLIC -DUSE_AVX_IMPLEMENTATION)
+  target_compile_definitions(mixed_fem_lib PUBLIC -DUSE_AVX_IMPLEMENTATION)
 elseif ()
-  target_compile_definitions(mixed_fem PUBLIC -DUSE_SSE_IMPLEMENTATION)
+  target_compile_definitions(mixed_fem_lib PUBLIC -DUSE_SSE_IMPLEMENTATION)
 ENDIF()
 
-
 # Include settings
-target_include_directories(mixed_fem PUBLIC 
-  #"${CMAKE_CURRENT_SOURCE_DIR}/deps/Fastor" 
+target_include_directories(mixed_fem_lib PUBLIC 
+  "${CMAKE_CURRENT_SOURCE_DIR}/src"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/libigl/include" 
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/Bartels/include" 
-  #"${CMAKE_CURRENT_SOURCE_DIR}/deps/osqp-cpp/include" 
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope/deps/args"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope/deps/json/include")
 
-
-
 # Link settings
-target_link_libraries(mixed_fem polyscope Eigen3::Eigen)#osqp-cpp)
+target_link_libraries(mixed_fem_lib polyscope Eigen3::Eigen)
 
+# Create an executable
+add_executable(mixed_fem apps/tet_sim.cpp ${SOURCES})
+target_link_libraries(mixed_fem mixed_fem_lib)

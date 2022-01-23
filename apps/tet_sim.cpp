@@ -23,6 +23,7 @@
 #include "linear_tetmesh_dphi_dX.h"
 
 
+#include "pinning_matrix.h"
 #include <unsupported/Eigen/CXX11/Tensor>
 #include <iostream>
 #include <unordered_set>
@@ -64,7 +65,7 @@ VectorXi pinnedV;
 // Simulation params
 double h = 0.02;//0.1;
 double density = 1000.0;
-double ym = 1e14;//2e5;
+double ym = 2e5;
 double pr = 0.45;
 double mu = ym/(2.0*(1.0+pr));
 double alpha = mu;
@@ -101,38 +102,7 @@ SimplicialLDLT<SparseMatrixd> solver;
 #endif
 VectorXd rhs;
 
-// ------------ TODO ------------------ //
 // ------------------------------------ //
-//
-SparseMatrixd pinning_matrix(VectorXi to_pin, bool kkt) {
-
-  typedef Eigen::Triplet<double> T;
-  std::vector<T> trips;
-
-  int d = 3;
-  int row =0;
-  for (int i = 0; i < meshV.rows(); ++i) {
-    if (!to_pin(i)) {
-      for (int j = 0; j < d; ++j) {
-        trips.push_back(T(row++, d*i + j, 1));
-      }
-    }
-  }
-
-  int n = meshV.size();
-  if (kkt) {
-    for (int i = 0; i < meshT.rows(); ++i) {
-      for (int j = 0; j < d*d; ++j) {
-        trips.push_back(T(row++, n + d*d*i+j, 1));
-      }
-    }
-    n += d*d*meshT.rows();
-  }
-
-  SparseMatrixd A(row, n);
-  A.setFromTriplets(trips.begin(), trips.end());
-  return A;
-}
 
 VectorXd collision_force() {
 
@@ -148,6 +118,7 @@ VectorXd collision_force() {
 
   double k = 80; //20 for octopus ssliding
 
+  #pragma omp parallel for
   for (int i = 0; i < n; ++i) {
     Vector3d xi(qt(3*i)+dq_la(3*i),
         qt(3*i+1)+dq_la(3*i+1),
@@ -225,7 +196,6 @@ void build_kkt_lhs() {
 
     // 3. Compliance matrix terms
     // Each local term is equivalent and is a scaled diagonal matrix
-    //double He = -1.0/alpha;
     double He = -vols(i)/alpha;
     for (int j = 0; j < 9; ++j) {
       trips.push_back(Triplet<double>(offset+9*i+j,offset+9*i+j, He));
@@ -583,14 +553,13 @@ void init_sim() {
   //double pin_y = min_y + (max_y-min_y)*0.1;
   //pinnedV = (meshV.col(0).array() < pin_x).cast<int>(); 
   //pinnedV = (meshV.col(1).array() > pin_y).cast<int>(); 
-  pinnedV(0) = 1;
+  //pinnedV(0) = 1;
   //polyscope::getVolumeMesh("input mesh")
   polyscope::getSurfaceMesh("input mesh")
     ->addVertexScalarQuantity("pinned", pinnedV);
-  P = pinning_matrix(pinnedV, false);
-  P_kkt = pinning_matrix(pinnedV, true);
+  P = pinning_matrix(meshV,meshT,pinnedV,false);
+  P_kkt = pinning_matrix(meshV,meshT,pinnedV,true);
 
-  // Initial configuration vectors (assuming 0 initial velocity)
   MatrixXd tmp = meshV.transpose();
   //MatrixXd tmp = (R_test*meshV.transpose());
   //MatrixXd tmp = Rot*meshV.transpose();
@@ -626,15 +595,12 @@ void simulation_step() {
   // ds & lambda are used in the projection, but to confirm delta q
   // is just one of the "end products"
   //
-  int steps=20;
+  int steps=10;
   dq_la.setZero();
 
-  //dq = (q0-q1) + h^2M^-1fext
   // Warm start solver
   if (warm_start) {
-    //dq_la.segment(0,qt.size()) = (q0-q1)*h + h*h*f_ext0;
     dq_la.segment(0,qt.size()) = (qt-q0) + h*h*f_ext0;
-    std::cout << "warm: " << dq_la.segment(0,qt.size()).norm() << " qt norm: " << qt.norm() << std::endl;
     update_SR_fast();
   }
   
@@ -643,19 +609,20 @@ void simulation_step() {
     // TODO partially inefficient right?
     //  dq rows are fixed throughout the optimization, only lambda rows
     //  change correct?
-
     auto start = high_resolution_clock::now();
-    VectorXd f_coll = collision_force();
-    auto end = high_resolution_clock::now();
-    t_coll += duration_cast<nanoseconds>(end-start).count()/1e6;
-    start=end;
     build_kkt_rhs();
-    end = high_resolution_clock::now();
+    auto end = high_resolution_clock::now();
     t_rhs += duration_cast<nanoseconds>(end-start).count()/1e6;
     start = end;
 
-    if (floor_collision)
+    if (floor_collision) {
+      VectorXd f_coll = collision_force();
+      t_coll += duration_cast<nanoseconds>(end-start).count()/1e6;
       rhs.segment(0,qt.size()) += f_coll;
+      end = high_resolution_clock::now();
+      t_coll += duration_cast<nanoseconds>(end-start).count()/1e6;
+      start = end;
+    }
 
     dq_la = solver.solve(rhs);
 
