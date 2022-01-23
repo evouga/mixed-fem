@@ -1,8 +1,5 @@
 #include "polyscope/polyscope.h"
 
-#define __SSE__
-#include "sse2neon.h"
-
 // libigl
 #include <igl/boundary_facets.h>
 #include <igl/invert_diag.h>
@@ -32,7 +29,6 @@
 #include <utility>
 
 #include <chrono>
-
 
 #if defined(SIM_USE_OPENMP)
 #include <omp.h>
@@ -68,13 +64,16 @@ VectorXi pinnedV;
 // Simulation params
 double h = 0.02;//0.1;
 double density = 1000.0;
-double ym = 2e5;
+double ym = 1e14;//2e5;
 double pr = 0.45;
 double mu = ym/(2.0*(1.0+pr));
 double alpha = mu;
 double ih2 = 1.0/h/h;
 double grav = -9.8;
 double plane_d;
+
+bool warm_start = true;
+bool floor_collision = true;
 
 TensorFixedSize<double, Sizes<3, 3, 9>> B_33;  // 9x1 -> 3x3
 TensorFixedSize<double, Sizes<3, 3, 6>> B_33s; // 6x1 -> 3x3 (symmetric)
@@ -88,6 +87,7 @@ VectorXd qt;    // current positions
 VectorXd q0;    // previous positions
 VectorXd q1;    // previous^2 positions
 VectorXd f_ext; // per-node external forces
+VectorXd f_ext0;// per-node external forces (not integrated)
 VectorXd la;    // lambdas
 VectorXd b;     // coordinates projected out
 VectorXd vols;  // per element volume
@@ -582,8 +582,8 @@ void init_sim() {
   double pin_y = max_y - (max_y-min_y)*0.1;
   //double pin_y = min_y + (max_y-min_y)*0.1;
   //pinnedV = (meshV.col(0).array() < pin_x).cast<int>(); 
-  pinnedV = (meshV.col(1).array() > pin_y).cast<int>(); 
-  //pinnedV(0) = 0;
+  //pinnedV = (meshV.col(1).array() > pin_y).cast<int>(); 
+  pinnedV(0) = 1;
   //polyscope::getVolumeMesh("input mesh")
   polyscope::getSurfaceMesh("input mesh")
     ->addVertexScalarQuantity("pinned", pinnedV);
@@ -608,6 +608,7 @@ void init_sim() {
 
   // External gravity force
   f_ext = M * P *Vector3d(0,grav,0).replicate(meshV.rows(),1);
+  f_ext0 = P *Vector3d(0,grav,0).replicate(meshV.rows(),1);
 
 
   build_kkt_lhs();
@@ -625,8 +626,17 @@ void simulation_step() {
   // ds & lambda are used in the projection, but to confirm delta q
   // is just one of the "end products"
   //
-  int steps=10;
+  int steps=20;
   dq_la.setZero();
+
+  //dq = (q0-q1) + h^2M^-1fext
+  // Warm start solver
+  if (warm_start) {
+    //dq_la.segment(0,qt.size()) = (q0-q1)*h + h*h*f_ext0;
+    dq_la.segment(0,qt.size()) = (qt-q0) + h*h*f_ext0;
+    std::cout << "warm: " << dq_la.segment(0,qt.size()).norm() << " qt norm: " << qt.norm() << std::endl;
+    update_SR_fast();
+  }
   
   double t_coll=0, t_rhs = 0, t_solve = 0, t_SR = 0; 
   for (int i = 0; i < steps; ++i) {
@@ -643,7 +653,10 @@ void simulation_step() {
     end = high_resolution_clock::now();
     t_rhs += duration_cast<nanoseconds>(end-start).count()/1e6;
     start = end;
-    rhs.segment(0,qt.size()) += f_coll;
+
+    if (floor_collision)
+      rhs.segment(0,qt.size()) += f_coll;
+
     dq_la = solver.solve(rhs);
 
     end = high_resolution_clock::now();
@@ -679,6 +692,8 @@ void callback() {
 
   ImGui::PushItemWidth(100);
 
+  ImGui::Checkbox("floor collision",&floor_collision);
+  ImGui::Checkbox("warm start",&warm_start);
   ImGui::Checkbox("simulate",&simulating);
   //if(ImGui::Button("show pinned")) {
   //} 

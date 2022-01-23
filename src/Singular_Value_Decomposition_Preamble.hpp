@@ -51,15 +51,15 @@
 #define ENABLE_AVX_IMPLEMENTATION(X)
 #endif
 
+#ifdef USE_NEON_IMPLEMENTATION
+#include "sse2neon.h"
+#endif
+
 #ifdef USE_SCALAR_IMPLEMENTATION
 // Alec: Why is this using sse intrinsics if it's supposed to be the scalar
 // implementation?
 #ifdef USE_SSE_IMPLEMENTATION
 #include <mmintrin.h>
-#endif
-
-#ifdef USE_NEON_IMPLEMENTATION
-#include "sse2neon.h"
 #endif
 
 #if defined(USE_SSE_IMPLEMENTATION) || defined(USE_NEON_IMPLEMENTATION)
