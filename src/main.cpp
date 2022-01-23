@@ -68,7 +68,7 @@ VectorXi pinnedV;
 // Simulation params
 double h = 0.02;//0.1;
 double density = 1000.0;
-double ym = 4e5;
+double ym = 2e5;
 double pr = 0.45;
 double mu = ym/(2.0*(1.0+pr));
 double alpha = mu;
@@ -103,7 +103,8 @@ VectorXd rhs;
 
 // ------------ TODO ------------------ //
 // ------------------------------------ //
-SparseMatrixd pinning_matrix(VectorXi to_keep, bool kkt) {
+//
+SparseMatrixd pinning_matrix(VectorXi to_pin, bool kkt) {
 
   typedef Eigen::Triplet<double> T;
   std::vector<T> trips;
@@ -111,7 +112,7 @@ SparseMatrixd pinning_matrix(VectorXi to_keep, bool kkt) {
   int d = 3;
   int row =0;
   for (int i = 0; i < meshV.rows(); ++i) {
-    if (to_keep(i)) {
+    if (!to_pin(i)) {
       for (int j = 0; j < d; ++j) {
         trips.push_back(T(row++, d*i + j, 1));
       }
@@ -135,16 +136,17 @@ SparseMatrixd pinning_matrix(VectorXi to_keep, bool kkt) {
 
 VectorXd collision_force() {
 
-  Vector4d plane(0,1,0,-0.2);
   //Vector3d N(plane(0),plane(1),plane(2));
-  Vector3d N(.4,.7,0);
+  //Vector3d N(.4,.7,0);
+  Vector3d N(0.,1.,0.);
   N = N / N.norm();
-  //Vector3d N(0,1,0);
-  double d = plane_d;//plane(3);
+  double d = plane_d;
 
   int n = qt.size() / 3;
   VectorXd ret(qt.size());
   ret.setZero();
+
+  double k = 80; //20 for octopus ssliding
 
   for (int i = 0; i < n; ++i) {
     Vector3d xi(qt(3*i)+dq_la(3*i),
@@ -152,8 +154,7 @@ VectorXd collision_force() {
         qt(3*i+2)+dq_la(3*i+2));
     double dist = xi.dot(N);
     if (dist < plane_d) {
-      Vector3d p = xi - dist*N;
-      ret.segment(3*i,3) = -20*dist*N;
+      ret.segment(3*i,3) = k*(plane_d-dist)*N;
     }
   }
   return M*ret;
@@ -580,9 +581,8 @@ void init_sim() {
   double max_y = meshV.col(1).maxCoeff();
   double pin_y = max_y - (max_y-min_y)*0.1;
   //double pin_y = min_y + (max_y-min_y)*0.1;
-  //pinnedV = (meshV.col(0).array() > pin_x).cast<int>(); 
-  pinnedV = (meshV.col(1).array() < pin_y).cast<int>(); 
-  pinnedV.setOnes();
+  //pinnedV = (meshV.col(0).array() < pin_x).cast<int>(); 
+  pinnedV = (meshV.col(1).array() > pin_y).cast<int>(); 
   //pinnedV(0) = 0;
   //polyscope::getVolumeMesh("input mesh")
   polyscope::getSurfaceMesh("input mesh")
@@ -625,38 +625,42 @@ void simulation_step() {
   // ds & lambda are used in the projection, but to confirm delta q
   // is just one of the "end products"
   //
-  int steps=30;//10;
+  int steps=10;
   dq_la.setZero();
   
+  double t_coll=0, t_rhs = 0, t_solve = 0, t_SR = 0; 
   for (int i = 0; i < steps; ++i) {
     // TODO partially inefficient right?
     //  dq rows are fixed throughout the optimization, only lambda rows
     //  change correct?
 
-    VectorXd f_coll = collision_force();
-
-    double t_rhs = 0, t_solve = 0, t_SR = 0; 
     auto start = high_resolution_clock::now();
-    build_kkt_rhs();
+    VectorXd f_coll = collision_force();
     auto end = high_resolution_clock::now();
-    t_rhs = duration_cast<nanoseconds>(end-start).count()/1e6;
+    t_coll += duration_cast<nanoseconds>(end-start).count()/1e6;
+    start=end;
+    build_kkt_rhs();
+    end = high_resolution_clock::now();
+    t_rhs += duration_cast<nanoseconds>(end-start).count()/1e6;
     start = end;
     rhs.segment(0,qt.size()) += f_coll;
     dq_la = solver.solve(rhs);
 
     end = high_resolution_clock::now();
-    t_solve = duration_cast<nanoseconds>(end-start).count()/1e6;
+    t_solve += duration_cast<nanoseconds>(end-start).count()/1e6;
     start=end;
     la = dq_la.segment(qt.size(),9*meshT.rows());
     
     // Update per-element R & S matrices
     update_SR_fast();
     end = high_resolution_clock::now();
-    t_SR = duration_cast<nanoseconds>(end-start).count()/1e6;
+    t_SR += duration_cast<nanoseconds>(end-start).count()/1e6;
 
-    std::cout << "Time kkt rhs: " << t_rhs << " solver: " << t_solve 
-      << " update S & R: " << t_SR << std::endl;
   }
+  t_coll/=steps; t_rhs /=steps; t_solve/=steps; t_SR/=steps;
+  std::cout << "[Avg Time ms] collision: " << t_coll << 
+    " rhs: " << t_rhs << " solver: " << t_solve <<
+    " update S & R: " << t_SR << std::endl;
 
   q1 = q0;
   q0 = qt;
