@@ -1,11 +1,15 @@
 #include "polyscope/polyscope.h"
 
+#define __SSE__
+#include "sse2neon.h"
+
 // libigl
 #include <igl/boundary_facets.h>
 #include <igl/invert_diag.h>
 #include <igl/readMESH.h>
 #include <igl/volume.h>
 #include <igl/svd3x3.h>
+#include "svd3x3_sse.h"
 
 // Polyscope
 #include "polyscope/messages.h"
@@ -65,7 +69,7 @@ VectorXi pinnedV;
 // Simulation params
 double h = 0.1;//0.1;
 double density = 1000.0;
-double ym = 4e5;
+double ym = 2e5;
 double pr = 0.45;
 double mu = ym/(2.0*(1.0+pr));
 //double alpha = 2e7;
@@ -101,10 +105,7 @@ SimplicialLDLT<SparseMatrixd> solver;
 VectorXd rhs;
 
 // ------------ TODO ------------------ //
-// 1. Not missing volume anywhere
 // ------------------------------------ //
-
-
 SparseMatrixd pinning_matrix(VectorXi to_keep, bool kkt) {
 
   typedef Eigen::Triplet<double> T;
@@ -277,7 +278,83 @@ void build_kkt_rhs() {
   rhs.segment(qt.size(), 9*meshT.rows()) -= Jw*(P.transpose()*qt+b);
 }
 
-//#define VERBOSE
+void update_SR_fast() {
+
+  // Local hessian (constant for all elements)
+  Vector6d He_inv_vec;
+  He_inv_vec << 1,1,1,0.5,0.5,0.5;
+  He_inv_vec /= alpha;
+  DiagonalMatrix<double,6> He_inv = He_inv_vec.asDiagonal();
+
+  array<IndexPair<int>, 2> dims = { 
+    IndexPair<int>(0, 0), IndexPair<int>(2, 1)
+  };
+
+  double t_1=0,t_2=0,t_3=0,t_4=0,t_5=0; 
+  auto start = high_resolution_clock::now();
+  VectorXd def_grad = J*(P.transpose()*(qt+dq_la.segment(0, qt.rows()))+b);
+  auto end = high_resolution_clock::now();
+  t_1 = duration_cast<nanoseconds>(end-start).count()/1e6;
+
+  int N = (meshT.rows() / 4) + int(meshT.rows() % 4 != 0);
+
+  //#pragma omp parallel for 
+  for (int ii = 0; ii < N; ++ii) {
+
+    Matrix<float,12,3> Y4,R4;
+
+    for (int jj = 0; jj < 4; ++jj) {
+      int i = ii*4 +jj;
+      if (i >= meshT.rows())
+        break;
+
+      Vector9d li = la.segment(9*i,9)/alpha + def_grad.segment(9*i,9);
+
+      // 1. Update S[i] using new lambdas
+      start = high_resolution_clock::now();
+      TensorMap<Tensor<double, 2>> Ri(R[i].data(), 3, 3);
+      TensorFixedSize<double, Sizes<9,6>> TR = Te.contract(Ri, dims);
+      Matrix<double,9,6> W = Map<Matrix<double,9,6>>(TR.data(),
+          TR.dimension(0), TR.dimension(1));
+      end = high_resolution_clock::now();
+      t_2 += duration_cast<nanoseconds>(end-start).count()/1e6;
+
+      // H^-1 * g = s^i - I
+      start = high_resolution_clock::now();
+      VectorXd ds = He_inv*W.transpose()*la.segment(9*i,9) -(S[i]-I_vec); 
+      S[i] += ds;
+      end = high_resolution_clock::now();
+      t_3 += duration_cast<nanoseconds>(end-start).count()/1e6;
+
+      // 2. Solve rotation matrices
+
+      start = high_resolution_clock::now();
+      array<IndexPair<int>, 1> dims_l = {IndexPair<int>(1, 0)};
+      array<IndexPair<int>, 1> dims_s = {IndexPair<int>(2, 0)};
+      TensorMap<Tensor<double, 1>> l(li.data(), 9);
+      TensorMap<Tensor<double, 1>> Si(S[i].data(), 6);
+      TensorFixedSize<double, Sizes<3,3,6>> Tel = Te.contract(l, dims_l);
+      TensorFixedSize<double, Sizes<3,3>> Tels = Tel.contract(Si, dims_s);
+      Matrix3d Y = Map<Matrix3d>(Tels.data(), 3, 3);
+      Y4.block(3*jj, 0, 3, 3) = Y.cast<float>();
+      end = high_resolution_clock::now();
+      t_4 += duration_cast<nanoseconds>(end-start).count()/1e6;
+    }
+    // Solve rotations
+    auto start = high_resolution_clock::now();
+    polar_svd3x3_sse(Y4,R4);
+    for (int jj = 0; jj < 4; jj++) {
+      int i = ii*4 +jj;
+      if (i >= meshT.rows())
+        break;
+      R[i] = R4.block(3*jj,0,3,3).cast<double>();
+    }
+    auto end = high_resolution_clock::now();
+    t_5 += duration_cast<nanoseconds>(end-start).count()/1e6;
+  }
+  std::cout << "Def grad: " << t_1 << "ms S[i]: " << t_2 << "ms ds: " << t_3
+    << "ms Yf: " << t_4 << "ms SVD: " << t_5 << std::endl;
+}
 
 void update_SR() {
 
@@ -338,7 +415,13 @@ void update_SR() {
     //std::cout << "l: \n" << l << std::endl;
     //std::cout << "Si: \n" << Si << std::endl;
     //std::cout << "Tels: \n" << Tels << std::endl;
+    //
+    //IGL_INLINE void igl::polar_svd3x3_sse(const Eigen::Matrix<T, 3*4, 3>& A, Eigen::Matrix<T, 3*4, 3> &R)
+    Matrix<float,12,3> Y4,R4;
+    polar_svd3x3_sse(Y4,R4);
+
     igl::svd3x3(Yf, U, s, V);
+
     R[i] = (U*V.transpose()).cast<double>();
     //R[i].transposeInPlace();
     end = high_resolution_clock::now();
@@ -346,13 +429,11 @@ void update_SR() {
   }
   //std::cout << "Def grad: " << t_1 << "ms S[i]: " << t_2 << "ms ds: " << t_3
   //  << "ms Yf: " << t_4 << "ms SVD: " << t_5 << std::endl;
-
 }
 
 
 void init_sim() {
 
-  std::cout << "alpha: " << alpha << "mu: " << mu << std::endl;
   //rotate the mesh
   /*Matrix3d R_test;
   R_test << 0.707, -0.707, 0,
@@ -542,7 +623,8 @@ void simulation_step() {
     la = dq_la.segment(qt.size(),9*meshT.rows());
     
     // Update per-element R & S matrices
-    update_SR();
+    //update_SR();
+    update_SR_fast();
     end = high_resolution_clock::now();
     t_SR = duration_cast<nanoseconds>(end-start).count()/1e6;
 
@@ -585,9 +667,7 @@ void callback() {
 
 int main(int argc, char **argv) {
   // Configure the argument parser
-  args::ArgumentParser parser("A simple demo of Polyscope with libIGL.\nBy "
-                              "Nick Sharp (nsharp@cs.cmu.edu)",
-                              "");
+  args::ArgumentParser parser("Mixed FEM");
   args::Positional<std::string> inFile(parser, "mesh", "input mesh");
 
   // Parse args
@@ -619,6 +699,7 @@ int main(int argc, char **argv) {
   meshV.array() /= meshV.maxCoeff();
 
   // Register the mesh with Polyscope
+  polyscope::options::autocenterStructures = false;
   //polyscope::registerTetMesh("input mesh", meshV, meshT);
   if (meshF.size() == 0){ 
     igl::boundary_facets(meshT, meshF);
@@ -633,6 +714,15 @@ int main(int argc, char **argv) {
 
   // Add the callback
   polyscope::state::userCallback = callback;
+
+  // Adjust ground plane
+  VectorXd a = meshV.colwise().minCoeff();
+  VectorXd b = meshV.colwise().maxCoeff();
+  a(1) -= (b(1)-a(1))*0.5;
+  polyscope::options::automaticallyComputeSceneExtents = false;
+  polyscope::state::lengthScale = 1.;
+  polyscope::state::boundingBox = std::tuple<glm::vec3, glm::vec3>{
+    {a(0),a(1),a(2)},{b(0),b(1),b(2)}};
 
   // Initial simulation setup
   init_sim();

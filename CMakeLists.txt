@@ -133,6 +133,20 @@ if(CHOLMOD_FOUND AND BLAS_FOUND AND LAPACK_FOUND)
   target_compile_definitions(mixed_fem PUBLIC -DSIM_USE_CHOLMOD)
 endif()
 
+TRY_COMPILE(COMPILER_SUPPORTS_ARM_NEON ${CMAKE_BINARY_DIR}
+   ${PROJECT_SOURCE_DIR}/cmake/check_arm_neon.cpp)
+TRY_COMPILE(COMPILER_SUPPORTS_AVX    ${CMAKE_BINARY_DIR}
+  ${PROJECT_SOURCE_DIR}//cmake/check_isa.cpp COMPILE_DEFINITIONS ${FLAGS_AVX})
+
+if (COMPILER_SUPPORTS_ARM_NEON)
+  target_compile_definitions(mixed_fem PUBLIC -DUSE_NEON_IMPLEMENTATION)
+elseif(COMPILER_SUPPORTS_AVX)  
+  target_compile_definitions(mixed_fem PUBLIC -DUSE_AVX_IMPLEMENTATION)
+elseif ()
+  target_compile_definitions(mixed_fem PUBLIC -DUSE_SSE_IMPLEMENTATION)
+ENDIF()
+
+
 # Include settings
 target_include_directories(mixed_fem PUBLIC 
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/libigl/include" 
