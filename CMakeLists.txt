@@ -74,10 +74,7 @@ find_package(Eigen3 3.3 REQUIRED NO_MODULE)
 find_package(OpenMP)
 find_package(BLAS)
 find_package(LAPACK)
-#find_package(SuiteSparse) # wasnt working on my m1
 find_package(CHOLMOD)
-
-message(${CMAKE_CXX_COMPILER})
 
 # Add polyscope
 message("\n\n == CMAKE recursively building Polyscope\n")
@@ -92,6 +89,10 @@ add_subdirectory("deps/polyscope")
 #set(LIBIGL_WITH_OPENGL_GLFW       OFF CACHE BOOL "Use GLFW"  )
 #set(LIBIGL_WITH_OPENGL_GLFW_IMGUI OFF CACHE BOOL "Use ImGui" )
 #add_subdirectory("deps/libIGL")
+
+message("\n\n == CMAKE recursively building OSQP\n")
+set(OSQP-CPP_BUILD_TESTS OFF CACHE BOOL "Enable OSQP CPP Tests" )
+add_subdirectory("deps/osqp-cpp")
 
 # Create an executable
 add_executable(
@@ -136,10 +137,12 @@ endif()
 target_include_directories(mixed_fem PUBLIC 
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/libigl/include" 
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/Bartels/include" 
+  "${CMAKE_CURRENT_SOURCE_DIR}/deps/osqp-cpp/include" 
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope/deps/args"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope/deps/json/include")
 
 
+
 # Link settings
-target_link_libraries(mixed_fem polyscope Eigen3::Eigen)
+target_link_libraries(mixed_fem polyscope Eigen3::Eigen osqp-cpp)
 

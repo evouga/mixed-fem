@@ -21,15 +21,16 @@
 #include "linear_tet_mass_matrix.h"
 
 
+#include "osqp++.h"
 #include <unsupported/Eigen/CXX11/Tensor>
 #include <iostream>
 #include <unordered_set>
 #include <utility>
 
-#include <igl/rotation_matrix_from_directions.h>
 #include <chrono>
 
-#if defined(_OPENMP)
+
+#if defined(SIM_USE_OPENMP)
 #include <omp.h>
 #endif
 
@@ -37,9 +38,9 @@
 #include <Eigen/CholmodSupport>
 #endif
 
-
 using namespace std::chrono;
 using namespace Eigen;
+using SparseMatrixdRowMajor = Eigen::SparseMatrix<double,RowMajor>;
 
 // The mesh, Eigen representation
 MatrixXd meshV;
@@ -52,19 +53,23 @@ VectorXd dq_la;
 std::vector<Matrix3d> R; // Per-element rotations
 std::vector<Vector6d> S; // Per-element symmetric deformation
 
-SparseMatrix<double> M;     // mass matrix
-SparseMatrix<double> P;     // pinning constraint (for vertices)
-SparseMatrix<double> P_kkt; // pinning constraint (for kkt matrix)
-SparseMatrix<double> J;     // jacobian
+SparseMatrixd M;     // mass matrix
+SparseMatrixd P;     // pinning constraint (for vertices)
+SparseMatrixd P_kkt; // pinning constraint (for kkt matrix)
+SparseMatrixdRowMajor J;     // jacobian
 MatrixXd dphidX; 
 VectorXi pinnedV;
+
+osqp::OsqpInstance instance;
+osqp::OsqpSolver qp_solver;
+
 
 // Simulation params
 double h = 0.1;//0.1;
 double density = 1000.0;
 double ym = 1e6;
 double mu = 0.45;
-double alpha = 2e7; // 1e4;
+double alpha = 2e7;
 double ih2 = 1.0/h/h;
 double grav = -9.8;
 
@@ -85,11 +90,12 @@ VectorXd b;     // coordinates projected out
 VectorXd vols;  // per element volume
 
 // KKT system
-SparseMatrixd lhs;
+//SparseMatrixd lhs;
+SparseMatrix<double,ColMajor,int> lhs;
 #if defined(SIM_USE_CHOLMOD)
-CholmodSimplicialLDLT<SparseMatrixd> kkt_solver;
+CholmodSimplicialLDLT<SparseMatrixd> solver;
 #else
-SimplicialLDLT<SparseMatrixd> kkt_solver;
+SimplicialLDLT<SparseMatrixd> solver;
 #endif
 VectorXd rhs;
 
@@ -98,7 +104,7 @@ VectorXd rhs;
 // ------------------------------------ //
 
 
-Eigen::SparseMatrix<double> pinning_matrix(VectorXi to_keep, bool kkt) {
+SparseMatrixd pinning_matrix(VectorXi to_keep, bool kkt) {
 
   typedef Eigen::Triplet<double> T;
   std::vector<T> trips;
@@ -123,7 +129,32 @@ Eigen::SparseMatrix<double> pinning_matrix(VectorXi to_keep, bool kkt) {
     n += d*d*meshT.rows();
   }
 
-  Eigen::SparseMatrix<double> A(row, n);
+  SparseMatrixd A(row, n);
+  A.setFromTriplets(trips.begin(), trips.end());
+  return A;
+}
+
+SparseMatrixd constraint_matrix() {
+
+  Vector4d plane(0,1,0,-120);
+  Vector3d N(plane(0),plane(1),plane(2));
+  double d = plane(3);
+
+  int n = qt.size() / 3;
+
+  typedef Eigen::Triplet<double> T;
+  std::vector<T> trips;
+
+  int row = 0;
+  for (int i = 0; i < n; ++i) {
+    Vector3d xi(qt(3*i),qt(3*i+1),qt(3*i+2));
+    if (xi.dot(N) < d) {
+        trips.push_back(T(row++, 3*i+0, N(0)));
+        trips.push_back(T(row++, 3*i+1, N(1)));
+        trips.push_back(T(row++, 3*i+2, N(2)));
+    }
+  }
+  SparseMatrixd A(row,lhs.cols());
   A.setFromTriplets(trips.begin(), trips.end());
   return A;
 }
@@ -202,19 +233,15 @@ void build_kkt_lhs() {
   int sz = meshV.size() + meshT.rows()*9;
   lhs.resize(sz,sz);
   lhs.setFromTriplets(trips.begin(), trips.end());
-
-#if defined(SIM_USE_CHOLMOD)
-  std::cout << "using choldmod" << std::endl;
-#endif
   lhs = P_kkt * lhs * P_kkt.transpose();
-  kkt_solver.compute(lhs);
-  if(kkt_solver.info()!=Success) {
+
+  #if defined(SIM_USE_CHOLMOD)
+  std::cout << "Using CHOLDMOD solver" << std::endl;
+  #endif
+  solver.compute(lhs);
+  if(solver.info()!=Success) {
     std::cerr << " KKT prefactor failed! " << std::endl;
   }
-  //Eigen::IOFormat CleanFmt(2, 0, ",", "\n", "[", "]");
-  //std::cout << "M: \n" << MatrixXd(ih2*M).format(CleanFmt) << std::endl;
-  //std::cout << "J: \n" << MatrixXd(J).format(CleanFmt) << std::endl;
-  //std::cout << "L: \n" << MatrixXd(lhs).format(CleanFmt) << std::endl;
 }
 
 void build_kkt_rhs() {
@@ -445,9 +472,14 @@ void init_sim() {
   double min_x = meshV.col(0).minCoeff();
   double max_x = meshV.col(0).maxCoeff();
   double pin_x = min_x + (max_x-min_x)*0.3;
-  pinnedV = (meshV.col(0).array() > pin_x).cast<int>(); 
+  double min_y = meshV.col(1).minCoeff();
+  double max_y = meshV.col(1).maxCoeff();
+  double pin_y = max_y - (max_y-min_y)*0.1;
+  //double pin_y = min_y + (max_y-min_y)*0.1;
+  //pinnedV = (meshV.col(0).array() > pin_x).cast<int>(); 
+  pinnedV = (meshV.col(1).array() < pin_y).cast<int>(); 
   //pinnedV.setOnes();
-  //pinnedV(1) = 0;
+  //pinnedV(0) = 0;
   polyscope::getVolumeMesh("input mesh")
     ->addVertexScalarQuantity("pinned", pinnedV);
   P = pinning_matrix(pinnedV, false);
@@ -474,6 +506,23 @@ void init_sim() {
 
 
   build_kkt_lhs();
+  std::cout << "LHS norm: " << lhs.norm() << std::endl;
+
+  MatrixXd tmp_constraint(1,lhs.cols());
+  tmp_constraint(1) = 1;
+  VectorXd tmp_bound(1);
+  osqp::OsqpSettings settings;
+  settings.sigma=1e-4;
+  instance.objective_matrix = lhs;
+  rhs.resize(lhs.rows());
+  instance.objective_vector = rhs;
+  instance.constraint_matrix =tmp_constraint.sparseView();
+  const double kInfinity = std::numeric_limits<double>::infinity();
+  instance.lower_bounds.resize(1); instance.lower_bounds << -kInfinity;
+  instance.upper_bounds.resize(1); instance.upper_bounds << kInfinity;
+
+  auto status = qp_solver.Init(instance,settings);
+
  // build_kkt_rhs();
  // update_SR();
 }
@@ -497,7 +546,22 @@ void simulation_step() {
     auto end = high_resolution_clock::now();
     t_rhs = duration_cast<nanoseconds>(end-start).count()/1e6;
     start = end;
-    dq_la = kkt_solver.solve(rhs);
+    dq_la = solver.solve(rhs);
+    //
+    //SparseMatrixd constraints = constraint_matrix();
+    //if (constraints.nonZeros() > 0) {
+    //  VectorXd lb(constraints.nonZeros());
+    //  VectorXd ub(constraints.nonZeros());
+    //  lb.array() = -150;// = VectorXd::Ones(constraint_.lb.size()) * -150;
+    //  ub.array() = std::numeric_limits<double>::max();
+    //  std::cout << " constraints nnz: " << constraints.nonZeros() << std::endl;
+    //  qp_solver.SetBounds(lb,ub);
+    //  qp_solver.UpdateConstraintMatrix(constraints);
+    //  auto result = qp_solver.SetObjectiveVector(-rhs);
+    //  osqp::OsqpExitCode code = qp_solver.Solve();
+    //  dq_la = qp_solver.primal_solution();
+    //}
+
     end = high_resolution_clock::now();
     t_solve = duration_cast<nanoseconds>(end-start).count()/1e6;
     start=end;
@@ -524,48 +588,20 @@ void simulation_step() {
 
 void callback() {
 
-  static int numPoints = 2000;
-  static float param = 3.14;
   static bool simulating = false;
   static bool show_pinned = false;
 
   ImGui::PushItemWidth(100);
 
   ImGui::Checkbox("simulate",&simulating);
-  if(ImGui::Button("show pinned")) {
-
-    double min_x = meshV.col(0).minCoeff();
-    double max_x = meshV.col(0).maxCoeff();
-    double pin_x = min_x + (max_x-min_x)*0.1;
-    pinnedV = (meshV.col(0).array() > pin_x).cast<int>(); 
-    polyscope::getVolumeMesh("input mesh")
-      ->addVertexScalarQuantity("pinned", pinnedV);
-    P = pinning_matrix(pinnedV, false);
-    P_kkt = pinning_matrix(pinnedV, true);
-    //std::cout << "P: \n" << P << " Ptmp: \n" << Ptmp << std::endl;
-
-  } 
+  //if(ImGui::Button("show pinned")) {
+  //} 
 
   if(ImGui::Button("sim step") || simulating) {
-    //for (int i = 0; i < R.size(); ++i) {
-    //  std::cout << "R0["<<i<<"]: \n" << R[i] << std::endl;
-    //}
-    //for (int i = 0; i < R.size(); ++i) {
-    //  std::cout << "S0["<<i<<"]: \n" << S[i] << std::endl;
-    //}
     simulation_step();
     polyscope::getVolumeMesh("input mesh")
       ->updateVertexPositions(meshV);
-    //std::cout << "Jq: \n" << J*(P.transpose()*qt+b) << std::endl;;
-    //std::cout << "la: \n" << la << std::endl;
-    //for (int i = 0; i < R.size(); ++i) {
-    //  std::cout << "R["<<i<<"]: \n" << R[i] << std::endl;
-    //}
-    //for (int i = 0; i < R.size(); ++i) {
-    //  std::cout << "S["<<i<<"]: \n" << S[i] << std::endl;
-    //}
   }
-    
   //ImGui::SameLine();
   //ImGui::InputInt("source vertex", &iVertexSource);
 

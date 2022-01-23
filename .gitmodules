@@ -7,3 +7,6 @@
 [submodule "deps/Bartels"]
 	path = deps/Bartels
 	url = https://github.com/dilevin/Bartels.git
+[submodule "deps/osqp-cpp"]
+	path = deps/osqp-cpp
+  url = https://github.com/google/osqp-cpp.git
