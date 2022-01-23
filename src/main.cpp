@@ -3,6 +3,8 @@
 #define __SSE__
 #include "sse2neon.h"
 
+#include <Fastor/Fastor.h>
+
 // libigl
 #include <igl/boundary_facets.h>
 #include <igl/invert_diag.h>
@@ -21,10 +23,9 @@
 
 // Bartels
 #include <EigenTypes.h>
-#include "linear_tetmesh_B.h"
-#include "fixed_point_constraint_matrix.h"
 #include "linear_tetmesh_mass_matrix.h"
 #include "linear_tet_mass_matrix.h"
+#include "linear_tetmesh_dphi_dX.h"
 
 
 #include <unsupported/Eigen/CXX11/Tensor>
@@ -58,29 +59,31 @@ VectorXd dq_la;
 std::vector<Matrix3d> R; // Per-element rotations
 std::vector<Vector6d> S; // Per-element symmetric deformation
 
-SparseMatrixd M;     // mass matrix
-SparseMatrixd P;     // pinning constraint (for vertices)
-SparseMatrixd P_kkt; // pinning constraint (for kkt matrix)
+SparseMatrixd M;          // mass matrix
+SparseMatrixd P;          // pinning constraint (for vertices)
+SparseMatrixd P_kkt;      // pinning constraint (for kkt matrix)
 SparseMatrixdRowMajor Jw; // integrated (weighted) jacobian
-SparseMatrixdRowMajor J;     // jacobian
+SparseMatrixdRowMajor J;  // jacobian
 MatrixXd dphidX; 
 VectorXi pinnedV;
 
 // Simulation params
-double h = 0.1;//0.1;
+double h = 0.02;//0.1;
 double density = 1000.0;
-double ym = 2e5;
+double ym = 4e5;
 double pr = 0.45;
 double mu = ym/(2.0*(1.0+pr));
-//double alpha = 2e7;
 double alpha = mu;
-//double alpha = 1e5;
 double ih2 = 1.0/h/h;
 double grav = -9.8;
+double plane_d;
 
 TensorFixedSize<double, Sizes<3, 3, 9>> B_33;  // 9x1 -> 3x3
 TensorFixedSize<double, Sizes<3, 3, 6>> B_33s; // 6x1 -> 3x3 (symmetric)
 TensorFixedSize<double, Sizes<3, 9, 3, 6>> Te;
+Fastor::Tensor<double, 3, 3, 9> fB_33;   // 9x1 -> 3x3
+Fastor::Tensor<double, 3, 3, 6> fB_33s;  // 6x1 -> 3x3
+Fastor::Tensor<double, 9, 6, 3, 3> fTe;   // 9x1 -> 3x3
 
 Matrix<double, 6,1> I_vec;
 
@@ -95,8 +98,7 @@ VectorXd b;     // coordinates projected out
 VectorXd vols;  // per element volume
 
 // KKT system
-//SparseMatrixd lhs;
-SparseMatrix<double,ColMajor,int> lhs;
+SparseMatrixd lhs;
 #if defined(SIM_USE_CHOLMOD)
 CholmodSimplicialLDLT<SparseMatrixd> solver;
 #else
@@ -136,29 +138,30 @@ SparseMatrixd pinning_matrix(VectorXi to_keep, bool kkt) {
   return A;
 }
 
-SparseMatrixd constraint_matrix() {
+VectorXd collision_force() {
 
-  Vector4d plane(0,1,0,-120);
-  Vector3d N(plane(0),plane(1),plane(2));
-  double d = plane(3);
+  Vector4d plane(0,1,0,-0.2);
+  //Vector3d N(plane(0),plane(1),plane(2));
+  Vector3d N(.4,.7,0);
+  N = N / N.norm();
+  //Vector3d N(0,1,0);
+  double d = plane_d;//plane(3);
 
   int n = qt.size() / 3;
+  VectorXd ret(qt.size());
+  ret.setZero();
 
-  typedef Eigen::Triplet<double> T;
-  std::vector<T> trips;
-
-  int row = 0;
   for (int i = 0; i < n; ++i) {
-    Vector3d xi(qt(3*i),qt(3*i+1),qt(3*i+2));
-    if (xi.dot(N) < d) {
-        trips.push_back(T(row++, 3*i+0, N(0)));
-        trips.push_back(T(row++, 3*i+1, N(1)));
-        trips.push_back(T(row++, 3*i+2, N(2)));
+    Vector3d xi(qt(3*i)+dq_la(3*i),
+        qt(3*i+1)+dq_la(3*i+1),
+        qt(3*i+2)+dq_la(3*i+2));
+    double dist = xi.dot(N);
+    if (dist < plane_d) {
+      Vector3d p = xi - dist*N;
+      ret.segment(3*i,3) = -20*dist*N;
     }
   }
-  SparseMatrixd A(row,lhs.cols());
-  A.setFromTriplets(trips.begin(), trips.end());
-  return A;
+  return M*ret;
 }
 
 void build_kkt_lhs() {
@@ -262,15 +265,9 @@ void build_kkt_rhs() {
 
   #pragma omp parallel for
   for (int i = 0; i < meshT.rows(); ++i) {
-    // 1. W * st term
-    TensorMap<Tensor<double, 2>> Ri(R[i].data(), 3, 3);
-    TensorFixedSize<double, Sizes<9,6>> TR = Te.contract(Ri, dims);
-    Matrix<double,9,6> W = Map<Matrix<double,9,6>>(TR.data(),
-        TR.dimension(0), TR.dimension(1));
-
-    Vector9d Ws = vols(i) * W * (I_vec); 
-
-    // 2. - W * Hinv * g term
+    // 1. W * st term +  - W * Hinv * g term
+    // Becomes W * I_vec = flatten(R[i]^t)
+    Vector9d Ws = vols(i) * sim::flatten(R[i].transpose()); 
     rhs.segment(qt.size() + 9*i, 9) = Ws;
   }
 
@@ -298,7 +295,7 @@ void update_SR_fast() {
 
   int N = (meshT.rows() / 4) + int(meshT.rows() % 4 != 0);
 
-  //#pragma omp parallel for 
+  #pragma omp parallel for 
   for (int ii = 0; ii < N; ++ii) {
 
     Matrix<float,12,3> Y4,R4;
@@ -311,37 +308,57 @@ void update_SR_fast() {
       Vector9d li = la.segment(9*i,9)/alpha + def_grad.segment(9*i,9);
 
       // 1. Update S[i] using new lambdas
-      start = high_resolution_clock::now();
-      TensorMap<Tensor<double, 2>> Ri(R[i].data(), 3, 3);
-      TensorFixedSize<double, Sizes<9,6>> TR = Te.contract(Ri, dims);
-      Matrix<double,9,6> W = Map<Matrix<double,9,6>>(TR.data(),
-          TR.dimension(0), TR.dimension(1));
-      end = high_resolution_clock::now();
-      t_2 += duration_cast<nanoseconds>(end-start).count()/1e6;
+      //start = high_resolution_clock::now();
+      //TensorMap<Tensor<double, 2>> Ri(R[i].data(), 3, 3);
+      //TensorFixedSize<double, Sizes<9,6>> TR = Te.contract(Ri, dims);
+      //Matrix<double,9,6> W = Map<Matrix<double,9,6>>(TR.data(),
+      //    TR.dimension(0), TR.dimension(1));
+      
+      Fastor::TensorMap<double,3,3> Rmap(R[i].data());
+      auto Wf = torowmajor(Fastor::einsum<Fastor::Index<0,1,2,3>,
+                               Fastor::Index<2,3>>(fTe,Rmap));
+      Map<Matrix<double,9,6>> W(Wf.data());
+      //end = high_resolution_clock::now();
+      //t_2 += duration_cast<nanoseconds>(end-start).count()/1e6;
 
       // H^-1 * g = s^i - I
-      start = high_resolution_clock::now();
-      VectorXd ds = He_inv*W.transpose()*la.segment(9*i,9) -(S[i]-I_vec); 
+      //start = high_resolution_clock::now();
+      Vector6d ds = He_inv*W.transpose()*la.segment(9*i,9) -(S[i]-I_vec); 
+
+      if (ii == 0) {
+      //std::cout << "W: \n" << W << " \n Wf: \n" << WW << std::endl;
+      }
+
       S[i] += ds;
-      end = high_resolution_clock::now();
-      t_3 += duration_cast<nanoseconds>(end-start).count()/1e6;
+      //end = high_resolution_clock::now();
+      //t_3 += duration_cast<nanoseconds>(end-start).count()/1e6;
 
       // 2. Solve rotation matrices
 
-      start = high_resolution_clock::now();
-      array<IndexPair<int>, 1> dims_l = {IndexPair<int>(1, 0)};
-      array<IndexPair<int>, 1> dims_s = {IndexPair<int>(2, 0)};
-      TensorMap<Tensor<double, 1>> l(li.data(), 9);
-      TensorMap<Tensor<double, 1>> Si(S[i].data(), 6);
-      TensorFixedSize<double, Sizes<3,3,6>> Tel = Te.contract(l, dims_l);
-      TensorFixedSize<double, Sizes<3,3>> Tels = Tel.contract(Si, dims_s);
-      Matrix3d Y = Map<Matrix3d>(Tels.data(), 3, 3);
-      Y4.block(3*jj, 0, 3, 3) = Y.cast<float>();
-      end = high_resolution_clock::now();
-      t_4 += duration_cast<nanoseconds>(end-start).count()/1e6;
+      //start = high_resolution_clock::now();
+      //array<IndexPair<int>, 1> dims_l = {IndexPair<int>(1, 0)};
+      //array<IndexPair<int>, 1> dims_s = {IndexPair<int>(2, 0)};
+      //TensorMap<Tensor<double, 1>> l(li.data(), 9);
+      //TensorMap<Tensor<double, 1>> Si(S[i].data(), 6);
+      //TensorFixedSize<double, Sizes<3,3,6>> Tel = Te.contract(l, dims_l);
+      //TensorFixedSize<double, Sizes<3,3>> Tels = Tel.contract(Si, dims_s);
+      //Matrix3d Y = Map<Matrix3d>(Tels.data(), 3, 3);
+      //Y4.block(3*jj, 0, 3, 3) = Y.cast<float>();
+
+      Fastor::TensorMap<double,9> lmap(li.data()); //9633
+      Fastor::TensorMap<double,6> smap(S[i].data()); //9633
+      auto y1 = Fastor::einsum<Fastor::Index<0,1,2,3>,
+                               Fastor::Index<0>>(fTe,lmap);
+      auto y2 =  (Fastor::einsum<Fastor::Index<0,1,2>,
+                               Fastor::Index<0>>(y1,smap));
+      Map<Matrix3d> y3(y2.data());
+      Y4.block(3*jj, 0, 3, 3) = y3.cast<float>();
+      //std::cout << "Y: \n" << Y << " Y3 : \n" << y3 << std::endl;
+      //end = high_resolution_clock::now();
+      //t_4 += duration_cast<nanoseconds>(end-start).count()/1e6;
     }
     // Solve rotations
-    auto start = high_resolution_clock::now();
+    //auto start = high_resolution_clock::now();
     polar_svd3x3_sse(Y4,R4);
     for (int jj = 0; jj < 4; jj++) {
       int i = ii*4 +jj;
@@ -349,11 +366,11 @@ void update_SR_fast() {
         break;
       R[i] = R4.block(3*jj,0,3,3).cast<double>();
     }
-    auto end = high_resolution_clock::now();
-    t_5 += duration_cast<nanoseconds>(end-start).count()/1e6;
+    //auto end = high_resolution_clock::now();
+    //t_5 += duration_cast<nanoseconds>(end-start).count()/1e6;
   }
-  std::cout << "Def grad: " << t_1 << "ms S[i]: " << t_2 << "ms ds: " << t_3
-    << "ms Yf: " << t_4 << "ms SVD: " << t_5 << std::endl;
+  //std::cout << "Def grad: " << t_1 << "ms S[i]: " << t_2 << "ms ds: " << t_3
+  //  << "ms Yf: " << t_4 << "ms SVD: " << t_5 << std::endl;
 }
 
 void update_SR() {
@@ -544,10 +561,46 @@ void init_sim() {
         {0, 0, 1, 0, 0, 0} 
       }
   }); 
+  fB_33 = {
+      {
+        {1, 0, 0, 0, 0, 0, 0, 0, 0},
+        {0, 1, 0, 0, 0, 0, 0, 0, 0},
+        {0, 0, 1, 0, 0, 0, 0, 0, 0},
+      },
+      {
+        {0, 0, 0, 1, 0, 0, 0, 0, 0},
+        {0, 0, 0, 0, 1, 0, 0, 0, 0},
+        {0, 0, 0, 0, 0, 1, 0, 0, 0},
+      },
+      {
+        {0, 0, 0, 0, 0, 0, 1, 0, 0},
+        {0, 0, 0, 0, 0, 0, 0, 1, 0},
+        {0, 0, 0, 0, 0, 0, 0, 0, 1},
+      }
+  };
+  fB_33s = {
+      {
+        {1, 0, 0, 0, 0, 0},
+        {0, 0, 0, 0, 0, 1},
+        {0, 0, 0, 0, 1, 0} 
+      },
+      {
+        {0, 0, 0, 0, 0, 1},
+        {0, 1, 0, 0, 0, 0},
+        {0, 0, 0, 1, 0, 0} 
+      },  
+      {
+        {0, 0, 0, 0, 1, 0},
+        {0, 0, 0, 1, 0, 0},
+        {0, 0, 1, 0, 0, 0} 
+      }
+  }; 
 
   array<IndexPair<int>, 1> dims = {IndexPair<int>(1, 1)
   };
   Te = B_33.contract(B_33s, dims);
+  auto ff = Fastor::einsum<Fastor::Index<0,1,2>,Fastor::Index<3,1,4>>(fB_33,fB_33s);
+  fTe = Fastor::permute<Fastor::Index<1,3,2,0>>(ff);
 
   // Pinning matrices
   double min_x = meshV.col(0).minCoeff();
@@ -559,7 +612,7 @@ void init_sim() {
   //double pin_y = min_y + (max_y-min_y)*0.1;
   //pinnedV = (meshV.col(0).array() > pin_x).cast<int>(); 
   pinnedV = (meshV.col(1).array() < pin_y).cast<int>(); 
-  //pinnedV.setOnes();
+  pinnedV.setOnes();
   //pinnedV(0) = 0;
   //polyscope::getVolumeMesh("input mesh")
   polyscope::getSurfaceMesh("input mesh")
@@ -602,12 +655,15 @@ void simulation_step() {
   // ds & lambda are used in the projection, but to confirm delta q
   // is just one of the "end products"
   //
-  int steps=10;//10;
+  int steps=30;//10;
+  dq_la.setZero();
   
   for (int i = 0; i < steps; ++i) {
     // TODO partially inefficient right?
     //  dq rows are fixed throughout the optimization, only lambda rows
     //  change correct?
+
+    VectorXd f_coll = collision_force();
 
     double t_rhs = 0, t_solve = 0, t_SR = 0; 
     auto start = high_resolution_clock::now();
@@ -615,6 +671,7 @@ void simulation_step() {
     auto end = high_resolution_clock::now();
     t_rhs = duration_cast<nanoseconds>(end-start).count()/1e6;
     start = end;
+    rhs.segment(0,qt.size()) += f_coll;
     dq_la = solver.solve(rhs);
 
     end = high_resolution_clock::now();
@@ -623,7 +680,6 @@ void simulation_step() {
     la = dq_la.segment(qt.size(),9*meshT.rows());
     
     // Update per-element R & S matrices
-    //update_SR();
     update_SR_fast();
     end = high_resolution_clock::now();
     t_SR = duration_cast<nanoseconds>(end-start).count()/1e6;
@@ -719,6 +775,7 @@ int main(int argc, char **argv) {
   VectorXd a = meshV.colwise().minCoeff();
   VectorXd b = meshV.colwise().maxCoeff();
   a(1) -= (b(1)-a(1))*0.5;
+  plane_d = a(1);
   polyscope::options::automaticallyComputeSceneExtents = false;
   polyscope::state::lengthScale = 1.;
   polyscope::state::boundingBox = std::tuple<glm::vec3, glm::vec3>{
