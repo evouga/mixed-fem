@@ -1,6 +1,7 @@
 #include "polyscope/polyscope.h"
 
 // libigl
+#include <igl/boundary_facets.h>
 #include <igl/invert_diag.h>
 #include <igl/readMESH.h>
 #include <igl/volume.h>
@@ -10,6 +11,7 @@
 #include "polyscope/messages.h"
 #include "polyscope/point_cloud.h"
 #include "polyscope/volume_mesh.h"
+#include "polyscope/surface_mesh.h"
 #include "args/args.hxx"
 #include "json/json.hpp"
 
@@ -55,6 +57,7 @@ std::vector<Vector6d> S; // Per-element symmetric deformation
 SparseMatrixd M;     // mass matrix
 SparseMatrixd P;     // pinning constraint (for vertices)
 SparseMatrixd P_kkt; // pinning constraint (for kkt matrix)
+SparseMatrixdRowMajor Jw; // integrated (weighted) jacobian
 SparseMatrixdRowMajor J;     // jacobian
 MatrixXd dphidX; 
 VectorXi pinnedV;
@@ -210,7 +213,7 @@ void build_kkt_lhs() {
 
         // x,y,z index for the k-th vertex
         for (int l = 0; l < 3; ++l) {
-          double val = B(j,3*k+l) * vols(i) ; 
+          double val = B(j,3*k+l) * vols(i); 
           // subdiagonal term
           trips.push_back(Triplet<double>(offset+9*i+j, 3*vid+l, val));
 
@@ -271,8 +274,7 @@ void build_kkt_rhs() {
   }
 
   // 3. Jacobian term
-  rhs.segment(qt.size(), 9*meshT.rows()) -= J*(P.transpose()*qt+b);
-  //std::cout << "Jq size: " << (J*(P.transpose()*qt+b)).size() << std::endl;
+  rhs.segment(qt.size(), 9*meshT.rows()) -= Jw*(P.transpose()*qt+b);
 }
 
 //#define VERBOSE
@@ -376,15 +378,16 @@ void init_sim() {
   VectorXd densities = VectorXd::Constant(meshT.rows(), density);
   igl::volume(meshV, meshT, vols);
   //vols.array() /= vols.maxCoeff(); 
-  std::cout << "VOLS: " << vols << std::endl;
+  //std::cout << "VOLS: " << vols << std::endl;
   //std::cout << "warning settings vols to 1" << std::endl;
-  vols.setOnes();
+  //vols.setOnes();
 
 
   sim::linear_tetmesh_mass_matrix(M, meshV, meshT, densities, vols);
 
   // J matrix (big jacobian guy)
   std::vector<Triplet<double>> trips;
+  std::vector<Triplet<double>> trips2;
   sim::linear_tetmesh_dphi_dX(dphidX, meshV, meshT);
   for (int i = 0; i < meshT.rows(); ++i) { 
 
@@ -412,14 +415,17 @@ void init_sim() {
 
         // x,y,z index for the k-th vertex
         for (int l = 0; l < 3; ++l) {
-          double val = B(j,3*k+l) * vols(i); 
+          double val = B(j,3*k+l) ;//* vols(i); 
           trips.push_back(Triplet<double>(9*i+j, 3*vid+l, val));
+          trips2.push_back(Triplet<double>(9*i+j, 3*vid+l, val*vols(i)));
         }
       }
     }
   }
   J.resize(9*meshT.rows(), meshV.size());
   J.setFromTriplets(trips.begin(),trips.end());
+  Jw.resize(9*meshT.rows(), meshV.size());
+  Jw.setFromTriplets(trips2.begin(),trips2.end());
 
   // Create local tensors used for reshaping vectors to matrices
   B_33.setValues({
@@ -474,7 +480,8 @@ void init_sim() {
   pinnedV = (meshV.col(1).array() < pin_y).cast<int>(); 
   //pinnedV.setOnes();
   //pinnedV(0) = 0;
-  polyscope::getVolumeMesh("input mesh")
+  //polyscope::getVolumeMesh("input mesh")
+  polyscope::getSurfaceMesh("input mesh")
     ->addVertexScalarQuantity("pinned", pinnedV);
   P = pinning_matrix(pinnedV, false);
   P_kkt = pinning_matrix(pinnedV, true);
@@ -566,7 +573,8 @@ void callback() {
 
   if(ImGui::Button("sim step") || simulating) {
     simulation_step();
-    polyscope::getVolumeMesh("input mesh")
+    //polyscope::getVolumeMesh("input mesh")
+    polyscope::getSurfaceMesh("input mesh")
       ->updateVertexPositions(meshV);
   }
   //ImGui::SameLine();
@@ -608,15 +616,19 @@ int main(int argc, char **argv) {
 
   // Read the mesh
   igl::readMESH(filename, meshV, meshT, meshF);
-  //vols.array() /= vols.maxCoeff(); 
   meshV.array() /= meshV.maxCoeff();
 
   // Register the mesh with Polyscope
-  polyscope::registerTetMesh("input mesh", meshV, meshT);
+  //polyscope::registerTetMesh("input mesh", meshV, meshT);
+  if (meshF.size() == 0){ 
+    igl::boundary_facets(meshT, meshF);
+  }
+  polyscope::registerSurfaceMesh("input mesh", meshV, meshF);
 
   pinnedV.resize(meshV.rows());
   pinnedV.setZero();
-  polyscope::getVolumeMesh("input mesh")
+  //polyscope::getVolumeMesh("input mesh")
+  polyscope::getSurfaceMesh("input mesh")
     ->addVertexScalarQuantity("pinned", pinnedV);
 
   // Add the callback
