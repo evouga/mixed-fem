@@ -21,7 +21,6 @@
 #include "linear_tet_mass_matrix.h"
 
 
-#include "osqp++.h"
 #include <unsupported/Eigen/CXX11/Tensor>
 #include <iostream>
 #include <unordered_set>
@@ -60,16 +59,15 @@ SparseMatrixdRowMajor J;     // jacobian
 MatrixXd dphidX; 
 VectorXi pinnedV;
 
-osqp::OsqpInstance instance;
-osqp::OsqpSolver qp_solver;
-
-
 // Simulation params
 double h = 0.1;//0.1;
 double density = 1000.0;
-double ym = 1e6;
-double mu = 0.45;
-double alpha = 2e7;
+double ym = 4e5;
+double pr = 0.45;
+double mu = ym/(2.0*(1.0+pr));
+//double alpha = 2e7;
+double alpha = mu;
+//double alpha = 1e5;
 double ih2 = 1.0/h/h;
 double grav = -9.8;
 
@@ -212,7 +210,7 @@ void build_kkt_lhs() {
 
         // x,y,z index for the k-th vertex
         for (int l = 0; l < 3; ++l) {
-          double val = B(j,3*k+l);// TODO * vols(i) ; 
+          double val = B(j,3*k+l) * vols(i) ; 
           // subdiagonal term
           trips.push_back(Triplet<double>(offset+9*i+j, 3*vid+l, val));
 
@@ -224,7 +222,8 @@ void build_kkt_lhs() {
 
     // 3. Compliance matrix terms
     // Each local term is equivalent and is a scaled diagonal matrix
-    double He = -1.0/alpha;
+    //double He = -1.0/alpha;
+    double He = -vols(i)/alpha;
     for (int j = 0; j < 9; ++j) {
       trips.push_back(Triplet<double>(offset+9*i+j,offset+9*i+j, He));
     }
@@ -265,16 +264,10 @@ void build_kkt_rhs() {
     Matrix<double,9,6> W = Map<Matrix<double,9,6>>(TR.data(),
         TR.dimension(0), TR.dimension(1));
 
-    Vector9d Ws = W * (I_vec); 
+    Vector9d Ws = vols(i) * W * (I_vec); 
 
     // 2. - W * Hinv * g term
     rhs.segment(qt.size() + 9*i, 9) = Ws;
-
-    // Safe for 1 tet lolw
-    //std::cout << "Ws - Jq (1 TET Only)" << std::endl; 
-    //std::cout << J*(P.transpose()*qt+b)<< std::endl;;
-    //std::cout << (W*S[i]-(J*(P.transpose()*qt+b))).norm() << std::endl;;
-
   }
 
   // 3. Jacobian term
@@ -357,6 +350,7 @@ void update_SR() {
 
 void init_sim() {
 
+  std::cout << "alpha: " << alpha << "mu: " << mu << std::endl;
   //rotate the mesh
   /*Matrix3d R_test;
   R_test << 0.707, -0.707, 0,
@@ -381,9 +375,9 @@ void init_sim() {
   // Mass matrix
   VectorXd densities = VectorXd::Constant(meshT.rows(), density);
   igl::volume(meshV, meshT, vols);
-
-
-  std::cout << "warning settings vols to 1" << std::endl;
+  //vols.array() /= vols.maxCoeff(); 
+  std::cout << "VOLS: " << vols << std::endl;
+  //std::cout << "warning settings vols to 1" << std::endl;
   vols.setOnes();
 
 
@@ -418,7 +412,7 @@ void init_sim() {
 
         // x,y,z index for the k-th vertex
         for (int l = 0; l < 3; ++l) {
-          double val = B(j,3*k+l);// TODO * vols(i); 
+          double val = B(j,3*k+l) * vols(i); 
           trips.push_back(Triplet<double>(9*i+j, 3*vid+l, val));
         }
       }
@@ -506,25 +500,12 @@ void init_sim() {
 
 
   build_kkt_lhs();
-  std::cout << "LHS norm: " << lhs.norm() << std::endl;
 
-  MatrixXd tmp_constraint(1,lhs.cols());
-  tmp_constraint(1) = 1;
-  VectorXd tmp_bound(1);
-  osqp::OsqpSettings settings;
-  settings.sigma=1e-4;
-  instance.objective_matrix = lhs;
-  rhs.resize(lhs.rows());
-  instance.objective_vector = rhs;
-  instance.constraint_matrix =tmp_constraint.sparseView();
-  const double kInfinity = std::numeric_limits<double>::infinity();
-  instance.lower_bounds.resize(1); instance.lower_bounds << -kInfinity;
-  instance.upper_bounds.resize(1); instance.upper_bounds << kInfinity;
+  //EigenSolver<MatrixXd> eigensolver;
+  //eigensolver.compute(MatrixXd(lhs));
+  //std::cout << "Evals: \n" << eigensolver.eigenvalues().real() << std::endl;
+  //std::cout << "LHS norm: " << lhs.norm() << std::endl;
 
-  auto status = qp_solver.Init(instance,settings);
-
- // build_kkt_rhs();
- // update_SR();
 }
 
 void simulation_step() {
@@ -547,20 +528,6 @@ void simulation_step() {
     t_rhs = duration_cast<nanoseconds>(end-start).count()/1e6;
     start = end;
     dq_la = solver.solve(rhs);
-    //
-    //SparseMatrixd constraints = constraint_matrix();
-    //if (constraints.nonZeros() > 0) {
-    //  VectorXd lb(constraints.nonZeros());
-    //  VectorXd ub(constraints.nonZeros());
-    //  lb.array() = -150;// = VectorXd::Ones(constraint_.lb.size()) * -150;
-    //  ub.array() = std::numeric_limits<double>::max();
-    //  std::cout << " constraints nnz: " << constraints.nonZeros() << std::endl;
-    //  qp_solver.SetBounds(lb,ub);
-    //  qp_solver.UpdateConstraintMatrix(constraints);
-    //  auto result = qp_solver.SetObjectiveVector(-rhs);
-    //  osqp::OsqpExitCode code = qp_solver.Solve();
-    //  dq_la = qp_solver.primal_solution();
-    //}
 
     end = high_resolution_clock::now();
     t_solve = duration_cast<nanoseconds>(end-start).count()/1e6;
@@ -641,6 +608,8 @@ int main(int argc, char **argv) {
 
   // Read the mesh
   igl::readMESH(filename, meshV, meshT, meshF);
+  //vols.array() /= vols.maxCoeff(); 
+  meshV.array() /= meshV.maxCoeff();
 
   // Register the mesh with Polyscope
   polyscope::registerTetMesh("input mesh", meshV, meshT);

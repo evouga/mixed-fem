@@ -90,9 +90,9 @@ add_subdirectory("deps/polyscope")
 #set(LIBIGL_WITH_OPENGL_GLFW_IMGUI OFF CACHE BOOL "Use ImGui" )
 #add_subdirectory("deps/libIGL")
 
-message("\n\n == CMAKE recursively building OSQP\n")
-set(OSQP-CPP_BUILD_TESTS OFF CACHE BOOL "Enable OSQP CPP Tests" )
-add_subdirectory("deps/osqp-cpp")
+#message("\n\n == CMAKE recursively building OSQP\n")
+#set(OSQP-CPP_BUILD_TESTS OFF CACHE BOOL "Enable OSQP CPP Tests" )
+#add_subdirectory("deps/osqp-cpp")
 
 # Create an executable
 add_executable(
@@ -137,12 +137,12 @@ endif()
 target_include_directories(mixed_fem PUBLIC 
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/libigl/include" 
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/Bartels/include" 
-  "${CMAKE_CURRENT_SOURCE_DIR}/deps/osqp-cpp/include" 
+  #"${CMAKE_CURRENT_SOURCE_DIR}/deps/osqp-cpp/include" 
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope/deps/args"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope/deps/json/include")
 
 
 
 # Link settings
-target_link_libraries(mixed_fem polyscope Eigen3::Eigen osqp-cpp)
+target_link_libraries(mixed_fem polyscope Eigen3::Eigen)#osqp-cpp)
 
