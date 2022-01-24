@@ -77,10 +77,6 @@ bool enable_ext = true;
 bool warm_start = true;
 bool floor_collision = false;
 
-TensorFixedSize<double, Sizes<3, 3, 9>> B_33;  // 9x1 -> 3x3
-TensorFixedSize<double, Sizes<3, 3, 6>> B_33s; // 6x1 -> 3x3 (symmetric)
-TensorFixedSize<double, Sizes<3, 9, 3, 6>> Te;
-
 Matrix<double, 6,1> I_vec;
 
 // Configuration vectors & body forces
@@ -298,9 +294,6 @@ void update_SR_fast() {
   He_inv_vec /= alpha;
   DiagonalMatrix<double,6> He_inv = He_inv_vec.asDiagonal();
 
-  array<IndexPair<int>, 2> dims = { 
-    IndexPair<int>(0, 0), IndexPair<int>(2, 1)
-  };
 
   double t_1=0,t_2=0,t_3=0,t_4=0,t_5=0; 
   auto start = high_resolution_clock::now();
@@ -462,46 +455,6 @@ void init_sim() {
   Jw.resize(9*meshF.rows(), meshV.size());
   Jw.setFromTriplets(trips2.begin(),trips2.end());
 
-  // Create local tensors used for reshaping vectors to matrices
-  B_33.setValues({
-      {
-        {1, 0, 0, 0, 0, 0, 0, 0, 0},
-        {0, 1, 0, 0, 0, 0, 0, 0, 0},
-        {0, 0, 1, 0, 0, 0, 0, 0, 0},
-      },
-      {
-        {0, 0, 0, 1, 0, 0, 0, 0, 0},
-        {0, 0, 0, 0, 1, 0, 0, 0, 0},
-        {0, 0, 0, 0, 0, 1, 0, 0, 0},
-      },
-      {
-        {0, 0, 0, 0, 0, 0, 1, 0, 0},
-        {0, 0, 0, 0, 0, 0, 0, 1, 0},
-        {0, 0, 0, 0, 0, 0, 0, 0, 1},
-      }
-  });
-  //TODO confirm ordering is okay
-  B_33s.setValues({
-      {
-        {1, 0, 0, 0, 0, 0},
-        {0, 0, 0, 0, 0, 1},
-        {0, 0, 0, 0, 1, 0} 
-      },
-      {
-        {0, 0, 0, 0, 0, 1},
-        {0, 1, 0, 0, 0, 0},
-        {0, 0, 0, 1, 0, 0} 
-      },  
-      {
-        {0, 0, 0, 0, 1, 0},
-        {0, 0, 0, 1, 0, 0},
-        {0, 0, 1, 0, 0, 0} 
-      }
-  }); 
-  array<IndexPair<int>, 1> dims = {IndexPair<int>(1, 1)
-  };
-  Te = B_33.contract(B_33s, dims);
-
   // Pinning matrices
   double min_x = meshV.col(0).minCoeff();
   double max_x = meshV.col(0).maxCoeff();
@@ -530,10 +483,7 @@ void init_sim() {
   q1 = qt;
   dq_la = 0*qt;
 
-  //std::cout  << " M : \n " << M << std::endl;
   build_kkt_lhs();
-  //build_kkt_rhs();
-  //std::cout << "LHS \n" << lhs << std::endl;
 
   // Project out mass matrix pinned point
   M = P * M * P.transpose();
@@ -541,10 +491,6 @@ void init_sim() {
   // External gravity force
   f_ext = M * P *Vector3d(0,grav,0).replicate(meshV.rows(),1);
   f_ext0 = P *Vector3d(0,grav,0).replicate(meshV.rows(),1);
-  //f_ext = M * P *Vector3d(0,0,grav).replicate(meshV.rows(),1);
-  //f_ext0 = P *Vector3d(0,0,grav).replicate(meshV.rows(),1);
-  //std::cout << "f_ext: " << f_ext << std::endl;
-  //std::cout << "f_ext0: " << f_ext0 << std::endl;
 }
 
 void simulation_step() {
