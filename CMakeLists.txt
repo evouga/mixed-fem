@@ -153,3 +153,6 @@ target_link_libraries(mixed_fem_lib polyscope Eigen3::Eigen)
 # Create an executable
 add_executable(mixed_fem apps/tet_sim.cpp ${SOURCES})
 target_link_libraries(mixed_fem mixed_fem_lib)
+
+add_executable(cloth_sim apps/cloth_sim.cpp ${SOURCES})
+target_link_libraries(cloth_sim mixed_fem_lib)
