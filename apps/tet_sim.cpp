@@ -4,9 +4,12 @@
 #include <igl/boundary_facets.h>
 #include <igl/invert_diag.h>
 #include <igl/readMESH.h>
+#include <igl/readOBJ.h>
 #include <igl/volume.h>
-#include <igl/svd3x3.h>
-#include "svd3x3_sse.h"
+#include <igl/AABB.h>
+#include <igl/in_element.h>
+#include <igl/barycentric_coordinates.h>
+
 
 // Polyscope
 #include "polyscope/messages.h"
@@ -22,7 +25,7 @@
 #include "linear_tet_mass_matrix.h"
 #include "linear_tetmesh_dphi_dX.h"
 
-
+#include "svd3x3_sse.h"
 #include "pinning_matrix.h"
 #include <unsupported/Eigen/CXX11/Tensor>
 #include <iostream>
@@ -44,9 +47,10 @@ using namespace Eigen;
 using SparseMatrixdRowMajor = Eigen::SparseMatrix<double,RowMajor>;
 
 // The mesh, Eigen representation
-MatrixXd meshV;
-MatrixXi meshF;
+MatrixXd meshV, skinV;
+MatrixXi meshF, skinF;
 MatrixXi meshT; // tetrahedra
+SparseMatrixd lbs; // linear blend skinning matrix
 
 VectorXd dq_la;
 
@@ -351,82 +355,6 @@ void update_SR_fast() {
   //  << "ms Yf: " << t_4 << "ms SVD: " << t_5 << std::endl;
 }
 
-void update_SR() {
-
-  // Local hessian (constant for all elements)
-  Vector6d He_inv_vec;
-  He_inv_vec << 1,1,1,0.5,0.5,0.5;
-  He_inv_vec /= alpha;
-  DiagonalMatrix<double,6> He_inv = He_inv_vec.asDiagonal();
-
-  array<IndexPair<int>, 2> dims = { 
-    IndexPair<int>(0, 0), IndexPair<int>(2, 1)
-  };
-
-  double t_1=0,t_2=0,t_3=0,t_4=0,t_5=0; 
-  auto start = high_resolution_clock::now();
-  VectorXd def_grad = J*(P.transpose()*(qt+dq_la.segment(0, qt.rows()))+b);
-  auto end = high_resolution_clock::now();
-  t_1 = duration_cast<nanoseconds>(end-start).count()/1e6;
-
-  #pragma omp parallel for 
-  for (int i = 0; i < meshT.rows(); ++i) {
-    Vector9d li = la.segment(9*i,9)/alpha + def_grad.segment(9*i,9);
-
-    // 1. Update S[i] using new lambdas
-    start = high_resolution_clock::now();
-    TensorMap<Tensor<double, 2>> Ri(R[i].data(), 3, 3);
-    TensorFixedSize<double, Sizes<9,6>> TR = Te.contract(Ri, dims);
-    Matrix<double,9,6> W = Map<Matrix<double,9,6>>(TR.data(),
-        TR.dimension(0), TR.dimension(1));
-    end = high_resolution_clock::now();
-    t_2 += duration_cast<nanoseconds>(end-start).count()/1e6;
-
-    // H^-1 * g = s^i - I
-    start = high_resolution_clock::now();
-    VectorXd ds = He_inv*W.transpose()*la.segment(9*i,9) -(S[i]-I_vec); 
-    S[i] += ds;
-    end = high_resolution_clock::now();
-    t_3 += duration_cast<nanoseconds>(end-start).count()/1e6;
-
-    // 2. Solve rotation matrices
-    Matrix3f U,V; 
-    Vector3f s; 
-    Matrix3d Y;
-
-    start = high_resolution_clock::now();
-    array<IndexPair<int>, 1> dims_l = {IndexPair<int>(1, 0)};
-    array<IndexPair<int>, 1> dims_s = {IndexPair<int>(2, 0)};
-    TensorMap<Tensor<double, 1>> l(li.data(), 9);
-    TensorMap<Tensor<double, 1>> Si(S[i].data(), 6);
-    TensorFixedSize<double, Sizes<3,3,6>> Tel = Te.contract(l, dims_l);
-    TensorFixedSize<double, Sizes<3,3>> Tels = Tel.contract(Si, dims_s);
-    Y = Map<Matrix3d>(Tels.data(), 3, 3);
-    Matrix3f Yf = Y.cast<float>();
-    end = high_resolution_clock::now();
-    t_4 += duration_cast<nanoseconds>(end-start).count()/1e6;
-    start = high_resolution_clock::now();
-    //std::cout << "Yf : \n " << Yf << std::endl;
-    //std::cout << "l: \n" << l << std::endl;
-    //std::cout << "Si: \n" << Si << std::endl;
-    //std::cout << "Tels: \n" << Tels << std::endl;
-    //
-    //IGL_INLINE void igl::polar_svd3x3_sse(const Eigen::Matrix<T, 3*4, 3>& A, Eigen::Matrix<T, 3*4, 3> &R)
-    Matrix<float,12,3> Y4,R4;
-    polar_svd3x3_sse(Y4,R4);
-
-    igl::svd3x3(Yf, U, s, V);
-
-    R[i] = (U*V.transpose()).cast<double>();
-    //R[i].transposeInPlace();
-    end = high_resolution_clock::now();
-    t_5 += duration_cast<nanoseconds>(end-start).count()/1e6;
-  }
-  //std::cout << "Def grad: " << t_1 << "ms S[i]: " << t_2 << "ms ds: " << t_3
-  //  << "ms Yf: " << t_4 << "ms SVD: " << t_5 << std::endl;
-}
-
-
 void init_sim() {
 
   //rotate the mesh
@@ -586,7 +514,6 @@ void init_sim() {
   //eigensolver.compute(MatrixXd(lhs));
   //std::cout << "Evals: \n" << eigensolver.eigenvalues().real() << std::endl;
   //std::cout << "LHS norm: " << lhs.norm() << std::endl;
-
 }
 
 void simulation_step() {
@@ -650,6 +577,14 @@ void simulation_step() {
   VectorXd q = P.transpose()*qt + b;
   MatrixXd tmp = Map<MatrixXd>(q.data(), meshV.cols(), meshV.rows());
   meshV = tmp.transpose();
+
+  // if skin enabled too
+  if (skinV.rows() > 0) {
+    skinV.col(0) = lbs * meshV.col(0);
+    skinV.col(1) = lbs * meshV.col(1);
+    skinV.col(2) = lbs * meshV.col(2);
+  }
+
 }
 
 void callback() {
@@ -662,14 +597,19 @@ void callback() {
   ImGui::Checkbox("floor collision",&floor_collision);
   ImGui::Checkbox("warm start",&warm_start);
   ImGui::Checkbox("simulate",&simulating);
-  //if(ImGui::Button("show pinned")) {
-  //} 
 
   if(ImGui::Button("sim step") || simulating) {
     simulation_step();
     //polyscope::getVolumeMesh("input mesh")
     polyscope::getSurfaceMesh("input mesh")
       ->updateVertexPositions(meshV);
+
+    polyscope::SurfaceMesh* skin_mesh;
+    if ((skin_mesh = polyscope::getSurfaceMesh("skin mesh")) &&
+        skin_mesh->isEnabled()) {
+      skin_mesh->updateVertexPositions(skinV);
+    }
+
   }
   //ImGui::SameLine();
   //ImGui::InputInt("source vertex", &iVertexSource);
@@ -681,6 +621,7 @@ int main(int argc, char **argv) {
   // Configure the argument parser
   args::ArgumentParser parser("Mixed FEM");
   args::Positional<std::string> inFile(parser, "mesh", "input mesh");
+  args::Positional<std::string> inSurf(parser, "hires mesh", "hires surface");
 
   // Parse args
   try {
@@ -708,7 +649,8 @@ int main(int argc, char **argv) {
 
   // Read the mesh
   igl::readMESH(filename, meshV, meshT, meshF);
-  meshV.array() /= meshV.maxCoeff();
+  double fac = meshV.maxCoeff();
+  meshV.array() /= fac;
 
   // Register the mesh with Polyscope
   polyscope::options::autocenterStructures = false;
@@ -723,6 +665,44 @@ int main(int argc, char **argv) {
   //polyscope::getVolumeMesh("input mesh")
   polyscope::getSurfaceMesh("input mesh")
     ->addVertexScalarQuantity("pinned", pinnedV);
+
+  // Check if skinning mesh is provided
+  if (inSurf) {
+    std::string hiresFn = args::get(inSurf);
+    std::cout << "Reading in skinning mesh: " << hiresFn << std::endl;
+    igl::readOBJ(hiresFn, skinV, skinF);
+    skinV.array() /= fac;
+    //polyscope::SurfaceMesh* skin_mesh;
+    //skin_mesh = polyscope::registerSurfaceMesh("skin mesh", skinV, skinF);
+    //skin_mesh->setEnabled(false);
+
+    // Create skinning transforms
+    igl::AABB<MatrixXd,3> aabb;
+    aabb.init(meshV,meshT);
+    VectorXi I;
+    in_element(meshV,meshT,skinV,aabb,I);
+
+    std::vector<Triplet<double>> trips;
+    for (int i = 0; i < I.rows(); ++i) {
+      if (I(i) >= 0) {
+        RowVector4d out;
+        igl::barycentric_coordinates(skinV.row(i),
+            meshV.row(meshT(I(i),0)),
+            meshV.row(meshT(I(i),1)),
+            meshV.row(meshT(I(i),2)),
+            meshV.row(meshT(I(i),3)), out);
+        trips.push_back(Triplet<double>(i, meshT(I(i),0), out(0)));
+        trips.push_back(Triplet<double>(i, meshT(I(i),1), out(1)));
+        trips.push_back(Triplet<double>(i, meshT(I(i),2), out(2)));
+        trips.push_back(Triplet<double>(i, meshT(I(i),3), out(3)));
+      }
+    }
+    lbs.resize(skinV.rows(),meshV.rows());
+    lbs.setFromTriplets(trips.begin(),trips.end());
+  }
+  polyscope::SurfaceMesh* skin_mesh;
+  skin_mesh = polyscope::registerSurfaceMesh("skin mesh", skinV, skinF);
+  skin_mesh->setEnabled(false);
 
   // Add the callback
   polyscope::state::userCallback = callback;

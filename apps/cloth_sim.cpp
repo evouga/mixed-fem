@@ -64,7 +64,7 @@ VectorXi pinnedV;
 double h = 0.01;;
 double thickness = 1e-0;
 double density = 1;
-double ym = 1e5;
+double ym = 1e4;
 double pr = 0.40;
 double mu = ym/(2.0*(1.0+pr));
 double alpha = mu;
