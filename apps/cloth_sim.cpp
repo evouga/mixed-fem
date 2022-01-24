@@ -62,15 +62,16 @@ VectorXi pinnedV;
 
 // Simulation params
 double h = 0.01;;
-double thickness = 1e-0;
-double density = 1;
+double thickness = 1e-3;
+double density = 100;
 double ym = 1e5;
 double pr = 0.40;
 double mu = ym/(2.0*(1.0+pr));
 double alpha = mu;
 double ih2 = 1.0/h/h;
-double grav = -900;
+double grav = -9.8;
 double plane_d;
+double beta = 100;
 
 bool enable_slide = false;
 bool enable_ext = true;
@@ -168,7 +169,7 @@ VectorXd collision_force() {
   #pragma omp parallel for
   for (int i = 0; i < n; ++i) {
     if (toforce(i)) {
-      ret.segment(3*i,3) = -1e4*N;
+      ret.segment(3*i,3) = -1e2*N;
     }
   }
 
@@ -303,7 +304,7 @@ void update_SR_fast() {
 
   int N = (meshF.rows() / 4) + int(meshF.rows() % 4 != 0);
 
-  double fac = alpha * (la.maxCoeff() + 1e-8);
+  double fac = beta * (la.maxCoeff() + 1e-8);
   //double fac = alpha;
   #pragma omp parallel for 
   for (int ii = 0; ii < N; ++ii) {
@@ -500,7 +501,7 @@ void simulation_step() {
   // ds & lambda are used in the projection, but to confirm delta q
   // is just one of the "end products"
   //
-  int steps=5;
+  int steps=10;
   dq_la.setZero();
 
   // Warm start solver
@@ -510,6 +511,9 @@ void simulation_step() {
   }
   
   double t_coll=0, t_rhs = 0, t_solve = 0, t_SR = 0; 
+  
+  beta = 100;
+
   for (int i = 0; i < steps; ++i) {
     // TODO partially inefficient right?
     //  dq rows are fixed throughout the optimization, only lambda rows
@@ -537,9 +541,11 @@ void simulation_step() {
     la = dq_la.segment(qt.size(),9*meshF.rows());
     
     // Update per-element R & S matrices
+    
     update_SR_fast();
     end = high_resolution_clock::now();
     t_SR += duration_cast<nanoseconds>(end-start).count()/1e6;
+    beta *= std::min(mu, 1.5*beta);
 
   }
   t_coll/=steps; t_rhs /=steps; t_solve/=steps; t_SR/=steps;

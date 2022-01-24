@@ -72,6 +72,7 @@ double alpha = mu;
 double ih2 = 1.0/h/h;
 double grav = -9.8;
 double plane_d;
+double beta = 100;
 
 bool warm_start = true;
 bool floor_collision = true;
@@ -261,6 +262,8 @@ void update_SR_fast() {
 
   int N = (meshT.rows() / 4) + int(meshT.rows() % 4 != 0);
 
+  double fac = beta * (la.maxCoeff() + 1e-8);
+
   #pragma omp parallel for 
   for (int ii = 0; ii < N; ++ii) {
 
@@ -272,7 +275,7 @@ void update_SR_fast() {
         break;
 
 
-      Vector9d li = la.segment(9*i,9)/alpha + def_grad.segment(9*i,9);
+      Vector9d li = la.segment(9*i,9)/fac + def_grad.segment(9*i,9);
 
       // 1. Update S[i] using new lambdas
       start = high_resolution_clock::now();
@@ -605,6 +608,7 @@ void simulation_step() {
   }
   
   double t_coll=0, t_rhs = 0, t_solve = 0, t_SR = 0; 
+  beta = 100;
   for (int i = 0; i < steps; ++i) {
     // TODO partially inefficient right?
     //  dq rows are fixed throughout the optimization, only lambda rows
@@ -635,6 +639,7 @@ void simulation_step() {
     update_SR_fast();
     end = high_resolution_clock::now();
     t_SR += duration_cast<nanoseconds>(end-start).count()/1e6;
+    beta = std::min(mu, beta*1.5);
 
   }
   t_coll/=steps; t_rhs /=steps; t_solve/=steps; t_SR/=steps;
