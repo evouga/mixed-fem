@@ -62,7 +62,7 @@ VectorXi pinnedV;
 
 // Simulation params
 double h = 0.01;;
-double thickness = 1e-2;
+double thickness = 1e-0;
 double density = 1;
 double ym = 1e5;
 double pr = 0.40;
@@ -72,7 +72,7 @@ double ih2 = 1.0/h/h;
 double grav = -900;
 double plane_d;
 
-bool enable_slide = true;
+bool enable_slide = false;
 bool enable_ext = true;
 bool warm_start = true;
 bool floor_collision = false;
@@ -303,6 +303,8 @@ void update_SR_fast() {
 
   int N = (meshF.rows() / 4) + int(meshF.rows() % 4 != 0);
 
+  double fac = alpha * (la.maxCoeff() + 1e-8);
+  //double fac = alpha;
   #pragma omp parallel for 
   for (int ii = 0; ii < N; ++ii) {
 
@@ -313,8 +315,7 @@ void update_SR_fast() {
       if (i >= meshF.rows())
         break;
 
-
-      Vector9d li = la.segment(9*i,9)/alpha + def_grad.segment(9*i,9);
+      Vector9d li = la.segment(9*i,9)/fac + def_grad.segment(9*i,9);
 
       // 1. Update S[i] using new lambdas
       start = high_resolution_clock::now();
@@ -499,7 +500,7 @@ void simulation_step() {
   // ds & lambda are used in the projection, but to confirm delta q
   // is just one of the "end products"
   //
-  int steps=25;
+  int steps=5;
   dq_la.setZero();
 
   // Warm start solver
