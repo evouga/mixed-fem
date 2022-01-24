@@ -61,7 +61,7 @@ MatrixXd dphidX;
 VectorXi pinnedV;
 
 // Simulation params
-double h = 0.01;;
+double h = 0.01;
 double thickness = 1e-3;
 double density = 100;
 double ym = 1e5;
