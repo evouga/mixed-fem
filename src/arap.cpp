@@ -3,28 +3,28 @@
 using namespace Eigen;
 
 void arap_compliance(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
-    const Eigen::VectorXd& vols, double alpha,
-    std::vector<Eigen::Triplet<double>>& trips) {
-  double offset = V.size();
-  for (int i = 0; i < T.rows(); ++i) {
-    double He = -vols(i)/alpha;
-    for (int j = 0; j < 9; ++j) {
-      trips.push_back(Eigen::Triplet<double>(offset+9*i+j,offset+9*i+j, He));
-    }
-  }
-}
-
-void arap_compliance2(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
     const std::vector<Eigen::Matrix3d>& R, const Eigen::VectorXd& vols,
     double mu, double la, std::vector<Eigen::Triplet<double>>& trips) {
   double offset = V.size();
 
   for (int i = 0; i < T.rows(); ++i) {
     Eigen::Matrix9d WHiW = arap_WHinvW(R[i], mu, la);
+    //Eigen::Matrix9d WHiW2 = arap_WHinvW2(R[i], mu, la);
+    //if (i == 0) {
+    //  std::cout << "WHIW1: \n" << WHiW << std::endl;
+    //  std::cout << "WHIW2: \n" << WHiW2 << std::endl;
+    //}
     for (int j = 0; j < 9; ++j) {
       for (int k = 0; k < 9; ++k) {
+        if (k==j) {
+        trips.push_back(Eigen::Triplet<double>(
+                    offset+9*i+j,offset+9*i+k, -vols(i)*(WHiW(j,k)+1e-6)));
+        } else {
         trips.push_back(Eigen::Triplet<double>(
                     offset+9*i+j,offset+9*i+k, -vols(i)*WHiW(j,k)));
+        }
+        //trips.push_back(Eigen::Triplet<double>(
+        //            offset+9*i+j,offset+9*i+k, -vols(i)*WHiW(j,k)));
       }
     }
   }
@@ -88,6 +88,27 @@ Vector9d arap_rhs(const Matrix3d& R) {
   rhs(7) = R3_2;
   rhs(8) = R3_3;
   return rhs;
+}
+
+Eigen::Matrix9d arap_WHinvW2(const Matrix3d& R, double mu, double la) {
+  Matrix<double,9,6> W;
+  W <<
+    R(0,0), 0,         0,         0,         R(0,2), R(0,1),
+    0,         R(0,1), 0,         R(0,2), 0,         R(0,0),
+    0,         0,         R(0,2), R(0,1), R(0,0), 0, 
+    R(1,0), 0,         0,         0,         R(1,2), R(1,1),
+    0,         R(1,1), 0,         R(1,2), 0,         R(1,0),
+    0,         0,         R(1,2), R(1,1), R(1,0), 0,  
+    R(2,0), 0,         0,         0,         R(2,2), R(2,1),
+    0,         R(2,1), 0,         R(2,2), 0        , R(2,0),
+    0,         0,         R(2,2), R(2,1), R(2,0), 0;
+  // Local hessian (constant for all elements)
+  Vector6d He_inv_vec;
+  He_inv_vec << 1,1,1,0.5,0.5,0.5;
+  He_inv_vec /= mu;
+  DiagonalMatrix<double,6> He_inv = He_inv_vec.asDiagonal();
+  return W*He_inv*W.transpose();
+
 }
 
 Eigen::Matrix9d arap_WHinvW(const Eigen::Matrix3d& R, double mu, double la) {

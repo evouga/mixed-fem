@@ -25,12 +25,14 @@
 #include "linear_tet_mass_matrix.h"
 #include "linear_tetmesh_dphi_dX.h"
 
+#include "preconditioner.h"
 #include "corotational.h"
 #include "arap.h"
 #include "svd3x3_sse.h"
 #include "pinning_matrix.h"
 #include "tet_kkt.h"
 #include <unsupported/Eigen/CXX11/Tensor>
+#include <unsupported/Eigen/IterativeSolvers>
 #include <iostream>
 #include <unordered_set>
 #include <utility>
@@ -72,7 +74,8 @@ VectorXi pinnedV;
 // Simulation params
 double h = 0.02;//0.1;
 double density = 1000.0;
-double ym = 2e5;
+//double ym = 2e5;
+double ym = 2e14;
 double pr = 0.45;
 double mu = ym/(2.0*(1.0+pr));
 double lambda = (ym*pr)/((1.0+pr)*(1.0-2.0*pr));
@@ -107,7 +110,10 @@ CholmodSimplicialLDLT<SparseMatrixd> solver;
 #else
 SimplicialLDLT<SparseMatrixd> solver;
 #endif
-ConjugateGradient<SparseMatrixd> cg;
+ConjugateGradient<SparseMatrixd, Lower|Upper, FemPreconditioner<double>> cg;
+//BiCGSTAB<SparseMatrixd, FemPreconditioner<double>> cg;
+//GMRES<SparseMatrixd, FemPreconditioner<double>> cg;
+//GMRES<SparseMatrixd, FemPreconditioner<double>> cg;
 VectorXd rhs;
 
 // ------------------------------------ //
@@ -148,8 +154,7 @@ void build_kkt_lhs() {
 
   lhs_trips = trips;
 
-  arap_compliance(meshV, meshT, vols, alpha, trips);
-  //corotational_compliance(meshV, meshT, R, vols, mu, lambda, trips);
+  diag_compliance(meshV, meshT, vols, alpha, trips);
 
   lhs.resize(sz,sz);
   lhs.setFromTriplets(trips.begin(), trips.end());
@@ -163,11 +168,7 @@ void build_kkt_lhs() {
   if(solver.info()!=Success) {
     std::cerr << " KKT prefactor failed! " << std::endl;
   }
-
-  cg.compute(lhs);
-  if (cg.info() != Success) {
-    std::cerr << " CG KKT prefactor failed! " << std::endl;
-  }
+  cg.preconditioner().init(lhs);
 }
 
 void build_kkt_rhs() {
@@ -291,6 +292,8 @@ void init_sim() {
   // Mass matrix
   VectorXd densities = VectorXd::Constant(meshT.rows(), density);
   igl::volume(meshV, meshT, vols);
+  vols = vols.cwiseAbs();
+  std::cout << "NOTE: cwise ABS on volume! " << std::endl;
   sim::linear_tetmesh_mass_matrix(M, meshV, meshT, densities, vols);
 
   J = tet_jacobian(meshV,meshT,vols,false);
@@ -305,7 +308,7 @@ void init_sim() {
   double pin_y = max_y - (max_y-min_y)*0.1;
   //double pin_y = min_y + (max_y-min_y)*0.1;
   //pinnedV = (meshV.col(0).array() < pin_x).cast<int>(); 
-  pinnedV = (meshV.col(1).array() > pin_y).cast<int>(); 
+  //pinnedV = (meshV.col(1).array() > pin_y).cast<int>(); 
   //pinnedV(0) = 1;
   //polyscope::getVolumeMesh("input mesh")
   polyscope::getSurfaceMesh("input mesh")
@@ -341,7 +344,7 @@ void init_sim() {
 
 void simulation_step() {
 
-  int steps=10;
+  int steps=5;
   dq_la.setZero();
 
   // Warm start solver
@@ -371,23 +374,39 @@ void simulation_step() {
       start = end;
     }
 
-    dq_la = solver.solve(rhs);
+    if (i == 0)
+      dq_la = solver.solve(rhs);
+    //std::cout <<"dq_la 0: " << dq_la << std::endl;
 
     // New CG stuff
-    //std::vector<Triplet<double>> trips;
-    //int sz = meshV.size() + meshT.rows()*9;
-    //trips = lhs_trips;
-    ////arap_compliance(meshV, meshT, vols, alpha, trips);
-    ////corotational_compliance(meshV, meshT, R, vols, mu, lambda, trips);
-    //arap_compliance2(meshV, meshT, R, vols, mu, lambda, trips);
-    //SparseMatrixd newlhs(sz,sz);
-    //newlhs.setFromTriplets(trips.begin(), trips.end());
+    std::vector<Triplet<double>> trips;
+    int sz = meshV.size() + meshT.rows()*9;
+    trips = lhs_trips;
+    //diag_compliance(meshV, meshT, vols, alpha, trips);
+    corotational_compliance(meshV, meshT, R, vols, mu, lambda, trips);
+    //arap_compliance(meshV, meshT, R, vols, mu, lambda, trips);
+    SparseMatrixd newlhs(sz,sz);
+    newlhs.setFromTriplets(trips.begin(), trips.end());
+    newlhs = P_kkt * newlhs * P_kkt.transpose();
+    //std::cout << " LD LHS: " << lhs << std::endl;
     //std::cout << " NEW LHS: " << newlhs << std::endl;
-    //newlhs = P_kkt * newlhs * P_kkt.transpose();
-    //cg.compute(newlhs);
+    //std::cout << " diff LHS: " << (lhs-newlhs) << std::endl;
+    //std::cout << "lhs: " << lhs.size() << " r: " << lhs.rows() << " c: " << lhs.cols() << std::endl;
+    //std::cout << "newlhs: " << newlhs.size() << " r: " << newlhs.rows() << " c: " << newlhs.cols() << std::endl;
+    //std::cout << "CG compute: " << std::endl;
+    //for(int i = 0; i < meshT.rows(); ++i) {
+    //  std::cout << "R:\n" << R[i] << " " << R[i].determinant()<<std::endl;
+    //}
+    cg.compute(newlhs);
     //dq_la = cg.solve(rhs);
-    //std::cout << "#iterations:     " << cg.iterations() << std::endl;
-    //std::cout << "estimated error: " << cg.error()      << std::endl;
+    dq_la = cg.solveWithGuess(rhs, dq_la);
+    if (cg.info() != Success) {
+      std::cerr << " CG failed! " << std::endl;
+    }
+    //std::cout <<"dq_la : " << dq_la << std::endl;
+    std::cout << "#iterations:     " << cg.iterations() << std::endl;
+    std::cout << "estimated error: " << cg.error()      << std::endl;
+    
     //////////////////
 
     end = high_resolution_clock::now();

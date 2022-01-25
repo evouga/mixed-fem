@@ -7,7 +7,7 @@ syms mu la
 assume(R,'real')
 assume(S,'real')
 assume(mu,'real')
-assume(la,'real')
+assume(L,'real')
 
 F = [S(1) S(6) S(5);
      S(6) S(2) S(4);
@@ -45,7 +45,7 @@ W = [
 
 % Corotational material model
 arap= mu*0.5*trace( (F - eye(d))*(F - eye(d))');
-corot=  0*la*0.5*trace(F-eye(d))^2 + arap;
+corot=  1*la*0.5*trace(F-eye(d))^2 + 2*arap;
 H=hessian(corot,S(:));
 g=gradient(corot,S(:));
 W*W'
@@ -59,6 +59,7 @@ Ws_Hinvg = W*(S-Hinv*g);
 % -H^-1*g + H^-1*W'*lambda
 ds = Hinv*(W'*L - g);
 
+ccode(Hinv)
 
 ccode(WHW)
 ccode(Ws_Hinvg)
