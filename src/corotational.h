@@ -2,8 +2,8 @@
 
 #include <EigenTypes.h>
 
-Eigen::Vector9d corotational_ds(const Eigen::Matrix3d& R, 
-        Eigen::Vector6d& S, Eigen::Vector9d& L, double mu, double la);
+Eigen::Vector6d corotational_ds(const Eigen::Matrix3d& R, 
+        const Eigen::Vector6d& S, const Eigen::Vector9d& L, double mu, double la);
 Eigen::Matrix9d corotational_WHinvW(const Eigen::Matrix3d& R,
         double mu, double la);
 Eigen::Vector9d corotational_rhs(const Eigen::Matrix3d& R,

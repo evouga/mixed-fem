@@ -75,6 +75,8 @@ double density = 1000.0;
 double ym = 2e5;
 double pr = 0.45;
 double mu = ym/(2.0*(1.0+pr));
+double lambda = (ym*pr)/((1.0+pr)*(1.0-2.0*pr));
+
 double alpha = mu;
 double ih2 = 1.0/h/h;
 double grav = -9.8;
@@ -105,6 +107,7 @@ CholmodSimplicialLDLT<SparseMatrixd> solver;
 #else
 SimplicialLDLT<SparseMatrixd> solver;
 #endif
+ConjugateGradient<SparseMatrixd> cg;
 VectorXd rhs;
 
 // ------------------------------------ //
@@ -146,8 +149,11 @@ void build_kkt_lhs() {
   lhs_trips = trips;
 
   arap_compliance(meshV, meshT, vols, alpha, trips);
+  //corotational_compliance(meshV, meshT, R, vols, mu, lambda, trips);
+
   lhs.resize(sz,sz);
   lhs.setFromTriplets(trips.begin(), trips.end());
+  //std::cout << "TRIPS: \n" << lhs << std::endl;
   lhs = P_kkt * lhs * P_kkt.transpose();
 
   #if defined(SIM_USE_CHOLMOD)
@@ -156,6 +162,11 @@ void build_kkt_lhs() {
   solver.compute(lhs);
   if(solver.info()!=Success) {
     std::cerr << " KKT prefactor failed! " << std::endl;
+  }
+
+  cg.compute(lhs);
+  if (cg.info() != Success) {
+    std::cerr << " CG KKT prefactor failed! " << std::endl;
   }
 }
 
@@ -171,9 +182,9 @@ void build_kkt_rhs() {
   #pragma omp parallel for
   for (int i = 0; i < meshT.rows(); ++i) {
     // 1. W * st term +  - W * Hinv * g term
-    // Becomes W * I_vec = flatten(R[i]^t)
-    Vector9d Ws = vols(i) * sim::flatten(R[i].transpose()); 
-    rhs.segment(qt.size() + 9*i, 9) = Ws;
+    //rhs.segment(qt.size() + 9*i, 9) = vols(i) * arap_rhs(R[i]);
+    rhs.segment(qt.size() + 9*i, 9) = vols(i) * corotational_rhs(R[i],
+        S[i], mu, lambda);
   }
 
   // 3. Jacobian term
@@ -187,10 +198,6 @@ void update_SR_fast() {
   He_inv_vec << 1,1,1,0.5,0.5,0.5;
   He_inv_vec /= alpha;
   DiagonalMatrix<double,6> He_inv = He_inv_vec.asDiagonal();
-
-  array<IndexPair<int>, 2> dims = { 
-    IndexPair<int>(0, 0), IndexPair<int>(2, 1)
-  };
 
   double t_1=0,t_2=0,t_3=0,t_4=0,t_5=0; 
   auto start = high_resolution_clock::now();
@@ -211,50 +218,17 @@ void update_SR_fast() {
       int i = ii*4 +jj;
       if (i >= meshT.rows())
         break;
-
-
       Vector9d li = la.segment(9*i,9)/fac + def_grad.segment(9*i,9);
 
       // 1. Update S[i] using new lambdas
       start = high_resolution_clock::now();
-      // (la    B ) : (R    C    s) 
-      //  1x9 9x3x3   3x3 3x3x6 6x1
-      //  we want (la B) : (R C)
-      Matrix<double,9,6> W;
-      W <<
-        R[i](0,0), 0,         0,         0,         R[i](0,2), R[i](0,1),
-        0,         R[i](0,1), 0,         R[i](0,2), 0,         R[i](0,0),
-        0,         0,         R[i](0,2), R[i](0,1), R[i](0,0), 0, 
-        R[i](1,0), 0,         0,         0,         R[i](1,2), R[i](1,1),
-        0,         R[i](1,1), 0,         R[i](1,2), 0,         R[i](1,0),
-        0,         0,         R[i](1,2), R[i](1,1), R[i](1,0), 0,  
-        R[i](2,0), 0,         0,         0,         R[i](2,2), R[i](2,1),
-        0,         R[i](2,1), 0,         R[i](2,2), 0        , R[i](2,0),
-        0,         0,         R[i](2,2), R[i](2,1), R[i](2,0), 0;
-      //TensorMap<Tensor<double, 2>> Ri(R[i].data(), 3, 3);
-      //TensorFixedSize<double, Sizes<9,6>> TR = Te.contract(Ri, dims);
-      //Matrix<double,9,6> W = Map<Matrix<double,9,6>>(TR.data(),
-      //    TR.dimension(0), TR.dimension(1));
-      end = high_resolution_clock::now();
-      t_2 += duration_cast<nanoseconds>(end-start).count()/1e6;
-
-      // H^-1 * g = s^i - I
-      start = high_resolution_clock::now();
-      Vector6d ds = He_inv*W.transpose()*la.segment(9*i,9) -(S[i]-I_vec); 
-      S[i] += ds;
+      //S[i] += arap_ds(R[i], S[i], la.segment(9*i,9), mu, lambda);
+      S[i] += corotational_ds(R[i], S[i], la.segment(9*i,9), mu, lambda);
       end = high_resolution_clock::now();
       t_3 += duration_cast<nanoseconds>(end-start).count()/1e6;
 
       // 2. Solve rotation matrices
       start = high_resolution_clock::now();
-      //array<IndexPair<int>, 1> dims_l = {IndexPair<int>(1, 0)};
-      //array<IndexPair<int>, 1> dims_s = {IndexPair<int>(2, 0)};
-      //TensorMap<Tensor<double, 1>> l(li.data(), 9);
-      //TensorMap<Tensor<double, 1>> Si(S[i].data(), 6);
-      //TensorFixedSize<double, Sizes<3,3,6>> Tel = Te.contract(l, dims_l);
-      //TensorFixedSize<double, Sizes<3,3>> Tels = Tel.contract(Si, dims_s);
-      //Matrix3d Y = Map<Matrix3d>(Tels.data(), 3, 3);
-      //Y4.block(3*jj, 0, 3, 3) = Y.cast<float>();
 
       //  la    B     C    R   s
       //  1x9 9x3x3 3x3x6 3x3 6x1 
@@ -398,6 +372,23 @@ void simulation_step() {
     }
 
     dq_la = solver.solve(rhs);
+
+    // New CG stuff
+    //std::vector<Triplet<double>> trips;
+    //int sz = meshV.size() + meshT.rows()*9;
+    //trips = lhs_trips;
+    ////arap_compliance(meshV, meshT, vols, alpha, trips);
+    ////corotational_compliance(meshV, meshT, R, vols, mu, lambda, trips);
+    //arap_compliance2(meshV, meshT, R, vols, mu, lambda, trips);
+    //SparseMatrixd newlhs(sz,sz);
+    //newlhs.setFromTriplets(trips.begin(), trips.end());
+    //std::cout << " NEW LHS: " << newlhs << std::endl;
+    //newlhs = P_kkt * newlhs * P_kkt.transpose();
+    //cg.compute(newlhs);
+    //dq_la = cg.solve(rhs);
+    //std::cout << "#iterations:     " << cg.iterations() << std::endl;
+    //std::cout << "estimated error: " << cg.error()      << std::endl;
+    //////////////////
 
     end = high_resolution_clock::now();
     t_solve += duration_cast<nanoseconds>(end-start).count()/1e6;
