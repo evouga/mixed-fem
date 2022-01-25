@@ -25,6 +25,7 @@
 #include "linear_tet_mass_matrix.h"
 #include "linear_tetmesh_dphi_dX.h"
 
+#include "corotational.h"
 #include "arap.h"
 #include "svd3x3_sse.h"
 #include "pinning_matrix.h"
@@ -97,6 +98,7 @@ VectorXd b;     // coordinates projected out
 VectorXd vols;  // per element volume
 
 // KKT system
+std::vector<Triplet<double>> lhs_trips;
 SparseMatrixd lhs;
 #if defined(SIM_USE_CHOLMOD)
 CholmodSimplicialLDLT<SparseMatrixd> solver;
@@ -140,6 +142,9 @@ void build_kkt_lhs() {
 
   int sz = meshV.size() + meshT.rows()*9;
   tet_kkt_lhs(M, Jw, ih2, trips); 
+
+  lhs_trips = trips;
+
   arap_compliance(meshV, meshT, vols, alpha, trips);
   lhs.resize(sz,sz);
   lhs.setFromTriplets(trips.begin(), trips.end());
