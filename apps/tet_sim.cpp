@@ -25,8 +25,10 @@
 #include "linear_tet_mass_matrix.h"
 #include "linear_tetmesh_dphi_dX.h"
 
+#include "arap.h"
 #include "svd3x3_sse.h"
 #include "pinning_matrix.h"
+#include "tet_kkt.h"
 #include <unsupported/Eigen/CXX11/Tensor>
 #include <iostream>
 #include <unordered_set>
@@ -81,10 +83,6 @@ double beta = 100;
 bool warm_start = true;
 bool floor_collision = true;
 
-TensorFixedSize<double, Sizes<3, 3, 9>> B_33;  // 9x1 -> 3x3
-TensorFixedSize<double, Sizes<3, 3, 6>> B_33s; // 6x1 -> 3x3 (symmetric)
-TensorFixedSize<double, Sizes<3, 9, 3, 6>> Te;
-
 Matrix<double, 6,1> I_vec;
 
 
@@ -138,76 +136,11 @@ VectorXd collision_force() {
 
 void build_kkt_lhs() {
 
-  VectorXd densities = VectorXd::Constant(meshT.rows(), density);
-  sim::linear_tetmesh_dphi_dX(dphidX, meshV, meshT);
-
   std::vector<Triplet<double>> trips;
 
-  for (int i = 0; i < meshT.rows(); ++i) {
-    // 1. Mass matrix terms
-    Matrix12d Me;
-    sim::linear_tet_mass_matrix(Me, meshT.row(i), densities(i), vols(i)); 
-
-    // mass matrix assembly
-    for (int j = 0; j < 4; ++j) {
-      int vid1 = meshT(i,j);
-      for (int k = 0; k < 4; ++k) {
-        int vid2 = meshT(i,k);
-        for (int l = 0; l < 3; ++l) {
-          for (int m = 0; m < 3; ++m) {
-            double val = ih2 * Me(3*j+l, 3*k+m);
-            trips.push_back(Triplet<double>(3*vid1+l, 3*vid2+m, val));
-          }
-        }
-      }
-    }
-
-    // 2. J matrix (and transpose) terms
-    // Local jacobian
-    Matrix<double, 4,3> dX = sim::unflatten<4,3>(dphidX.row(i));
-
-    // Local block
-    Matrix<double,9,12> B;
-    B  << dX(0,0), 0      , 0      , dX(1,0), 0      , 0      , dX(2,0), 0      , 0      , dX(3,0),       0,       0,
-          dX(0,1), 0      , 0      , dX(1,1), 0      , 0      , dX(2,1), 0      , 0      , dX(3,1),       0,       0, 
-          dX(0,2), 0      , 0      , dX(1,2), 0      , 0      , dX(2,2), 0      , 0      , dX(3,2),       0,       0, 
-          0      , dX(0,0), 0      , 0      , dX(1,0), 0      , 0      , dX(2,0), 0      , 0      , dX(3,0),       0,
-          0      , dX(0,1), 0      , 0      , dX(1,1), 0      , 0      , dX(2,1), 0      , 0      , dX(3,1),       0,
-          0      , dX(0,2), 0      , 0      , dX(1,2), 0      , 0      , dX(2,2), 0      , 0      , dX(3,2),       0,
-          0      , 0      , dX(0,0), 0      , 0      , dX(1,0), 0      , 0      , dX(2,0), 0      , 0      , dX(3,0),
-          0      , 0      , dX(0,1), 0      , 0      , dX(1,1), 0      , 0      , dX(2,1), 0      , 0      , dX(3,1),
-          0      , 0      , dX(0,2), 0      , 0      , dX(1,2), 0      , 0      , dX(2,2), 0      , 0      , dX(3,2); 
-    int offset = meshV.size(); // offset for off diagonal blocks
-
-    // Assembly for the i-th lagrange multiplier matrix which
-    // is associated with 4 vertices (for tetrahedra)
-    for (int j = 0; j < 9; ++j) {
-
-      // k-th vertex of the tetrahedra
-      for (int k = 0; k < 4; ++k) {
-        int vid = meshT(i,k); // vertex index
-
-        // x,y,z index for the k-th vertex
-        for (int l = 0; l < 3; ++l) {
-          double val = B(j,3*k+l) * vols(i); 
-          // subdiagonal term
-          trips.push_back(Triplet<double>(offset+9*i+j, 3*vid+l, val));
-
-          // superdiagonal term
-          trips.push_back(Triplet<double>(3*vid+l, offset+9*i+j, val));
-        }
-      }
-    }
-
-    // 3. Compliance matrix terms
-    // Each local term is equivalent and is a scaled diagonal matrix
-    double He = -vols(i)/alpha;
-    for (int j = 0; j < 9; ++j) {
-      trips.push_back(Triplet<double>(offset+9*i+j,offset+9*i+j, He));
-    }
-  }
-
   int sz = meshV.size() + meshT.rows()*9;
+  tet_kkt_lhs(M, Jw, ih2, trips); 
+  arap_compliance(meshV, meshT, vols, alpha, trips);
   lhs.resize(sz,sz);
   lhs.setFromTriplets(trips.begin(), trips.end());
   lhs = P_kkt * lhs * P_kkt.transpose();
@@ -230,10 +163,6 @@ void build_kkt_rhs() {
   rhs.segment(0, qt.size()) = f_ext + ih2*M*(q0 - q1);
 
   // Lagrange multiplier forces
-  array<IndexPair<int>, 2> dims = { 
-    IndexPair<int>(0, 0), IndexPair<int>(2, 1)
-  };
-
   #pragma omp parallel for
   for (int i = 0; i < meshT.rows(); ++i) {
     // 1. W * st term +  - W * Hinv * g term
@@ -312,7 +241,6 @@ void update_SR_fast() {
       t_3 += duration_cast<nanoseconds>(end-start).count()/1e6;
 
       // 2. Solve rotation matrices
-
       start = high_resolution_clock::now();
       //array<IndexPair<int>, 1> dims_l = {IndexPair<int>(1, 0)};
       //array<IndexPair<int>, 1> dims_s = {IndexPair<int>(2, 0)};
@@ -384,95 +312,10 @@ void init_sim() {
   // Mass matrix
   VectorXd densities = VectorXd::Constant(meshT.rows(), density);
   igl::volume(meshV, meshT, vols);
-  //vols.array() /= vols.maxCoeff(); 
-  //std::cout << "VOLS: " << vols << std::endl;
-  //std::cout << "warning settings vols to 1" << std::endl;
-  //vols.setOnes();
-
-
   sim::linear_tetmesh_mass_matrix(M, meshV, meshT, densities, vols);
 
-  // J matrix (big jacobian guy)
-  std::vector<Triplet<double>> trips;
-  std::vector<Triplet<double>> trips2;
-  sim::linear_tetmesh_dphi_dX(dphidX, meshV, meshT);
-  for (int i = 0; i < meshT.rows(); ++i) { 
-
-    Matrix<double, 4,3> dX = sim::unflatten<4,3>(dphidX.row(i));
-
-    // Local block
-    Matrix<double,9,12> B;
-    B  << dX(0,0), 0      , 0      , dX(1,0), 0      , 0      , dX(2,0), 0      , 0      , dX(3,0),       0,       0,
-          dX(0,1), 0      , 0      , dX(1,1), 0      , 0      , dX(2,1), 0      , 0      , dX(3,1),       0,       0, 
-          dX(0,2), 0      , 0      , dX(1,2), 0      , 0      , dX(2,2), 0      , 0      , dX(3,2),       0,       0, 
-          0      , dX(0,0), 0      , 0      , dX(1,0), 0      , 0      , dX(2,0), 0      , 0      , dX(3,0),       0,
-          0      , dX(0,1), 0      , 0      , dX(1,1), 0      , 0      , dX(2,1), 0      , 0      , dX(3,1),       0,
-          0      , dX(0,2), 0      , 0      , dX(1,2), 0      , 0      , dX(2,2), 0      , 0      , dX(3,2),       0,
-          0      , 0      , dX(0,0), 0      , 0      , dX(1,0), 0      , 0      , dX(2,0), 0      , 0      , dX(3,0),
-          0      , 0      , dX(0,1), 0      , 0      , dX(1,1), 0      , 0      , dX(2,1), 0      , 0      , dX(3,1),
-          0      , 0      , dX(0,2), 0      , 0      , dX(1,2), 0      , 0      , dX(2,2), 0      , 0      , dX(3,2);         
-
-    // Assembly for the i-th lagrange multiplier matrix which
-    // is associated with 4 vertices (for tetrahedra)
-    for (int j = 0; j < 9; ++j) {
-
-      // k-th vertex of the tetrahedra
-      for (int k = 0; k < 4; ++k) {
-        int vid = meshT(i,k); // vertex index
-
-        // x,y,z index for the k-th vertex
-        for (int l = 0; l < 3; ++l) {
-          double val = B(j,3*k+l) ;//* vols(i); 
-          trips.push_back(Triplet<double>(9*i+j, 3*vid+l, val));
-          trips2.push_back(Triplet<double>(9*i+j, 3*vid+l, val*vols(i)));
-        }
-      }
-    }
-  }
-  J.resize(9*meshT.rows(), meshV.size());
-  J.setFromTriplets(trips.begin(),trips.end());
-  Jw.resize(9*meshT.rows(), meshV.size());
-  Jw.setFromTriplets(trips2.begin(),trips2.end());
-
-  // Create local tensors used for reshaping vectors to matrices
-  B_33.setValues({
-      {
-        {1, 0, 0, 0, 0, 0, 0, 0, 0},
-        {0, 1, 0, 0, 0, 0, 0, 0, 0},
-        {0, 0, 1, 0, 0, 0, 0, 0, 0},
-      },
-      {
-        {0, 0, 0, 1, 0, 0, 0, 0, 0},
-        {0, 0, 0, 0, 1, 0, 0, 0, 0},
-        {0, 0, 0, 0, 0, 1, 0, 0, 0},
-      },
-      {
-        {0, 0, 0, 0, 0, 0, 1, 0, 0},
-        {0, 0, 0, 0, 0, 0, 0, 1, 0},
-        {0, 0, 0, 0, 0, 0, 0, 0, 1},
-      }
-  });
-  //TODO confirm ordering is okay
-  B_33s.setValues({
-      {
-        {1, 0, 0, 0, 0, 0},
-        {0, 0, 0, 0, 0, 1},
-        {0, 0, 0, 0, 1, 0} 
-      },
-      {
-        {0, 0, 0, 0, 0, 1},
-        {0, 1, 0, 0, 0, 0},
-        {0, 0, 0, 1, 0, 0} 
-      },  
-      {
-        {0, 0, 0, 0, 1, 0},
-        {0, 0, 0, 1, 0, 0},
-        {0, 0, 1, 0, 0, 0} 
-      }
-  }); 
-  array<IndexPair<int>, 1> dims = {IndexPair<int>(1, 1)
-  };
-  Te = B_33.contract(B_33s, dims);
+  J = tet_jacobian(meshV,meshT,vols,false);
+  Jw = tet_jacobian(meshV,meshT,vols,true);
 
   // Pinning matrices
   double min_x = meshV.col(0).minCoeff();
@@ -503,16 +346,14 @@ void init_sim() {
   q1 = qt;
   dq_la = 0*qt;
 
+  build_kkt_lhs();
+
   // Project out mass matrix pinned point
   M = P * M * P.transpose();
 
   // External gravity force
   f_ext = M * P *Vector3d(0,grav,0).replicate(meshV.rows(),1);
   f_ext0 = P *Vector3d(0,grav,0).replicate(meshV.rows(),1);
-
-
-  build_kkt_lhs();
-
   //EigenSolver<MatrixXd> eigensolver;
   //eigensolver.compute(MatrixXd(lhs));
   //std::cout << "Evals: \n" << eigensolver.eigenvalues().real() << std::endl;
@@ -520,11 +361,7 @@ void init_sim() {
 }
 
 void simulation_step() {
-  // Does each iteration use dq anywhere besides being a solution of
-  // the kkt solve?
-  // ds & lambda are used in the projection, but to confirm delta q
-  // is just one of the "end products"
-  //
+
   int steps=10;
   dq_la.setZero();
 

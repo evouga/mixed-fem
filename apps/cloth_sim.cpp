@@ -496,10 +496,6 @@ void init_sim() {
 }
 
 void simulation_step() {
-  // Does each iteration use dq anywhere besides being a solution of
-  // the kkt solve?
-  // ds & lambda are used in the projection, but to confirm delta q
-  // is just one of the "end products"
   //
   int steps=10;
   dq_la.setZero();
