@@ -5,7 +5,7 @@ using namespace Eigen;
 void arap_compliance(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
     const std::vector<Eigen::Matrix3d>& R, const Eigen::VectorXd& vols,
     double mu, double la, std::vector<Eigen::Triplet<double>>& trips) {
-  double offset = V.size();
+  int offset = V.size();
 
   for (int i = 0; i < T.rows(); ++i) {
     Eigen::Matrix9d WHiW = arap_WHinvW(R[i], mu, la);

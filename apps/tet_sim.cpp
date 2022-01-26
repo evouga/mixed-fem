@@ -74,8 +74,8 @@ VectorXi pinnedV;
 // Simulation params
 double h = 0.02;//0.1;
 double density = 1000.0;
-//double ym = 2e5;
-double ym = 2e14;
+double ym = 4e5;
+//double ym = 2e14;
 double pr = 0.45;
 double mu = ym/(2.0*(1.0+pr));
 double lambda = (ym*pr)/((1.0+pr)*(1.0-2.0*pr));
@@ -105,6 +105,7 @@ VectorXd vols;  // per element volume
 // KKT system
 std::vector<Triplet<double>> lhs_trips;
 SparseMatrixd lhs;
+SparseMatrixd lhs_sim;
 #if defined(SIM_USE_CHOLMOD)
 CholmodSimplicialLDLT<SparseMatrixd> solver;
 #else
@@ -112,7 +113,6 @@ SimplicialLDLT<SparseMatrixd> solver;
 #endif
 ConjugateGradient<SparseMatrixd, Lower|Upper, FemPreconditioner<double>> cg;
 //BiCGSTAB<SparseMatrixd, FemPreconditioner<double>> cg;
-//GMRES<SparseMatrixd, FemPreconditioner<double>> cg;
 //GMRES<SparseMatrixd, FemPreconditioner<double>> cg;
 VectorXd rhs;
 
@@ -147,19 +147,23 @@ VectorXd collision_force() {
 
 void build_kkt_lhs() {
 
-  std::vector<Triplet<double>> trips;
+  std::vector<Triplet<double>> trips, trips_sim;
 
   int sz = meshV.size() + meshT.rows()*9;
   tet_kkt_lhs(M, Jw, ih2, trips); 
 
   lhs_trips = trips;
+  trips_sim = trips;
 
   diag_compliance(meshV, meshT, vols, alpha, trips);
-
   lhs.resize(sz,sz);
   lhs.setFromTriplets(trips.begin(), trips.end());
-  //std::cout << "TRIPS: \n" << lhs << std::endl;
   lhs = P_kkt * lhs * P_kkt.transpose();
+
+  corotational_compliance(meshV, meshT, R, vols, mu, lambda, trips_sim);
+  lhs_sim.resize(sz,sz);
+  lhs_sim.setFromTriplets(trips_sim.begin(), trips_sim.end());
+  lhs_sim = P_kkt * lhs_sim * P_kkt.transpose();
 
   #if defined(SIM_USE_CHOLMOD)
   std::cout << "Using CHOLDMOD solver" << std::endl;
@@ -310,7 +314,7 @@ void init_sim() {
   double pin_y = max_y - (max_y-min_y)*0.1;
   //double pin_y = min_y + (max_y-min_y)*0.1;
   //pinnedV = (meshV.col(0).array() < pin_x).cast<int>(); 
-  //pinnedV = (meshV.col(1).array() > pin_y).cast<int>(); 
+  pinnedV = (meshV.col(1).array() > pin_y).cast<int>(); 
   //pinnedV(0) = 1;
   //polyscope::getVolumeMesh("input mesh")
   polyscope::getSurfaceMesh("input mesh")
@@ -382,20 +386,23 @@ void simulation_step() {
     start=end;
 
     // New CG stuff
-    std::vector<Triplet<double>> trips;
-    int sz = meshV.size() + meshT.rows()*9;
-    trips = lhs_trips;
-    corotational_compliance(meshV, meshT, R, vols, mu, lambda, trips);
-    //arap_compliance(meshV, meshT, R, vols, mu, lambda, trips);
+    //std::vector<Triplet<double>> trips;
+    //int sz = meshV.size() + meshT.rows()*9;
+    //trips = lhs_trips;
+    //corotational_compliance(meshV, meshT, R, vols, mu, lambda, trips);
+    ////arap_compliance(meshV, meshT, R, vols, mu, lambda, trips);
+    //end = high_resolution_clock::now();
+    //t_asm += duration_cast<nanoseconds>(end-start).count()/1e6;
+    //SparseMatrixd newlhs(sz,sz);
+    //newlhs.setFromTriplets(trips.begin(), trips.end());
+    //newlhs = P_kkt * newlhs * P_kkt.transpose();
+    update_corotational_compliance(qt.size(), meshT.rows(), R, vols,
+        mu, lambda, lhs_sim);
+    //std::cout << "DIFF: " << (newlhs-lhs_sim).norm() << std::endl;
     end = high_resolution_clock::now();
     t_asm += duration_cast<nanoseconds>(end-start).count()/1e6;
-    SparseMatrixd newlhs(sz,sz);
-    newlhs.setFromTriplets(trips.begin(), trips.end());
-    newlhs = P_kkt * newlhs * P_kkt.transpose();
-    end = high_resolution_clock::now();
-    //t_asm += duration_cast<nanoseconds>(end-start).count()/1e6;
     start = end;
-    cg.compute(newlhs);
+    cg.compute(lhs_sim);
     dq_la = cg.solveWithGuess(rhs, dq_la);
     std::cout << "#iterations:     " << cg.iterations() << std::endl;
     std::cout << "estimated error: " << cg.error()      << std::endl;
