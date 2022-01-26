@@ -20,10 +20,9 @@
 #include <EigenTypes.h>
 #include "linear_tri3dmesh_dphi_dX.h"
 
-#include "arap.h"
-#include "preconditioner.h"
-#include "tri_kkt.h"
+
 #include "pinning_matrix.h"
+#include <unsupported/Eigen/CXX11/Tensor>
 #include <iostream>
 #include <unordered_set>
 #include <utility>
@@ -68,7 +67,6 @@ double density = 100;
 double ym = 1e5;
 double pr = 0.40;
 double mu = ym/(2.0*(1.0+pr));
-double lambda = (ym*pr)/((1.0+pr)*(1.0-2.0*pr));
 double alpha = mu;
 double ih2 = 1.0/h/h;
 double grav = -9.8;
@@ -105,6 +103,40 @@ SimplicialLDLT<SparseMatrixd> solver;
 VectorXd rhs;
 
 // ------------------------------------ //
+
+void trimesh_massmatrix() {
+  std::vector<Triplet<double>> trips;
+
+  // 1. Mass matrix terms
+  for (int i = 0; i < meshF.rows(); ++i) {
+    for (int j = 0; j < 3; ++j) {
+      int id1 = meshF(i,j);
+      for (int k = 0; k < 3; ++k) {
+        int id2 = meshF(i,k);
+        double val = dblA(i);
+        if (j == k)
+          val /= 12;
+        else
+          val /= 24;
+        trips.push_back(Triplet<double>(3*id1+0,3*id2,val));
+        trips.push_back(Triplet<double>(3*id1+1,3*id2+1,val));
+        trips.push_back(Triplet<double>(3*id1+2,3*id2+2,val));
+        //double val = dblA(i) / 2;
+        //if (j == k) {
+        //  trips.push_back(Triplet<double>(3*id1+0,3*id2,val));
+        //  trips.push_back(Triplet<double>(3*id1+1,3*id2+1,val));
+        //  trips.push_back(Triplet<double>(3*id1+2,3*id2+2,val));
+        //}
+      }
+    }
+  }
+  //for (int i = 0; i < meshV.size(); ++i) {
+  //  trips.push_back(Triplet<double>(i,i,1));
+  //}
+  M.resize(meshV.size(),meshV.size());
+  M.setFromTriplets(trips.begin(),trips.end());
+}
+
 VectorXd collision_force() {
 
   //Vector3d N(plane(0),plane(1),plane(2));
@@ -147,12 +179,67 @@ VectorXd collision_force() {
 void build_kkt_lhs() {
  
   std::vector<Triplet<double>> trips;
-  int sz = meshV.size() + meshF.rows()*9;
-  tri_kkt_lhs(M, Jw, ih2, trips); 
-  diag_compliance(meshV, meshF, vols, alpha, trips);
 
+  // 1. Mass matrix terms
+  for (int k=0; k < M.outerSize(); ++k) {
+    for (SparseMatrixd::InnerIterator it(M,k); it; ++it) {
+      trips.push_back(Triplet<double>(it.row(),it.col(),ih2*it.value()));
+    }
+  }
+
+  for (int i = 0; i < meshF.rows(); ++i) {
+
+    // 2. J matrix (and transpose) terms
+    // Local jacobian
+    Matrix3d dX = sim::unflatten<3,3>(dphidX.row(i));
+
+    // Local block
+    Matrix9d B;
+    B  << 
+      dX(0,0), 0      , 0      , dX(1,0), 0      , 0      , dX(2,0), 0      , 0, 
+      dX(0,1), 0      , 0      , dX(1,1), 0      , 0      , dX(2,1), 0      , 0, 
+      dX(0,2), 0      , 0      , dX(1,2), 0      , 0      , dX(2,2), 0      , 0,
+      0      , dX(0,0), 0      , 0      , dX(1,0), 0      , 0      , dX(2,0), 0,
+      0      , dX(0,1), 0      , 0      , dX(1,1), 0      , 0      , dX(2,1), 0,
+      0      , dX(0,2), 0      , 0      , dX(1,2), 0      , 0      , dX(2,2), 0,
+      0      , 0      , dX(0,0), 0      , 0      , dX(1,0), 0      , 0      , dX(2,0),
+      0      , 0      , dX(0,1), 0      , 0      , dX(1,1), 0      , 0      , dX(2,1),
+      0      , 0      , dX(0,2), 0      , 0      , dX(1,2), 0      , 0      , dX(2,2);
+
+    int offset = meshV.size(); // offset for off diagonal blocks
+
+    // Assembly for the i-th lagrange multiplier matrix which
+    // is associated with 4 vertices (for tetrahedra)
+    for (int j = 0; j < 9; ++j) {
+
+      // k-th vertex of the tetrahedra
+      for (int k = 0; k < 3; ++k) {
+        int vid = meshF(i,k); // vertex index
+
+        // x,y,z index for the k-th vertex
+        for (int l = 0; l < 3; ++l) {
+          double val = B(j,3*k+l) * vols(i); 
+          // subdiagonal term
+          trips.push_back(Triplet<double>(offset+9*i+j, 3*vid+l, val));
+
+          // superdiagonal term
+          trips.push_back(Triplet<double>(3*vid+l, offset+9*i+j, val));
+        }
+      }
+    }
+
+    // 3. Compliance matrix terms
+    // Each local term is equivalent and is a scaled diagonal matrix
+    double He = -vols(i)/alpha;
+    for (int j = 0; j < 9; ++j) {
+      trips.push_back(Triplet<double>(offset+9*i+j,offset+9*i+j, He));
+    }
+  }
+
+  int sz = meshV.size() + meshF.rows()*9;
   lhs.resize(sz,sz);
   lhs.setFromTriplets(trips.begin(), trips.end());
+
   lhs = P_kkt * lhs * P_kkt.transpose();
 
   #if defined(SIM_USE_CHOLMOD)
@@ -170,21 +257,34 @@ void build_kkt_rhs() {
   rhs.setZero();
 
   // Positional forces 
+  //rhs.segment(0, qt.size()) = f_ext + ih2*M*(q0 - q1);
   rhs.segment(0, qt.size()) = ih2*M*(q0 - q1);
   if (enable_ext) {
     rhs.segment(0, qt.size()) += f_ext;
   }
 
+
+  // Lagrange multiplier forces
+  array<IndexPair<int>, 2> dims = { 
+    IndexPair<int>(0, 0), IndexPair<int>(2, 1)
+  };
+
   #pragma omp parallel for
   for (int i = 0; i < meshF.rows(); ++i) {
     // 1. W * st term +  - W * Hinv * g term
+    // Becomes W * I_vec = flatten(R[i]^t)
+    Vector9d Ws = vols(i) * sim::flatten(R[i].transpose()); 
+
     Matrix3d NN = (meshN.row(i).transpose()) * meshN.row(i);
-    Vector9d n = sim::flatten((R[i]*NN).transpose());
-    rhs.segment(qt.size() + 9*i, 9) = vols(i) * (arap_rhs(R[i]) - n);
+    //Vector9d n = vols(i) * sim::flatten(R[i].transpose()*NN);
+    Vector9d n = vols(i) * sim::flatten((R[i]*NN).transpose());
+    //Vector9d n = vols(i) * sim::flatten(R[i]*NN);
+    rhs.segment(qt.size() + 9*i, 9) = Ws - n;
   }
 
   // 3. Jacobian term
   rhs.segment(qt.size(), 9*meshF.rows()) -= Jw*(P.transpose()*qt+b);
+  //std::cout << "RHS : " << rhs << std::endl;
 }
 
 void update_SR_fast() {
@@ -220,7 +320,27 @@ void update_SR_fast() {
 
       // 1. Update S[i] using new lambdas
       start = high_resolution_clock::now();
-      S[i] += arap_ds(R[i], S[i], la.segment(9*i,9), mu, lambda);
+      // (la    B ) : (R    C    s) 
+      //  1x9 9x3x3   3x3 3x3x6 6x1
+      //  we want (la B) : (R C)
+      Matrix<double,9,6> W;
+      W <<
+        R[i](0,0), 0,         0,         0,         R[i](0,2), R[i](0,1),
+        0,         R[i](0,1), 0,         R[i](0,2), 0,         R[i](0,0),
+        0,         0,         R[i](0,2), R[i](0,1), R[i](0,0), 0, 
+        R[i](1,0), 0,         0,         0,         R[i](1,2), R[i](1,1),
+        0,         R[i](1,1), 0,         R[i](1,2), 0,         R[i](1,0),
+        0,         0,         R[i](1,2), R[i](1,1), R[i](1,0), 0,  
+        R[i](2,0), 0,         0,         0,         R[i](2,2), R[i](2,1),
+        0,         R[i](2,1), 0,         R[i](2,2), 0        , R[i](2,0),
+        0,         0,         R[i](2,2), R[i](2,1), R[i](2,0), 0;
+      end = high_resolution_clock::now();
+      t_2 += duration_cast<nanoseconds>(end-start).count()/1e6;
+
+      // H^-1 * g = s^i - I
+      start = high_resolution_clock::now();
+      Vector6d ds = He_inv*W.transpose()*la.segment(9*i,9) -(S[i]-I_vec); 
+      S[i] += ds;
       end = high_resolution_clock::now();
       t_3 += duration_cast<nanoseconds>(end-start).count()/1e6;
 
@@ -231,6 +351,9 @@ void update_SR_fast() {
       //  1x9 9x3x3 3x3x6 3x3 6x1 
       //  we want [la   B ]  [ C    s]
       //          1x9 9x3x3  3x3x6 6x1
+      //if (i == 0) {
+      //  std::cout << meshN.row(i).transpose()*meshN.row(i) << std::endl;;
+      //}
       Matrix3d Cs;
       Cs << S[i](0), S[i](5), S[i](4), 
             S[i](5), S[i](1), S[i](3), 
@@ -288,11 +411,51 @@ void init_sim() {
   vols = dblA;
   vols.array() *= (thickness/2);
 
-  M = trimesh_massmatrix(meshV,meshF,dblA);
+  trimesh_massmatrix();
   M = M*density*thickness; // note: assuming uniform density and thickness
 
-  J = tri_jacobian(meshV,meshF,vols,false);
-  Jw = tri_jacobian(meshV,meshF,vols,true);
+  // J matrix (big jacobian guy)
+  std::vector<Triplet<double>> trips;
+  std::vector<Triplet<double>> trips2;
+  sim::linear_tri3dmesh_dphi_dX(dphidX, meshV, meshF);
+  for (int i = 0; i < meshF.rows(); ++i) { 
+
+    Matrix3d dX = sim::unflatten<3,3>(dphidX.row(i));
+
+    // Local block
+    Matrix9d B;
+    B  << 
+      dX(0,0), 0      , 0      , dX(1,0), 0      , 0      , dX(2,0), 0      , 0, 
+      dX(0,1), 0      , 0      , dX(1,1), 0      , 0      , dX(2,1), 0      , 0, 
+      dX(0,2), 0      , 0      , dX(1,2), 0      , 0      , dX(2,2), 0      , 0,
+      0      , dX(0,0), 0      , 0      , dX(1,0), 0      , 0      , dX(2,0), 0,
+      0      , dX(0,1), 0      , 0      , dX(1,1), 0      , 0      , dX(2,1), 0,
+      0      , dX(0,2), 0      , 0      , dX(1,2), 0      , 0      , dX(2,2), 0,
+      0      , 0      , dX(0,0), 0      , 0      , dX(1,0), 0      , 0      , dX(2,0),
+      0      , 0      , dX(0,1), 0      , 0      , dX(1,1), 0      , 0      , dX(2,1),
+      0      , 0      , dX(0,2), 0      , 0      , dX(1,2), 0      , 0      , dX(2,2);
+
+    // Assembly for the i-th lagrange multiplier matrix which
+    // is associated with 4 vertices (for tetrahedra)
+    for (int j = 0; j < 9; ++j) {
+
+      // k-th vertex of the tetrahedra
+      for (int k = 0; k < 3; ++k) {
+        int vid = meshF(i,k); // vertex index
+
+        // x,y,z index for the k-th vertex
+        for (int l = 0; l < 3; ++l) {
+          double val = B(j,3*k+l);
+          trips.push_back(Triplet<double>(9*i+j, 3*vid+l, val));
+          trips2.push_back(Triplet<double>(9*i+j, 3*vid+l, val*vols(i)));
+        }
+      }
+    }
+  }
+  J.resize(9*meshF.rows(), meshV.size());
+  J.setFromTriplets(trips.begin(),trips.end());
+  Jw.resize(9*meshF.rows(), meshV.size());
+  Jw.setFromTriplets(trips2.begin(),trips2.end());
 
   // Pinning matrices
   double min_x = meshV.col(0).minCoeff();
@@ -348,6 +511,9 @@ void simulation_step() {
   beta = 100;
 
   for (int i = 0; i < steps; ++i) {
+    // TODO partially inefficient right?
+    //  dq rows are fixed throughout the optimization, only lambda rows
+    //  change correct?
     auto start = high_resolution_clock::now();
     build_kkt_rhs();
     auto end = high_resolution_clock::now();

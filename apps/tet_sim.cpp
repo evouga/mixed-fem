@@ -169,6 +169,8 @@ void build_kkt_lhs() {
     std::cerr << " KKT prefactor failed! " << std::endl;
   }
   cg.preconditioner().init(lhs);
+  cg.setMaxIterations(10);
+  cg.setTolerance(1e-5);
 }
 
 void build_kkt_rhs() {
@@ -353,7 +355,7 @@ void simulation_step() {
     update_SR_fast();
   }
   
-  double t_coll=0, t_rhs = 0, t_solve = 0, t_SR = 0; 
+  double t_coll=0, t_rhs = 0, t_asm=0,t_solve = 0, t_SR = 0; 
   beta = 100;
   for (int i = 0; i < steps; ++i) {
     // TODO partially inefficient right?
@@ -374,36 +376,27 @@ void simulation_step() {
       start = end;
     }
 
-    if (i == 0)
+    if (i == 0) {
       dq_la = solver.solve(rhs);
-    //std::cout <<"dq_la 0: " << dq_la << std::endl;
+    }
+    start=end;
 
     // New CG stuff
     std::vector<Triplet<double>> trips;
     int sz = meshV.size() + meshT.rows()*9;
     trips = lhs_trips;
-    //diag_compliance(meshV, meshT, vols, alpha, trips);
     corotational_compliance(meshV, meshT, R, vols, mu, lambda, trips);
     //arap_compliance(meshV, meshT, R, vols, mu, lambda, trips);
+    end = high_resolution_clock::now();
+    t_asm += duration_cast<nanoseconds>(end-start).count()/1e6;
     SparseMatrixd newlhs(sz,sz);
     newlhs.setFromTriplets(trips.begin(), trips.end());
     newlhs = P_kkt * newlhs * P_kkt.transpose();
-    //std::cout << " LD LHS: " << lhs << std::endl;
-    //std::cout << " NEW LHS: " << newlhs << std::endl;
-    //std::cout << " diff LHS: " << (lhs-newlhs) << std::endl;
-    //std::cout << "lhs: " << lhs.size() << " r: " << lhs.rows() << " c: " << lhs.cols() << std::endl;
-    //std::cout << "newlhs: " << newlhs.size() << " r: " << newlhs.rows() << " c: " << newlhs.cols() << std::endl;
-    //std::cout << "CG compute: " << std::endl;
-    //for(int i = 0; i < meshT.rows(); ++i) {
-    //  std::cout << "R:\n" << R[i] << " " << R[i].determinant()<<std::endl;
-    //}
+    end = high_resolution_clock::now();
+    //t_asm += duration_cast<nanoseconds>(end-start).count()/1e6;
+    start = end;
     cg.compute(newlhs);
-    //dq_la = cg.solve(rhs);
     dq_la = cg.solveWithGuess(rhs, dq_la);
-    if (cg.info() != Success) {
-      std::cerr << " CG failed! " << std::endl;
-    }
-    //std::cout <<"dq_la : " << dq_la << std::endl;
     std::cout << "#iterations:     " << cg.iterations() << std::endl;
     std::cout << "estimated error: " << cg.error()      << std::endl;
     
@@ -423,7 +416,7 @@ void simulation_step() {
   }
   t_coll/=steps; t_rhs /=steps; t_solve/=steps; t_SR/=steps;
   std::cout << "[Avg Time ms] collision: " << t_coll << 
-    " rhs: " << t_rhs << " solver: " << t_solve <<
+    " rhs: " << t_rhs << " assembly: " << t_asm << " solver: " << t_solve <<
     " update S & R: " << t_SR << std::endl;
 
   q1 = q0;

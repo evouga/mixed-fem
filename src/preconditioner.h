@@ -27,16 +27,6 @@ namespace Eigen {
    
       FemPreconditioner() : m_isInitialized(false) {}
    
-      //template<typename MatType>
-      //explicit FemPreconditioner(const MatType& mat) : m_invdiag(mat.cols())
-      //{
-      //    std::cout << "explicit constructor: " << std::endl;
-      //  compute(mat);
-      //}
-   
-      //EIGEN_CONSTEXPR Index rows() const EIGEN_NOEXCEPT { return m_invdiag.size(); }
-      //EIGEN_CONSTEXPR Index cols() const EIGEN_NOEXCEPT { return m_invdiag.size(); }
-      
       EIGEN_CONSTEXPR Index rows() const EIGEN_NOEXCEPT { return lhs_.rows(); }
       EIGEN_CONSTEXPR Index cols() const EIGEN_NOEXCEPT { return lhs_.cols(); }
    
@@ -57,17 +47,6 @@ namespace Eigen {
       template<typename MatType>
       FemPreconditioner& factorize(const MatType& mat)
       {
-        //  std::cout << "factorize: " << std::endl;
-        //m_invdiag.resize(mat.cols());
-        //for(int j=0; j<mat.outerSize(); ++j)
-        //{
-        //  typename MatType::InnerIterator it(mat,j);
-        //  while(it && it.index()!=j) ++it;
-        //  if(it && it.index()==j && it.value()!=Scalar(0))
-        //    m_invdiag(j) = Scalar(1)/it.value();
-        //  else
-        //    m_invdiag(j) = Scalar(1);
-        //}
         return *this;
       }
    
@@ -80,7 +59,6 @@ namespace Eigen {
       template<typename Rhs, typename Dest>
       void _solve_impl(const Rhs& b, Dest& x) const
       {
-        //x = m_invdiag.array() * b.array() ;
         x = solver_.solve(b);
       }
    
@@ -98,7 +76,6 @@ namespace Eigen {
       ComputationInfo info() { return Success; } // always winning baby
    
     protected:
-      //Vector m_invdiag;
       bool m_isInitialized;
 
       SparseMatrixd lhs_;
