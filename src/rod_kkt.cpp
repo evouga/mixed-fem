@@ -26,7 +26,7 @@ SparseMatrixdRowMajor rod_jacobian(const MatrixXd& V, const MatrixXi& E,
 
     Eigen::Matrix<double,2,3> dX; 
     linear_rod3d_dphi_dX(dX, V, E.row(i));
-    std::cout << "DPHIDX: " << dX << std::endl;
+    //std::cout << "DPHIDX: " << dX << std::endl;
 
     // Local block
     Matrix<double,9,6> B;

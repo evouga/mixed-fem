@@ -37,7 +37,6 @@ void update_neohookean_compliance(int n, int m,
 
     Eigen::Matrix9d WHiW = neohookean_WHinvW(R[i], Hinv[i]);
 
-
     // Assign to last nine entries of the j-th column for the i-th block
     for (int j = 0; j < 9; ++j) {
       int offset_j = offset + i*9 + j;

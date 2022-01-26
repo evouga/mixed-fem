@@ -1,9 +1,13 @@
 #include "polyscope/polyscope.h"
 
 // libigl
+#include <igl/read_triangle_mesh.h>
 #include <igl/boundary_facets.h>
+#include <igl/remove_unreferenced.h>
 #include <igl/invert_diag.h>
 #include <igl/readOBJ.h>
+#include <igl/readMESH.h>
+#include <igl/writeOBJ.h>
 #include <igl/doublearea.h>
 #include <igl/svd3x3.h>
 #include <igl/per_face_normals.h>
@@ -21,6 +25,8 @@
 #include "linear_tri3dmesh_dphi_dX.h"
 
 #include "arap.h"
+#include "neohookean.h"
+#include "corotational.h"
 #include "preconditioner.h"
 #include "tri_kkt.h"
 #include "pinning_matrix.h"
@@ -52,6 +58,7 @@ VectorXd dq_la;
 // F = RS
 std::vector<Matrix3d> R; // Per-element rotations
 std::vector<Vector6d> S; // Per-element symmetric deformation
+std::vector<Matrix6d> Hinv;
 
 SparseMatrixd M;          // mass matrix
 SparseMatrixd P;          // pinning constraint (for vertices)
@@ -79,6 +86,7 @@ bool enable_slide = false;
 bool enable_ext = true;
 bool warm_start = true;
 bool floor_collision = false;
+bool export_sim = false;
 
 Matrix<double, 6,1> I_vec;
 
@@ -96,12 +104,14 @@ VectorXd dblA;  // per element volume
 
 // KKT system
 SparseMatrixd lhs;
+SparseMatrixd lhs_sim;
 #if defined(SIM_USE_CHOLMOD)
-//CholmodSimplicialLDLT<SparseMatrixd> solver;
-SimplicialLDLT<SparseMatrixd> solver;
+CholmodSimplicialLDLT<SparseMatrixd> solver;
+//SimplicialLDLT<SparseMatrixd> solver;
 #else
 SimplicialLDLT<SparseMatrixd> solver;
 #endif
+ConjugateGradient<SparseMatrixd, Lower|Upper, FemPreconditioner<double>> cg;
 VectorXd rhs;
 
 // ------------------------------------ //
@@ -146,14 +156,21 @@ VectorXd collision_force() {
 
 void build_kkt_lhs() {
  
-  std::vector<Triplet<double>> trips;
+  std::vector<Triplet<double>> trips, trips_sim;
   int sz = meshV.size() + meshF.rows()*9;
   tri_kkt_lhs(M, Jw, ih2, trips); 
-  diag_compliance(meshV, meshF, vols, alpha, trips);
+  trips_sim = trips;
 
+  // KKT preconditioner LHS
+  diag_compliance(meshV, meshF, vols, alpha, trips);
   lhs.resize(sz,sz);
   lhs.setFromTriplets(trips.begin(), trips.end());
   lhs = P_kkt * lhs * P_kkt.transpose();
+
+  corotational_compliance(meshV, meshF, R, vols, mu, lambda, trips_sim);
+  lhs_sim.resize(sz,sz);
+  lhs_sim.setFromTriplets(trips_sim.begin(), trips_sim.end());
+  lhs_sim = P_kkt * lhs_sim * P_kkt.transpose();
 
   #if defined(SIM_USE_CHOLMOD)
   std::cout << "Using CHOLDMOD solver" << std::endl;
@@ -162,6 +179,9 @@ void build_kkt_lhs() {
   if(solver.info()!=Success) {
     std::cerr << " KKT prefactor failed! " << std::endl;
   } 
+  cg.preconditioner().init(lhs);
+  cg.setMaxIterations(10);
+  cg.setTolerance(1e-5);
 }
 
 void build_kkt_rhs() {
@@ -180,7 +200,12 @@ void build_kkt_rhs() {
     // 1. W * st term +  - W * Hinv * g term
     Matrix3d NN = (meshN.row(i).transpose()) * meshN.row(i);
     Vector9d n = sim::flatten((R[i]*NN).transpose());
-    rhs.segment(qt.size() + 9*i, 9) = vols(i) * (arap_rhs(R[i]) - n);
+    //rhs.segment(qt.size() + 9*i, 9) = vols(i) * (arap_rhs(R[i]) - n);
+
+    // For neohookean we need to compute Hinv
+    Hinv[i] = neohookean_hinv(R[i],S[i],mu,lambda);
+    rhs.segment(qt.size() + 9*i, 9) = vols(i) * (neohookean_rhs(R[i],
+        S[i], Hinv[i], mu, lambda) - n);
   }
 
   // 3. Jacobian term
@@ -188,14 +213,6 @@ void build_kkt_rhs() {
 }
 
 void update_SR_fast() {
-
-  // Local hessian (constant for all elements)
-  Vector6d He_inv_vec;
-  He_inv_vec << 1,1,1,0.5,0.5,0.5;
-  He_inv_vec /= alpha;
-  DiagonalMatrix<double,6> He_inv = He_inv_vec.asDiagonal();
-
-
   double t_1=0,t_2=0,t_3=0,t_4=0,t_5=0; 
   auto start = high_resolution_clock::now();
   VectorXd def_grad = J*(P.transpose()*(qt+dq_la.segment(0, qt.rows()))+b);
@@ -205,7 +222,6 @@ void update_SR_fast() {
   int N = (meshF.rows() / 4) + int(meshF.rows() % 4 != 0);
 
   double fac = beta * (la.maxCoeff() + 1e-8);
-  //double fac = alpha;
   #pragma omp parallel for 
   for (int ii = 0; ii < N; ++ii) {
 
@@ -220,7 +236,8 @@ void update_SR_fast() {
 
       // 1. Update S[i] using new lambdas
       start = high_resolution_clock::now();
-      S[i] += arap_ds(R[i], S[i], la.segment(9*i,9), mu, lambda);
+      //S[i] += arap_ds(R[i], S[i], la.segment(9*i,9), mu, lambda);
+      S[i] += neohookean_ds(R[i], S[i], la.segment(9*i,9), Hinv[i], mu, lambda);
       end = high_resolution_clock::now();
       t_3 += duration_cast<nanoseconds>(end-start).count()/1e6;
 
@@ -271,10 +288,12 @@ void init_sim() {
   // Initialize rotation matrices to identity
   R.resize(meshF.rows());
   S.resize(meshF.rows());
+  Hinv.resize(meshF.rows());
   for (int i = 0; i < meshF.rows(); ++i) {
     R[i].setIdentity();
     //R[i] = R_test;
     S[i] = I_vec;
+    Hinv[i].setIdentity();
   }
 
   // Initial lambdas
@@ -362,8 +381,18 @@ void simulation_step() {
       t_coll += duration_cast<nanoseconds>(end-start).count()/1e6;
       start = end;
     }
+    // dq_la = solver.solve(rhs);
+    if (i == 0) {
+      dq_la = solver.solve(rhs);
+    }
 
-    dq_la = solver.solve(rhs);
+    // New CG stuff
+    update_neohookean_compliance(qt.size(), meshF.rows(), R, Hinv, vols,
+        mu, lambda, lhs_sim);
+    cg.compute(lhs_sim);
+    dq_la = cg.solveWithGuess(rhs, dq_la);
+    std::cout << "#iterations:     " << cg.iterations() << std::endl;
+    std::cout << "estimated error: " << cg.error()      << std::endl;
 
     end = high_resolution_clock::now();
     t_solve += duration_cast<nanoseconds>(end-start).count()/1e6;
@@ -426,18 +455,27 @@ void callback() {
   ImGui::Checkbox("external forces",&enable_ext);
   ImGui::Checkbox("slide mesh",&enable_slide);
   ImGui::Checkbox("simulate",&simulating);
+  ImGui::Checkbox("export",&export_sim);
   //if(ImGui::Button("show pinned")) {
   //} 
+  static int step = 0;
 
   if(ImGui::Button("sim step") || simulating) {
     simulation_step();
-    //polyscope::getVolumeMesh("input mesh")
     polyscope::getSurfaceMesh("input mesh")
       ->updateVertexPositions(meshV);
-  }
-  //ImGui::SameLine();
-  //ImGui::InputInt("source vertex", &iVertexSource);
 
+    if (export_sim) {
+      char buffer [50];
+      int n = sprintf(buffer, "../data/cloth_%04d.png", step); 
+      buffer[n] = 0;
+      polyscope::screenshot(std::string(buffer), true);
+      n = sprintf(buffer, "../data/cloth_%04d.obj", step++); 
+      buffer[n] = 0;
+      igl::writeOBJ(std::string(buffer),meshV,meshF);
+    }
+
+  }
   ImGui::PopItemWidth();
 }
 
@@ -471,7 +509,17 @@ int main(int argc, char **argv) {
   std::cout << "loading: " << filename << std::endl;
 
   // Read the mesh
-  igl::readOBJ(filename, meshV, meshF);
+  //igl::readOBJ(filename, meshV, meshF);
+
+  // Read tetmesh
+  igl::read_triangle_mesh(filename,meshV,meshF);
+  Eigen::MatrixXd NV;
+  Eigen::MatrixXi NF;
+  VectorXi VI,VJ;
+  igl::remove_unreferenced(meshV,meshF,NV,NF,VI,VJ);
+  meshV = NV;
+  meshF = NF;
+
   meshV.array() /= meshV.maxCoeff();
 
   igl::per_face_normals(meshV,meshF,meshN);
@@ -479,6 +527,10 @@ int main(int argc, char **argv) {
   // Register the mesh with Polyscope
   polyscope::options::autocenterStructures = false;
   polyscope::registerSurfaceMesh("input mesh", meshV, meshF);
+
+  meshN = -meshN;
+  polyscope::getSurfaceMesh("input mesh")->
+    addFaceVectorQuantity("normals", meshN);
 
   pinnedV.resize(meshV.rows());
   pinnedV.setZero();

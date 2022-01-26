@@ -1,9 +1,16 @@
 #include "polyscope/polyscope.h"
 
 // libigl
+#include <igl/unique_simplices.h>
+#include <igl/cat.h>
+#include <igl/remove_unreferenced.h>
 #include <igl/boundary_facets.h>
 #include <igl/invert_diag.h>
+#include <igl/writeOBJ.h>
 #include <igl/readOBJ.h>
+#include <igl/readMESH.h>
+#include <igl/edges.h>
+#include <igl/edge_lengths.h>
 #include <igl/doublearea.h>
 #include <igl/svd3x3.h>
 #include <igl/per_face_normals.h>
@@ -12,6 +19,7 @@
 // Polyscope
 #include "polyscope/messages.h"
 #include "polyscope/curve_network.h"
+#include "polyscope/surface_mesh.h"
 #include "args/args.hxx"
 #include "json/json.hpp"
 
@@ -21,6 +29,8 @@
 
 #include "arap.h"
 #include "preconditioner.h"
+#include "corotational.h"
+#include "neohookean.h"
 #include "tri_kkt.h"
 #include "rod_kkt.h"
 #include "pinning_matrix.h"
@@ -45,6 +55,7 @@ using SparseMatrixdRowMajor = Eigen::SparseMatrix<double,RowMajor>;
 // The mesh, Eigen representation
 MatrixXd meshV;  // verts
 MatrixXi meshE;  // edges
+MatrixXi meshF;  // faces (for output only)
 MatrixXd meshN;  // normals 
 MatrixXd meshBN; // binormals 
 
@@ -54,6 +65,7 @@ VectorXd dq_la;
 polyscope::CurveNetwork* curve = nullptr;
 std::vector<Matrix3d> R; // Per-element rotations
 std::vector<Vector6d> S; // Per-element symmetric deformation
+std::vector<Matrix6d> Hinv;
 
 SparseMatrixd M;          // mass matrix
 SparseMatrixd P;          // pinning constraint (for vertices)
@@ -67,8 +79,8 @@ VectorXi pinnedV;
 double h = 0.01;
 double thickness = 1e-1;//1e-3;
 double density = 100;
-double ym = 1e5;
-double pr = 0.40;
+double ym = 2e5;
+double pr = 0.45;
 double mu = ym/(2.0*(1.0+pr));
 double lambda = (ym*pr)/((1.0+pr)*(1.0-2.0*pr));
 double alpha = mu;
@@ -81,6 +93,7 @@ bool enable_slide = false;
 bool enable_ext = true;
 bool warm_start = true;
 bool floor_collision = false;
+bool export_sim = false;
 
 Matrix<double, 6,1> I_vec;
 
@@ -98,12 +111,14 @@ VectorXd dblA;  // per element volume
 
 // KKT system
 SparseMatrixd lhs;
+SparseMatrixd lhs_sim;
 #if defined(SIM_USE_CHOLMOD)
-//CholmodSimplicialLDLT<SparseMatrixd> solver;
-SimplicialLDLT<SparseMatrixd> solver;
+CholmodSimplicialLDLT<SparseMatrixd> solver;
+//SimplicialLDLT<SparseMatrixd> solver;
 #else
 SimplicialLDLT<SparseMatrixd> solver;
 #endif
+ConjugateGradient<SparseMatrixd, Lower|Upper, FemPreconditioner<double>> cg;
 VectorXd rhs;
 
 // ------------------------------------ //
@@ -149,16 +164,20 @@ VectorXd collision_force() {
 
 void build_kkt_lhs() {
 
-  std::vector<Triplet<double>> trips;
+  std::vector<Triplet<double>> trips, trips_sim;
   int sz = meshV.size() + meshE.rows()*9;
   tri_kkt_lhs(M, Jw, ih2, trips); 
-  diag_compliance(meshV, meshE, vols, alpha, trips);
+  trips_sim = trips;
 
+  diag_compliance(meshV, meshE, vols, alpha, trips);
   lhs.resize(sz,sz);
   lhs.setFromTriplets(trips.begin(), trips.end());
-
-  std::cout << "LHS pre P: " << lhs << std::endl;
   lhs = P_kkt * lhs * P_kkt.transpose();
+
+  corotational_compliance(meshV, meshE, R, vols, mu, lambda, trips_sim);
+  lhs_sim.resize(sz,sz);
+  lhs_sim.setFromTriplets(trips_sim.begin(), trips_sim.end());
+  lhs_sim = P_kkt * lhs_sim * P_kkt.transpose();
 
   #if defined(SIM_USE_CHOLMOD)
   std::cout << "Using CHOLDMOD solver" << std::endl;
@@ -167,6 +186,9 @@ void build_kkt_lhs() {
   if(solver.info()!=Success) {
     std::cerr << " KKT prefactor failed! " << std::endl;
   } 
+  cg.preconditioner().init(lhs);
+  cg.setMaxIterations(10);
+  cg.setTolerance(1e-5);
 }
 
 void build_kkt_rhs() {
@@ -187,7 +209,12 @@ void build_kkt_rhs() {
     Matrix3d BNBN = (meshBN.row(i).transpose()) * meshBN.row(i);
     Vector9d n = sim::flatten((R[i]*NN).transpose());
     Vector9d bn = sim::flatten((R[i]*BNBN).transpose());
-    rhs.segment(qt.size() + 9*i, 9) = vols(i) * (arap_rhs(R[i]) - n - bn);
+    //rhs.segment(qt.size() + 9*i, 9) = vols(i) * (arap_rhs(R[i]) - n - bn);
+
+    // For neohookean we need to compute Hinv
+    Hinv[i] = neohookean_hinv(R[i],S[i],mu,lambda);
+    rhs.segment(qt.size() + 9*i, 9) = vols(i) * (neohookean_rhs(R[i],
+        S[i], Hinv[i], mu, lambda) - n - bn);
   }
 
   // 3. Jacobian term
@@ -222,7 +249,8 @@ void update_SR_fast() {
 
       // 1. Update S[i] using new lambdas
       start = high_resolution_clock::now();
-      S[i] += arap_ds(R[i], S[i], la.segment(9*i,9), mu, lambda);
+      //S[i] += arap_ds(R[i], S[i], la.segment(9*i,9), mu, lambda);
+      S[i] += neohookean_ds(R[i], S[i], la.segment(9*i,9), Hinv[i], mu, lambda);
       end = high_resolution_clock::now();
       t_3 += duration_cast<nanoseconds>(end-start).count()/1e6;
 
@@ -268,10 +296,12 @@ void init_sim() {
   // Initialize rotation matrices to identity
   R.resize(meshE.rows());
   S.resize(meshE.rows());
+  Hinv.resize(meshE.rows());
   for (int i = 0; i < meshE.rows(); ++i) {
     R[i].setIdentity();
     //R[i] = R_test;
     S[i] = I_vec;
+    Hinv[i].setIdentity();
   }
 
   // Initial lambdas
@@ -289,7 +319,6 @@ void init_sim() {
 
   J = rod_jacobian(meshV,meshE,vols,false);
   Jw = rod_jacobian(meshV,meshE,vols,true);
-  //std::cout << " J : " << J << std::endl;
 
   // Pinning matrices
   double min_x = meshV.col(0).minCoeff();
@@ -297,10 +326,10 @@ void init_sim() {
   double pin_x = min_x + (max_x-min_x)*0.01;
   double min_y = meshV.col(1).minCoeff();
   double max_y = meshV.col(1).maxCoeff();
-  double pin_y = max_y - (max_y-min_y)*0.01;
+  double pin_y = max_y - (max_y-min_y)*0.1;
   //double pin_y = min_y + (max_y-min_y)*0.1;
-  pinnedV = (meshV.col(0).array() < pin_x).cast<int>(); 
-  //pinnedV = (meshV.col(1).array() > pin_y).cast<int>(); 
+  //pinnedV = (meshV.col(0).array() < pin_x).cast<int>(); 
+  pinnedV = (meshV.col(1).array() > pin_y).cast<int>(); 
   //pinnedV(0) = 1;
   curve->addNodeScalarQuantity("pinned", pinnedV);
   P = pinning_matrix(meshV,meshE,pinnedV,false);
@@ -319,7 +348,6 @@ void init_sim() {
 
   // Project out mass matrix pinned point
   M = P * M * P.transpose();
-  std::cout << " M: " << M << std::endl;
 
   // External gravity force
   f_ext = M * P *Vector3d(0,grav,0).replicate(meshV.rows(),1);
@@ -328,7 +356,7 @@ void init_sim() {
 
 void simulation_step() {
   //
-  int steps=20;
+  int steps=5;
   dq_la.setZero();
 
   // Warm start solver
@@ -424,12 +452,25 @@ void callback() {
   ImGui::Checkbox("external forces",&enable_ext);
   ImGui::Checkbox("slide mesh",&enable_slide);
   ImGui::Checkbox("simulate",&simulating);
+  ImGui::Checkbox("export",&export_sim);
   //if(ImGui::Button("show pinned")) {
   //} 
 
+  static int step = 0;
   if(ImGui::Button("sim step") || simulating) {
     simulation_step();
     curve->updateNodePositions(meshV);
+
+    if (export_sim) {
+      char buffer [50];
+      int n = sprintf(buffer, "../data/rod/rod_%04d.png", step); 
+      buffer[n] = 0;
+      polyscope::screenshot(std::string(buffer), true);
+      n = sprintf(buffer, "../data/rod/rod_%04d.obj", step++); 
+      buffer[n] = 0;
+      igl::writeOBJ(std::string(buffer),meshV,meshF);
+      std::cout << "Step: " << step << std::endl;
+    }
   }
   //ImGui::SameLine();
   //ImGui::InputInt("source vertex", &iVertexSource);
@@ -464,8 +505,6 @@ int main(int argc, char **argv) {
   polyscope::init();
 
   std::string filename = args::get(inFile);
-  std::cout << "loading: " << filename << std::endl;
-
 
   // Simple Rod
   //meshV.resize(2,3);
@@ -508,6 +547,64 @@ int main(int argc, char **argv) {
     0, 0, 1,
     0, 0, 1,
     0, 0, 1;
+
+  if (filename != "") {
+    std::cout << "loading: " << filename << std::endl;
+    MatrixXi meshT;
+    igl::readMESH(filename, meshV, meshT, meshF);
+
+    // Stupid shit so that i can export a OBJ
+    MatrixXi F1,F2,F3,F4;
+    F1.resize(meshT.rows(),3);
+    F2.resize(meshT.rows(),3);
+    F3.resize(meshT.rows(),3);
+    F4.resize(meshT.rows(),3);
+    F1.col(0) = meshT.col(0); F1.col(1) = meshT.col(1); F1.col(2) = meshT.col(2);
+    F2.col(0) = meshT.col(0); F2.col(1) = meshT.col(2); F2.col(2) = meshT.col(3);
+    F3.col(0) = meshT.col(0); F3.col(1) = meshT.col(1); F3.col(2) = meshT.col(3);
+    F4.col(0) = meshT.col(2); F4.col(1) = meshT.col(1); F4.col(2) = meshT.col(3);
+    igl::cat(1,F1,F2,meshF);
+    igl::cat(1,meshF,F3,F1);
+    igl::cat(1,F1,F4,meshF);
+    igl::unique_simplices(meshF,F1);
+    meshF = F1;
+    Eigen::MatrixXd NV;
+    Eigen::MatrixXi NF;
+    VectorXi VI,VJ;
+    igl::remove_unreferenced(meshV,meshF,NV,NF,VI,VJ);
+    meshV = NV;
+    meshF = NF;
+    igl::edges(meshF,meshE);
+
+    
+    // Using triangle surf edges as rods
+    //igl::boundary_facets(meshT, meshF);
+    //meshF = meshF.rowwise().reverse().eval();
+    //Eigen::MatrixXd NV;
+    //Eigen::MatrixXi NF;
+    //VectorXi VI,VJ;
+    //igl::remove_unreferenced(meshV,meshF,NV,NF,VI,VJ);
+    //meshV = NV;
+    //meshF = NF;
+    //igl::edges(meshF,meshE);
+
+    // Using tet edges as rods
+    //igl::edges(meshT,meshE);
+    
+    MatrixXd FN;
+    meshN.resize(meshE.rows(),3);
+    meshBN.resize(meshE.rows(),3);
+    for (int i = 0; i < meshE.rows(); ++i ) {
+      Vector3d diff = (meshV.row(meshE(i,0)) - meshV.row(meshE(i,1)));
+      diff /= diff.norm();
+      Vector3d tmp(diff(0)-1.0,diff(2),diff(1));
+      tmp /= tmp.norm();
+      Vector3d N = diff.cross(tmp).normalized();
+      Vector3d BN = diff.cross(N).normalized();
+      meshN.row(i) = N;
+      meshBN.row(i) = BN;
+    }
+  }
 
   meshV.array() /= meshV.maxCoeff();
 

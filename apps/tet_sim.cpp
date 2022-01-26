@@ -76,7 +76,7 @@ VectorXi pinnedV;
 // Simulation params
 double h = 0.02;//0.1;
 double density = 1000.0;
-double ym = 4e5;
+double ym = 2e5;
 //double ym = 2e14;
 double pr = 0.45;
 double mu = ym/(2.0*(1.0+pr));
@@ -200,15 +200,6 @@ void build_kkt_rhs() {
     Hinv[i] = neohookean_hinv(R[i],S[i],mu,lambda);
     rhs.segment(qt.size() + 9*i, 9) = vols(i) * neohookean_rhs(R[i],
         S[i], Hinv[i], mu, lambda);
-
-      if (Hinv[i].hasNaN())
-        std::cout << "Hinv Nan: " << std::endl;
-      if (R[i].hasNaN())
-        std::cout << "R Nan: " << std::endl;
-      if (S[i].hasNaN())
-        std::cout << "S Nan: " << std::endl;
-    //std::cout << "Hinv: " << Hinv[i].hasNaN() << std::endl;
-    //std::cout << "R[i]: " << R[i] << std::endl;
   }
 
   // 3. Jacobian term
@@ -216,12 +207,6 @@ void build_kkt_rhs() {
 }
 
 void update_SR_fast() {
-
-  // Local hessian (constant for all elements)
-  Vector6d He_inv_vec;
-  He_inv_vec << 1,1,1,0.5,0.5,0.5;
-  He_inv_vec /= alpha;
-  DiagonalMatrix<double,6> He_inv = He_inv_vec.asDiagonal();
 
   double t_1=0,t_2=0,t_3=0,t_4=0,t_5=0; 
   auto start = high_resolution_clock::now();
@@ -369,7 +354,7 @@ void init_sim() {
 
 void simulation_step() {
 
-  int steps=5;
+  int steps=10;
   dq_la.setZero();
 
   // Warm start solver
@@ -416,11 +401,6 @@ void simulation_step() {
     dq_la = cg.solveWithGuess(rhs, dq_la);
     std::cout << "#iterations:     " << cg.iterations() << std::endl;
     std::cout << "estimated error: " << cg.error()      << std::endl;
-      if (dq_la.hasNaN()) {
-        std::cout << "rhs hasnan? " << rhs.hasNaN() << " lhs has nan: " << MatrixXd(lhs_sim).hasNaN() << std::endl;
-        std::cout << "dq nan: " << std::endl;
-    exit(1);
-      }
     //////////////////
 
     end = high_resolution_clock::now();
