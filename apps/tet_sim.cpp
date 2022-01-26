@@ -27,6 +27,7 @@
 
 #include "preconditioner.h"
 #include "corotational.h"
+#include "neohookean.h"
 #include "arap.h"
 #include "svd3x3_sse.h"
 #include "pinning_matrix.h"
@@ -62,6 +63,7 @@ VectorXd dq_la;
 // F = RS
 std::vector<Matrix3d> R; // Per-element rotations
 std::vector<Vector6d> S; // Per-element symmetric deformation
+std::vector<Matrix6d> Hinv;
 
 SparseMatrixd M;          // mass matrix
 SparseMatrixd P;          // pinning constraint (for vertices)
@@ -112,6 +114,7 @@ CholmodSimplicialLDLT<SparseMatrixd> solver;
 SimplicialLDLT<SparseMatrixd> solver;
 #endif
 ConjugateGradient<SparseMatrixd, Lower|Upper, FemPreconditioner<double>> cg;
+//IDRS<SparseMatrixd, FemPreconditioner<double>> cg;
 //BiCGSTAB<SparseMatrixd, FemPreconditioner<double>> cg;
 //GMRES<SparseMatrixd, FemPreconditioner<double>> cg;
 VectorXd rhs;
@@ -190,8 +193,22 @@ void build_kkt_rhs() {
   for (int i = 0; i < meshT.rows(); ++i) {
     // 1. W * st term +  - W * Hinv * g term
     //rhs.segment(qt.size() + 9*i, 9) = vols(i) * arap_rhs(R[i]);
-    rhs.segment(qt.size() + 9*i, 9) = vols(i) * corotational_rhs(R[i],
-        S[i], mu, lambda);
+    //rhs.segment(qt.size() + 9*i, 9) = vols(i) * corotational_rhs(R[i],
+    //    S[i], mu, lambda);
+
+    // For neohookean we need to compute Hinv
+    Hinv[i] = neohookean_hinv(R[i],S[i],mu,lambda);
+    rhs.segment(qt.size() + 9*i, 9) = vols(i) * neohookean_rhs(R[i],
+        S[i], Hinv[i], mu, lambda);
+
+      if (Hinv[i].hasNaN())
+        std::cout << "Hinv Nan: " << std::endl;
+      if (R[i].hasNaN())
+        std::cout << "R Nan: " << std::endl;
+      if (S[i].hasNaN())
+        std::cout << "S Nan: " << std::endl;
+    //std::cout << "Hinv: " << Hinv[i].hasNaN() << std::endl;
+    //std::cout << "R[i]: " << R[i] << std::endl;
   }
 
   // 3. Jacobian term
@@ -214,7 +231,7 @@ void update_SR_fast() {
 
   int N = (meshT.rows() / 4) + int(meshT.rows() % 4 != 0);
 
-  double fac = beta * (la.maxCoeff() + 1e-8);
+  double fac = beta * (la.maxCoeff() + 1e-6);
 
   #pragma omp parallel for 
   for (int ii = 0; ii < N; ++ii) {
@@ -230,7 +247,8 @@ void update_SR_fast() {
       // 1. Update S[i] using new lambdas
       start = high_resolution_clock::now();
       //S[i] += arap_ds(R[i], S[i], la.segment(9*i,9), mu, lambda);
-      S[i] += corotational_ds(R[i], S[i], la.segment(9*i,9), mu, lambda);
+      //S[i] += corotational_ds(R[i], S[i], la.segment(9*i,9), mu, lambda);
+      S[i] += neohookean_ds(R[i], S[i], la.segment(9*i,9), Hinv[i], mu, lambda);
       end = high_resolution_clock::now();
       t_3 += duration_cast<nanoseconds>(end-start).count()/1e6;
 
@@ -285,10 +303,12 @@ void init_sim() {
   // Initialize rotation matrices to identity
   R.resize(meshT.rows());
   S.resize(meshT.rows());
+  Hinv.resize(meshT.rows());
   for (int i = 0; i < meshT.rows(); ++i) {
     R[i].setIdentity();
     //R[i] = R_test;
     S[i] = I_vec;
+    Hinv[i].setIdentity();
   }
 
   // Initial lambdas
@@ -299,7 +319,6 @@ void init_sim() {
   VectorXd densities = VectorXd::Constant(meshT.rows(), density);
   igl::volume(meshV, meshT, vols);
   vols = vols.cwiseAbs();
-  std::cout << "NOTE: cwise ABS on volume! " << std::endl;
   sim::linear_tetmesh_mass_matrix(M, meshV, meshT, densities, vols);
 
   J = tet_jacobian(meshV,meshT,vols,false);
@@ -386,19 +405,10 @@ void simulation_step() {
     start=end;
 
     // New CG stuff
-    //std::vector<Triplet<double>> trips;
-    //int sz = meshV.size() + meshT.rows()*9;
-    //trips = lhs_trips;
-    //corotational_compliance(meshV, meshT, R, vols, mu, lambda, trips);
-    ////arap_compliance(meshV, meshT, R, vols, mu, lambda, trips);
-    //end = high_resolution_clock::now();
-    //t_asm += duration_cast<nanoseconds>(end-start).count()/1e6;
-    //SparseMatrixd newlhs(sz,sz);
-    //newlhs.setFromTriplets(trips.begin(), trips.end());
-    //newlhs = P_kkt * newlhs * P_kkt.transpose();
-    update_corotational_compliance(qt.size(), meshT.rows(), R, vols,
+    //update_corotational_compliance(qt.size(), meshT.rows(), R, vols,
+    //    mu, lambda, lhs_sim);
+    update_neohookean_compliance(qt.size(), meshT.rows(), R, Hinv, vols,
         mu, lambda, lhs_sim);
-    //std::cout << "DIFF: " << (newlhs-lhs_sim).norm() << std::endl;
     end = high_resolution_clock::now();
     t_asm += duration_cast<nanoseconds>(end-start).count()/1e6;
     start = end;
@@ -406,7 +416,11 @@ void simulation_step() {
     dq_la = cg.solveWithGuess(rhs, dq_la);
     std::cout << "#iterations:     " << cg.iterations() << std::endl;
     std::cout << "estimated error: " << cg.error()      << std::endl;
-    
+      if (dq_la.hasNaN()) {
+        std::cout << "rhs hasnan? " << rhs.hasNaN() << " lhs has nan: " << MatrixXd(lhs_sim).hasNaN() << std::endl;
+        std::cout << "dq nan: " << std::endl;
+    exit(1);
+      }
     //////////////////
 
     end = high_resolution_clock::now();
