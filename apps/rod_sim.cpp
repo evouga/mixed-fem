@@ -11,8 +11,7 @@
 
 // Polyscope
 #include "polyscope/messages.h"
-#include "polyscope/point_cloud.h"
-#include "polyscope/surface_mesh.h"
+#include "polyscope/curve_network.h"
 #include "args/args.hxx"
 #include "json/json.hpp"
 
@@ -20,9 +19,11 @@
 #include <EigenTypes.h>
 #include "linear_tri3dmesh_dphi_dX.h"
 
-
+#include "arap.h"
+#include "preconditioner.h"
+#include "tri_kkt.h"
+#include "rod_kkt.h"
 #include "pinning_matrix.h"
-#include <unsupported/Eigen/CXX11/Tensor>
 #include <iostream>
 #include <unordered_set>
 #include <utility>
@@ -42,13 +43,15 @@ using namespace Eigen;
 using SparseMatrixdRowMajor = Eigen::SparseMatrix<double,RowMajor>;
 
 // The mesh, Eigen representation
-MatrixXd meshV; // verts
-MatrixXi meshF; // faces
-MatrixXd meshN; // normals 
+MatrixXd meshV;  // verts
+MatrixXi meshE;  // edges
+MatrixXd meshN;  // normals 
+MatrixXd meshBN; // binormals 
 
 VectorXd dq_la;
 
 // F = RS
+polyscope::CurveNetwork* curve = nullptr;
 std::vector<Matrix3d> R; // Per-element rotations
 std::vector<Vector6d> S; // Per-element symmetric deformation
 
@@ -62,11 +65,12 @@ VectorXi pinnedV;
 
 // Simulation params
 double h = 0.01;
-double thickness = 1e-3;
+double thickness = 1e-1;//1e-3;
 double density = 100;
 double ym = 1e5;
 double pr = 0.40;
 double mu = ym/(2.0*(1.0+pr));
+double lambda = (ym*pr)/((1.0+pr)*(1.0-2.0*pr));
 double alpha = mu;
 double ih2 = 1.0/h/h;
 double grav = -9.8;
@@ -103,40 +107,7 @@ SimplicialLDLT<SparseMatrixd> solver;
 VectorXd rhs;
 
 // ------------------------------------ //
-
-void trimesh_massmatrix() {
-  std::vector<Triplet<double>> trips;
-
-  // 1. Mass matrix terms
-  for (int i = 0; i < meshF.rows(); ++i) {
-    for (int j = 0; j < 3; ++j) {
-      int id1 = meshF(i,j);
-      for (int k = 0; k < 3; ++k) {
-        int id2 = meshF(i,k);
-        double val = dblA(i);
-        if (j == k)
-          val /= 12;
-        else
-          val /= 24;
-        trips.push_back(Triplet<double>(3*id1+0,3*id2,val));
-        trips.push_back(Triplet<double>(3*id1+1,3*id2+1,val));
-        trips.push_back(Triplet<double>(3*id1+2,3*id2+2,val));
-        //double val = dblA(i) / 2;
-        //if (j == k) {
-        //  trips.push_back(Triplet<double>(3*id1+0,3*id2,val));
-        //  trips.push_back(Triplet<double>(3*id1+1,3*id2+1,val));
-        //  trips.push_back(Triplet<double>(3*id1+2,3*id2+2,val));
-        //}
-      }
-    }
-  }
-  //for (int i = 0; i < meshV.size(); ++i) {
-  //  trips.push_back(Triplet<double>(i,i,1));
-  //}
-  M.resize(meshV.size(),meshV.size());
-  M.setFromTriplets(trips.begin(),trips.end());
-}
-
+//
 VectorXd collision_force() {
 
   //Vector3d N(plane(0),plane(1),plane(2));
@@ -177,69 +148,16 @@ VectorXd collision_force() {
 }
 
 void build_kkt_lhs() {
- 
+
   std::vector<Triplet<double>> trips;
+  int sz = meshV.size() + meshE.rows()*9;
+  tri_kkt_lhs(M, Jw, ih2, trips); 
+  diag_compliance(meshV, meshE, vols, alpha, trips);
 
-  // 1. Mass matrix terms
-  for (int k=0; k < M.outerSize(); ++k) {
-    for (SparseMatrixd::InnerIterator it(M,k); it; ++it) {
-      trips.push_back(Triplet<double>(it.row(),it.col(),ih2*it.value()));
-    }
-  }
-
-  for (int i = 0; i < meshF.rows(); ++i) {
-
-    // 2. J matrix (and transpose) terms
-    // Local jacobian
-    Matrix3d dX = sim::unflatten<3,3>(dphidX.row(i));
-
-    // Local block
-    Matrix9d B;
-    B  << 
-      dX(0,0), 0      , 0      , dX(1,0), 0      , 0      , dX(2,0), 0      , 0, 
-      dX(0,1), 0      , 0      , dX(1,1), 0      , 0      , dX(2,1), 0      , 0, 
-      dX(0,2), 0      , 0      , dX(1,2), 0      , 0      , dX(2,2), 0      , 0,
-      0      , dX(0,0), 0      , 0      , dX(1,0), 0      , 0      , dX(2,0), 0,
-      0      , dX(0,1), 0      , 0      , dX(1,1), 0      , 0      , dX(2,1), 0,
-      0      , dX(0,2), 0      , 0      , dX(1,2), 0      , 0      , dX(2,2), 0,
-      0      , 0      , dX(0,0), 0      , 0      , dX(1,0), 0      , 0      , dX(2,0),
-      0      , 0      , dX(0,1), 0      , 0      , dX(1,1), 0      , 0      , dX(2,1),
-      0      , 0      , dX(0,2), 0      , 0      , dX(1,2), 0      , 0      , dX(2,2);
-
-    int offset = meshV.size(); // offset for off diagonal blocks
-
-    // Assembly for the i-th lagrange multiplier matrix which
-    // is associated with 4 vertices (for tetrahedra)
-    for (int j = 0; j < 9; ++j) {
-
-      // k-th vertex of the tetrahedra
-      for (int k = 0; k < 3; ++k) {
-        int vid = meshF(i,k); // vertex index
-
-        // x,y,z index for the k-th vertex
-        for (int l = 0; l < 3; ++l) {
-          double val = B(j,3*k+l) * vols(i); 
-          // subdiagonal term
-          trips.push_back(Triplet<double>(offset+9*i+j, 3*vid+l, val));
-
-          // superdiagonal term
-          trips.push_back(Triplet<double>(3*vid+l, offset+9*i+j, val));
-        }
-      }
-    }
-
-    // 3. Compliance matrix terms
-    // Each local term is equivalent and is a scaled diagonal matrix
-    double He = -vols(i)/alpha;
-    for (int j = 0; j < 9; ++j) {
-      trips.push_back(Triplet<double>(offset+9*i+j,offset+9*i+j, He));
-    }
-  }
-
-  int sz = meshV.size() + meshF.rows()*9;
   lhs.resize(sz,sz);
   lhs.setFromTriplets(trips.begin(), trips.end());
 
+  std::cout << "LHS pre P: " << lhs << std::endl;
   lhs = P_kkt * lhs * P_kkt.transpose();
 
   #if defined(SIM_USE_CHOLMOD)
@@ -252,49 +170,31 @@ void build_kkt_lhs() {
 }
 
 void build_kkt_rhs() {
-  int sz = qt.size() + meshF.rows()*9;
+  int sz = qt.size() + meshE.rows()*9;
   rhs.resize(sz);
   rhs.setZero();
 
   // Positional forces 
-  //rhs.segment(0, qt.size()) = f_ext + ih2*M*(q0 - q1);
   rhs.segment(0, qt.size()) = ih2*M*(q0 - q1);
   if (enable_ext) {
     rhs.segment(0, qt.size()) += f_ext;
   }
 
-
-  // Lagrange multiplier forces
-  array<IndexPair<int>, 2> dims = { 
-    IndexPair<int>(0, 0), IndexPair<int>(2, 1)
-  };
-
   #pragma omp parallel for
-  for (int i = 0; i < meshF.rows(); ++i) {
+  for (int i = 0; i < meshE.rows(); ++i) {
     // 1. W * st term +  - W * Hinv * g term
-    // Becomes W * I_vec = flatten(R[i]^t)
-    Vector9d Ws = vols(i) * sim::flatten(R[i].transpose()); 
-
     Matrix3d NN = (meshN.row(i).transpose()) * meshN.row(i);
-    //Vector9d n = vols(i) * sim::flatten(R[i].transpose()*NN);
-    Vector9d n = vols(i) * sim::flatten((R[i]*NN).transpose());
-    //Vector9d n = vols(i) * sim::flatten(R[i]*NN);
-    rhs.segment(qt.size() + 9*i, 9) = Ws - n;
+    Matrix3d BNBN = (meshBN.row(i).transpose()) * meshBN.row(i);
+    Vector9d n = sim::flatten((R[i]*NN).transpose());
+    Vector9d bn = sim::flatten((R[i]*BNBN).transpose());
+    rhs.segment(qt.size() + 9*i, 9) = vols(i) * (arap_rhs(R[i]) - n - bn);
   }
 
   // 3. Jacobian term
-  rhs.segment(qt.size(), 9*meshF.rows()) -= Jw*(P.transpose()*qt+b);
-  //std::cout << "RHS : " << rhs << std::endl;
+  rhs.segment(qt.size(), 9*meshE.rows()) -= Jw*(P.transpose()*qt+b);
 }
 
 void update_SR_fast() {
-
-  // Local hessian (constant for all elements)
-  Vector6d He_inv_vec;
-  He_inv_vec << 1,1,1,0.5,0.5,0.5;
-  He_inv_vec /= alpha;
-  DiagonalMatrix<double,6> He_inv = He_inv_vec.asDiagonal();
-
 
   double t_1=0,t_2=0,t_3=0,t_4=0,t_5=0; 
   auto start = high_resolution_clock::now();
@@ -302,45 +202,27 @@ void update_SR_fast() {
   auto end = high_resolution_clock::now();
   t_1 = duration_cast<nanoseconds>(end-start).count()/1e6;
 
-  int N = (meshF.rows() / 4) + int(meshF.rows() % 4 != 0);
+  int N = (meshE.rows() / 4) + int(meshE.rows() % 4 != 0);
 
-  double fac = beta * (la.maxCoeff() + 1e-8);
+  double fac = beta * (la.maxCoeff() + 1e-5);
   //double fac = alpha;
   #pragma omp parallel for 
   for (int ii = 0; ii < N; ++ii) {
 
     Matrix<float,12,3> Y4,R4;
+    Y4.setZero();
+    R4.setZero();
 
     for (int jj = 0; jj < 4; ++jj) {
       int i = ii*4 +jj;
-      if (i >= meshF.rows())
+      if (i >= meshE.rows())
         break;
 
       Vector9d li = la.segment(9*i,9)/fac + def_grad.segment(9*i,9);
 
       // 1. Update S[i] using new lambdas
       start = high_resolution_clock::now();
-      // (la    B ) : (R    C    s) 
-      //  1x9 9x3x3   3x3 3x3x6 6x1
-      //  we want (la B) : (R C)
-      Matrix<double,9,6> W;
-      W <<
-        R[i](0,0), 0,         0,         0,         R[i](0,2), R[i](0,1),
-        0,         R[i](0,1), 0,         R[i](0,2), 0,         R[i](0,0),
-        0,         0,         R[i](0,2), R[i](0,1), R[i](0,0), 0, 
-        R[i](1,0), 0,         0,         0,         R[i](1,2), R[i](1,1),
-        0,         R[i](1,1), 0,         R[i](1,2), 0,         R[i](1,0),
-        0,         0,         R[i](1,2), R[i](1,1), R[i](1,0), 0,  
-        R[i](2,0), 0,         0,         0,         R[i](2,2), R[i](2,1),
-        0,         R[i](2,1), 0,         R[i](2,2), 0        , R[i](2,0),
-        0,         0,         R[i](2,2), R[i](2,1), R[i](2,0), 0;
-      end = high_resolution_clock::now();
-      t_2 += duration_cast<nanoseconds>(end-start).count()/1e6;
-
-      // H^-1 * g = s^i - I
-      start = high_resolution_clock::now();
-      Vector6d ds = He_inv*W.transpose()*la.segment(9*i,9) -(S[i]-I_vec); 
-      S[i] += ds;
+      S[i] += arap_ds(R[i], S[i], la.segment(9*i,9), mu, lambda);
       end = high_resolution_clock::now();
       t_3 += duration_cast<nanoseconds>(end-start).count()/1e6;
 
@@ -351,14 +233,12 @@ void update_SR_fast() {
       //  1x9 9x3x3 3x3x6 3x3 6x1 
       //  we want [la   B ]  [ C    s]
       //          1x9 9x3x3  3x3x6 6x1
-      //if (i == 0) {
-      //  std::cout << meshN.row(i).transpose()*meshN.row(i) << std::endl;;
-      //}
       Matrix3d Cs;
       Cs << S[i](0), S[i](5), S[i](4), 
             S[i](5), S[i](1), S[i](3), 
             S[i](4), S[i](3), S[i](2); 
       Cs -= meshN.row(i).transpose()*meshN.row(i);
+      Cs -= meshBN.row(i).transpose()*meshBN.row(i);
       Matrix3d y4 = Map<Matrix3d>(li.data()).transpose()*Cs;
       Y4.block(3*jj, 0, 3, 3) = y4.cast<float>();
 
@@ -370,7 +250,7 @@ void update_SR_fast() {
     polar_svd3x3_sse(Y4,R4);
     for (int jj = 0; jj < 4; jj++) {
       int i = ii*4 +jj;
-      if (i >= meshF.rows())
+      if (i >= meshE.rows())
         break;
       R[i] = R4.block(3*jj,0,3,3).cast<double>();
     }
@@ -383,100 +263,50 @@ void update_SR_fast() {
 
 
 void init_sim() {
-  //rotate the mesh
-  /*Matrix3d R_test;
-  R_test << 0.707, -0.707, 0,
-            0.707, 0.707, 0,
-            0, 0, 1;*/
-
   I_vec << 1, 1, 1, 0, 0, 0; // Identity in symmetric format
 
   // Initialize rotation matrices to identity
-  R.resize(meshF.rows());
-  S.resize(meshF.rows());
-  for (int i = 0; i < meshF.rows(); ++i) {
+  R.resize(meshE.rows());
+  S.resize(meshE.rows());
+  for (int i = 0; i < meshE.rows(); ++i) {
     R[i].setIdentity();
     //R[i] = R_test;
     S[i] = I_vec;
   }
 
   // Initial lambdas
-  la.resize(9 * meshF.rows());
+  la.resize(9 * meshE.rows());
   la.setZero();
 
   // Mass matrix
-  VectorXd densities = VectorXd::Constant(meshF.rows(), density);
-
-  igl::doublearea(meshV, meshF, dblA);
-  vols = dblA;
-  vols.array() *= (thickness/2);
-
-  trimesh_massmatrix();
-  M = M*density*thickness; // note: assuming uniform density and thickness
-
-  // J matrix (big jacobian guy)
-  std::vector<Triplet<double>> trips;
-  std::vector<Triplet<double>> trips2;
-  sim::linear_tri3dmesh_dphi_dX(dphidX, meshV, meshF);
-  for (int i = 0; i < meshF.rows(); ++i) { 
-
-    Matrix3d dX = sim::unflatten<3,3>(dphidX.row(i));
-
-    // Local block
-    Matrix9d B;
-    B  << 
-      dX(0,0), 0      , 0      , dX(1,0), 0      , 0      , dX(2,0), 0      , 0, 
-      dX(0,1), 0      , 0      , dX(1,1), 0      , 0      , dX(2,1), 0      , 0, 
-      dX(0,2), 0      , 0      , dX(1,2), 0      , 0      , dX(2,2), 0      , 0,
-      0      , dX(0,0), 0      , 0      , dX(1,0), 0      , 0      , dX(2,0), 0,
-      0      , dX(0,1), 0      , 0      , dX(1,1), 0      , 0      , dX(2,1), 0,
-      0      , dX(0,2), 0      , 0      , dX(1,2), 0      , 0      , dX(2,2), 0,
-      0      , 0      , dX(0,0), 0      , 0      , dX(1,0), 0      , 0      , dX(2,0),
-      0      , 0      , dX(0,1), 0      , 0      , dX(1,1), 0      , 0      , dX(2,1),
-      0      , 0      , dX(0,2), 0      , 0      , dX(1,2), 0      , 0      , dX(2,2);
-
-    // Assembly for the i-th lagrange multiplier matrix which
-    // is associated with 4 vertices (for tetrahedra)
-    for (int j = 0; j < 9; ++j) {
-
-      // k-th vertex of the tetrahedra
-      for (int k = 0; k < 3; ++k) {
-        int vid = meshF(i,k); // vertex index
-
-        // x,y,z index for the k-th vertex
-        for (int l = 0; l < 3; ++l) {
-          double val = B(j,3*k+l);
-          trips.push_back(Triplet<double>(9*i+j, 3*vid+l, val));
-          trips2.push_back(Triplet<double>(9*i+j, 3*vid+l, val*vols(i)));
-        }
-      }
-    }
+  // - assuming uniform density and thickness
+  vols.resize(meshE.rows());
+  for (int i = 0; i < meshE.rows(); ++i) {
+    vols(i) = (meshV.row(meshE(i,0)) - meshV.row(meshE(i,1))).norm() * thickness;
   }
-  J.resize(9*meshF.rows(), meshV.size());
-  J.setFromTriplets(trips.begin(),trips.end());
-  Jw.resize(9*meshF.rows(), meshV.size());
-  Jw.setFromTriplets(trips2.begin(),trips2.end());
+  M = rod_massmatrix(meshV, meshE, vols);
+  M = M*density;
+
+  J = rod_jacobian(meshV,meshE,vols,false);
+  Jw = rod_jacobian(meshV,meshE,vols,true);
+  //std::cout << " J : " << J << std::endl;
 
   // Pinning matrices
   double min_x = meshV.col(0).minCoeff();
   double max_x = meshV.col(0).maxCoeff();
-  double pin_x = min_x + (max_x-min_x)*0.3;
+  double pin_x = min_x + (max_x-min_x)*0.01;
   double min_y = meshV.col(1).minCoeff();
   double max_y = meshV.col(1).maxCoeff();
   double pin_y = max_y - (max_y-min_y)*0.01;
   //double pin_y = min_y + (max_y-min_y)*0.1;
-  //pinnedV = (meshV.col(0).array() < pin_x).cast<int>(); 
-  pinnedV = (meshV.col(1).array() > pin_y).cast<int>(); 
+  pinnedV = (meshV.col(0).array() < pin_x).cast<int>(); 
+  //pinnedV = (meshV.col(1).array() > pin_y).cast<int>(); 
   //pinnedV(0) = 1;
-  polyscope::getSurfaceMesh("input mesh")
-    ->addVertexScalarQuantity("pinned", pinnedV);
-  P = pinning_matrix(meshV,meshF,pinnedV,false);
-  P_kkt = pinning_matrix(meshV,meshF,pinnedV,true);
+  curve->addNodeScalarQuantity("pinned", pinnedV);
+  P = pinning_matrix(meshV,meshE,pinnedV,false);
+  P_kkt = pinning_matrix(meshV,meshE,pinnedV,true);
   
   MatrixXd tmp = meshV.transpose();
-  //MatrixXd tmp = (R_test*meshV.transpose());
-  //MatrixXd tmp = Rot*meshV.transpose();
-
   qt = Map<VectorXd>(tmp.data(), meshV.size());
   b = qt - P.transpose()*P*qt;
   b0 = b;
@@ -489,6 +319,7 @@ void init_sim() {
 
   // Project out mass matrix pinned point
   M = P * M * P.transpose();
+  std::cout << " M: " << M << std::endl;
 
   // External gravity force
   f_ext = M * P *Vector3d(0,grav,0).replicate(meshV.rows(),1);
@@ -497,7 +328,7 @@ void init_sim() {
 
 void simulation_step() {
   //
-  int steps=10;
+  int steps=20;
   dq_la.setZero();
 
   // Warm start solver
@@ -511,9 +342,6 @@ void simulation_step() {
   beta = 100;
 
   for (int i = 0; i < steps; ++i) {
-    // TODO partially inefficient right?
-    //  dq rows are fixed throughout the optimization, only lambda rows
-    //  change correct?
     auto start = high_resolution_clock::now();
     build_kkt_rhs();
     auto end = high_resolution_clock::now();
@@ -534,7 +362,7 @@ void simulation_step() {
     end = high_resolution_clock::now();
     t_solve += duration_cast<nanoseconds>(end-start).count()/1e6;
     start=end;
-    la = dq_la.segment(qt.size(),9*meshF.rows());
+    la = dq_la.segment(qt.size(),9*meshE.rows());
     
     // Update per-element R & S matrices
     
@@ -543,6 +371,10 @@ void simulation_step() {
     t_SR += duration_cast<nanoseconds>(end-start).count()/1e6;
     beta *= std::min(mu, 1.5*beta);
 
+    //std::cout << "dq_la:\n" << dq_la << std::endl;
+    //for (int i =0; i < R.size(); ++i ) {
+    //  std::cout << "R" <<i << std::endl << R[i] << std::endl;
+    //}
   }
   t_coll/=steps; t_rhs /=steps; t_solve/=steps; t_SR/=steps;
   std::cout << "[Avg Time ms] collision: " << t_coll << 
@@ -570,13 +402,13 @@ void simulation_step() {
   meshV = tmp.transpose();
 
 
-  MatrixXd tmpN(meshN.rows(), 3);
-  for (int i = 0; i < meshN.rows(); ++i) {
-    Vector3d n = R[i]*meshN.row(i).transpose();
-    tmpN.row(i) = n;
-  }
-  polyscope::getSurfaceMesh("input mesh")->
-    addFaceVectorQuantity("normals", tmpN);
+  //MatrixXd tmpN(meshN.rows(), 3);
+  //for (int i = 0; i < meshN.rows(); ++i) {
+  //  Vector3d n = R[i]*meshN.row(i).transpose();
+  //  tmpN.row(i) = n;
+  //}
+  //polyscope::getSurfaceMesh("input mesh")->
+  //  addFaceVectorQuantity("normals", tmpN);
 }
 
 void callback() {
@@ -597,9 +429,7 @@ void callback() {
 
   if(ImGui::Button("sim step") || simulating) {
     simulation_step();
-    //polyscope::getVolumeMesh("input mesh")
-    polyscope::getSurfaceMesh("input mesh")
-      ->updateVertexPositions(meshV);
+    curve->updateNodePositions(meshV);
   }
   //ImGui::SameLine();
   //ImGui::InputInt("source vertex", &iVertexSource);
@@ -636,23 +466,71 @@ int main(int argc, char **argv) {
   std::string filename = args::get(inFile);
   std::cout << "loading: " << filename << std::endl;
 
-  // Read the mesh
-  igl::readOBJ(filename, meshV, meshF);
-  meshV.array() /= meshV.maxCoeff();
 
-  igl::per_face_normals(meshV,meshF,meshN);
+  // Simple Rod
+  //meshV.resize(2,3);
+  //meshE.resize(1,2);
+  //meshN.resize(2,3);
+  //meshBN.resize(2,3);
+  //meshV << 
+  //  0.0, 0.5, 0.0,
+  //  0.5, 0.5, 0.0;
+  //meshE <<
+  //  0, 1;
+
+  //// Normals and binormals
+  //meshN <<
+  //  0, 1, 0,
+  //  0, 1, 0;
+  //meshBN <<
+  //  0, 0, 1,
+  //  0, 0, 1;
+
+  // Double Rod
+  meshV.resize(3,3);
+  meshE.resize(2,2);
+  meshN.resize(3,3);
+  meshBN.resize(3,3);
+  meshV << 
+    0.0, 0.5, 0.0,
+    0.25, 0.5, 0.0,
+    0.5, 0.5, 0.0;
+  meshE <<
+    0, 1,
+    1, 2;
+
+  // Normals and binormals
+  meshN <<
+    0, 1, 0,
+    0, 1, 0,
+    0, 1, 0;
+  meshBN <<
+    0, 0, 1,
+    0, 0, 1,
+    0, 0, 1;
+
+  meshV.array() /= meshV.maxCoeff();
 
   // Register the mesh with Polyscope
   polyscope::options::autocenterStructures = false;
-  polyscope::registerSurfaceMesh("input mesh", meshV, meshF);
+  curve = polyscope::registerCurveNetwork("input network", meshV, meshE);
 
   pinnedV.resize(meshV.rows());
   pinnedV.setZero();
-  polyscope::getSurfaceMesh("input mesh")
-    ->addVertexScalarQuantity("pinned", pinnedV);
+  curve->addNodeScalarQuantity("pinned", pinnedV);
 
   // Add the callback
   polyscope::state::userCallback = callback;
+  //
+  // Adjust ground plane
+  VectorXd a = meshV.colwise().minCoeff();
+  VectorXd b = meshV.colwise().maxCoeff();
+  a(1) -= 1.0;
+  b(1) += 0.5;
+  polyscope::options::automaticallyComputeSceneExtents = false;
+  polyscope::state::lengthScale = 1.;
+  polyscope::state::boundingBox = std::tuple<glm::vec3, glm::vec3>{
+    {a(0),a(1),a(2)},{b(0),b(1),b(2)}};
 
   // Initial simulation setup
   init_sim();

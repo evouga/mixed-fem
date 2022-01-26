@@ -156,3 +156,6 @@ target_link_libraries(mixed_fem mixed_fem_lib)
 
 add_executable(cloth_sim apps/cloth_sim.cpp ${SOURCES})
 target_link_libraries(cloth_sim mixed_fem_lib)
+
+add_executable(rod_sim apps/rod_sim.cpp ${SOURCES})
+target_link_libraries(rod_sim mixed_fem_lib)
