@@ -5,6 +5,7 @@
 #include <igl/invert_diag.h>
 #include <igl/readMESH.h>
 #include <igl/readOBJ.h>
+#include <igl/writeOBJ.h>
 #include <igl/volume.h>
 #include <igl/AABB.h>
 #include <igl/in_element.h>
@@ -74,7 +75,7 @@ MatrixXd dphidX;
 VectorXi pinnedV;
 
 // Simulation params
-double h = 0.02;//0.1;
+double h = 0.01;//0.1;
 double density = 1000.0;
 double ym = 2e5;
 //double ym = 2e14;
@@ -90,6 +91,7 @@ double beta = 100;
 
 bool warm_start = true;
 bool floor_collision = true;
+bool export_sim = false;
 
 Matrix<double, 6,1> I_vec;
 
@@ -118,6 +120,8 @@ ConjugateGradient<SparseMatrixd, Lower|Upper, FemPreconditioner<double>> cg;
 //BiCGSTAB<SparseMatrixd, FemPreconditioner<double>> cg;
 //GMRES<SparseMatrixd, FemPreconditioner<double>> cg;
 VectorXd rhs;
+double t_coll=0, t_asm = 0, t_precond=0, t_rhs = 0, t_solve = 0, t_SR = 0; 
+int solver_steps = 5;
 
 // ------------------------------------ //
 
@@ -177,7 +181,7 @@ void build_kkt_lhs() {
   }
   cg.preconditioner().init(lhs);
   cg.setMaxIterations(10);
-  cg.setTolerance(1e-5);
+  cg.setTolerance(1e-7);
 }
 
 void build_kkt_rhs() {
@@ -208,11 +212,7 @@ void build_kkt_rhs() {
 
 void update_SR_fast() {
 
-  double t_1=0,t_2=0,t_3=0,t_4=0,t_5=0; 
-  auto start = high_resolution_clock::now();
-  VectorXd def_grad = J*(P.transpose()*(qt+dq_la.segment(0, qt.rows()))+b);
-  auto end = high_resolution_clock::now();
-  t_1 = duration_cast<nanoseconds>(end-start).count()/1e6;
+  VectorXd def_grad = J*(P.transpose()*(qt+dq_la.segment(0, qt.size()))+b);
 
   int N = (meshT.rows() / 4) + int(meshT.rows() % 4 != 0);
 
@@ -230,16 +230,11 @@ void update_SR_fast() {
       Vector9d li = la.segment(9*i,9)/fac + def_grad.segment(9*i,9);
 
       // 1. Update S[i] using new lambdas
-      start = high_resolution_clock::now();
       //S[i] += arap_ds(R[i], S[i], la.segment(9*i,9), mu, lambda);
       //S[i] += corotational_ds(R[i], S[i], la.segment(9*i,9), mu, lambda);
       S[i] += neohookean_ds(R[i], S[i], la.segment(9*i,9), Hinv[i], mu, lambda);
-      end = high_resolution_clock::now();
-      t_3 += duration_cast<nanoseconds>(end-start).count()/1e6;
 
       // 2. Solve rotation matrices
-      start = high_resolution_clock::now();
-
       //  la    B     C    R   s
       //  1x9 9x3x3 3x3x6 3x3 6x1 
       //  we want [la   B ]  [ C    s]
@@ -250,17 +245,8 @@ void update_SR_fast() {
             S[i](4), S[i](3), S[i](2); 
       Matrix3d y4 = Map<Matrix3d>(li.data()).transpose()*Cs;
       Y4.block(3*jj, 0, 3, 3) = y4.cast<float>();
-
-      //std::cout << (y4-Y).norm() << std::endl;
-      //if (i == 0) {
-      //  std::cout << "Y3: \n " << Y << std::endl;
-      //  std::cout << "Y3new: \n " << y4 << std::endl;
-      //}
-      end = high_resolution_clock::now();
-      t_4 += duration_cast<nanoseconds>(end-start).count()/1e6;
     }
     // Solve rotations
-    auto start = high_resolution_clock::now();
     polar_svd3x3_sse(Y4,R4);
     for (int jj = 0; jj < 4; jj++) {
       int i = ii*4 +jj;
@@ -268,11 +254,7 @@ void update_SR_fast() {
         break;
       R[i] = R4.block(3*jj,0,3,3).cast<double>();
     }
-    auto end = high_resolution_clock::now();
-    t_5 += duration_cast<nanoseconds>(end-start).count()/1e6;
   }
-  //std::cout << "Def grad: " << t_1 << "ms S[i]: " << t_2 << "ms ds: " << t_3
-  //  << "ms Yf: " << t_4 << "ms SVD: " << t_5 << std::endl;
 }
 
 void init_sim() {
@@ -354,7 +336,6 @@ void init_sim() {
 
 void simulation_step() {
 
-  int steps=10;
   dq_la.setZero();
 
   // Warm start solver
@@ -363,9 +344,8 @@ void simulation_step() {
     update_SR_fast();
   }
   
-  double t_coll=0, t_rhs = 0, t_asm=0,t_solve = 0, t_SR = 0; 
   beta = 100;
-  for (int i = 0; i < steps; ++i) {
+  for (int i = 0; i < solver_steps; ++i) {
     // TODO partially inefficient right?
     //  dq rows are fixed throughout the optimization, only lambda rows
     //  change correct?
@@ -377,17 +357,25 @@ void simulation_step() {
 
     if (floor_collision) {
       VectorXd f_coll = collision_force();
-      t_coll += duration_cast<nanoseconds>(end-start).count()/1e6;
       rhs.segment(0,qt.size()) += f_coll;
       end = high_resolution_clock::now();
       t_coll += duration_cast<nanoseconds>(end-start).count()/1e6;
       start = end;
     }
 
+    // Temporary for benchmarking!
+    VectorXd tmp(dq_la.size());
+    start = high_resolution_clock::now();
+    tmp = solver.solve(rhs);
+    end = high_resolution_clock::now();
+    t_precond += duration_cast<nanoseconds>(end-start).count()/1e6;
+    start = end;
+
     if (i == 0) {
       dq_la = solver.solve(rhs);
     }
     start=end;
+    start = high_resolution_clock::now();
 
     // New CG stuff
     //update_corotational_compliance(qt.size(), meshT.rows(), R, vols,
@@ -397,28 +385,24 @@ void simulation_step() {
     end = high_resolution_clock::now();
     t_asm += duration_cast<nanoseconds>(end-start).count()/1e6;
     start = end;
+
     cg.compute(lhs_sim);
     dq_la = cg.solveWithGuess(rhs, dq_la);
-    std::cout << "#iterations:     " << cg.iterations() << std::endl;
-    std::cout << "estimated error: " << cg.error()      << std::endl;
-    //////////////////
-
     end = high_resolution_clock::now();
     t_solve += duration_cast<nanoseconds>(end-start).count()/1e6;
-    start=end;
-    la = dq_la.segment(qt.size(),9*meshT.rows());
+    std::cout << "#iterations:     " << cg.iterations() << std::endl;
+    std::cout << "estimated error: " << cg.error()      << std::endl;
+    //
     
     // Update per-element R & S matrices
+    start = high_resolution_clock::now();
+    la = dq_la.segment(qt.size(),9*meshF.rows());
     update_SR_fast();
     end = high_resolution_clock::now();
     t_SR += duration_cast<nanoseconds>(end-start).count()/1e6;
-    beta = std::min(mu, beta*1.5);
+    beta *= std::min(mu, 1.5*beta);
 
   }
-  t_coll/=steps; t_rhs /=steps; t_solve/=steps; t_SR/=steps;
-  std::cout << "[Avg Time ms] collision: " << t_coll << 
-    " rhs: " << t_rhs << " assembly: " << t_asm << " solver: " << t_solve <<
-    " update S & R: " << t_SR << std::endl;
 
   q1 = q0;
   q0 = qt;
@@ -448,9 +432,13 @@ void callback() {
   ImGui::Checkbox("floor collision",&floor_collision);
   ImGui::Checkbox("warm start",&warm_start);
   ImGui::Checkbox("simulate",&simulating);
+  ImGui::Checkbox("export",&export_sim);
+  static int step = 0;
+  static int export_step = 0;
 
   if(ImGui::Button("sim step") || simulating) {
     simulation_step();
+    ++step;
     //polyscope::getVolumeMesh("input mesh")
     polyscope::getSurfaceMesh("input mesh")
       ->updateVertexPositions(meshV);
@@ -460,6 +448,29 @@ void callback() {
         skin_mesh->isEnabled()) {
       skin_mesh->updateVertexPositions(skinV);
     }
+
+    if (export_sim) {
+      char buffer [50];
+      int n = sprintf(buffer, "../data/tet/tet_%04d.png", export_step); 
+      buffer[n] = 0;
+      polyscope::screenshot(std::string(buffer), true);
+      n = sprintf(buffer, "../data/tet/tet_%04d.obj", export_step++); 
+      buffer[n] = 0;
+      if (skinV.rows() > 0)
+        igl::writeOBJ(std::string(buffer),skinV,skinF);
+      else
+        igl::writeOBJ(std::string(buffer),meshV,meshF);
+    }
+
+    std::cout << "STEP: " << step << std::endl;
+    std::cout << "[Avg Time ms] " 
+      << " collision: " << t_coll / solver_steps / step
+      << " rhs: " << t_rhs / solver_steps / step
+      << " preconditioner: " << t_precond / solver_steps / step
+      << " KKT assembly: " << t_asm / solver_steps / step
+      << " cg.solve(): " << t_solve / solver_steps / step
+      << " update S & R: " << t_SR / solver_steps / step
+      << std::endl;
 
   }
   //ImGui::SameLine();
@@ -567,6 +578,8 @@ int main(int argc, char **argv) {
   polyscope::state::lengthScale = 1.;
   polyscope::state::boundingBox = std::tuple<glm::vec3, glm::vec3>{
     {a(0),a(1),a(2)},{b(0),b(1),b(2)}};
+
+  std::cout << "V : " << meshV.rows() << " T: " << meshT.rows() << std::endl;
 
   // Initial simulation setup
   init_sim();

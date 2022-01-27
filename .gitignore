@@ -2,6 +2,8 @@
 build/
 build_debug/
 
+data/
+
 # Editor and OS things
 imgui.ini
 .DS_Store
