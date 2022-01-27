@@ -70,7 +70,7 @@ VectorXi pinnedV;
 
 // Simulation params
 int solver_steps=5;
-double h = 0.005;
+double h = 0.01;
 double thickness = 1e-3;
 double density = 100;
 double ym = 1e5;
@@ -149,7 +149,8 @@ VectorXd collision_force() {
   #pragma omp parallel for
   for (int i = 0; i < n; ++i) {
     if (toforce(i)) {
-      ret.segment(3*i,3) = -1e2*N;
+      //ret.segment(3*i,3) = -1e2*N;
+      ret.segment(3*i,3) = -3e2*N;
     }
   }
 
@@ -375,6 +376,7 @@ void simulation_step() {
     if (i == 0) {
       dq_la = solver.solve(rhs);
     }
+    //dq_la = tmp;
 
     start = high_resolution_clock::now();
     // CG solve
@@ -462,10 +464,10 @@ void callback() {
 
     if (export_sim) {
       char buffer [50];
-      int n = sprintf(buffer, "../data/cloth_%04d.png", export_step); 
+      int n = sprintf(buffer, "../data/cloth/sheet_soft2/%04d.png", export_step); 
       buffer[n] = 0;
       polyscope::screenshot(std::string(buffer), true);
-      n = sprintf(buffer, "../data/cloth_%04d.obj", export_step++); 
+      n = sprintf(buffer, "../data/cloth/sheet_soft2/%04d.obj", export_step++); 
       buffer[n] = 0;
       igl::writeOBJ(std::string(buffer),meshV,meshF);
     }

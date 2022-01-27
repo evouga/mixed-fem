@@ -30,6 +30,39 @@ void arap_compliance(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
   }
 }
 
+void update_arap_compliance(int n, int m,
+    std::vector<Eigen::Matrix3d>& R,
+    const Eigen::VectorXd& vols, double mu, double la,
+    SparseMatrixd& mat) {
+
+  int offset = n;
+  #pragma omp parallel for
+  for (int i = 0; i < m; ++i) {
+    Eigen::Matrix9d WHiW = arap_WHinvW(R[i], mu, la);
+
+
+    // Assign to last nine entries of the j-th column for the i-th block
+    for (int j = 0; j < 9; ++j) {
+      int offset_j = offset + i*9 + j;
+      int colsize = (mat.outerIndexPtr()[offset_j+1] 
+        - mat.outerIndexPtr()[offset_j]);
+
+      //std::cout << "offset: " << offset <<  " i: " << i << " j " << j << " idx: " << 
+      //  mat.outerIndexPtr()[offset + i*9 + j] << std::endl;
+      //std::cout << "NNZ: " << colsize << std::endl;
+      int row_j = mat.outerIndexPtr()[offset_j] + colsize - 9;
+      // 100 + 10 - 9 
+      for (int k = 0; k < 9; ++k) {
+        if (k==j) {
+          mat.valuePtr()[row_j+k] = -vols(i)*(WHiW(j,k)+1e-6);
+        } else {
+          mat.valuePtr()[row_j+k] = -vols(i)*WHiW(j,k);
+        }
+      }
+    }
+  }
+}
+
 Vector6d arap_ds(const Matrix3d& R, const Vector6d& S,
         const Vector9d& L, double mu, double la) {
 

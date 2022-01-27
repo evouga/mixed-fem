@@ -12,6 +12,9 @@
 void arap_compliance(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
     const std::vector<Eigen::Matrix3d>& R, const Eigen::VectorXd& vols,
     double mu, double la, std::vector<Eigen::Triplet<double>>& trips);
+void update_arap_compliance(int n, int m,
+    std::vector<Eigen::Matrix3d>& R, const Eigen::VectorXd& vols,
+    double mu, double la, Eigen::SparseMatrixd& mat);
 
 Eigen::Vector9d arap_rhs(const Eigen::Matrix3d& R);
 Eigen::Vector6d arap_ds(const Eigen::Matrix3d& R, const Eigen::Vector6d& S,

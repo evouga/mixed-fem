@@ -77,9 +77,9 @@ VectorXi pinnedV;
 
 // Simulation params
 double h = 0.01;
-double thickness = 1e-1;//1e-3;
-double density = 100;
-double ym = 2e5;
+double thickness = 1e-2;//1e-3;
+double density = 10;
+double ym = 1e7;
 double pr = 0.45;
 double mu = ym/(2.0*(1.0+pr));
 double lambda = (ym*pr)/((1.0+pr)*(1.0-2.0*pr));
@@ -114,14 +114,14 @@ SparseMatrixd lhs;
 SparseMatrixd lhs_sim;
 #if defined(SIM_USE_CHOLMOD)
 CholmodSimplicialLDLT<SparseMatrixd> solver;
-//SimplicialLDLT<SparseMatrixd> solver;
 #else
 SimplicialLDLT<SparseMatrixd> solver;
 #endif
-ConjugateGradient<SparseMatrixd, Lower|Upper, FemPreconditioner<double>> cg;
+//ConjugateGradient<SparseMatrixd, Lower|Upper, FemPreconditioner<double>> cg;
+BiCGSTAB<SparseMatrixd, FemPreconditioner<double>> cg;
 VectorXd rhs;
 
-int solver_steps=5;
+int solver_steps=10;
 double t_coll=0, t_asm = 0, t_precond=0, t_rhs = 0, t_solve = 0, t_SR = 0; 
 
 // ------------------------------------ //
@@ -296,8 +296,13 @@ void init_sim() {
   // Mass matrix
   // - assuming uniform density and thickness
   vols.resize(meshE.rows());
+  VectorXd dvols(meshE.rows());
+  VectorXd densities(meshE.rows());
+  densities.array() = density;
+  densities(densities.size()-1) = 1e8;
   for (int i = 0; i < meshE.rows(); ++i) {
     vols(i) = (meshV.row(meshE(i,0)) - meshV.row(meshE(i,1))).norm() * thickness;
+    dvols(i) = vols(i) * thickness*densities(i) ;
   }
   M = rod_massmatrix(meshV, meshE, vols);
   M = M*density;
@@ -314,8 +319,8 @@ void init_sim() {
   double pin_y = max_y - (max_y-min_y)*0.1;
   //double pin_y = min_y + (max_y-min_y)*0.1;
   //pinnedV = (meshV.col(0).array() < pin_x).cast<int>(); 
-  pinnedV = (meshV.col(1).array() > pin_y).cast<int>(); 
-  //pinnedV(0) = 1;
+  //pinnedV = (meshV.col(1).array() > pin_y).cast<int>(); 
+  pinnedV(0) = 1;
   curve->addNodeScalarQuantity("pinned", pinnedV);
   P = pinning_matrix(meshV,meshE,pinnedV,false);
   P_kkt = pinning_matrix(meshV,meshE,pinnedV,true);
@@ -381,21 +386,22 @@ void simulation_step() {
     t_precond += duration_cast<nanoseconds>(end-start).count()/1e6;
     start = end;
 
+    dq_la = tmp;
     // New CG stuff
-    start = high_resolution_clock::now();
-    // CG solve
-    update_neohookean_compliance(qt.size(), meshE.rows(), R, Hinv, vols,
-        mu, lambda, lhs_sim);
-    end = high_resolution_clock::now();
-    t_asm += duration_cast<nanoseconds>(end-start).count()/1e6;
-    start = end;
+    //start = high_resolution_clock::now();
+    //// CG solve
+    //update_neohookean_compliance(qt.size(), meshE.rows(), R, Hinv, vols,
+    //    mu, lambda, lhs_sim);
+    //end = high_resolution_clock::now();
+    //t_asm += duration_cast<nanoseconds>(end-start).count()/1e6;
+    //start = end;
 
-    cg.compute(lhs_sim);
-    dq_la = cg.solveWithGuess(rhs, dq_la);
-    end = high_resolution_clock::now();
-    t_solve += duration_cast<nanoseconds>(end-start).count()/1e6;
-    std::cout << "#iterations:     " << cg.iterations() << std::endl;
-    std::cout << "estimated error: " << cg.error()      << std::endl;
+    //cg.compute(lhs_sim);
+    //dq_la = cg.solveWithGuess(rhs, dq_la);
+    //end = high_resolution_clock::now();
+    //t_solve += duration_cast<nanoseconds>(end-start).count()/1e6;
+    //std::cout << "#iterations:     " << cg.iterations() << std::endl;
+    //std::cout << "estimated error: " << cg.error()      << std::endl;
     
     // Update per-element R & S matrices
     start = high_resolution_clock::now();
@@ -564,34 +570,48 @@ int main(int argc, char **argv) {
     0, 0, 1,
     0, 0, 1,
     0, 0, 1;
+  int n=10;
+  meshV.resize(n,3);
+  meshE.resize(n-1,2);
+  meshN.resize(n,3);
+  meshBN.resize(n,3);
+  for (int i = 0; i < n; ++i) {
+    meshV.row(i) = Vector3d(i/double(n-1),0.5,0.0); 
+    if (i < n-1)
+      meshE.row(i) = Vector2i(i,i+1); 
+    meshN.row(i) = Vector3d(0,1,0);
+    meshBN.row(i) = Vector3d(0,0,1);
+  }
+  std::cout << "meshV: " << meshV << std::endl;
 
   if (filename != "") {
     std::cout << "loading: " << filename << std::endl;
     MatrixXi meshT;
-    igl::readMESH(filename, meshV, meshT, meshF);
+    igl::readOBJ(filename,meshV,meshF);
 
+    //igl::readMESH(filename, meshV, meshT, meshF);
     // Stupid shit so that i can export a OBJ
-    MatrixXi F1,F2,F3,F4;
-    F1.resize(meshT.rows(),3);
-    F2.resize(meshT.rows(),3);
-    F3.resize(meshT.rows(),3);
-    F4.resize(meshT.rows(),3);
-    F1.col(0) = meshT.col(0); F1.col(1) = meshT.col(1); F1.col(2) = meshT.col(2);
-    F2.col(0) = meshT.col(0); F2.col(1) = meshT.col(2); F2.col(2) = meshT.col(3);
-    F3.col(0) = meshT.col(0); F3.col(1) = meshT.col(1); F3.col(2) = meshT.col(3);
-    F4.col(0) = meshT.col(2); F4.col(1) = meshT.col(1); F4.col(2) = meshT.col(3);
-    igl::cat(1,F1,F2,meshF);
-    igl::cat(1,meshF,F3,F1);
-    igl::cat(1,F1,F4,meshF);
-    igl::unique_simplices(meshF,F1);
-    meshF = F1;
-    Eigen::MatrixXd NV;
-    Eigen::MatrixXi NF;
-    VectorXi VI,VJ;
-    igl::remove_unreferenced(meshV,meshF,NV,NF,VI,VJ);
-    meshV = NV;
-    meshF = NF;
-    igl::edges(meshF,meshE);
+    //MatrixXi F1,F2,F3,F4;
+    //F1.resize(meshT.rows(),3);
+    //F2.resize(meshT.rows(),3);
+    //F3.resize(meshT.rows(),3);
+    //F4.resize(meshT.rows(),3);
+    //F1.col(0) = meshT.col(0); F1.col(1) = meshT.col(1); F1.col(2) = meshT.col(2);
+    //F2.col(0) = meshT.col(0); F2.col(1) = meshT.col(2); F2.col(2) = meshT.col(3);
+    //F3.col(0) = meshT.col(0); F3.col(1) = meshT.col(1); F3.col(2) = meshT.col(3);
+    //F4.col(0) = meshT.col(2); F4.col(1) = meshT.col(1); F4.col(2) = meshT.col(3);
+    //igl::cat(1,F1,F2,meshF);
+    //igl::cat(1,meshF,F3,F1);
+    //igl::cat(1,F1,F4,meshF);
+    //igl::unique_simplices(meshF,F1);
+    //meshF = F1;
+    //Eigen::MatrixXd NV;
+    //Eigen::MatrixXi NF;
+    //VectorXi VI,VJ;
+    //igl::remove_unreferenced(meshV,meshF,NV,NF,VI,VJ);
+    //meshV = NV;
+    //meshF = NF;
+    //igl::edges(meshF,meshE);
 
     
     // Using triangle surf edges as rods
@@ -603,7 +623,7 @@ int main(int argc, char **argv) {
     //igl::remove_unreferenced(meshV,meshF,NV,NF,VI,VJ);
     //meshV = NV;
     //meshF = NF;
-    //igl::edges(meshF,meshE);
+    igl::edges(meshF,meshE);
 
     // Using tet edges as rods
     //igl::edges(meshT,meshE);

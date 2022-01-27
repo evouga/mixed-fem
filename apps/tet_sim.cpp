@@ -54,7 +54,7 @@ using namespace Eigen;
 using SparseMatrixdRowMajor = Eigen::SparseMatrix<double,RowMajor>;
 
 // The mesh, Eigen representation
-MatrixXd meshV, skinV;
+MatrixXd meshV, meshV0, skinV;
 MatrixXi meshF, skinF;
 MatrixXi meshT; // tetrahedra
 SparseMatrixd lbs; // linear blend skinning matrix
@@ -77,7 +77,8 @@ VectorXi pinnedV;
 // Simulation params
 double h = 0.01;//0.1;
 double density = 1000.0;
-double ym = 2e6;
+//double ym = 1e6;
+double ym = 1e5;
 //double ym = 2e14;
 double pr = 0.45;
 double mu = ym/(2.0*(1.0+pr));
@@ -122,15 +123,15 @@ ConjugateGradient<SparseMatrixd, Lower|Upper, FemPreconditioner<double>> cg;
 //GMRES<SparseMatrixd, FemPreconditioner<double>> cg;
 VectorXd rhs;
 double t_coll=0, t_asm = 0, t_precond=0, t_rhs = 0, t_solve = 0, t_SR = 0; 
-int solver_steps = 1;
+int solver_steps = 3;
 
 // ------------------------------------ //
 
 VectorXd collision_force() {
 
   //Vector3d N(plane(0),plane(1),plane(2));
-  //Vector3d N(.4,.7,0);
-  Vector3d N(0.,1.,0.);
+  Vector3d N(.05,.99,0);
+  //Vector3d N(0.,1.,0.);
   N = N / N.norm();
   double d = plane_d;
 
@@ -138,7 +139,7 @@ VectorXd collision_force() {
   VectorXd ret(qt.size());
   ret.setZero();
 
-  double k = 80; //20 for octopus ssliding
+  double k = 280; //20 for octopus ssliding
 
   #pragma omp parallel for
   for (int i = 0; i < n; ++i) {
@@ -192,7 +193,6 @@ void build_kkt_rhs() {
 
   // Positional forces 
   rhs.segment(0, qt.size()) = f_ext + ih2*M*(q0 - q1);
-  std::cout << "RHS max coeff: " << rhs.maxCoeff() << std::endl;;
 
   // Lagrange multiplier forces
   #pragma omp parallel for
@@ -306,8 +306,8 @@ void init_sim() {
   double max_y = meshV.col(1).maxCoeff();
   double pin_y = max_y - (max_y-min_y)*0.1;
   //double pin_y = min_y + (max_y-min_y)*0.1;
-  pinnedV = (meshV.col(0).array() < pin_x).cast<int>(); 
-  //pinnedV = (meshV.col(1).array() > pin_y).cast<int>(); 
+  //pinnedV = (meshV.col(0).array() < pin_x).cast<int>(); 
+  pinnedV = (meshV.col(1).array() > pin_y).cast<int>(); 
   //pinnedV(0) = 1;
   //polyscope::getVolumeMesh("input mesh")
   polyscope::getSurfaceMesh("input mesh")
@@ -333,6 +333,7 @@ void init_sim() {
   M = P * M * P.transpose();
 
   // External gravity force
+  //grav*=0;
   f_ext = M * P *Vector3d(0,grav,0).replicate(meshV.rows(),1);
   f_ext0 = P *Vector3d(0,grav,0).replicate(meshV.rows(),1);
   //EigenSolver<MatrixXd> eigensolver;
@@ -362,6 +363,28 @@ void simulation_step() {
     t_rhs += duration_cast<nanoseconds>(end-start).count()/1e6;
     start = end;
 
+    {
+      //double min_x = meshV.col(0).minCoeff();
+      //double max_x = meshV.col(0).maxCoeff();
+      //double pin_x1 = min_x + (max_x-min_x)*0.1;
+      //double pin_x2 = max_x - (max_x-min_x)*0.1;
+      //VectorXd beam(qt.size());
+      //beam.setZero();
+      //std::cout << "pin_x1: " << min_x << " pin x2 : "<< max_x << std::endl;
+      //std::cout << "pin_x1: " << pin_x1 << " pin x2 : "<< pin_x2 << std::endl;
+      //#pragma omp parallel for
+      //for (int j = 0; j < qt.size()/3; ++j) {
+
+      //  if (meshV(j,0) < pin_x1) {
+      //    beam(3*j) -= 100; 
+      //  }
+      //  if (meshV(j,0) > pin_x2)
+      //    beam(3*j) += 100;
+      //}
+      //rhs.segment(0,qt.size()) += M*beam;
+      //std::cout << "norm: " << beam.norm() << std::endl;
+    }
+
     if (floor_collision) {
       VectorXd f_coll = collision_force();
       rhs.segment(0,qt.size()) += f_coll;
@@ -383,20 +406,24 @@ void simulation_step() {
     }
     start=end;
 
-    //dq_la = tmp;
+    dq_la = tmp;
     if (rhs.hasNaN()) {
 
       std::cout << "dq_la nan? : " << dq_la.hasNaN() << std::endl;
       std::cout << "rhs has nan: " << std::endl;
+      return;
       exit(1);
     }
     if (dq_la.hasNaN()) {
       std::cout << "DQ_LA has nan: " << std::endl;
       //std::cout << "rhs: " << rhs.transpose() << std::endl;
+      return;
       exit(1);
     }
     start = high_resolution_clock::now();
     // New CG stuff
+    //update_arap_compliance(qt.size(), meshT.rows(), R, vols,
+    //    mu, lambda, lhs_sim);
     //update_corotational_compliance(qt.size(), meshT.rows(), R, vols,
     //    mu, lambda, lhs_sim);
     update_neohookean_compliance(qt.size(), meshT.rows(), R, Hinv, vols,
@@ -411,7 +438,7 @@ void simulation_step() {
     t_solve += duration_cast<nanoseconds>(end-start).count()/1e6;
     std::cout << "#iterations:     " << cg.iterations() << std::endl;
     std::cout << "estimated error: " << cg.error()      << std::endl;
-    //
+    
     
     // Update per-element R & S matrices
     start = high_resolution_clock::now();
@@ -426,6 +453,25 @@ void simulation_step() {
   q1 = q0;
   q0 = qt;
   qt += dq_la.segment(0, qt.size());
+
+  //double min_x = meshV0.col(0).minCoeff();
+  //double max_x = meshV0.col(0).maxCoeff();
+  //double pin_x1 = min_x + (max_x-min_x)*0.005;
+  //double pin_x2 = max_x - (max_x-min_x)*0.005;
+  //for (int i = 0; i < qt.size()/3; ++i) {
+  //  //if (qt(3*i) < pin_x1) {
+  //  if (meshV0(i,0) < pin_x1) {
+  //    qt(3*i) = q0(3*i) - h*0.2;
+  //    qt(3*i+1) = q0(3*i+1);
+  //    qt(3*i+2) = q0(3*i+2);
+  //  }
+  //  //if (qt(3*i) > pin_x2) {
+  //  if (meshV(i,0) > pin_x2) {
+  //    qt(3*i) = q0(3*i) + h*0.2;
+  //    qt(3*i+1) = q0(3*i+1);
+  //    qt(3*i+2) = q0(3*i+2);
+  //  }
+  //}
 
   // Initial configuration vectors (assuming 0 initial velocity)
   VectorXd q = P.transpose()*qt + b;
@@ -470,10 +516,10 @@ void callback() {
 
     if (export_sim) {
       char buffer [50];
-      int n = sprintf(buffer, "../data/tet/tet_%04d.png", export_step); 
+      int n = sprintf(buffer, "../data/tet/solid/tet_%04d.png", export_step); 
       buffer[n] = 0;
       polyscope::screenshot(std::string(buffer), true);
-      n = sprintf(buffer, "../data/tet/tet_%04d.obj", export_step++); 
+      n = sprintf(buffer, "../data/tet/solid/tet_%04d.obj", export_step++); 
       buffer[n] = 0;
       if (skinV.rows() > 0)
         igl::writeOBJ(std::string(buffer),skinV,skinF);
@@ -492,6 +538,7 @@ void callback() {
       << std::endl;
 
   }
+  if (step == 570) simulating=false;
   //ImGui::SameLine();
   //ImGui::InputInt("source vertex", &iVertexSource);
 
@@ -599,6 +646,7 @@ int main(int argc, char **argv) {
     {a(0),a(1),a(2)},{b(0),b(1),b(2)}};
 
   std::cout << "V : " << meshV.rows() << " T: " << meshT.rows() << std::endl;
+  meshV0 = meshV;
 
   // Initial simulation setup
   init_sim();
