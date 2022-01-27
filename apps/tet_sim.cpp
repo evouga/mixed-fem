@@ -77,7 +77,7 @@ VectorXi pinnedV;
 // Simulation params
 double h = 0.01;//0.1;
 double density = 1000.0;
-double ym = 2e5;
+double ym = 2e6;
 //double ym = 2e14;
 double pr = 0.45;
 double mu = ym/(2.0*(1.0+pr));
@@ -112,6 +112,7 @@ SparseMatrixd lhs;
 SparseMatrixd lhs_sim;
 #if defined(SIM_USE_CHOLMOD)
 CholmodSimplicialLDLT<SparseMatrixd> solver;
+//SimplicialLLT<SparseMatrixd> solver;
 #else
 SimplicialLDLT<SparseMatrixd> solver;
 #endif
@@ -121,7 +122,7 @@ ConjugateGradient<SparseMatrixd, Lower|Upper, FemPreconditioner<double>> cg;
 //GMRES<SparseMatrixd, FemPreconditioner<double>> cg;
 VectorXd rhs;
 double t_coll=0, t_asm = 0, t_precond=0, t_rhs = 0, t_solve = 0, t_SR = 0; 
-int solver_steps = 5;
+int solver_steps = 1;
 
 // ------------------------------------ //
 
@@ -191,6 +192,7 @@ void build_kkt_rhs() {
 
   // Positional forces 
   rhs.segment(0, qt.size()) = f_ext + ih2*M*(q0 - q1);
+  std::cout << "RHS max coeff: " << rhs.maxCoeff() << std::endl;;
 
   // Lagrange multiplier forces
   #pragma omp parallel for
@@ -228,17 +230,22 @@ void update_SR_fast() {
       if (i >= meshT.rows())
         break;
       Vector9d li = la.segment(9*i,9)/fac + def_grad.segment(9*i,9);
-
       // 1. Update S[i] using new lambdas
       //S[i] += arap_ds(R[i], S[i], la.segment(9*i,9), mu, lambda);
       //S[i] += corotational_ds(R[i], S[i], la.segment(9*i,9), mu, lambda);
       S[i] += neohookean_ds(R[i], S[i], la.segment(9*i,9), Hinv[i], mu, lambda);
+      //if (S[i].norm() > 1e15) {
+      //  std::cout << "dq_la size: " << dq_la.size() << std::endl;
+      //  std::cout << "la size: " << la.size() << std::endl;
+      //  std::cout << "i : " << 9*i << std::endl;
+      //  std::cout << "S0: " << S0 << std::endl;
+      //  std::cout << "la: " << la.segment(9*i,9) << std::endl;
+      //  std::cout << "Hinv: " << Hinv[i] << std::endl;
+      //  std::cout << "R: " << R[i] << std::endl;
+      //  exit(1);
+      //}
 
       // 2. Solve rotation matrices
-      //  la    B     C    R   s
-      //  1x9 9x3x3 3x3x6 3x3 6x1 
-      //  we want [la   B ]  [ C    s]
-      //          1x9 9x3x3  3x3x6 6x1
       Matrix3d Cs;
       Cs << S[i](0), S[i](5), S[i](4), 
             S[i](5), S[i](1), S[i](3), 
@@ -299,8 +306,8 @@ void init_sim() {
   double max_y = meshV.col(1).maxCoeff();
   double pin_y = max_y - (max_y-min_y)*0.1;
   //double pin_y = min_y + (max_y-min_y)*0.1;
-  //pinnedV = (meshV.col(0).array() < pin_x).cast<int>(); 
-  pinnedV = (meshV.col(1).array() > pin_y).cast<int>(); 
+  pinnedV = (meshV.col(0).array() < pin_x).cast<int>(); 
+  //pinnedV = (meshV.col(1).array() > pin_y).cast<int>(); 
   //pinnedV(0) = 1;
   //polyscope::getVolumeMesh("input mesh")
   polyscope::getSurfaceMesh("input mesh")
@@ -375,8 +382,20 @@ void simulation_step() {
       dq_la = solver.solve(rhs);
     }
     start=end;
-    start = high_resolution_clock::now();
 
+    //dq_la = tmp;
+    if (rhs.hasNaN()) {
+
+      std::cout << "dq_la nan? : " << dq_la.hasNaN() << std::endl;
+      std::cout << "rhs has nan: " << std::endl;
+      exit(1);
+    }
+    if (dq_la.hasNaN()) {
+      std::cout << "DQ_LA has nan: " << std::endl;
+      //std::cout << "rhs: " << rhs.transpose() << std::endl;
+      exit(1);
+    }
+    start = high_resolution_clock::now();
     // New CG stuff
     //update_corotational_compliance(qt.size(), meshT.rows(), R, vols,
     //    mu, lambda, lhs_sim);
@@ -396,7 +415,7 @@ void simulation_step() {
     
     // Update per-element R & S matrices
     start = high_resolution_clock::now();
-    la = dq_la.segment(qt.size(),9*meshF.rows());
+    la = dq_la.segment(qt.size(),9*meshT.rows());
     update_SR_fast();
     end = high_resolution_clock::now();
     t_SR += duration_cast<nanoseconds>(end-start).count()/1e6;

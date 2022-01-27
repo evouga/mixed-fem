@@ -399,7 +399,7 @@ void simulation_step() {
     
     // Update per-element R & S matrices
     start = high_resolution_clock::now();
-    la = dq_la.segment(qt.size(),9*meshF.rows());
+    la = dq_la.segment(qt.size(),9*meshE.rows());
     
     update_SR_fast();
     end = high_resolution_clock::now();

@@ -49,7 +49,7 @@ void update_neohookean_compliance(int n, int m,
       int row_j = mat.outerIndexPtr()[offset_j] + colsize - 9;
       for (int k = 0; k < 9; ++k) {
         if (k==j) {
-          mat.valuePtr()[row_j+k] = -vols(i)*(WHiW(j,k)+1e-5);
+          mat.valuePtr()[row_j+k] = -vols(i)*(WHiW(j,k)+1e-6);
         } else {
           mat.valuePtr()[row_j+k] = -vols(i)*WHiW(j,k);
         }
