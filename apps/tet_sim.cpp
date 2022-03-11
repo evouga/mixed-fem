@@ -218,46 +218,7 @@ void build_kkt_rhs() {
   rhs.segment(qt.size(), 9*meshT.rows()) -= Jw*(P.transpose()*qt+b);
 }
 
-void update_R(double alpha) {
-
-  VectorXd def_grad = J*(P.transpose()*(qt+alpha*dq)+b);
-
-  int N = (meshT.rows() / 4) + int(meshT.rows() % 4 != 0);
-
-  double fac = beta * (la.maxCoeff() + 1e-6);
-
-  #pragma omp parallel for 
-  for (int ii = 0; ii < N; ++ii) {
-
-    Matrix<float,12,3> Y4,R4;
-
-    for (int jj = 0; jj < 4; ++jj) {
-      int i = ii*4 +jj;
-      if (i >= meshT.rows())
-        break;
-      Vector9d li = la.segment(9*i,9)/fac + def_grad.segment(9*i,9);
-      Vector6d s = S[i] + alpha*dS[i];
-
-      // 2. Solve rotation matrices
-      Matrix3d Cs;
-      Cs << s(0), s(5), s(4), 
-            s(5), s(1), s(3), 
-            s(4), s(3), s(2); 
-      Matrix3d y4 = Map<Matrix3d>(li.data()).transpose()*Cs;
-      Y4.block(3*jj, 0, 3, 3) = y4.cast<float>();
-    }
-    // Solve rotations
-    polar_svd3x3_sse(Y4,R4);
-    for (int jj = 0; jj < 4; jj++) {
-      int i = ii*4 +jj;
-      if (i >= meshT.rows())
-        break;
-      R[i] = R4.block(3*jj,0,3,3).cast<double>();
-    }
-  }
-}
-
-void update_SR_fast() {
+void update_SR() {
 
   VectorXd def_grad = J*(P.transpose()*(qt+dq)+b);
 
@@ -280,18 +241,6 @@ void update_SR_fast() {
       //S[i] += corotational_ds(R[i], S[i], la.segment(9*i,9), mu, lambda);
       dS[i] = neohookean_ds(R[i], S[i], la.segment(9*i,9), Hinv[i], mu, lambda);
       //S[i] += neohookean_ds(R[i], S[i], la.segment(9*i,9), Hinv[i], mu, lambda);
-      //if (S[i].norm() > 1e15 || S[i].hasNaN()) {
-      //  std::cout << " SI : " << S[i] << std::endl;
-      //  std::cout << "dq_la size: " << dq_la.size() << std::endl;
-      //  std::cout << "la size: " << la.size() << std::endl;
-      //  std::cout << "F: " << def_grad.segment(9*i,9) << std::endl;
-      //  std::cout << "i : " << 9*i << std::endl;
-      //  std::cout << "la: " << la.segment(9*i,9) << std::endl;
-      //  std::cout << "Hinv: " << Hinv[i] << std::endl;
-      //  std::cout << "R: " << R[i] << std::endl;
-      //  exit(1);
-      //}
-
       Vector6d s = S[i] + dS[i];
 
       // 2. Solve rotation matrices
@@ -336,8 +285,6 @@ void init_sim() {
   la.resize(9 * meshT.rows());
   la.setZero();
 
-
-
   // Mass matrix
   VectorXd densities = VectorXd::Constant(meshT.rows(), density);
   igl::volume(meshV, meshT, vols);
@@ -355,8 +302,8 @@ void init_sim() {
   double max_y = meshV.col(1).maxCoeff();
   double pin_y = max_y - (max_y-min_y)*0.1;
   //double pin_y = min_y + (max_y-min_y)*0.1;
-  pinnedV = (meshV.col(0).array() < pin_x).cast<int>(); 
-  //pinnedV = (meshV.col(1).array() > pin_y).cast<int>(); 
+  //pinnedV = (meshV.col(0).array() < pin_x).cast<int>(); 
+  pinnedV = (meshV.col(1).array() > pin_y).cast<int>(); 
   //pinnedV(0) = 1;
   //polyscope::getVolumeMesh("input mesh")
   polyscope::getSurfaceMesh("input mesh")
@@ -392,85 +339,6 @@ void init_sim() {
   //std::cout << "LHS norm: " << lhs.norm() << std::endl;
 }
 
-double constraint_energy(const Eigen::Matrix3d& R, 
-    const Eigen::Vector6d& S, const Eigen::Vector9d& L,
-    const Eigen::Vector9d& F) {
-
-  Matrix<double,9,6> W;
-  W <<
-    R(0,0), 0,         0,         0,         R(0,2), R(0,1),
-    0,         R(0,1), 0,         R(0,2), 0,         R(0,0),
-    0,         0,         R(0,2), R(0,1), R(0,0), 0, 
-    R(1,0), 0,         0,         0,         R(1,2), R(1,1),
-    0,         R(1,1), 0,         R(1,2), 0,         R(1,0),
-    0,         0,         R(1,2), R(1,1), R(1,0)   , 0,  
-    R(2,0), 0,         0,         0,         R(2,2), R(2,1),
-    0,         R(2,1), 0,         R(2,2), 0        , R(2,0),
-    0,         0,         R(2,2), R(2,1), R(2,0)   , 0;
-  return L.transpose()*(W*S - F); 
-}
-
-
-double energy(double alpha) {
-  double e = 0;
-
-  VectorXd q = qt + alpha * dq;
-  //VectorXd a = q - 2*q0 + q1;
-  VectorXd a = q - 2*qt + q0;
-  e += 0.5*ih2*a.transpose() * M * a;
-  e -= q.transpose() * f_ext;
-
-  VectorXd def_grad = J*(P.transpose()*q+b);
-
-  #pragma omp parallel for reduction(+:e)
-  for (int i = 0; i < meshT.rows(); ++i) {
-    Vector9d L = la.segment(9*i,9);
-    Vector9d F = def_grad.segment(9*i,9); 
-    Vector6d s = S[i] + alpha * dS[i];
-    e += (neohookean_psi(s, mu, lambda) 
-        - constraint_energy(R[i], s, L, F)) * vols(i); 
-  }
-
-  return e;
-}
-
-
-bool linesearch() {
-  
-  int max_iterations = 10;
-  int iteration_count = 0;
-  double alpha = 1.0;
-  double fx0 = energy(0);
-  double fx;
-  
-  bool done = false;
-  while (iteration_count < max_iterations && !done) {
-    // f(x+alpha*d) may expect a modified simulation state,
-    // so need to execute callback first
-    update_R(alpha);
-    fx = energy(alpha);
-    if (fx > fx0) {
-      alpha  *= 0.5; 
-      iteration_count++;
-    } else {
-      done = true;
-    }
-  }
-
-  //alpha=1.0;
-  //update_R(alpha);
-
-  #pragma omp parallel for 
-  for (int i = 0; i < meshT.rows(); ++i) {
-    S[i] += alpha * dS[i];
-  }
-  q1 = q0; q0 = qt;
-  qt += alpha*dq;
-
-  printf("f(x): %.5g, f(x + a*d): %.5g, alpha: %.5g\n", fx0, fx, alpha);
-  return iteration_count == max_iterations;
-}
-
 void simulation_step() {
 
   dq_la.setZero();
@@ -478,7 +346,7 @@ void simulation_step() {
   // Warm start solver
   if (warm_start) {
     dq_la.segment(0,qt.size()) = (qt-q0) + h*h*f_ext0;
-    update_SR_fast();
+    update_SR();
   }
   
   for (int i = 0; i < outer_steps; ++i) {
@@ -531,23 +399,20 @@ void simulation_step() {
       std::cout << "#iterations:     " << cg.iterations() << std::endl;
       std::cout << "estimated error: " << cg.error()      << std::endl;
       
-      
       // Update per-element R & S matrices
       start = high_resolution_clock::now();
       dq = dq_la.segment(0,qt.size());
       la = dq_la.segment(qt.size(),9*meshT.rows());
-      update_SR_fast();
+      update_SR();
 
       end = high_resolution_clock::now();
       t_SR += duration_cast<nanoseconds>(end-start).count()/1e6;
       beta *= std::min(mu, 1.5*beta);
     }
-    linesearch();
   }
 
-  //q1 = q0; q0 = qt;
-  //qt += dq_la.segment(0, qt.size());
-  //qt += dq;
+  q1 = q0; q0 = qt;
+  qt += dq;
 
   // Initial configuration vectors (assuming 0 initial velocity)
   VectorXd q = P.transpose()*qt + b;
