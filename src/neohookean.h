@@ -24,6 +24,11 @@ Eigen::Matrix9d neohookean_WHinvW(const Eigen::Matrix3d& R,
 Eigen::Vector9d neohookean_rhs(const Eigen::Matrix3d& R,
        const Eigen::Vector6d& S, const Eigen::Matrix6d& Hinv,
        double mu, double la);
+Eigen::Vector9d neohookean_rhs(const Eigen::Matrix3d& R,
+       const Eigen::Vector6d& S, const Eigen::Matrix6d& Hinv,
+       const Eigen::Vector6d& g);
+
+double neohookean_psi(const Eigen::Vector6d& S, double mu, double la); 
 
 Eigen::Vector6d neohookean_g(const Eigen::Matrix3d& R, const Eigen::Vector6d& S,
     double mu, double la);
