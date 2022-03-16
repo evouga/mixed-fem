@@ -50,6 +50,7 @@ I2=trace(F'*F);
 snh= 0.5*mu*(I2-d)- mu*(I3-1)+ 0.5*la*(I3-1)^2;
 H=simplify(hessian(snh,S(:)));
 g=simplify(gradient(snh,S(:)));
+ccode(snh)
 ccode(H)
 ccode(g)
 

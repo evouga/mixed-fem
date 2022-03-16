@@ -66,9 +66,11 @@ SparseMatrixd lbs; // linear blend skinning matrix
 VectorXd dq_la;
 
 // F = RS
-std::vector<Matrix3d> R; // Per-element rotations
-std::vector<Vector6d> S; // Per-element symmetric deformation
+std::vector<Matrix3d> R;  // Per-element rotations
+std::vector<Vector6d> S;  // Per-element symmetric deformation
+std::vector<Vector6d> dS; // Per-element symmetric deformation
 std::vector<Matrix6d> Hinv;
+std::vector<Vector6d> g;
 
 SparseMatrixd M;          // mass matrix
 SparseMatrixd P;          // pinning constraint (for vertices)
@@ -81,9 +83,8 @@ VectorXi pinnedV;
 // Simulation params
 double h = 0.034;//0.1;
 double density = 1000.0;
-//double ym = 1e6;
-double ym = 1e5;
-//double ym = 2e14;
+double ym = 1e4;
+//double ym = 1e5;
 double pr = 0.45;
 double mu = ym/(2.0*(1.0+pr));
 double lambda = (ym*pr)/((1.0+pr)*(1.0-2.0*pr));
@@ -92,7 +93,8 @@ double alpha = mu;
 double ih2 = 1.0/h/h;
 double grav = -9.8;
 double plane_d;
-double ibeta = 1./100;
+double beta = 100.;
+double ibeta = 1./beta;
 
 bool warm_start = true;
 bool floor_collision = true;
@@ -105,6 +107,7 @@ Matrix<double, 6,1> I_vec;
 VectorXd qt;    // current positions
 VectorXd q0;    // previous positions
 VectorXd q1;    // previous^2 positions
+VectorXd dq;    // current update
 VectorXd f_ext; // per-node external forces
 VectorXd f_ext0;// per-node external forces (not integrated)
 VectorXd la;    // lambdas
@@ -122,12 +125,11 @@ CholmodSimplicialLDLT<SparseMatrixd> solver;
 SimplicialLDLT<SparseMatrixd> solver;
 #endif
 ConjugateGradient<SparseMatrixd, Lower|Upper, FemPreconditioner<double>> cg;
-//IDRS<SparseMatrixd, FemPreconditioner<double>> cg;
-//BiCGSTAB<SparseMatrixd, FemPreconditioner<double>> cg;
-//GMRES<SparseMatrixd, FemPreconditioner<double>> cg;
+
 VectorXd rhs;
 double t_coll=0, t_asm = 0, t_precond=0, t_rhs = 0, t_solve = 0, t_SR = 0; 
-int solver_steps = 15;
+int outer_steps = 2;
+int inner_steps = 3;
 
 // ------------------------------------ //
 
@@ -187,12 +189,20 @@ void build_kkt_lhs() {
   }
 
   //write out preconditioner to disk
-  bool did_it_write = saveMarket(lhs, "./preconditioner.txt");
+  //bool did_it_write = saveMarket(lhs, "./preconditioner.txt");
   //exit(1);
 
   cg.preconditioner().init(lhs);
   cg.setMaxIterations(10);
   cg.setTolerance(1e-7);
+}
+
+void energy_grad() {
+  #pragma omp parallel for
+  for (int i = 0; i < meshT.rows(); ++i) {
+    Hinv[i] = neohookean_hinv(R[i],S[i],mu,lambda);
+    g[i] = neohookean_g(R[i], S[i], mu, lambda);
+  }
 }
 
 void build_kkt_rhs() {
@@ -210,28 +220,24 @@ void build_kkt_rhs() {
     //rhs.segment(qt.size() + 9*i, 9) = vols(i) * arap_rhs(R[i]);
     //rhs.segment(qt.size() + 9*i, 9) = vols(i) * corotational_rhs(R[i],
     //    S[i], mu, lambda);
-
-    // For neohookean we need to compute Hinv
-    Hinv[i] = neohookean_hinv(R[i],S[i],mu,lambda);
     rhs.segment(qt.size() + 9*i, 9) = vols(i) * neohookean_rhs(R[i],
-        S[i], Hinv[i], mu, lambda);
+        S[i], Hinv[i], g[i]);
   }
 
   // 3. Jacobian term
   rhs.segment(qt.size(), 9*meshT.rows()) -= Jw*(P.transpose()*qt+b);
 }
 
-void update_SR_fast() {
+void update_SR() {
 
-  VectorXd def_grad = J*(P.transpose()*(qt+dq_la.segment(0, qt.size()))+b);
+  VectorXd def_grad = J*(P.transpose()*(qt+dq)+b);
 
   int N = (meshT.rows() / 4) + int(meshT.rows() % 4 != 0);
 
   
   //la = la.array() - la.mean();
-double fac = std::max((la.array().abs().maxCoeff() + 1e-6), 1.0);
+  double fac = std::max((la.array().abs().maxCoeff() + 1e-6), 1.0);
 
-  std::cout<<"FAC: "<<fac<<"\n";
   #pragma omp parallel for 
   for (int ii = 0; ii < N; ++ii) {
 
@@ -245,23 +251,15 @@ double fac = std::max((la.array().abs().maxCoeff() + 1e-6), 1.0);
       // 1. Update S[i] using new lambdas
       //S[i] += arap_ds(R[i], S[i], la.segment(9*i,9), mu, lambda);
       //S[i] += corotational_ds(R[i], S[i], la.segment(9*i,9), mu, lambda);
-      S[i] += neohookean_ds(R[i], S[i], la.segment(9*i,9), Hinv[i], mu, lambda);
-      //if (S[i].norm() > 1e15) {
-      //  std::cout << "dq_la size: " << dq_la.size() << std::endl;
-      //  std::cout << "la size: " << la.size() << std::endl;
-      //  std::cout << "i : " << 9*i << std::endl;
-      //  std::cout << "S0: " << S0 << std::endl;
-      //  std::cout << "la: " << la.segment(9*i,9) << std::endl;
-      //  std::cout << "Hinv: " << Hinv[i] << std::endl;
-      //  std::cout << "R: " << R[i] << std::endl;
-      //  exit(1);
-      //}
+      dS[i] = neohookean_ds(R[i], S[i], la.segment(9*i,9), Hinv[i], mu, lambda);
+      //S[i] += neohookean_ds(R[i], S[i], la.segment(9*i,9), Hinv[i], mu, lambda);
+      Vector6d s = S[i] + dS[i];
 
       // 2. Solve rotation matrices
       Matrix3d Cs;
-      Cs << S[i](0), S[i](5), S[i](4), 
-            S[i](5), S[i](1), S[i](3), 
-            S[i](4), S[i](3), S[i](2); 
+      Cs << s(0), s(5), s(4), 
+            s(5), s(1), s(3), 
+            s(4), s(3), s(2); 
       Matrix3d y4 = Map<Matrix3d>(li.data()).transpose()*Cs;
       Y4.block(3*jj, 0, 3, 3) = y4.cast<float>();
       //Matrix3d R4out;
@@ -285,23 +283,21 @@ double fac = std::max((la.array().abs().maxCoeff() + 1e-6), 1.0);
 
 void init_sim() {
 
-  //rotate the mesh
-  /*Matrix3d R_test;
-  R_test << 0.707, -0.707, 0,
-            0.707, 0.707, 0,
-            0, 0, 1;*/
-
   I_vec << 1, 1, 1, 0, 0, 0; // Identity in symmetric format
 
   // Initialize rotation matrices to identity
   R.resize(meshT.rows());
   S.resize(meshT.rows());
+  dS.resize(meshT.rows());
   Hinv.resize(meshT.rows());
+  g.resize(meshT.rows());
   for (int i = 0; i < meshT.rows(); ++i) {
     R[i].setIdentity();
     //R[i] = R_test;
     S[i] = I_vec;
+    dS[i].setZero();
     Hinv[i].setIdentity();
+    g[i].setZero();
   }
 
   // Initial lambdas
@@ -320,13 +316,13 @@ void init_sim() {
   // Pinning matrices
   double min_x = meshV.col(0).minCoeff();
   double max_x = meshV.col(0).maxCoeff();
-  double pin_x = min_x + (max_x-min_x)*0.3;
+  double pin_x = min_x + (max_x-min_x)*0.15;
   double min_y = meshV.col(1).minCoeff();
   double max_y = meshV.col(1).maxCoeff();
   double pin_y = max_y - (max_y-min_y)*0.1;
   //double pin_y = min_y + (max_y-min_y)*0.1;
   //pinnedV = (meshV.col(0).array() < pin_x).cast<int>(); 
-  pinnedV = (meshV.col(1).array() > pin_y).cast<int>(); 
+  //pinnedV = (meshV.col(1).array() > pin_y).cast<int>(); 
   //pinnedV(0) = 1;
   //polyscope::getVolumeMesh("input mesh")
   polyscope::getSurfaceMesh("input mesh")
@@ -345,6 +341,7 @@ void init_sim() {
   q0 = qt;
   q1 = qt;
   dq_la = 0*qt;
+  dq = 0*qt;
 
   build_kkt_lhs();
 
@@ -368,129 +365,74 @@ void simulation_step() {
   // Warm start solver
   if (warm_start) {
     dq_la.segment(0,qt.size()) = (qt-q0) + h*h*f_ext0;
-    update_SR_fast();
+    update_SR();
   }
   
-  ibeta = 1./100.;
-  for (int i = 0; i < solver_steps; ++i) {
-    // TODO partially inefficient right?
-    //  dq rows are fixed throughout the optimization, only lambda rows
-    //  change correct?
-    auto start = high_resolution_clock::now();
-    build_kkt_rhs();
-    auto end = high_resolution_clock::now();
-    t_rhs += duration_cast<nanoseconds>(end-start).count()/1e6;
-    start = end;
+  for (int i = 0; i < outer_steps; ++i) {
+    ibeta = 1./beta;
+    energy_grad();
+    for (int j = 0; j < inner_steps; ++j) {
 
-    {
-      //double min_x = meshV.col(0).minCoeff();
-      //double max_x = meshV.col(0).maxCoeff();
-      //double pin_x1 = min_x + (max_x-min_x)*0.1;
-      //double pin_x2 = max_x - (max_x-min_x)*0.1;
-      //VectorXd beam(qt.size());
-      //beam.setZero();
-      //std::cout << "pin_x1: " << min_x << " pin x2 : "<< max_x << std::endl;
-      //std::cout << "pin_x1: " << pin_x1 << " pin x2 : "<< pin_x2 << std::endl;
-      //#pragma omp parallel for
-      //for (int j = 0; j < qt.size()/3; ++j) {
-
-      //  if (meshV(j,0) < pin_x1) {
-      //    beam(3*j) -= 100; 
-      //  }
-      //  if (meshV(j,0) > pin_x2)
-      //    beam(3*j) += 100;
-      //}
-      //rhs.segment(0,qt.size()) += M*beam;
-      //std::cout << "norm: " << beam.norm() << std::endl;
-    }
-
-    if (floor_collision) {
-      VectorXd f_coll = collision_force();
-      rhs.segment(0,qt.size()) += f_coll;
-      end = high_resolution_clock::now();
-      t_coll += duration_cast<nanoseconds>(end-start).count()/1e6;
+      auto start = high_resolution_clock::now();
+      build_kkt_rhs();
+      auto end = high_resolution_clock::now();
+      t_rhs += duration_cast<nanoseconds>(end-start).count()/1e6;
       start = end;
+
+      if (floor_collision) {
+        VectorXd f_coll = collision_force();
+        rhs.segment(0,qt.size()) += f_coll;
+        end = high_resolution_clock::now();
+        t_coll += duration_cast<nanoseconds>(end-start).count()/1e6;
+        start = end;
+      }
+
+      // Temporary for benchmarking!
+      VectorXd tmp(dq_la.size());
+      start = high_resolution_clock::now();
+      tmp = solver.solve(rhs);
+      end = high_resolution_clock::now();
+      t_precond += duration_cast<nanoseconds>(end-start).count()/1e6;
+      start = end;
+
+      if (i == 0 && j == 0) {
+        dq_la = solver.solve(rhs);
+      }
+      start=end;
+
+      start = high_resolution_clock::now();
+      // New CG stuff
+      //update_arap_compliance(qt.size(), meshT.rows(), R, vols,
+      //    mu, lambda, lhs_sim);
+      //update_corotational_compliance(qt.size(), meshT.rows(), R, vols,
+      //    mu, lambda, lhs_sim);
+      update_neohookean_compliance(qt.size(), meshT.rows(), R, Hinv, vols,
+          mu, lambda, lhs_sim);
+      end = high_resolution_clock::now();
+      t_asm += duration_cast<nanoseconds>(end-start).count()/1e6;
+      start = end;
+
+      cg.compute(lhs_sim);
+      dq_la = cg.solveWithGuess(rhs, dq_la);
+      end = high_resolution_clock::now();
+      t_solve += duration_cast<nanoseconds>(end-start).count()/1e6;
+      std::cout << "#iterations:     " << cg.iterations() << std::endl;
+      std::cout << "estimated error: " << cg.error()      << std::endl;
+      
+      // Update per-element R & S matrices
+      start = high_resolution_clock::now();
+      dq = dq_la.segment(0,qt.size());
+      la = dq_la.segment(qt.size(),9*meshT.rows());
+      update_SR();
+
+      end = high_resolution_clock::now();
+      t_SR += duration_cast<nanoseconds>(end-start).count()/1e6;
+      ibeta = std::min(1e-8, 0.7*ibeta);
     }
-
-    // Temporary for benchmarking!
-    VectorXd tmp(dq_la.size());
-    start = high_resolution_clock::now();
-    tmp = solver.solve(rhs);
-    end = high_resolution_clock::now();
-    t_precond += duration_cast<nanoseconds>(end-start).count()/1e6;
-    start = end;
-
-    if (i == 0) {
-      dq_la = solver.solve(rhs);
-    }
-    start=end;
-
-    dq_la = tmp;
-    if (rhs.hasNaN()) {
-
-      std::cout << "dq_la nan? : " << dq_la.hasNaN() << std::endl;
-      std::cout << "rhs has nan: " << std::endl;
-      return;
-      exit(1);
-    }
-    if (dq_la.hasNaN()) {
-      std::cout << "DQ_LA has nan: " << std::endl;
-      //std::cout << "rhs: " << rhs.transpose() << std::endl;
-      return;
-      exit(1);
-    }
-    start = high_resolution_clock::now();
-    // New CG stuff
-    //update_arap_compliance(qt.size(), meshT.rows(), R, vols,
-    //    mu, lambda, lhs_sim);
-    //update_corotational_compliance(qt.size(), meshT.rows(), R, vols,
-    //    mu, lambda, lhs_sim);
-    update_neohookean_compliance(qt.size(), meshT.rows(), R, Hinv, vols,
-        mu, lambda, lhs_sim);
-    end = high_resolution_clock::now();
-    t_asm += duration_cast<nanoseconds>(end-start).count()/1e6;
-    start = end;
-
-    cg.compute(lhs_sim);
-    dq_la = cg.solveWithGuess(rhs, 0*dq_la);
-    end = high_resolution_clock::now();
-    t_solve += duration_cast<nanoseconds>(end-start).count()/1e6;
-    std::cout << "#iterations:     " << cg.iterations() << std::endl;
-    std::cout << "estimated error: " << cg.error()      << std::endl;
-    
-    
-    // Update per-element R & S matrices
-    start = high_resolution_clock::now();
-    la = dq_la.segment(qt.size(),9*meshT.rows());
-    update_SR_fast();
-    end = high_resolution_clock::now();
-    t_SR += duration_cast<nanoseconds>(end-start).count()/1e6;
-    ibeta = std::max(0.75*ibeta, 1e-8);
-
   }
 
-  q1 = q0;
-  q0 = qt;
-  qt += dq_la.segment(0, qt.size());
-
-  //double min_x = meshV0.col(0).minCoeff();
-  //double max_x = meshV0.col(0).maxCoeff();
-  //double pin_x1 = min_x + (max_x-min_x)*0.005;
-  //double pin_x2 = max_x - (max_x-min_x)*0.005;
-  //for (int i = 0; i < qt.size()/3; ++i) {
-  //  //if (qt(3*i) < pin_x1) {
-  //  if (meshV0(i,0) < pin_x1) {
-  //    qt(3*i) = q0(3*i) - h*0.2;
-  //    qt(3*i+1) = q0(3*i+1);
-  //    qt(3*i+2) = q0(3*i+2);
-  //  }
-  //  //if (qt(3*i) > pin_x2) {
-  //  if (meshV(i,0) > pin_x2) {
-  //    qt(3*i) = q0(3*i) + h*0.2;
-  //    qt(3*i+1) = q0(3*i+1);
-  //    qt(3*i+2) = q0(3*i+2);
-  //  }
-  //}
+  q1 = q0; q0 = qt;
+  qt += dq;
 
   // Initial configuration vectors (assuming 0 initial velocity)
   VectorXd q = P.transpose()*qt + b;
@@ -550,12 +492,12 @@ void callback() {
 
     std::cout << "STEP: " << step << std::endl;
     std::cout << "[Avg Time ms] " 
-      << " collision: " << t_coll / solver_steps / step
-      << " rhs: " << t_rhs / solver_steps / step
-      << " preconditioner: " << t_precond / solver_steps / step
-      << " KKT assembly: " << t_asm / solver_steps / step
-      << " cg.solve(): " << t_solve / solver_steps / step
-      << " update S & R: " << t_SR / solver_steps / step
+      << " collision: " << t_coll / outer_steps / step
+      << " rhs: " << t_rhs / outer_steps / step
+      << " preconditioner: " << t_precond / outer_steps / step
+      << " KKT assembly: " << t_asm / outer_steps / step
+      << " cg.solve(): " << t_solve / outer_steps / step
+      << " update S & R: " << t_SR / outer_steps / step
       << std::endl;
 
   }
