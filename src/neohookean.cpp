@@ -24,7 +24,7 @@ void neohookean_compliance(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
       for (int k = 0; k < 9; ++k) {
         if (k==j) {
           trips.push_back(Eigen::Triplet<double>(
-              offset+9*i+j,offset+9*i+k, -vols(i)*(WHiW(j,k)+1e-6)));
+              offset+9*i+j,offset+9*i+k, -vols(i)*(WHiW(j,k))));
         } else {
           trips.push_back(Eigen::Triplet<double>(
               offset+9*i+j,offset+9*i+k, -vols(i)*WHiW(j,k)));
@@ -40,6 +40,9 @@ void update_neohookean_compliance(int n, int m,
     SparseMatrixd& mat) {
 
   int offset = n;
+
+  double tol = std::min(1e-6, 1./mu);
+
   #pragma omp parallel for
   for (int i = 0; i < m; ++i) {
 
@@ -57,7 +60,7 @@ void update_neohookean_compliance(int n, int m,
       int row_j = mat.outerIndexPtr()[offset_j] + colsize - 9;
       for (int k = 0; k < 9; ++k) {
         if (k==j) {
-          mat.valuePtr()[row_j+k] = -vols(i)*(WHiW(j,k)+1e-5);
+          mat.valuePtr()[row_j+k] = -vols(i)*(WHiW(j,k)+tol);
         } else {
           mat.valuePtr()[row_j+k] = -vols(i)*WHiW(j,k);
         }

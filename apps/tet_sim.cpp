@@ -42,6 +42,7 @@
 #include <iostream>
 #include <unordered_set>
 #include <utility>
+#include <pcg.h>
 
 #include <chrono>
 
@@ -83,7 +84,7 @@ VectorXi pinnedV;
 // Simulation params
 double h = 0.034;//0.1;
 double density = 1000.0;
-double ym = 1e4;
+double ym = 1e5;
 //double ym = 1e5;
 double pr = 0.45;
 double mu = ym/(2.0*(1.0+pr));
@@ -125,6 +126,12 @@ CholmodSimplicialLDLT<SparseMatrixd> solver;
 SimplicialLDLT<SparseMatrixd> solver;
 #endif
 ConjugateGradient<SparseMatrixd, Lower|Upper, FemPreconditioner<double>> cg;
+
+//Dave cg temp variables
+Eigen::VectorXd tmp_r;
+Eigen::VectorXd tmp_z;
+Eigen::VectorXd tmp_p;
+Eigen::VectorXd tmp_Ap;
 
 VectorXd rhs;
 double t_coll=0, t_asm = 0, t_precond=0, t_rhs = 0, t_solve = 0, t_SR = 0; 
@@ -189,7 +196,7 @@ void build_kkt_lhs() {
   }
 
   //write out preconditioner to disk
-  //bool did_it_write = saveMarket(lhs, "./preconditioner.txt");
+  bool did_it_write = saveMarket(lhs, "./preconditioner.txt");
   //exit(1);
 
   cg.preconditioner().init(lhs);
@@ -322,7 +329,7 @@ void init_sim() {
   double pin_y = max_y - (max_y-min_y)*0.1;
   //double pin_y = min_y + (max_y-min_y)*0.1;
   //pinnedV = (meshV.col(0).array() < pin_x).cast<int>(); 
-  //pinnedV = (meshV.col(1).array() > pin_y).cast<int>(); 
+  pinnedV = (meshV.col(1).array() > pin_y).cast<int>(); 
   //pinnedV(0) = 1;
   //polyscope::getVolumeMesh("input mesh")
   polyscope::getSurfaceMesh("input mesh")
@@ -341,7 +348,13 @@ void init_sim() {
   q0 = qt;
   q1 = qt;
   dq_la = 0*qt;
+  tmp_r = dq_la;
+  tmp_z = dq_la;
+  tmp_p = dq_la;
+  tmp_Ap = dq_la;
   dq = 0*qt;
+
+
 
   build_kkt_lhs();
 
@@ -412,8 +425,9 @@ void simulation_step() {
       t_asm += duration_cast<nanoseconds>(end-start).count()/1e6;
       start = end;
 
-      cg.compute(lhs_sim);
-      dq_la = cg.solveWithGuess(rhs, dq_la);
+      //cg.compute(lhs_sim);
+      //dq_la = cg.solveWithGuess(rhs, dq_la);
+      pcg(dq_la, lhs_sim, rhs, tmp_r, tmp_z, tmp_p, tmp_Ap, solver);
       end = high_resolution_clock::now();
       t_solve += duration_cast<nanoseconds>(end-start).count()/1e6;
       std::cout << "#iterations:     " << cg.iterations() << std::endl;
