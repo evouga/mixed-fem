@@ -1,5 +1,6 @@
 #include "polyscope/polyscope.h"
 
+
 // libigl
 #include <igl/boundary_facets.h>
 #include <igl/invert_diag.h>
@@ -10,7 +11,7 @@
 #include <igl/AABB.h>
 #include <igl/in_element.h>
 #include <igl/barycentric_coordinates.h>
-
+#include "eigen_svd.h"
 
 // Polyscope
 #include "polyscope/messages.h"
@@ -25,6 +26,9 @@
 #include "linear_tetmesh_mass_matrix.h"
 #include "linear_tet_mass_matrix.h"
 #include "linear_tetmesh_dphi_dX.h"
+
+//eigen unsupported I/O
+#include <eigen3/unsupported/Eigen/src/SparseExtra/MarketIO.h>
 
 #include "preconditioner.h"
 #include "corotational.h"
@@ -75,7 +79,7 @@ MatrixXd dphidX;
 VectorXi pinnedV;
 
 // Simulation params
-double h = 0.01;//0.1;
+double h = 0.034;//0.1;
 double density = 1000.0;
 //double ym = 1e6;
 double ym = 1e5;
@@ -88,7 +92,7 @@ double alpha = mu;
 double ih2 = 1.0/h/h;
 double grav = -9.8;
 double plane_d;
-double beta = 100;
+double ibeta = 1./100;
 
 bool warm_start = true;
 bool floor_collision = true;
@@ -123,7 +127,7 @@ ConjugateGradient<SparseMatrixd, Lower|Upper, FemPreconditioner<double>> cg;
 //GMRES<SparseMatrixd, FemPreconditioner<double>> cg;
 VectorXd rhs;
 double t_coll=0, t_asm = 0, t_precond=0, t_rhs = 0, t_solve = 0, t_SR = 0; 
-int solver_steps = 3;
+int solver_steps = 15;
 
 // ------------------------------------ //
 
@@ -181,6 +185,11 @@ void build_kkt_lhs() {
   if(solver.info()!=Success) {
     std::cerr << " KKT prefactor failed! " << std::endl;
   }
+
+  //write out preconditioner to disk
+  bool did_it_write = saveMarket(lhs, "./preconditioner.txt");
+  //exit(1);
+
   cg.preconditioner().init(lhs);
   cg.setMaxIterations(10);
   cg.setTolerance(1e-7);
@@ -218,8 +227,11 @@ void update_SR_fast() {
 
   int N = (meshT.rows() / 4) + int(meshT.rows() % 4 != 0);
 
-  double fac = beta * (la.maxCoeff() + 1e-6);
+  
+  //la = la.array() - la.mean();
+double fac = std::max((la.array().abs().maxCoeff() + 1e-6), 1.0);
 
+  std::cout<<"FAC: "<<fac<<"\n";
   #pragma omp parallel for 
   for (int ii = 0; ii < N; ++ii) {
 
@@ -229,7 +241,7 @@ void update_SR_fast() {
       int i = ii*4 +jj;
       if (i >= meshT.rows())
         break;
-      Vector9d li = la.segment(9*i,9)/fac + def_grad.segment(9*i,9);
+      Vector9d li = ibeta*(la.segment(9*i,9)/fac) + def_grad.segment(9*i,9);
       // 1. Update S[i] using new lambdas
       //S[i] += arap_ds(R[i], S[i], la.segment(9*i,9), mu, lambda);
       //S[i] += corotational_ds(R[i], S[i], la.segment(9*i,9), mu, lambda);
@@ -252,9 +264,16 @@ void update_SR_fast() {
             S[i](4), S[i](3), S[i](2); 
       Matrix3d y4 = Map<Matrix3d>(li.data()).transpose()*Cs;
       Y4.block(3*jj, 0, 3, 3) = y4.cast<float>();
+      //Matrix3d R4out;
+      //eigen_svd(y4, R4out);
+      //R[i] = R4out;
+      
+      
     }
     // Solve rotations
+    //
     polar_svd3x3_sse(Y4,R4);
+
     for (int jj = 0; jj < 4; jj++) {
       int i = ii*4 +jj;
       if (i >= meshT.rows())
@@ -352,7 +371,7 @@ void simulation_step() {
     update_SR_fast();
   }
   
-  beta = 100;
+  ibeta = 1./100.;
   for (int i = 0; i < solver_steps; ++i) {
     // TODO partially inefficient right?
     //  dq rows are fixed throughout the optimization, only lambda rows
@@ -433,7 +452,7 @@ void simulation_step() {
     start = end;
 
     cg.compute(lhs_sim);
-    dq_la = cg.solveWithGuess(rhs, dq_la);
+    dq_la = cg.solveWithGuess(rhs, 0*dq_la);
     end = high_resolution_clock::now();
     t_solve += duration_cast<nanoseconds>(end-start).count()/1e6;
     std::cout << "#iterations:     " << cg.iterations() << std::endl;
@@ -446,7 +465,7 @@ void simulation_step() {
     update_SR_fast();
     end = high_resolution_clock::now();
     t_SR += duration_cast<nanoseconds>(end-start).count()/1e6;
-    beta *= std::min(mu, 1.5*beta);
+    ibeta = std::max(0.75*ibeta, 1e-8);
 
   }
 
@@ -502,7 +521,9 @@ void callback() {
   static int export_step = 0;
 
   if(ImGui::Button("sim step") || simulating) {
-    simulation_step();
+    for(unsigned int ii=0; ii<3; ++ii) {
+      simulation_step();
+    }
     ++step;
     //polyscope::getVolumeMesh("input mesh")
     polyscope::getSurfaceMesh("input mesh")
@@ -516,10 +537,10 @@ void callback() {
 
     if (export_sim) {
       char buffer [50];
-      int n = sprintf(buffer, "../data/tet/solid/tet_%04d.png", export_step); 
+      int n = sprintf(buffer, "../data/tet_%04d.png", export_step); 
       buffer[n] = 0;
       polyscope::screenshot(std::string(buffer), true);
-      n = sprintf(buffer, "../data/tet/solid/tet_%04d.obj", export_step++); 
+      n = sprintf(buffer, "../data/tet_%04d.obj", export_step++); 
       buffer[n] = 0;
       if (skinV.rows() > 0)
         igl::writeOBJ(std::string(buffer),skinV,skinF);

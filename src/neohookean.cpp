@@ -1,4 +1,10 @@
 #include "neohookean.h"
+#include <string>
+#include <fstream>
+#include <iostream>
+#include <utility>
+
+#include <eigen3/unsupported/Eigen/src/SparseExtra/MarketIO.h>
 
 using namespace Eigen;
 
@@ -56,6 +62,11 @@ void update_neohookean_compliance(int n, int m,
       }
     }
   }
+
+  //right out matrix here
+  bool did_it_write = saveMarket(mat, "./lhs.txt");
+  exit(0);
+
 }
 
 Eigen::Vector6d neohookean_ds(const Eigen::Matrix3d& R, 
