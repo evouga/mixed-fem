@@ -82,15 +82,15 @@ MatrixXd dphidX;
 VectorXi pinnedV;
 
 // Simulation params
-double h = 0.034;//0.1;
+double h = 0.1;//0.1;
 double density = 1000.0;
-double ym = 1e5;
+double ym = 5e4;
 //double ym = 1e5;
 double pr = 0.45;
 double mu = ym/(2.0*(1.0+pr));
 double lambda = (ym*pr)/((1.0+pr)*(1.0-2.0*pr));
 
-double alpha = mu;
+double alpha = lambda;
 double ih2 = 1.0/h/h;
 double grav = -9.8;
 double plane_d;
@@ -136,7 +136,7 @@ Eigen::VectorXd tmp_Ap;
 VectorXd rhs;
 double t_coll=0, t_asm = 0, t_precond=0, t_rhs = 0, t_solve = 0, t_SR = 0; 
 int outer_steps = 2;
-int inner_steps = 3;
+int inner_steps = 7;
 
 // ------------------------------------ //
 
@@ -441,7 +441,7 @@ void simulation_step() {
 
       end = high_resolution_clock::now();
       t_SR += duration_cast<nanoseconds>(end-start).count()/1e6;
-      ibeta = std::min(1e-8, 0.7*ibeta);
+      ibeta = std::min(1e-8, 0.9*ibeta);
     }
   }
 
