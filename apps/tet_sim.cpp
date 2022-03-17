@@ -82,9 +82,9 @@ MatrixXd dphidX;
 VectorXi pinnedV;
 
 // Simulation params
-double h = 0.1;//0.1;
+double h = 0.034;//0.1;
 double density = 1000.0;
-double ym = 5e4;
+double ym = 1e4;
 //double ym = 1e5;
 double pr = 0.45;
 double mu = ym/(2.0*(1.0+pr));
@@ -94,7 +94,7 @@ double alpha = lambda;
 double ih2 = 1.0/h/h;
 double grav = -9.8;
 double plane_d;
-double beta = 100.;
+double beta = 5.;
 double ibeta = 1./beta;
 
 bool warm_start = true;
