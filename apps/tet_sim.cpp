@@ -32,7 +32,7 @@
 
 #include "preconditioner.h"
 #include "corotational.h"
-#include "neohookean.h"
+//#include "neohookean.h"
 #include "arap.h"
 #include "svd/svd3x3_sse.h"
 #include "pinning_matrix.h"
@@ -43,6 +43,9 @@
 #include <unordered_set>
 #include <utility>
 #include <pcg.h>
+
+#include "materials/neohookean_model.h"
+#include "config.h"
 
 #include <chrono>
 
@@ -137,6 +140,10 @@ double t_coll=0, t_asm = 0, t_precond=0, t_rhs = 0, t_solve = 0, t_SR = 0;
 int outer_steps = 2;
 int inner_steps = 7;
 
+using namespace mfem;
+std::shared_ptr<MaterialModel> material;
+std::shared_ptr<MaterialConfig> material_config;;
+
 // ------------------------------------ //
 
 VectorXd collision_force() {
@@ -206,8 +213,8 @@ void build_kkt_lhs() {
 void energy_grad() {
   #pragma omp parallel for
   for (int i = 0; i < meshT.rows(); ++i) {
-    Hinv[i] = neohookean_hinv(R[i],S[i],mu,lambda);
-    g[i] = neohookean_g(R[i], S[i], mu, lambda);
+    Hinv[i] = material->hessian_inv(R[i],S[i]);
+    g[i] = material->gradient(R[i], S[i]);
   }
 }
 
@@ -226,7 +233,7 @@ void build_kkt_rhs() {
     //rhs.segment(qt.size() + 9*i, 9) = vols(i) * arap_rhs(R[i]);
     //rhs.segment(qt.size() + 9*i, 9) = vols(i) * corotational_rhs(R[i],
     //    S[i], mu, lambda);
-    rhs.segment(qt.size() + 9*i, 9) = vols(i) * neohookean_rhs(R[i],
+    rhs.segment(qt.size() + 9*i, 9) = vols(i) * material->rhs(R[i],
         S[i], Hinv[i], g[i]);
   }
 
@@ -257,7 +264,7 @@ void update_SR() {
       // 1. Update S[i] using new lambdas
       //S[i] += arap_ds(R[i], S[i], la.segment(9*i,9), mu, lambda);
       //S[i] += corotational_ds(R[i], S[i], la.segment(9*i,9), mu, lambda);
-      dS[i] = neohookean_ds(R[i], S[i], la.segment(9*i,9), Hinv[i], mu, lambda);
+      dS[i] = material->dS(R[i], S[i], la.segment(9*i,9), Hinv[i]);
       //S[i] += neohookean_ds(R[i], S[i], la.segment(9*i,9), Hinv[i], mu, lambda);
       Vector6d s = S[i] + dS[i];
 
@@ -418,8 +425,8 @@ void simulation_step() {
       //    mu, lambda, lhs_sim);
       //update_corotational_compliance(qt.size(), meshT.rows(), R, vols,
       //    mu, lambda, lhs_sim);
-      update_neohookean_compliance(qt.size(), meshT.rows(), R, Hinv, vols,
-          mu, lambda, lhs_sim);
+      material->update_compliance(qt.size(), meshT.rows(), R, Hinv, vols,
+          lhs_sim);
       end = high_resolution_clock::now();
       t_asm += duration_cast<nanoseconds>(end-start).count()/1e6;
       start = end;
@@ -619,6 +626,12 @@ int main(int argc, char **argv) {
 
   std::cout << "V : " << meshV.rows() << " T: " << meshT.rows() << std::endl;
   meshV0 = meshV;
+
+  material_config = std::make_shared<MaterialConfig>();
+  material_config->mu = mu;
+  material_config->la = lambda;
+
+  material = std::make_shared<StableNeohookean>(material_config);
 
   // Initial simulation setup
   init_sim();

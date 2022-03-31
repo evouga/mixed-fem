@@ -2,14 +2,15 @@
 
 #include "materials/material_model.h"
 #include "config.h"
+
 namespace mfem {
 
-  // Stable neohookean material model
-  class StableNeohookean : public MaterialModel {
+  // as-rigid-as-possible material model
+  class ArapModel : public MaterialModel {
   public:
     
-    StableNeohookean(const std::shared_ptr<MaterialConfig>& config)
-        : MaterialModel("Stable Neohookean"), config_(config) {}
+    ArapModel(const std::shared_ptr<MaterialConfig>& config)
+        : MaterialModel("Corotational"), config_(config) {}
 
     void update_compliance(int n, int m, 
         const std::vector<Eigen::Matrix3d>& R,
@@ -34,7 +35,6 @@ namespace mfem {
     Eigen::Vector6d dS(const Eigen::Matrix3d& R, 
         const Eigen::Vector6d& S, const Eigen::Vector9d& L,
         const Eigen::Matrix6d& Hinv) override;
-
     
   private:
     std::shared_ptr<MaterialConfig> config_;     

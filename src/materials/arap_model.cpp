@@ -1,9 +1,9 @@
-#include "materials/neohookean_model.h"
+#include "materials/arap_model.h"
 
 using namespace Eigen;
 using namespace mfem;
 
-void StableNeohookean::update_compliance(int n, int m, 
+void ArapModel::update_compliance(int n, int m, 
     const std::vector<Matrix3d>& R,
     const std::vector<Matrix6d>& Hinv,
     const VectorXd& vols, SparseMatrixd& mat) {
@@ -24,7 +24,7 @@ void StableNeohookean::update_compliance(int n, int m,
   //exit(0);
 }
 
-double StableNeohookean::energy(const Vector6d& S) {
+double ArapModel::energy(const Vector6d& S) {
     
   double mu = config_->mu;
   double la = config_->la;
@@ -34,12 +34,11 @@ double StableNeohookean::energy(const Vector6d& S) {
   double S4 = S(3);
   double S5 = S(4);
   double S6 = S(5);
-  return mu*(S1*(S6*S6)+S2*(S5*S5)+S3*(S4*S4)-S1*S2*S3-S4*S5*S6*2.0+1.0)
-    +(la*pow(S1*(S6*S6)+S2*(S5*S5)+S3*(S4*S4)-S1*S2*S3-S4*S5*S6*2.0+1.0,2.0))
-    /2.0+(mu*(S1*S1+S2*S2+S3*S3+(S4*S4)*2.0+(S5*S5)*2.0+(S6*S6)*2.0-3.0))/2.0;
+  std::cerr << "ArapModel::energy not implemented!"
+  return 0.0;
 }
 
-Vector6d StableNeohookean::gradient(const Matrix3d& R,
+Vector6d ArapModel::gradient(const Matrix3d& R,
     const Vector6d& S) {
   
   double mu = config_->mu;
@@ -61,7 +60,7 @@ Vector6d StableNeohookean::gradient(const Matrix3d& R,
 
 }
 
-Matrix6d StableNeohookean::hessian_inv(const Matrix3d& R,
+Matrix6d ArapModel::hessian_inv(const Matrix3d& R,
     const Vector6d& S) {
   
   double mu = config_->mu;
@@ -116,7 +115,7 @@ Matrix6d StableNeohookean::hessian_inv(const Matrix3d& R,
       
 }
 
-Matrix9d StableNeohookean::WHinvW(const Matrix3d& R,
+Matrix9d ArapModel::WHinvW(const Matrix3d& R,
     const Matrix6d& Hinv) {
   Matrix<double,9,6> W;
   W <<
@@ -132,7 +131,7 @@ Matrix9d StableNeohookean::WHinvW(const Matrix3d& R,
   return W*Hinv*W.transpose();
 }
 
-Vector9d StableNeohookean::rhs(const Matrix3d& R,
+Vector9d ArapModel::rhs(const Matrix3d& R,
     const Vector6d& S, const Matrix6d& Hinv,
     const Vector6d& g) {
   
@@ -150,7 +149,7 @@ Vector9d StableNeohookean::rhs(const Matrix3d& R,
   return W*(S - Hinv*g);    
 }
 
-Vector6d StableNeohookean::dS(const Matrix3d& R, 
+Vector6d ArapModel::dS(const Matrix3d& R, 
     const Vector6d& S, const Vector9d& L,
     const Matrix6d& Hinv) {
   
@@ -167,6 +166,5 @@ Vector6d StableNeohookean::dS(const Matrix3d& R,
     0,         R(2,1), 0,         R(2,2), 0        , R(2,0),
     0,         0,         R(2,2), R(2,1), R(2,0)   , 0;
   return Hinv*(W.transpose()*L - g); 
-      
 }
     
