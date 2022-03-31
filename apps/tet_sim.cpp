@@ -11,7 +11,7 @@
 #include <igl/AABB.h>
 #include <igl/in_element.h>
 #include <igl/barycentric_coordinates.h>
-#include "eigen_svd.h"
+//#include "eigen_svd.h"
 
 // Polyscope
 #include "polyscope/messages.h"
@@ -34,7 +34,7 @@
 #include "corotational.h"
 #include "neohookean.h"
 #include "arap.h"
-#include "svd3x3_sse.h"
+#include "svd/svd3x3_sse.h"
 #include "pinning_matrix.h"
 #include "tet_kkt.h"
 #include <unsupported/Eigen/CXX11/Tensor>
@@ -121,7 +121,6 @@ SparseMatrixd lhs;
 SparseMatrixd lhs_sim;
 #if defined(SIM_USE_CHOLMOD)
 CholmodSimplicialLDLT<SparseMatrixd> solver;
-//SimplicialLLT<SparseMatrixd> solver;
 #else
 SimplicialLDLT<SparseMatrixd> solver;
 #endif
@@ -425,13 +424,9 @@ void simulation_step() {
       t_asm += duration_cast<nanoseconds>(end-start).count()/1e6;
       start = end;
 
-      //cg.compute(lhs_sim);
-      //dq_la = cg.solveWithGuess(rhs, dq_la);
       pcg(dq_la, lhs_sim, rhs, tmp_r, tmp_z, tmp_p, tmp_Ap, solver);
       end = high_resolution_clock::now();
       t_solve += duration_cast<nanoseconds>(end-start).count()/1e6;
-      std::cout << "#iterations:     " << cg.iterations() << std::endl;
-      std::cout << "estimated error: " << cg.error()      << std::endl;
       
       // Update per-element R & S matrices
       start = high_resolution_clock::now();

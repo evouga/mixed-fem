@@ -11,7 +11,7 @@
 #include <igl/doublearea.h>
 #include <igl/svd3x3.h>
 #include <igl/per_face_normals.h>
-#include "svd3x3_sse.h"
+#include "svd/svd3x3_sse.h"
 
 // Polyscope
 #include "polyscope/messages.h"

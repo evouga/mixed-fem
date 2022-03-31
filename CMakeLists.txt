@@ -70,11 +70,11 @@ endif()
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 
 # Find Eigen
-find_package(Eigen3 3.3 REQUIRED NO_MODULE)
-find_package(OpenMP)
+# find_package(Eigen3 3.4 REQUIRED NO_MODULE)
+find_package(OpenMP REQUIRED)
 find_package(BLAS)
 find_package(LAPACK)
-find_package(CHOLMOD)
+find_package(Cholmod)
 
 # Add polyscope
 message("\n\n == CMAKE recursively building Polyscope\n")
@@ -90,11 +90,30 @@ add_subdirectory("deps/polyscope")
 #set(LIBIGL_WITH_OPENGL_GLFW_IMGUI OFF CACHE BOOL "Use ImGui" )
 #add_subdirectory("deps/libIGL")
 
-file(GLOB SOURCES ${PROJECT_SOURCE_DIR}/src/*.cpp)
+file(GLOB SOURCES ${PROJECT_SOURCE_DIR}/src/*.cpp ${PROJECT_SOURCE_DIR}/src/materials/*.cpp)
+message("SOURCES" ${SOURCES})
 add_library(mixed_fem_lib SHARED ${SOURCES})
+
+include(FetchContent)
+FetchContent_Declare(
+  Eigen
+  GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
+  GIT_TAG master
+  GIT_SHALLOW TRUE
+  GIT_PROGRESS TRUE)
+set(EIGEN_BUILD_DOC OFF)
+# note: To disable eigen tests,
+# you should put this code in a add_subdirectory to avoid to change
+# BUILD_TESTING for your own project too since variables are directory
+# scoped
+set(BUILD_TESTING OFF)
+set(EIGEN_BUILD_PKGCONFIG OFF)
+set( OFF)
+FetchContent_MakeAvailable(Eigen)
 
 # Add OMP library and includes
 if(OpenMP_CXX_FOUND)
+
     if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
         execute_process(
             COMMAND brew --prefix libomp 
@@ -106,7 +125,7 @@ if(OpenMP_CXX_FOUND)
         target_link_libraries(mixed_fem_lib OpenMP::OpenMP_CXX)
         target_compile_definitions(mixed_fem_lib PUBLIC -DSIM_USE_OPENMP)
 
-    elseif()
+    else()
         include_directories(${OpenMP_CXX_INCLUDE_DIRS})
         target_link_libraries(mixed_fem_lib OpenMP::OpenMP_CXX)
         target_compile_definitions(mixed_fem_lib PUBLIC -DSIM_USE_OPENMP)
