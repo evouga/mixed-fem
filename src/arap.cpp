@@ -9,11 +9,11 @@ void arap_compliance(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
 
   for (int i = 0; i < T.rows(); ++i) {
     Eigen::Matrix9d WHiW = arap_WHinvW(R[i], mu, la);
-    //Eigen::Matrix9d WHiW2 = arap_WHinvW2(R[i], mu, la);
-    //if (i == 0) {
-    //  std::cout << "WHIW1: \n" << WHiW << std::endl;
-    //  std::cout << "WHIW2: \n" << WHiW2 << std::endl;
-    //}
+    Eigen::Matrix9d WHiW2 = arap_WHinvW2(R[i], mu, la);
+    if (i == 0) {
+      std::cout << "WHIW1: \n" << WHiW << std::endl;
+      std::cout << "WHIW2: \n" << WHiW2 << std::endl;
+    }
     for (int j = 0; j < 9; ++j) {
       for (int k = 0; k < 9; ++k) {
         if (k==j) {

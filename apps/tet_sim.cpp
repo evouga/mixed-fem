@@ -42,7 +42,9 @@
 #include <unordered_set>
 #include <utility>
 #include <pcg.h>
+#include "kkt.h"
 
+#include "objects/tet_object.h"
 #include "materials/neohookean_model.h"
 #include "config.h"
 
@@ -86,7 +88,7 @@ VectorXi pinnedV;
 // Simulation params
 double h = 0.034;//0.1;
 double density = 1000.0;
-double ym = 1e4;
+double ym = 1e5;
 //double ym = 1e5;
 double pr = 0.45;
 double mu = ym/(2.0*(1.0+pr));
@@ -118,7 +120,7 @@ VectorXd vols;  // per element volume
 
 // KKT system
 std::vector<Triplet<double>> lhs_trips;
-SparseMatrixd lhs;
+// SparseMatrixd lhs;
 SparseMatrixd lhs_sim;
 #if defined(SIM_USE_CHOLMOD)
 CholmodSimplicialLDLT<SparseMatrixd> solver;
@@ -141,6 +143,7 @@ int inner_steps = 7;
 using namespace mfem;
 std::shared_ptr<MaterialModel> material;
 std::shared_ptr<MaterialConfig> material_config;
+std::shared_ptr<SimObject> tet_object;
 
 // ------------------------------------ //
 
@@ -175,18 +178,20 @@ void build_kkt_lhs() {
 
   std::vector<Triplet<double>> trips, trips_sim;
 
-  int sz = meshV.size() + meshT.rows()*9;
-  tet_kkt_lhs(M, Jw, ih2, trips); 
+  SparseMatrixd lhs;
 
-  lhs_trips = trips;
+  int sz = meshV.size() + meshT.rows()*9;
+  kkt_lhs(M, Jw, ih2, trips); 
+
   trips_sim = trips;
 
-  diag_compliance(meshV, meshT, vols, lambda, trips);
+  // diag_compliance(meshV, meshT, vols, mu, trips);
+  diagonal_compliance(vols, mu, meshV.size(), trips);
   lhs.resize(sz,sz);
   lhs.setFromTriplets(trips.begin(), trips.end());
   lhs = P_kkt * lhs * P_kkt.transpose();
 
-  corotational_compliance(meshV, meshT, R, vols, mu, lambda, trips_sim);
+  init_compliance_blocks(meshT.rows(), meshV.size(), trips_sim);
   lhs_sim.resize(sz,sz);
   lhs_sim.setFromTriplets(trips_sim.begin(), trips_sim.end());
   lhs_sim = P_kkt * lhs_sim * P_kkt.transpose();
@@ -202,10 +207,6 @@ void build_kkt_lhs() {
   //write out preconditioner to disk
   //bool did_it_write = saveMarket(lhs, "./preconditioner.txt");
   //exit(1);
-
-  cg.preconditioner().init(lhs);
-  cg.setMaxIterations(10);
-  cg.setTolerance(1e-7);
 }
 
 void energy_grad() {
@@ -294,7 +295,7 @@ void update_SR() {
 
 void init_sim() {
 
-  I_vec << 1, 1, 1, 0, 0, 0; // Identity in symmetric format
+  // I_vec << 1, 1, 1, 0, 0, 0; // Identity in symmetric format
 
   // Initialize rotation matrices to identity
   R.resize(meshT.rows());
@@ -305,7 +306,7 @@ void init_sim() {
   for (int i = 0; i < meshT.rows(); ++i) {
     R[i].setIdentity();
     //R[i] = R_test;
-    S[i] = I_vec;
+    S[i] = mfem::I_vec;
     dS[i].setZero();
     Hinv[i].setIdentity();
     g[i].setZero();

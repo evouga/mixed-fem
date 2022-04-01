@@ -2,6 +2,7 @@
 
 #include "materials/material_model.h"
 #include "config.h"
+
 namespace mfem {
 
   // Stable neohookean material model

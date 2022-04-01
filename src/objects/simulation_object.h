@@ -22,7 +22,23 @@ namespace mfem {
   class SimObject {
   public:
 
+    SimObject(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
+        std::shared_ptr<MaterialModel> material,
+        std::shared_ptr<MaterialConfig> material_config)
+        : V_(V), T_(T), material_(material), material_config_(material_config) {
+      //init();
+    }
+    
+    void reset_variables();
+    virtual void volumes(Eigen::VectorXd& vol) = 0;
+    virtual void mass_matrix(Eigen::SparseMatrixd& M) = 0;
+    virtual void jacobian(SparseMatrixdRowMajor& J, bool weighted) = 0;
+
     void init();
+
+    // Build the KKT lhs (just initializes it). Still have to update the
+    // compliance blocks each timestep.
+    void build_lhs();
 
     // Build the KKT right hand side
     void build_rhs();
@@ -37,11 +53,12 @@ namespace mfem {
     // Simulation substep for this object
     // init_guess - whether to initialize guess with a prefactor solve
     void substep(bool init_guess);
-
+  
+    void warm_start();
+    void update_positions();
     Eigen::VectorXd collision_force();
 
-
-  private:
+  protected:
 
     SimConfig config_;
     std::shared_ptr<MaterialModel> material_;
@@ -73,6 +90,8 @@ namespace mfem {
     Eigen::VectorXd b_;     // coordinates projected out
     Eigen::VectorXd vols_;  // per element volume
     Eigen::VectorXd rhs_;
+    Eigen::SparseMatrixd lhs_;
+
 
     #if defined(SIM_USE_CHOLMOD)
     Eigen::CholmodSimplicialLDLT<Eigen::SparseMatrixd> solver_;

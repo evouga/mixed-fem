@@ -1,22 +1,69 @@
 #include "simulation_object.h"
 #include "svd/svd3x3_sse.h"
 #include "pcg.h"
-
-#include <igl/volume.h>
-
+#include "kkt.h"
+#include "pinning_matrix.h"
 #include <chrono>
-
 
 using namespace std::chrono;
 using namespace Eigen;
 using namespace mfem;
 
-void SimObject::update_gradients() {
+void SimObject::build_lhs() {
+
+  std::vector<Triplet<double>> trips, trips_sim;
+
+  SparseMatrixd precon; // diagonal preconditioner
+  int sz = V_.size() + T_.rows()*9;
+  kkt_lhs(M_, Jw_, config_.ih2, trips); 
+  trips_sim = trips;
+
+  // Just need the diagonal entries for the preconditioner's
+  // compliance block so only initialize these.
+  diagonal_compliance(vols_, material_config_->mu, V_.size(), trips);
+
+  precon.resize(sz,sz);
+  precon.setFromTriplets(trips.begin(), trips.end());
+  precon = P_kkt_ * precon * P_kkt_.transpose();
+
+  #if defined(SIM_USE_CHOLMOD)
+  std::cout << "Using CHOLDMOD solver" << std::endl;
+  #endif
+  solver_.compute(precon);
+  if(solver_.info()!=Success) {
+    std::cerr << " KKT prefactor failed! " << std::endl;
+  }
+
+  //write out preconditioner to disk
+  //bool did_it_write = saveMarket(lhs, "./preconditioner.txt");
+  //exit(1);
+
+  // The full compliance will be block diagonal, so initialize all the blocks
+  init_compliance_blocks(T_.rows(), V_.size(), trips_sim);
+
+  lhs_.resize(sz,sz);
+  lhs_.setFromTriplets(trips_sim.begin(), trips_sim.end());
+  lhs_ = P_kkt_ * lhs_ * P_kkt_.transpose();
+
+}
+
+void SimObject::build_rhs() {
+  int sz = qt_.size() + T_.rows()*9;
+  rhs_.resize(sz);
+  rhs_.setZero();
+
+  // Positional forces 
+  rhs_.segment(0, qt_.size()) = f_ext_ + config_.ih2*M_*(q0_ - q1_);
+
+  // Lagrange multiplier forces
   #pragma omp parallel for
   for (int i = 0; i < T_.rows(); ++i) {
-    Hinv_[i] = material_->hessian_inv(R_[i],S_[i]);
-    g_[i] = material_->gradient(R_[i], S_[i]);
+    rhs_.segment(qt_.size() + 9*i, 9) = vols_(i) * material_->rhs(R_[i],
+        S_[i], Hinv_[i], g_[i]);
   }
+
+  // Jacobian term
+  rhs_.segment(qt_.size(), 9*T_.rows()) -= Jw_*(P_.transpose()*qt_+b_);
 }
 
 void SimObject::update_SR() {
@@ -69,23 +116,15 @@ void SimObject::update_SR() {
   }
 }
 
-void SimObject::build_rhs() {
-  int sz = qt_.size() + T_.rows()*9;
-  rhs_.resize(sz);
-  rhs_.setZero();
+void SimObject::update_gradients() {
+  
+  ibeta_ = 1. / config_.beta;
 
-  // Positional forces 
-  rhs_.segment(0, qt_.size()) = f_ext_ + config_.ih2*M_*(q0_ - q1_);
-
-  // Lagrange multiplier forces
   #pragma omp parallel for
   for (int i = 0; i < T_.rows(); ++i) {
-    rhs_.segment(qt_.size() + 9*i, 9) = vols_(i) * material_->rhs(R_[i],
-        S_[i], Hinv_[i], g_[i]);
+    Hinv_[i] = material_->hessian_inv(R_[i],S_[i]);
+    g_[i] = material_->gradient(R_[i], S_[i]);
   }
-
-  // Jacobian term
-  rhs_.segment(qt_.size(), 9*T_.rows()) -= Jw_*(P_.transpose()*qt_+b_);
 }
 
 void SimObject::substep(bool init_guess) {
@@ -110,13 +149,12 @@ void SimObject::substep(bool init_guess) {
   start=end;
 
   start = high_resolution_clock::now();
-  material_->update_compliance(qt_.size(), T_.rows(), R_, Hinv_, vols_,
-      lhs_sim);
+  material_->update_compliance(qt_.size(), T_.rows(), R_, Hinv_, vols_, lhs_);
   end = high_resolution_clock::now();
   t_asm += duration_cast<nanoseconds>(end-start).count()/1e6;
   start = end;
 
-  pcg(dq_la_, lhs_sim, rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_);
+  pcg(dq_la_, lhs_, rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_);
   end = high_resolution_clock::now();
   t_solve += duration_cast<nanoseconds>(end-start).count()/1e6;
   
@@ -158,8 +196,8 @@ VectorXd SimObject::collision_force() {
   return M_*ret;
 }
 
-void SimObject::init() {
-// Initialize rotation matrices to identity
+void SimObject::reset_variables() {
+  // Initialize rotation matrices to identity
   R_.resize(T_.rows());
   S_.resize(T_.rows());
   dS_.resize(T_.rows());
@@ -176,58 +214,64 @@ void SimObject::init() {
   // Initial lambdas
   la_.resize(9 * T_.rows());
   la_.setZero();
+}
 
-  // Mass matrix
-  VectorXd densities = VectorXd::Constant(T_.rows(), config_.density);
-  igl::volume(V_, T_, vols_);
-  vols_ = vols_.cwiseAbs();
-
-  // sim::linear_tetmesh_mass_matrix(M_, V_, T_, densities, vols_);
-
-  // J = tet_jacobian(V_, T_, vols_, false);
-  // Jw = tet_jacobian(V_, T_, vols_, true);
+void SimObject::init() {
+  reset_variables();
+  volumes(vols_);
+  mass_matrix(M_);
+  jacobian(J_, false);
+  jacobian(Jw_, true);
 
   // Pinning matrices
-  // double min_x = V_.col(0).minCoeff();
-  // double max_x = V_.col(0).maxCoeff();
-  // double pin_x = min_x + (max_x-min_x)*0.15;
-  // double min_y = V_.col(1).minCoeff();
-  // double max_y = V_.col(1).maxCoeff();
-  // double pin_y = max_y - (max_y-min_y)*0.1;
-  // //double pin_y = min_y + (max_y-min_y)*0.1;
-  // //pinnedV = (V_.col(0).array() < pin_x).cast<int>(); 
-  // pinnedV_ = (V_.col(1).array() > pin_y).cast<int>(); 
-  // P_ = pinning_matrix(V_, T_, pinnedV_, false);
-  // P_kkt_ = pinning_matrix(V_, T_, pinnedV_, true);
+  double min_x = V_.col(0).minCoeff();
+  double max_x = V_.col(0).maxCoeff();
+  double pin_x = min_x + (max_x-min_x)*0.15;
+  double min_y = V_.col(1).minCoeff();
+  double max_y = V_.col(1).maxCoeff();
+  double pin_y = max_y - (max_y-min_y)*0.1;
+  //double pin_y = min_y + (max_y-min_y)*0.1;
+  //pinnedV = (V_.col(0).array() < pin_x).cast<int>(); 
+  pinnedV_ = (V_.col(1).array() > pin_y).cast<int>(); 
+  P_ = pinning_matrix(V_, T_, pinnedV_, false);
+  P_kkt_ = pinning_matrix(V_, T_, pinnedV_, true);
 
-  // MatrixXd tmp = V_.transpose();
+  MatrixXd tmp = V_.transpose();
 
-  // qt = Map<VectorXd>(tmp.data(), V_.size());
+  qt_ = Map<VectorXd>(tmp.data(), V_.size());
 
-  // b = qt - P.transpose()*P*qt;
-  // qt = P * qt;
-  // q0 = qt;
-  // q1 = qt;
-  // dq_la = 0*qt;
-  // tmp_r = dq_la;
-  // tmp_z = dq_la;
-  // tmp_p = dq_la;
-  // tmp_Ap = dq_la;
-  // dq = 0*qt;
+  b_ = qt_ - P_.transpose()*P_*qt_;
+  qt_ = P_ * qt_;
+  q0_ = qt_;
+  q1_ = qt_;
+  dq_la_ = 0*qt_;
+  tmp_r_ = dq_la_;
+  tmp_z_ = dq_la_;
+  tmp_p_ = dq_la_;
+  tmp_Ap_ = dq_la_;
+  dq_ = 0*qt_;
 
+  // Initialize KKT lhs
+  build_lhs();
 
+  // Project out mass matrix pinned point
+  M_ = P_ * M_ * P_.transpose();
 
-  // build_kkt_lhs();
+  // External gravity force
+  f_ext_ = M_ * P_ *Vector3d(0,config_.grav,0).replicate(V_.rows(),1);
+  f_ext0_ = P_ *Vector3d(0,config_.grav,0).replicate(V_.rows(),1);
+}
 
-  // // Project out mass matrix pinned point
-  // M = P * M * P.transpose();
+void SimObject::warm_start() {
+  double h2 = config_.h * config_.h;
+  dq_la_.segment(0, qt_.size()) = (qt_ - q0_) + h2*f_ext0_;
+  ibeta_ = 1. / config_.beta;
+  update_SR();
+}
 
-  // // External gravity force
-  // //grav*=0;
-  // f_ext = M * P *Vector3d(0,grav,0).replicate(V_.rows(),1);
-  // f_ext0 = P *Vector3d(0,grav,0).replicate(V_.rows(),1);
-  // //EigenSolver<MatrixXd> eigensolver;
-  // //eigensolver.compute(MatrixXd(lhs));
-  // //std::cout << "Evals: \n" << eigensolver.eigenvalues().real() << std::endl;
-  // //std::cout << "LHS norm: " << lhs.norm() << std::endl;
+void SimObject::update_positions() {
+  q1_ = q0_;
+  q0_ = qt_;
+  qt_ += dq_;
+  dq_la_.setZero();
 }
