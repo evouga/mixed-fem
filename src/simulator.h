@@ -2,6 +2,10 @@
 
 #include <Eigen/Dense>
 #include <EigenTypes.h>
+#include <memory>
+
+#include "materials/material_model.h"
+#include "config.h"
 
 namespace mfem {
 
@@ -11,28 +15,49 @@ namespace mfem {
   static Eigen::Vector6d I_vec = (Eigen::Vector6d() <<
       1, 1, 1, 0, 0, 0).finished();
 
-  class Simulation {
+  class Simulator {
   public:
 
     void init();
+
+    // Build the KKT right hand side
     void build_rhs();
+    
+    // Update per-element S, symmetric deformation, and R, rotation matrices
+    void update_SR();
+
+    // Recompute per-element gradient and hessians using new
+    // S and R matrices.
+    void update_gradients();
+
+    // Perform a single simulation step
+    void step();
+
+    Eigen::VectorXd collision_force();
+
 
   private:
+
+    SimConfig config_;
+    std::shared_ptr<MaterialModel> material_;
+    std::shared_ptr<MaterialConfig> material_config_;
+
     std::vector<Eigen::Matrix3d> R_;    // Per-element rotations
     std::vector<Eigen::Vector6d> S_;    // Per-element deformation
     std::vector<Eigen::Vector6d> dS_;   // Per-element deformation update
     std::vector<Eigen::Matrix6d> Hinv_; // Elemental hessians w.r.t dS
     std::vector<Eigen::Vector6d> g_;    // Elemental gradients w.r.t dS
 
-    Eigen::SparseMatrixd M;          // mass matrix
-    Eigen::SparseMatrixd P;          // pinning constraint (for vertices)
-    Eigen::SparseMatrixd P_kkt;      // pinning constraint (for kkt matrix)
-    SparseMatrixdRowMajor Jw; // integrated (weighted) jacobian
-    SparseMatrixdRowMajor J;  // jacobian
-    Eigen::MatrixXd dphidX; 
-    Eigen::VectorXi pinnedV;
+    Eigen::SparseMatrixd M_;     // mass matrix
+    Eigen::SparseMatrixd P_;     // pinning constraint (for vertices)
+    Eigen::SparseMatrixd P_kkt_; // pinning constraint (for kkt matrix)
+    SparseMatrixdRowMajor Jw_;   // integrated (weighted) jacobian
+    SparseMatrixdRowMajor J_;    // jacobian
+    Eigen::MatrixXd dphidX_; 
+    Eigen::VectorXi pinnedV_;
 
     // Configuration vectors & body forces
+    Eigen::VectorXd dq_la_; // q & Lambda update stacked
     Eigen::VectorXd qt_;    // current positions
     Eigen::VectorXd q0_;    // previous positions
     Eigen::VectorXd q1_;    // previous^2 positions
@@ -53,6 +78,16 @@ namespace mfem {
 
     Eigen::MatrixXd V_;
     Eigen::MatrixXi T_;
+
+    double ibeta_;
+
+    // Debug timing variables
+    double t_coll = 0;
+    double t_asm = 0;
+    double t_precond = 0;
+    double t_rhs = 0;
+    double t_solve = 0;
+    double t_SR = 0; 
 
 
   };

@@ -34,7 +34,7 @@ double CorotationalModel::energy(const Vector6d& S) {
   double S4 = S(3);
   double S5 = S(4);
   double S6 = S(5);
-  std::cerr << "CorotationalModel::energy not implemented!"
+  std::cerr << "CorotationalModel::energy not implemented!";
   return 0.0;
 }
 

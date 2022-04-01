@@ -1,6 +1,5 @@
 #include "polyscope/polyscope.h"
 
-
 // libigl
 #include <igl/boundary_facets.h>
 #include <igl/invert_diag.h>
@@ -93,16 +92,15 @@ double pr = 0.45;
 double mu = ym/(2.0*(1.0+pr));
 double lambda = (ym*pr)/((1.0+pr)*(1.0-2.0*pr));
 
-double alpha = lambda;
 double ih2 = 1.0/h/h;
 double grav = -9.8;
 double plane_d;
 double beta = 5.;
 double ibeta = 1./beta;
 
-bool warm_start = true;
 bool floor_collision = true;
 bool export_sim = false;
+bool warm_start = true;
 
 Matrix<double, 6,1> I_vec;
 
@@ -142,7 +140,7 @@ int inner_steps = 7;
 
 using namespace mfem;
 std::shared_ptr<MaterialModel> material;
-std::shared_ptr<MaterialConfig> material_config;;
+std::shared_ptr<MaterialConfig> material_config;
 
 // ------------------------------------ //
 
@@ -183,7 +181,7 @@ void build_kkt_lhs() {
   lhs_trips = trips;
   trips_sim = trips;
 
-  diag_compliance(meshV, meshT, vols, alpha, trips);
+  diag_compliance(meshV, meshT, vols, lambda, trips);
   lhs.resize(sz,sz);
   lhs.setFromTriplets(trips.begin(), trips.end());
   lhs = P_kkt * lhs * P_kkt.transpose();
@@ -202,7 +200,7 @@ void build_kkt_lhs() {
   }
 
   //write out preconditioner to disk
-  bool did_it_write = saveMarket(lhs, "./preconditioner.txt");
+  //bool did_it_write = saveMarket(lhs, "./preconditioner.txt");
   //exit(1);
 
   cg.preconditioner().init(lhs);
