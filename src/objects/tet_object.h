@@ -10,9 +10,10 @@ namespace mfem {
   public:
 
     TetrahedralObject(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
+        std::shared_ptr<SimConfig> config,
         std::shared_ptr<MaterialModel> material,
         std::shared_ptr<MaterialConfig> material_config)
-        : SimObject(V,T,material,material_config) {
+        : SimObject(V,T,config,material,material_config) {
     }
 
     void volumes(Eigen::VectorXd& vol) override;

@@ -15,8 +15,9 @@ namespace mfem {
   class Simulator {
   public:
 
-    Simulator(std::shared_ptr<SimObject> object)
-        : object_(object) {}
+    Simulator(std::shared_ptr<SimObject> object,
+        std::shared_ptr<SimConfig> config)
+        : object_(object), config_(config) {}
 
     void init();
 
@@ -25,7 +26,7 @@ namespace mfem {
 
   private:
 
-    SimConfig config_;
+    std::shared_ptr<SimConfig> config_;
     std::shared_ptr<SimObject> object_;
 
     // Debug timing variables
@@ -35,5 +36,6 @@ namespace mfem {
     double t_rhs = 0;
     double t_solve = 0;
     double t_SR = 0; 
+    std::map<std::string, double> timings;
   };
 }

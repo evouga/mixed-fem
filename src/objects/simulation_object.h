@@ -23,9 +23,11 @@ namespace mfem {
   public:
 
     SimObject(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
+        std::shared_ptr<SimConfig> config,
         std::shared_ptr<MaterialModel> material,
         std::shared_ptr<MaterialConfig> material_config)
-        : V_(V), T_(T), material_(material), material_config_(material_config) {
+        : V_(V), T_(T), config_(config), material_(material),
+          material_config_(material_config) {
       //init();
     }
     
@@ -56,11 +58,16 @@ namespace mfem {
   
     void warm_start();
     void update_positions();
+
     Eigen::VectorXd collision_force();
 
+    Eigen::MatrixXd vertices() {
+      return V_;
+    }
+    
   protected:
 
-    SimConfig config_;
+    std::shared_ptr<SimConfig> config_;
     std::shared_ptr<MaterialModel> material_;
     std::shared_ptr<MaterialConfig> material_config_;
 

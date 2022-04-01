@@ -13,7 +13,7 @@ void TetrahedralObject::volumes(Eigen::VectorXd& vol) {
 }
 
 void TetrahedralObject::mass_matrix(Eigen::SparseMatrixd& M) {
-  VectorXd densities = VectorXd::Constant(T_.rows(), config_.density);
+  VectorXd densities = VectorXd::Constant(T_.rows(), config_->density);
   sim::linear_tetmesh_mass_matrix(M, V_, T_, densities, vols_);
 }
 

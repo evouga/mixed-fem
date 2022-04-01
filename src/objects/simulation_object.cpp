@@ -15,7 +15,7 @@ void SimObject::build_lhs() {
 
   SparseMatrixd precon; // diagonal preconditioner
   int sz = V_.size() + T_.rows()*9;
-  kkt_lhs(M_, Jw_, config_.ih2, trips); 
+  kkt_lhs(M_, Jw_, config_->ih2, trips); 
   trips_sim = trips;
 
   // Just need the diagonal entries for the preconditioner's
@@ -53,7 +53,7 @@ void SimObject::build_rhs() {
   rhs_.setZero();
 
   // Positional forces 
-  rhs_.segment(0, qt_.size()) = f_ext_ + config_.ih2*M_*(q0_ - q1_);
+  rhs_.segment(0, qt_.size()) = f_ext_ + config_->ih2*M_*(q0_ - q1_);
 
   // Lagrange multiplier forces
   #pragma omp parallel for
@@ -118,7 +118,7 @@ void SimObject::update_SR() {
 
 void SimObject::update_gradients() {
   
-  ibeta_ = 1. / config_.beta;
+  ibeta_ = 1. / config_->beta;
 
   #pragma omp parallel for
   for (int i = 0; i < T_.rows(); ++i) {
@@ -135,7 +135,7 @@ void SimObject::substep(bool init_guess) {
   t_rhs += duration_cast<nanoseconds>(end-start).count()/1e6;
   start = end;
 
-  if (config_.floor_collision) {
+  if (config_->floor_collision) {
     VectorXd f_coll = collision_force();
     rhs_.segment(0,qt_.size()) += f_coll;
     end = high_resolution_clock::now();
@@ -175,7 +175,7 @@ VectorXd SimObject::collision_force() {
   Vector3d N(.05,.99,0);
   //Vector3d N(0.,1.,0.);
   N = N / N.norm();
-  double d = config_.plane_d;
+  double d = config_->plane_d;
 
   int n = qt_.size() / 3;
   VectorXd ret(qt_.size());
@@ -189,8 +189,8 @@ VectorXd SimObject::collision_force() {
         qt_(3*i+1)+dq_la_(3*i+1),
         qt_(3*i+2)+dq_la_(3*i+2));
     double dist = xi.dot(N);
-    if (dist < config_.plane_d) {
-      ret.segment(3*i,3) = k*(config_.plane_d-dist)*N;
+    if (dist < config_->plane_d) {
+      ret.segment(3*i,3) = k*(config_->plane_d-dist)*N;
     }
   }
   return M_*ret;
@@ -258,14 +258,14 @@ void SimObject::init() {
   M_ = P_ * M_ * P_.transpose();
 
   // External gravity force
-  f_ext_ = M_ * P_ *Vector3d(0,config_.grav,0).replicate(V_.rows(),1);
-  f_ext0_ = P_ *Vector3d(0,config_.grav,0).replicate(V_.rows(),1);
+  f_ext_ = M_ * P_ *Vector3d(0,config_->grav,0).replicate(V_.rows(),1);
+  f_ext0_ = P_ *Vector3d(0,config_->grav,0).replicate(V_.rows(),1);
 }
 
 void SimObject::warm_start() {
-  double h2 = config_.h * config_.h;
+  double h2 = config_->h * config_->h;
   dq_la_.segment(0, qt_.size()) = (qt_ - q0_) + h2*f_ext0_;
-  ibeta_ = 1. / config_.beta;
+  ibeta_ = 1. / config_->beta;
   update_SR();
 }
 
@@ -274,4 +274,8 @@ void SimObject::update_positions() {
   q0_ = qt_;
   qt_ += dq_;
   dq_la_.setZero();
+
+  VectorXd q = P_.transpose()*qt_ + b_;
+  MatrixXd tmp = Map<MatrixXd>(q.data(), V_.cols(), V_.rows());
+  V_ = tmp.transpose();
 }

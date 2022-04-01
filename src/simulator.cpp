@@ -11,15 +11,15 @@ using namespace mfem;
 void Simulator::step() {
 
   // Warm start solver
-  if (config_.warm_start) {
+  if (config_->warm_start) {
     object_->warm_start();
   }
   
-  for (int i = 0; i < config_.outer_steps; ++i) {
+  for (int i = 0; i < config_->outer_steps; ++i) {
     
     object_->update_gradients();
     
-    for (int j = 0; j < config_.inner_steps; ++j) {
+    for (int j = 0; j < config_->inner_steps; ++j) {
       // Do substep on each objects
       object_->substep(i==0 && j==0);
     }
