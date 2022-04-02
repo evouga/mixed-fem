@@ -19,6 +19,9 @@ namespace mfem {
   static Eigen::Vector6d I_vec = (Eigen::Vector6d() <<
       1, 1, 1, 0, 0, 0).finished();
 
+
+  // Class to maintain the state and perform physics updates on an object,
+  // which has a particular discretization, material, and material config
   class SimObject {
   public:
 
@@ -64,7 +67,7 @@ namespace mfem {
     Eigen::MatrixXd vertices() {
       return V_;
     }
-    
+
   protected:
 
     std::shared_ptr<SimConfig> config_;
