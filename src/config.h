@@ -16,6 +16,7 @@ namespace mfem {
     int outer_steps = 2;
     int inner_steps = 7;
     double plane_d = 0;
+    double thickness = 1e-3;
   };
 
   // Simple config for material parameters for a single object

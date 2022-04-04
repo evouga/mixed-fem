@@ -232,7 +232,11 @@ void SimObject::init() {
   double pin_y = max_y - (max_y-min_y)*0.1;
   //double pin_y = min_y + (max_y-min_y)*0.1;
   //pinnedV = (V_.col(0).array() < pin_x).cast<int>(); 
-  pinnedV_ = (V_.col(1).array() > pin_y).cast<int>(); 
+  pinnedV_ = (V_.col(1).array() > pin_y).cast<int>();
+  // pinnedV_.resize(V_.rows());
+  // pinnedV_.setZero();
+  // pinnedV_(0) = 1;
+
   P_ = pinning_matrix(V_, T_, pinnedV_, false);
   P_kkt_ = pinning_matrix(V_, T_, pinnedV_, true);
 

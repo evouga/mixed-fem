@@ -48,6 +48,10 @@
 #include <Eigen/CholmodSupport>
 #endif
 
+#include "simulator.h"
+#include "objects/simulation_object.h"
+#include "materials/material_model.h"
+
 using namespace std::chrono;
 using namespace Eigen;
 using SparseMatrixdRowMajor = Eigen::SparseMatrix<double,RowMajor>;
@@ -79,7 +83,7 @@ VectorXi pinnedV;
 double h = 0.01;
 double thickness = 1e-2;//1e-3;
 double density = 10;
-double ym = 1e7;
+double ym = 1e6;
 double pr = 0.45;
 double mu = ym/(2.0*(1.0+pr));
 double lambda = (ym*pr)/((1.0+pr)*(1.0-2.0*pr));
@@ -95,7 +99,7 @@ bool warm_start = true;
 bool floor_collision = false;
 bool export_sim = false;
 
-Matrix<double, 6,1> I_vec;
+// Matrix<double, 6,1> I_vec;
 
 // Configuration vectors & body forces
 VectorXd qt;    // current positions
@@ -124,8 +128,19 @@ VectorXd rhs;
 int solver_steps=10;
 double t_coll=0, t_asm = 0, t_precond=0, t_rhs = 0, t_solve = 0, t_SR = 0; 
 
+using namespace mfem;
+std::shared_ptr<SimConfig> config;
+std::shared_ptr<MaterialModel> material;
+std::shared_ptr<MaterialConfig> material_config;
+std::shared_ptr<SimObject> object;
+
 // ------------------------------------ //
-//
+
+void simulation_step() {
+  Simulator sim(object, config);
+  sim.step();
+  meshV = object->vertices();
+}
 VectorXd collision_force() {
 
   //Vector3d N(plane(0),plane(1),plane(2));
@@ -276,7 +291,7 @@ void update_SR_fast() {
 
 
 void init_sim() {
-  I_vec << 1, 1, 1, 0, 0, 0; // Identity in symmetric format
+  // I_vec << 1, 1, 1, 0, 0, 0; // Identity in symmetric format
 
   // Initialize rotation matrices to identity
   R.resize(meshE.rows());
@@ -319,8 +334,8 @@ void init_sim() {
   double pin_y = max_y - (max_y-min_y)*0.1;
   //double pin_y = min_y + (max_y-min_y)*0.1;
   //pinnedV = (meshV.col(0).array() < pin_x).cast<int>(); 
-  //pinnedV = (meshV.col(1).array() > pin_y).cast<int>(); 
-  pinnedV(0) = 1;
+  pinnedV = (meshV.col(1).array() > pin_y).cast<int>(); 
+  //pinnedV(0) = 1;
   curve->addNodeScalarQuantity("pinned", pinnedV);
   P = pinning_matrix(meshV,meshE,pinnedV,false);
   P_kkt = pinning_matrix(meshV,meshE,pinnedV,true);
@@ -344,7 +359,7 @@ void init_sim() {
   f_ext0 = P *Vector3d(0,grav,0).replicate(meshV.rows(),1);
 }
 
-void simulation_step() {
+void simulation_step2() {
   //
   dq_la.setZero();
 
@@ -463,7 +478,6 @@ void callback() {
   ImGui::Checkbox("force",&floor_collision);
   ImGui::Checkbox("warm start",&warm_start);
   ImGui::Checkbox("external forces",&enable_ext);
-  ImGui::Checkbox("slide mesh",&enable_slide);
   ImGui::Checkbox("simulate",&simulating);
   ImGui::Checkbox("export",&export_sim);
   //if(ImGui::Button("show pinned")) {
@@ -472,6 +486,7 @@ void callback() {
   static int step = 0;
   static int export_step = 0;
   if(ImGui::Button("sim step") || simulating) {
+    //simulation_step();
     simulation_step();
     ++step;
     curve->updateNodePositions(meshV);
@@ -485,15 +500,15 @@ void callback() {
       buffer[n] = 0;
       igl::writeOBJ(std::string(buffer),meshV,meshF);
     }
-    std::cout << "STEP: " << step << std::endl;
-    std::cout << "[Avg Time ms] " 
-      << " collision: " << t_coll / solver_steps / step
-      << " rhs: " << t_rhs / solver_steps / step
-      << " preconditioner: " << t_precond / solver_steps / step
-      << " KKT assembly: " << t_asm / solver_steps / step
-      << " cg.solve(): " << t_solve / solver_steps / step
-      << " update S & R: " << t_SR / solver_steps / step
-      << std::endl;
+    // std::cout << "STEP: " << step << std::endl;
+    // std::cout << "[Avg Time ms] " 
+    //   << " collision: " << t_coll / solver_steps / step
+    //   << " rhs: " << t_rhs / solver_steps / step
+    //   << " preconditioner: " << t_precond / solver_steps / step
+    //   << " KKT assembly: " << t_asm / solver_steps / step
+    //   << " cg.solve(): " << t_solve / solver_steps / step
+    //   << " update S & R: " << t_SR / solver_steps / step
+    //   << std::endl;
   }
   //ImGui::SameLine();
   //ImGui::InputInt("source vertex", &iVertexSource);
@@ -670,6 +685,23 @@ int main(int argc, char **argv) {
 
   // Initial simulation setup
   init_sim();
+  config = std::make_shared<SimConfig>();
+  config->plane_d = a(1);
+  config->inner_steps=1;
+  config->outer_steps=10;
+  config->thickness = 1e-2;
+  config->density = 100;
+  config->beta = 100;
+  double ym = 1e6;
+  double pr = 0.45;
+  material_config = std::make_shared<MaterialConfig>();
+  material_config->mu = ym/(2.0*(1.0+pr));
+  material_config->la = (ym*pr)/((1.0+pr)*(1.0-2.0*pr));
+  material = std::make_shared<StableNeohookean>(material_config);
+  object = std::make_shared<RodObject>(meshV, meshE, meshN, meshBN,
+      config, material, material_config);
+  object->init();
+
 
   // Show the gui
   polyscope::show();

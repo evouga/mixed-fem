@@ -43,13 +43,13 @@ namespace mfem {
 
     // Build the KKT lhs (just initializes it). Still have to update the
     // compliance blocks each timestep.
-    void build_lhs();
+    virtual void build_lhs();
 
     // Build the KKT right hand side
-    void build_rhs();
+    virtual void build_rhs();
     
     // Update per-element S, symmetric deformation, and R, rotation matrices
-    void update_SR();
+    virtual void update_SR();
 
     // Recompute per-element gradient and hessians using new
     // S and R matrices.
@@ -62,7 +62,7 @@ namespace mfem {
     void warm_start();
     void update_positions();
 
-    Eigen::VectorXd collision_force();
+    virtual Eigen::VectorXd collision_force();
 
     Eigen::MatrixXd vertices() {
       return V_;
@@ -85,7 +85,6 @@ namespace mfem {
     Eigen::SparseMatrixd P_kkt_; // pinning constraint (for kkt matrix)
     SparseMatrixdRowMajor Jw_;   // integrated (weighted) jacobian
     SparseMatrixdRowMajor J_;    // jacobian
-    Eigen::MatrixXd dphidX_; 
     Eigen::VectorXi pinnedV_;
 
     // Configuration vectors & body forces
@@ -129,3 +128,8 @@ namespace mfem {
     double t_SR = 0; 
   };
 }
+
+// Add discretizations
+#include "objects/tet_object.h"
+#include "objects/tri_object.h"
+#include "objects/rod_object.h"

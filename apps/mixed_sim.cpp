@@ -8,7 +8,6 @@
 #include <igl/AABB.h>
 #include <igl/in_element.h>
 #include <igl/barycentric_coordinates.h>
-//#include "eigen_svd.h"
 
 // Polyscope
 #include "polyscope/messages.h"
@@ -18,31 +17,11 @@
 #include "args/args.hxx"
 #include "json/json.hpp"
 
-// Bartels
-#include <EigenTypes.h>
-#include "linear_tetmesh_mass_matrix.h"
-#include "linear_tet_mass_matrix.h"
-#include "linear_tetmesh_dphi_dX.h"
-
 #include "simulator.h"
-#include "objects/tet_object.h"
+#include "objects/simulation_object.h"
 #include "materials/material_model.h"
 
-#include "config.h"
-
-#include <chrono>
-
-#if defined(SIM_USE_OPENMP)
-#include <omp.h>
-#endif
-
-#if defined(SIM_USE_CHOLMOD)
-#include <Eigen/CholmodSupport>
-#endif
-
-using namespace std::chrono;
 using namespace Eigen;
-using SparseMatrixdRowMajor = Eigen::SparseMatrix<double,RowMajor>;
 
 // The mesh, Eigen representation
 MatrixXd meshV, meshV0, skinV;
@@ -54,7 +33,6 @@ VectorXi pinnedV;
 bool floor_collision = true;
 bool export_sim = false;
 bool warm_start = true;
-
 
 double t_coll=0, t_asm = 0, t_precond=0, t_rhs = 0, t_solve = 0, t_SR = 0; 
 
