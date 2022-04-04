@@ -26,7 +26,8 @@
 
 #include "simulator.h"
 #include "objects/tet_object.h"
-#include "materials/neohookean_model.h"
+#include "materials/material_model.h"
+
 #include "config.h"
 
 #include <chrono>

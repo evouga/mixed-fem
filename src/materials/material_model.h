@@ -4,21 +4,17 @@
 #include <string>
 #include <memory>
 
+#include "config.h"
+
 namespace mfem {
 
   // Base pure virtual class for material models
   class MaterialModel {
   public:
     
-    MaterialModel(const std::string& name) : name_(name) {}
-
-    // Updates the compliance block entries in the KKT matrix.
-    // Assumes the entries already exist and we can just overwite
-    // the 3x3 blocks.
-    virtual void update_compliance(int n, int m, 
-        const std::vector<Eigen::Matrix3d>& R,
-        const std::vector<Eigen::Matrix6d>& Hinv,
-        const Eigen::VectorXd& vols, Eigen::SparseMatrixd& mat) = 0;
+    MaterialModel(const std::string& name,
+        const std::shared_ptr<MaterialConfig>& config) 
+        : name_(name), config_(config) {}
 
     // Computes psi, the strain energy density value.
     // S - 3x3 symmetric deformation
@@ -36,18 +32,26 @@ namespace mfem {
     virtual Eigen::Matrix6d hessian_inv(const Eigen::Matrix3d& R,
         const Eigen::Vector6d& S) = 0;
 
+    // Updates the compliance block entries in the KKT matrix.
+    // Assumes the entries already exist and we can just overwite
+    // the 3x3 blocks.
+    virtual void update_compliance(int n, int m, 
+        const std::vector<Eigen::Matrix3d>& R,
+        const std::vector<Eigen::Matrix6d>& Hinv,
+        const Eigen::VectorXd& vols, Eigen::SparseMatrixd& mat);
+
     // WHinvW matrix for the compliance block
     // R    - 3x3 rotation
     // Hinv - 6x6 deformation Hessian
     virtual Eigen::Matrix9d WHinvW(const Eigen::Matrix3d& R,
-        const Eigen::Matrix6d& Hinv) = 0;
+        const Eigen::Matrix6d& Hinv);
 
     // Right hand side contribution in KKT problem from the material model.
     // R - 3x3 rotation
     // S - 3x3 symmetric deformation
     virtual Eigen::Vector9d rhs(const Eigen::Matrix3d& R,
         const Eigen::Vector6d& S, const Eigen::Matrix6d& Hinv,
-        const Eigen::Vector6d& g) = 0;
+        const Eigen::Vector6d& g);
 
     // Computes S matrix update
     // R    - 3x3 rotation
@@ -56,7 +60,7 @@ namespace mfem {
     // Hinv - 6x6 symmetric deformation Hessian
     virtual Eigen::Vector6d dS(const Eigen::Matrix3d& R, 
         const Eigen::Vector6d& S, const Eigen::Vector9d& L,
-        const Eigen::Matrix6d& Hinv) = 0;
+        const Eigen::Matrix6d& Hinv);
 
     std::string name() {
       return name_;
@@ -67,28 +71,16 @@ namespace mfem {
     // Writes the local 9x9 elemental compliance entries to the global
     // compliance block.
     static void fill_compliance_block(int offset, int row, double vol,
-        double tol, const Eigen::Matrix9d& WHiW, Eigen::SparseMatrixd& mat) {
-
-      // Assign to last nine entries of the j-th column for the i-th block
-      for (int j = 0; j < 9; ++j) {
-        int offset_j = offset + row*9 + j;
-        int colsize = (mat.outerIndexPtr()[offset_j+1] 
-          - mat.outerIndexPtr()[offset_j]);
-        int row_j = mat.outerIndexPtr()[offset_j] + colsize - 9;
-
-        for (int k = 0; k < 9; ++k) {
-          if (k==j) {
-            mat.valuePtr()[row_j+k] = -vol*(WHiW(j,k)+tol);
-          } else {
-            mat.valuePtr()[row_j+k] = -vol*WHiW(j,k);
-          }
-        }
-      }
-    }
+        double tol, const Eigen::Matrix9d& WHiW, Eigen::SparseMatrixd& mat);
 
     std::string name_;
+    std::shared_ptr<MaterialConfig> config_;     
 
   };
 
-
 }
+
+// Add material models
+#include "materials/neohookean_model.h"
+#include "materials/corotational_model.h"
+#include "materials/arap_model.h"
