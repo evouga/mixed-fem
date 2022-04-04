@@ -173,9 +173,6 @@ target_include_directories(mixed_fem_lib PUBLIC
 target_link_libraries(mixed_fem_lib polyscope Eigen3::Eigen)
 
 # Create an executable
-add_executable(mixed_fem apps/mixed_sim.cpp ${SOURCES})
-target_link_libraries(mixed_fem mixed_fem_lib)
-
 add_executable(tet_sim apps/tet_sim.cpp ${SOURCES})
 target_link_libraries(tet_sim mixed_fem_lib)
 
