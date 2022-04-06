@@ -29,7 +29,7 @@ namespace mfem {
         std::shared_ptr<SimConfig> config,
         std::shared_ptr<MaterialModel> material,
         std::shared_ptr<MaterialConfig> material_config)
-        : V_(V), T_(T), config_(config), material_(material),
+        : V_(V), V0_(V), T_(T), config_(config), material_(material),
           material_config_(material_config) {
       //init();
     }
@@ -115,6 +115,7 @@ namespace mfem {
     Eigen::VectorXd tmp_Ap_;
 
     Eigen::MatrixXd V_;
+    Eigen::MatrixXd V0_;
     Eigen::MatrixXi T_;
 
     double ibeta_;

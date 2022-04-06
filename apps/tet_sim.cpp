@@ -30,11 +30,9 @@ MatrixXi meshT; // tetrahedra
 SparseMatrixd lbs; // linear blend skinning matrix
 VectorXi pinnedV;
 
-bool floor_collision = true;
-bool export_sim = false;
-bool warm_start = true;
-
 double t_coll=0, t_asm = 0, t_precond=0, t_rhs = 0, t_solve = 0, t_SR = 0; 
+
+polyscope::SurfaceMesh* srf = nullptr;
 
 using namespace mfem;
 std::shared_ptr<SimConfig> config;
@@ -43,6 +41,20 @@ std::shared_ptr<MaterialConfig> material_config;
 std::shared_ptr<SimObject> tet_object;
 
 // ------------------------------------ //
+
+// Helper to display a little (?) mark which shows a tooltip when hovered.
+static void HelpMarker(const char* desc)
+{
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered())
+    {
+        ImGui::BeginTooltip();
+        ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
+        ImGui::TextUnformatted(desc);
+        ImGui::PopTextWrapPos();
+        ImGui::EndTooltip();
+    }
+}
 
 void simulation_step() {
 
@@ -56,31 +68,72 @@ void simulation_step() {
     skinV.col(1) = lbs * meshV.col(1);
     skinV.col(2) = lbs * meshV.col(2);
   }
-
 }
 
 void callback() {
 
+  static bool export_sim = false;
   static bool simulating = false;
   static bool show_pinned = false;
+  static int step = 0;
+  static int export_step = 0;
+  static bool sim_dirty = false;
 
   ImGui::PushItemWidth(100);
 
-  ImGui::Checkbox("floor collision",&floor_collision);
-  ImGui::Checkbox("warm start",&warm_start);
-  ImGui::Checkbox("simulate",&simulating);
-  ImGui::Checkbox("export",&export_sim);
-  static int step = 0;
-  static int export_step = 0;
 
-  if(ImGui::Button("sim step") || simulating) {
+  ImGui::Checkbox("export",&export_sim);
+
+  if (ImGui::TreeNode("Material Params")) {
+    double lo=0.1,hi=0.5;
+    if (ImGui::InputScalar("Young's Modulus", ImGuiDataType_Double,
+        &material_config->ym, NULL, NULL, "%.3e")) {
+      
+      Enu_to_lame(material_config->ym, material_config->pr,
+          material_config->la, material_config->mu);
+      sim_dirty = true;    
+    }
+    // ImGui::SameLine(); 
+    // HelpMarker("Young's Modulus");
+    if (ImGui::SliderScalar("Poisson's Ratio", ImGuiDataType_Double,
+        &material_config->pr, &lo, &hi)) {
+      
+      Enu_to_lame(material_config->ym, material_config->pr,
+          material_config->la, material_config->mu);
+      sim_dirty = true;    
+    }
+    ImGui::TreePop();
+  }
+
+    if (ImGui::TreeNode("Sim Params")) {
+    double lo=0.1,hi=0.5;
+    if (ImGui::InputFloat3("Body Force", config->ext, 3)) {
+      sim_dirty = true;
+    }
+
+    ImGui::Checkbox("floor collision",&config->floor_collision);
+    ImGui::Checkbox("warm start",&config->warm_start);
+
+
+    // float ext[2] = {float(app->sim_->config_.f_ext_(0)),
+    //                 float(app->sim_->config_.f_ext_(1))};
+    // if (ImGui::InputFloat2("f_ext",&ext[0],"%.4f")) {
+    //   std::cout << "fext changed!" << std::endl;
+    //   app->sim_->config_.f_ext_(0) = ext[0];
+    //   app->sim_->config_.f_ext_(1) = ext[1];
+    //   app->sim_dirty_ = true;
+    // }
+    ImGui::TreePop();
+  }
+
+  ImGui::Checkbox("simulate",&simulating);
+  ImGui::SameLine();
+  if(ImGui::Button("step") || simulating) {
     for(unsigned int ii=0; ii<3; ++ii) {
       simulation_step();
     }
     ++step;
-    //polyscope::getVolumeMesh("input mesh")
-    polyscope::getSurfaceMesh("input mesh")
-      ->updateVertexPositions(meshV);
+    srf->updateVertexPositions(meshV);
 
     polyscope::SurfaceMesh* skin_mesh;
     if ((skin_mesh = polyscope::getSurfaceMesh("skin mesh")) &&
@@ -110,8 +163,13 @@ void callback() {
     //   << " cg.solve(): " << t_solve / outer_steps / step
     //   << " update S & R: " << t_SR / outer_steps / step
     //   << std::endl;
-
   }
+  ImGui::SameLine();
+  if(ImGui::Button("reset")) {
+    tet_object->init();
+    srf->updateVertexPositions(meshV0);
+  }
+
   if (step == 570) simulating=false;
   //ImGui::SameLine();
   //ImGui::InputInt("source vertex", &iVertexSource);
@@ -159,13 +217,12 @@ int main(int argc, char **argv) {
   if (meshF.size() == 0){ 
     igl::boundary_facets(meshT, meshF);
   }
-  polyscope::registerSurfaceMesh("input mesh", meshV, meshF);
+  
+  srf = polyscope::registerSurfaceMesh("input mesh", meshV, meshF);
 
   pinnedV.resize(meshV.rows());
   pinnedV.setZero();
-  //polyscope::getVolumeMesh("input mesh")
-  polyscope::getSurfaceMesh("input mesh")
-    ->addVertexScalarQuantity("pinned", pinnedV);
+  srf->addVertexScalarQuantity("pinned", pinnedV);
 
   // Check if skinning mesh is provided
   if (inSurf) {

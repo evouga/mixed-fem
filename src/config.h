@@ -4,12 +4,23 @@
 
 namespace mfem {
 
+  // Converts Young's modulus and Poisson's ratio to Lame parameters
+  // E      - young's modulus (in pascals)
+  // nu     - poisson's ratio
+  // lambda - lame first parameter
+  // mu     - lame second parameter
+  constexpr void Enu_to_lame(double E, double nu, double& lambda, double& mu) {
+    mu = E/(2.0*(1.0+nu));
+    lambda = (E*nu)/((1.0+nu)*(1.0-2.0*nu));
+  }
+
   // Global parameters for the simulation
   struct SimConfig {
     double h = 0.034; 
     double density = 1000.0;
     double ih2 = 1.0/h/h;
     double grav = -9.8;
+    float ext[3] = {0., -9.8, 0.};
     double beta = 5.;
     bool warm_start = true;
     bool floor_collision = true;

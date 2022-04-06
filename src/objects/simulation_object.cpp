@@ -210,8 +210,9 @@ void SimObject::reset_variables() {
     Hinv_[i].setIdentity();
     g_[i].setZero();
   }
+  V_ = V0_;
 
-  // Initial lambdas
+  // Initialize lambdas
   la_.resize(9 * T_.rows());
   la_.setZero();
 }
