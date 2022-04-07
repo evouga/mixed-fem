@@ -31,13 +31,13 @@ namespace mfem {
         std::shared_ptr<MaterialConfig> material_config)
         : V_(V), V0_(V), T_(T), config_(config), material_(material),
           material_config_(material_config) {
-      //init();
     }
     
     void reset_variables();
     virtual void volumes(Eigen::VectorXd& vol) = 0;
     virtual void mass_matrix(Eigen::SparseMatrixd& M) = 0;
     virtual void jacobian(SparseMatrixdRowMajor& J, bool weighted) = 0;
+    virtual void jacobian_regularized() = 0;
 
     void init();
 
@@ -80,11 +80,12 @@ namespace mfem {
     std::vector<Eigen::Matrix6d> Hinv_; // Elemental hessians w.r.t dS
     std::vector<Eigen::Vector6d> g_;    // Elemental gradients w.r.t dS
 
-    Eigen::SparseMatrixd M_;     // mass matrix
-    Eigen::SparseMatrixd P_;     // pinning constraint (for vertices)
-    Eigen::SparseMatrixd P_kkt_; // pinning constraint (for kkt matrix)
-    SparseMatrixdRowMajor Jw_;   // integrated (weighted) jacobian
-    SparseMatrixdRowMajor J_;    // jacobian
+    Eigen::SparseMatrixd M_;        // mass matrix
+    Eigen::SparseMatrixd P_;        // pinning constraint (for vertices)
+    Eigen::SparseMatrixd P_kkt_;    // pinning constraint (for kkt matrix)
+    SparseMatrixdRowMajor J_;       // jacobian
+    SparseMatrixdRowMajor Jw_;      // integrated (weighted) jacobian
+    SparseMatrixdRowMajor J_tilde_; // jacobian for regularizer
     Eigen::VectorXi pinnedV_;
 
     // Configuration vectors & body forces
