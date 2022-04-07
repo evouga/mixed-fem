@@ -159,6 +159,6 @@ void RodObject::update_SR() {
   }
 }
 
-void RodObject::jacobian_regularized() {
+void RodObject::jacobian_regularized(SparseMatrixdRowMajor& J, bool weighted) {
   std::cerr << "jacobian_regularized not implemented for rod" << std::endl;
 }

@@ -37,7 +37,8 @@ namespace mfem {
     virtual void volumes(Eigen::VectorXd& vol) = 0;
     virtual void mass_matrix(Eigen::SparseMatrixd& M) = 0;
     virtual void jacobian(SparseMatrixdRowMajor& J, bool weighted) = 0;
-    virtual void jacobian_regularized() = 0;
+    virtual void jacobian_regularized(SparseMatrixdRowMajor& J,
+        bool weighted) = 0;
 
     void init();
 
@@ -85,7 +86,8 @@ namespace mfem {
     Eigen::SparseMatrixd P_kkt_;    // pinning constraint (for kkt matrix)
     SparseMatrixdRowMajor J_;       // jacobian
     SparseMatrixdRowMajor Jw_;      // integrated (weighted) jacobian
-    SparseMatrixdRowMajor J_tilde_; // jacobian for regularizer
+    SparseMatrixdRowMajor J_tilde_;  // jacobian for regularizer
+    SparseMatrixdRowMajor Jw_tilde_; // jacobian for regularizer
     Eigen::VectorXi pinnedV_;
 
     // Configuration vectors & body forces
@@ -101,6 +103,8 @@ namespace mfem {
     Eigen::VectorXd vols_;  // per element volume
     Eigen::VectorXd rhs_;
     Eigen::SparseMatrixd lhs_;
+    Eigen::SparseMatrixd lhs_reg_; // regularized mass matrix
+
 
 
     #if defined(SIM_USE_CHOLMOD)

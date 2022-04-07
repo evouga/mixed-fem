@@ -29,16 +29,16 @@ void TetrahedralObject::jacobian(SparseMatrixdRowMajor& J, bool weighted) {
 
     // Local block
     Matrix<double,9,12> B;
-    B  << dX(0,0), 0      , 0      , dX(1,0), 0      , 0      , dX(2,0), 0      , 0      , dX(3,0),       0,       0,
-          dX(0,1), 0      , 0      , dX(1,1), 0      , 0      , dX(2,1), 0      , 0      , dX(3,1),       0,       0, 
-          dX(0,2), 0      , 0      , dX(1,2), 0      , 0      , dX(2,2), 0      , 0      , dX(3,2),       0,       0, 
-          0      , dX(0,0), 0      , 0      , dX(1,0), 0      , 0      , dX(2,0), 0      , 0      , dX(3,0),       0,
-          0      , dX(0,1), 0      , 0      , dX(1,1), 0      , 0      , dX(2,1), 0      , 0      , dX(3,1),       0,
-          0      , dX(0,2), 0      , 0      , dX(1,2), 0      , 0      , dX(2,2), 0      , 0      , dX(3,2),       0,
-          0      , 0      , dX(0,0), 0      , 0      , dX(1,0), 0      , 0      , dX(2,0), 0      , 0      , dX(3,0),
-          0      , 0      , dX(0,1), 0      , 0      , dX(1,1), 0      , 0      , dX(2,1), 0      , 0      , dX(3,1),
-          0      , 0      , dX(0,2), 0      , 0      , dX(1,2), 0      , 0      , dX(2,2), 0      , 0      , dX(3,2);         
-
+    B  << dX(0,0), 0, 0, dX(1,0), 0, 0, dX(2,0), 0, 0, dX(3,0), 0, 0,
+          dX(0,1), 0, 0, dX(1,1), 0, 0, dX(2,1), 0, 0, dX(3,1), 0, 0, 
+          dX(0,2), 0, 0, dX(1,2), 0, 0, dX(2,2), 0, 0, dX(3,2), 0, 0, 
+          0, dX(0,0), 0, 0, dX(1,0), 0, 0, dX(2,0), 0, 0, dX(3,0), 0,
+          0, dX(0,1), 0, 0, dX(1,1), 0, 0, dX(2,1), 0, 0, dX(3,1), 0,
+          0, dX(0,2), 0, 0, dX(1,2), 0, 0, dX(2,2), 0, 0, dX(3,2), 0,
+          0, 0, dX(0,0), 0, 0, dX(1,0), 0, 0, dX(2,0), 0, 0, dX(3,0),
+          0, 0, dX(0,1), 0, 0, dX(1,1), 0, 0, dX(2,1), 0, 0, dX(3,1),
+          0, 0, dX(0,2), 0, 0, dX(1,2), 0, 0, dX(2,2), 0, 0, dX(3,2);
+      
     // Assembly for the i-th lagrange multiplier matrix which
     // is associated with 4 vertices (for tetrahedra)
     for (int j = 0; j < 9; ++j) {
@@ -61,7 +61,7 @@ void TetrahedralObject::jacobian(SparseMatrixdRowMajor& J, bool weighted) {
   J.setFromTriplets(trips.begin(),trips.end());
 }
 
-void TetrahedralObject::jacobian_regularized() {
+void TetrahedralObject::jacobian_regularized(SparseMatrixdRowMajor& J, bool weighted) {
   // J matrix (big jacobian guy)
   MatrixXd dphidX;
   sim::linear_tetmesh_dphi_dX(dphidX, V_, T_);
@@ -96,13 +96,15 @@ void TetrahedralObject::jacobian_regularized() {
 
         // x,y,z index for the k-th vertex
         for (int l = 0; l < 3; ++l) {
-          double val = B(j,3*k+l) ;//* vols(i); 
+          double val = B(j,3*k+l) ;
+          if (weighted)
+            val *= vols_(i);
           trips.push_back(Triplet<double>(9*i+j, 3*vid+l, val));
         }
       }
     }
   }
-  J_tilde_.setZero();
-  J_tilde_.resize(9*T_.rows(), V_.size());
-  J_tilde_.setFromTriplets(trips.begin(),trips.end());
+  J.setZero();
+  J.resize(9*T_.rows(), V_.size());
+  J.setFromTriplets(trips.begin(),trips.end());
 }

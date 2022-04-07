@@ -52,18 +52,36 @@ void SimObject::build_rhs() {
   rhs_.resize(sz);
   rhs_.setZero();
 
+  VectorXd q = P_.transpose()*qt_+b_;
+
   // Positional forces 
   rhs_.segment(0, qt_.size()) = f_ext_ + config_->ih2*M_*(q0_ - q1_);
+
+  VectorXd la_rhs;
+  if (config_->regularizer) {
+    la_rhs.resize(T_.rows() * 9);
+  }
 
   // Lagrange multiplier forces
   #pragma omp parallel for
   for (int i = 0; i < T_.rows(); ++i) {
-    rhs_.segment(qt_.size() + 9*i, 9) = vols_(i) * material_->rhs(R_[i],
-        S_[i], Hinv_[i], g_[i]);
+    Vector9d rhs = material_->rhs(R_[i], S_[i], Hinv_[i], g_[i]);
+    rhs_.segment(qt_.size() + 9*i, 9) = vols_(i) * rhs;
+    la_rhs.segment(9*i, 9) = rhs;
   }
 
+  if (config_->regularizer) {
+    rhs_.segment(0, qt_.size()) += config_->kappa * (Jw_.transpose() 
+        *  (J_ - J_tilde_) * q - la_rhs);
+  }
+
+
   // Jacobian term
-  rhs_.segment(qt_.size(), 9*T_.rows()) -= Jw_*(P_.transpose()*qt_+b_);
+  if (config_->regularizer) {
+    rhs_.segment(qt_.size(), 9*T_.rows()) -= (Jw_ - Jw_tilde_) * q;
+  } else {
+    rhs_.segment(qt_.size(), 9*T_.rows()) -= Jw_*q;
+  }
 }
 
 void SimObject::update_SR() {
@@ -125,6 +143,20 @@ void SimObject::update_gradients() {
     Hinv_[i] = material_->hessian_inv(R_[i],S_[i]);
     g_[i] = material_->gradient(R_[i], S_[i]);
   }
+
+  jacobian_regularized(J_tilde_, false);
+  jacobian_regularized(Jw_tilde_, true);
+
+  SparseMatrixd M_reg = Jw_.transpose() * (J_ - J_tilde_);
+  int sz = V_.size() + T_.rows()*9;
+  lhs_reg_.setZero();
+  lhs_reg_.resize(sz, sz);
+  std::vector<Triplet<double>> trips;
+  //kkt_lhs(M_reg, J_-J_tilde_, config_->kappa, trips); 
+  kkt_lhs(M_reg, Jw_-Jw_tilde_, config_->kappa, trips); 
+  lhs_reg_.setFromTriplets(trips.begin(),trips.end());
+  lhs_reg_ = P_kkt_ * lhs_reg_ * P_kkt_.transpose();
+
 }
 
 void SimObject::substep(bool init_guess) {
@@ -154,7 +186,7 @@ void SimObject::substep(bool init_guess) {
   t_asm += duration_cast<nanoseconds>(end-start).count()/1e6;
   start = end;
 
-  pcg(dq_la_, lhs_, rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_);
+  pcg(dq_la_, lhs_ + lhs_reg_, rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_);
   end = high_resolution_clock::now();
   t_solve += duration_cast<nanoseconds>(end-start).count()/1e6;
   
