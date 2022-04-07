@@ -18,6 +18,8 @@ namespace mfem {
 
     Eigen::Matrix6d hessian_inv(const Eigen::Matrix3d& R,
         const Eigen::Vector6d& S) override;
+    Eigen::Matrix6d hessian_inv(const Eigen::Matrix3d& R,
+        const Eigen::Vector6d& S, double kappa) override;
 
   };
 

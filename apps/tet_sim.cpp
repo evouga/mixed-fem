@@ -105,33 +105,25 @@ void callback() {
     ImGui::TreePop();
   }
 
-    if (ImGui::TreeNode("Sim Params")) {
-    double lo=0.1,hi=0.5;
+  ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+  if (ImGui::TreeNode("Sim Params")) {
+    ImGui::InputInt("Outer Steps", &config->outer_steps);
+    ImGui::InputInt("Inner Steps", &config->inner_steps);
     if (ImGui::InputFloat3("Body Force", config->ext, 3)) {
       sim_dirty = true;
     }
-
+    ImGui::Checkbox("regularizer",&config->regularizer);
+    ImGui::SameLine(); 
+    ImGui::InputDouble("kappa", &config->kappa);
     ImGui::Checkbox("floor collision",&config->floor_collision);
     ImGui::Checkbox("warm start",&config->warm_start);
-
-
-    // float ext[2] = {float(app->sim_->config_.f_ext_(0)),
-    //                 float(app->sim_->config_.f_ext_(1))};
-    // if (ImGui::InputFloat2("f_ext",&ext[0],"%.4f")) {
-    //   std::cout << "fext changed!" << std::endl;
-    //   app->sim_->config_.f_ext_(0) = ext[0];
-    //   app->sim_->config_.f_ext_(1) = ext[1];
-    //   app->sim_dirty_ = true;
-    // }
     ImGui::TreePop();
   }
 
   ImGui::Checkbox("simulate",&simulating);
   ImGui::SameLine();
   if(ImGui::Button("step") || simulating) {
-    for(unsigned int ii=0; ii<3; ++ii) {
-      simulation_step();
-    }
+    simulation_step();
     ++step;
     srf->updateVertexPositions(meshV);
 

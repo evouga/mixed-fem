@@ -31,6 +31,8 @@ namespace mfem {
     // S - 3x3 symmetric deformation
     virtual Eigen::Matrix6d hessian_inv(const Eigen::Matrix3d& R,
         const Eigen::Vector6d& S) = 0;
+    virtual Eigen::Matrix6d hessian_inv(const Eigen::Matrix3d& R,
+        const Eigen::Vector6d& S, double kappa) = 0;
 
     // Updates the compliance block entries in the KKT matrix.
     // Assumes the entries already exist and we can just overwite

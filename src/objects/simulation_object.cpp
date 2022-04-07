@@ -67,12 +67,20 @@ void SimObject::build_rhs() {
   for (int i = 0; i < T_.rows(); ++i) {
     Vector9d rhs = material_->rhs(R_[i], S_[i], Hinv_[i], g_[i]);
     rhs_.segment(qt_.size() + 9*i, 9) = vols_(i) * rhs;
-    la_rhs.segment(9*i, 9) = rhs;
+    if (config_->regularizer) {
+      la_rhs.segment(9*i, 9) = rhs;
+    }
   }
 
   if (config_->regularizer) {
-    rhs_.segment(0, qt_.size()) += config_->kappa * (Jw_.transpose() 
-        *  (J_ - J_tilde_) * q - la_rhs);
+    //std::cout << "J_: " << J_.rows() << ", " << J_.cols() << std::endl;
+    //std::cout << "J_tilde_: " << J_tilde_.rows() << ", " << J_tilde_.cols() << std::endl;
+    //std::cout << "q: " << q.rows() << ", " << q.cols() << std::endl;
+    //std::cout << "larhs: " << la_rhs.rows() << ", " << la_rhs.cols() << std::endl;
+    //std::cout << "Jw_: " << Jw_.rows() << ", " << Jw_.cols() << std::endl;
+    //std::cout << "qt size: " << qt_.size() << std::endl;
+    rhs_.segment(0, qt_.size()) += config_->kappa * P_ * Jw_.transpose() 
+        * ((J_ - J_tilde_) * q - la_rhs);
   }
 
 
@@ -104,9 +112,20 @@ void SimObject::update_SR() {
       if (i >= T_.rows())
         break;
       Vector9d li = ibeta_*(la_.segment(9*i,9)/fac) + def_grad.segment(9*i,9);
+      if (config_->regularizer) {
+        //li = ibeta_*(la_.segment(9*i,9)/fac)
+        //   + def_grad.segment(9*i,9)*config_->kappa;
+        li = (la_.segment(9*i,9))/fac
+           + def_grad.segment(9*i,9)*config_->kappa;
+      }
       
       // Update S[i] using new lambdas
-      dS_[i] = material_->dS(R_[i], S_[i], la_.segment(9*i,9), Hinv_[i]);
+      if (config_->regularizer) {
+        dS_[i] = material_->dS(R_[i], S_[i], la_.segment(9*i,9)
+            + config_->kappa * def_grad.segment(9*i,9), Hinv_[i]);
+      } else {
+        dS_[i] = material_->dS(R_[i], S_[i], la_.segment(9*i,9), Hinv_[i]);
+      }
       Vector6d s = S_[i] + dS_[i];
 
       // Solve rotation matrices
@@ -140,22 +159,28 @@ void SimObject::update_gradients() {
 
   #pragma omp parallel for
   for (int i = 0; i < T_.rows(); ++i) {
-    Hinv_[i] = material_->hessian_inv(R_[i],S_[i]);
+    if (config_->regularizer) {
+      Hinv_[i] = material_->hessian_inv(R_[i],S_[i],config_->kappa);
+    } else {
+      Hinv_[i] = material_->hessian_inv(R_[i],S_[i]);
+    }
     g_[i] = material_->gradient(R_[i], S_[i]);
   }
 
-  jacobian_regularized(J_tilde_, false);
-  jacobian_regularized(Jw_tilde_, true);
+  if (config_->regularizer) {
+    jacobian_regularized(J_tilde_, false);
+    jacobian_regularized(Jw_tilde_, true);
 
-  SparseMatrixd M_reg = Jw_.transpose() * (J_ - J_tilde_);
-  int sz = V_.size() + T_.rows()*9;
-  lhs_reg_.setZero();
-  lhs_reg_.resize(sz, sz);
-  std::vector<Triplet<double>> trips;
-  //kkt_lhs(M_reg, J_-J_tilde_, config_->kappa, trips); 
-  kkt_lhs(M_reg, Jw_-Jw_tilde_, config_->kappa, trips); 
-  lhs_reg_.setFromTriplets(trips.begin(),trips.end());
-  lhs_reg_ = P_kkt_ * lhs_reg_ * P_kkt_.transpose();
+    SparseMatrixd M_reg = Jw_.transpose() * (J_ - J_tilde_);
+    int sz = V_.size() + T_.rows()*9;
+    lhs_reg_.setZero();
+    lhs_reg_.resize(sz, sz);
+    std::vector<Triplet<double>> trips;
+    //kkt_lhs(M_reg, J_-J_tilde_, config_->kappa, trips); 
+    kkt_lhs(M_reg, Jw_-Jw_tilde_, config_->kappa, trips); 
+    lhs_reg_.setFromTriplets(trips.begin(),trips.end());
+    lhs_reg_ = P_kkt_ * lhs_reg_ * P_kkt_.transpose();
+  }
 
 }
 
@@ -186,7 +211,13 @@ void SimObject::substep(bool init_guess) {
   t_asm += duration_cast<nanoseconds>(end-start).count()/1e6;
   start = end;
 
-  pcg(dq_la_, lhs_ + lhs_reg_, rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_);
+  int niter;
+  //if (config_->regularizer)
+  //  niter = pcg(dq_la_, lhs_ + lhs_reg_, rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_);
+  //else
+    niter = pcg(dq_la_, lhs_, rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_);
+  std::cout << "# PCG iter: " << niter << std::endl;
+
   end = high_resolution_clock::now();
   t_solve += duration_cast<nanoseconds>(end-start).count()/1e6;
   
@@ -266,9 +297,9 @@ void SimObject::init() {
   //double pin_y = min_y + (max_y-min_y)*0.1;
   //pinnedV = (V_.col(0).array() < pin_x).cast<int>(); 
   pinnedV_ = (V_.col(1).array() > pin_y).cast<int>();
-  // pinnedV_.resize(V_.rows());
-  // pinnedV_.setZero();
-  // pinnedV_(0) = 1;
+  //pinnedV_.resize(V_.rows());
+  //pinnedV_.setZero();
+  //pinnedV_(0) = 1;
 
   P_ = pinning_matrix(V_, T_, pinnedV_, false);
   P_kkt_ = pinning_matrix(V_, T_, pinnedV_, true);
@@ -295,8 +326,9 @@ void SimObject::init() {
   M_ = P_ * M_ * P_.transpose();
 
   // External gravity force
-  f_ext_ = M_ * P_ *Vector3d(0,config_->grav,0).replicate(V_.rows(),1);
-  f_ext0_ = P_ *Vector3d(0,config_->grav,0).replicate(V_.rows(),1);
+  Vector3d ext = Map<Vector3f>(config_->ext).cast<double>();
+  f_ext_ = M_ * P_ * ext.replicate(V_.rows(),1);
+  f_ext0_ = P_ * ext.replicate(V_.rows(),1);
 }
 
 void SimObject::warm_start() {

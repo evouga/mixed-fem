@@ -23,7 +23,7 @@ namespace mfem {
     float ext[3] = {0., -9.8, 0.};
     double beta = 5.;
     bool warm_start = true;
-    bool floor_collision = true;
+    bool floor_collision = false;
     bool regularizer = true;
     int outer_steps = 2;
     int inner_steps = 7;
