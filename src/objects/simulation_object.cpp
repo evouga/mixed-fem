@@ -73,14 +73,8 @@ void SimObject::build_rhs() {
   }
 
   if (config_->regularizer) {
-    //std::cout << "J_: " << J_.rows() << ", " << J_.cols() << std::endl;
-    //std::cout << "J_tilde_: " << J_tilde_.rows() << ", " << J_tilde_.cols() << std::endl;
-    //std::cout << "q: " << q.rows() << ", " << q.cols() << std::endl;
-    //std::cout << "larhs: " << la_rhs.rows() << ", " << la_rhs.cols() << std::endl;
-    //std::cout << "Jw_: " << Jw_.rows() << ", " << Jw_.cols() << std::endl;
-    //std::cout << "qt size: " << qt_.size() << std::endl;
     rhs_.segment(0, qt_.size()) += config_->kappa * P_ * Jw_.transpose() 
-        * ((J_ - J_tilde_) * q - la_rhs);
+        * (la_rhs - (J_ - J_tilde_) * q);
   }
 
 
@@ -99,7 +93,7 @@ void SimObject::update_SR() {
   int N = (T_.rows() / 4) + int(T_.rows() % 4 != 0);
 
   double fac = std::max((la_.array().abs().maxCoeff() + 1e-6), 1.0);
-
+  std::cout << "fac: " << fac << std::endl;
   #pragma omp parallel for 
   for (int ii = 0; ii < N; ++ii) {
 
@@ -117,6 +111,7 @@ void SimObject::update_SR() {
         //   + def_grad.segment(9*i,9)*config_->kappa;
         li = (la_.segment(9*i,9))/fac
            + def_grad.segment(9*i,9)*config_->kappa;
+        // li = def_grad.segment(9*i,9)*config_->kappa;   
       }
       
       // Update S[i] using new lambdas
@@ -176,8 +171,7 @@ void SimObject::update_gradients() {
     lhs_reg_.setZero();
     lhs_reg_.resize(sz, sz);
     std::vector<Triplet<double>> trips;
-    //kkt_lhs(M_reg, J_-J_tilde_, config_->kappa, trips); 
-    kkt_lhs(M_reg, Jw_-Jw_tilde_, config_->kappa, trips); 
+    kkt_lhs(M_reg, -Jw_tilde_, config_->kappa, trips); 
     lhs_reg_.setFromTriplets(trips.begin(),trips.end());
     lhs_reg_ = P_kkt_ * lhs_reg_ * P_kkt_.transpose();
   }
@@ -212,9 +206,9 @@ void SimObject::substep(bool init_guess) {
   start = end;
 
   int niter;
-  //if (config_->regularizer)
-  //  niter = pcg(dq_la_, lhs_ + lhs_reg_, rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_);
-  //else
+  if (config_->regularizer)
+    niter = pcg(dq_la_, lhs_ + lhs_reg_, rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_);
+  else
     niter = pcg(dq_la_, lhs_, rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_);
   std::cout << "# PCG iter: " << niter << std::endl;
 
@@ -298,8 +292,8 @@ void SimObject::init() {
   //pinnedV = (V_.col(0).array() < pin_x).cast<int>(); 
   pinnedV_ = (V_.col(1).array() > pin_y).cast<int>();
   //pinnedV_.resize(V_.rows());
-  //pinnedV_.setZero();
-  //pinnedV_(0) = 1;
+  pinnedV_.setZero();
+  pinnedV_(0) = 1;
 
   P_ = pinning_matrix(V_, T_, pinnedV_, false);
   P_kkt_ = pinning_matrix(V_, T_, pinnedV_, true);
