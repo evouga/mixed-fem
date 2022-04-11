@@ -160,12 +160,8 @@ void callback() {
   if(ImGui::Button("reset")) {
     tet_object->init();
     srf->updateVertexPositions(meshV0);
+    export_step = 0;
   }
-
-  if (step == 570) simulating=false;
-  //ImGui::SameLine();
-  //ImGui::InputInt("source vertex", &iVertexSource);
-
   ImGui::PopItemWidth();
 }
 

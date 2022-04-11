@@ -66,10 +66,15 @@ void SimObject::build_rhs() {
   #pragma omp parallel for
   for (int i = 0; i < T_.rows(); ++i) {
     Vector9d rhs = material_->rhs(R_[i], S_[i], Hinv_[i], g_[i]);
-    rhs_.segment(qt_.size() + 9*i, 9) = vols_(i) * rhs;
+
     if (config_->regularizer) {
+      Matrix<double, 9, 6> W;
+      Wmat(R_[i], W);
+      rhs -= config_->kappa * W * (Hinv_[i] * W.transpose() * W * S_[i]);
       la_rhs.segment(9*i, 9) = rhs;
     }
+    rhs_.segment(qt_.size() + 9*i, 9) = vols_(i) * rhs;
+
   }
 
   if (config_->regularizer) {
@@ -116,8 +121,12 @@ void SimObject::update_SR() {
       
       // Update S[i] using new lambdas
       if (config_->regularizer) {
+        Matrix<double, 9, 6> W;
+        Wmat(R_[i], W);
         dS_[i] = material_->dS(R_[i], S_[i], la_.segment(9*i,9)
-            + config_->kappa * def_grad.segment(9*i,9), Hinv_[i]);
+            + config_->kappa * def_grad.segment(9*i,9)
+            - config_->kappa * W * S_[i]
+            , Hinv_[i]);
       } else {
         dS_[i] = material_->dS(R_[i], S_[i], la_.segment(9*i,9), Hinv_[i]);
       }

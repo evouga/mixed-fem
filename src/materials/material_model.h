@@ -8,6 +8,19 @@
 
 namespace mfem {
 
+  inline void Wmat(const Eigen::Matrix3d& R, Eigen::Matrix<double,9,6>& W) {
+    W <<
+      R(0,0), 0, 0, 0, R(0,2), R(0,1),
+      0, R(0,1), 0, R(0,2), 0, R(0,0),
+      0, 0, R(0,2), R(0,1), R(0,0), 0, 
+      R(1,0), 0, 0, 0, R(1,2), R(1,1),
+      0, R(1,1), 0, R(1,2), 0, R(1,0),
+      0, 0, R(1,2), R(1,1), R(1,0), 0,  
+      R(2,0), 0, 0, 0, R(2,2), R(2,1),
+      0, R(2,1), 0, R(2,2), 0, R(2,0),
+      0, 0, R(2,2), R(2,1), R(2,0), 0;
+  }
+
   // Base pure virtual class for material models
   class MaterialModel {
   public:
