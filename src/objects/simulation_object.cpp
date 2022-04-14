@@ -4,6 +4,7 @@
 #include "kkt.h"
 #include "pinning_matrix.h"
 #include <chrono>
+#include "svd/dsvd.h"
 
 using namespace std::chrono;
 using namespace Eigen;
@@ -91,6 +92,37 @@ void SimObject::build_rhs() {
   }
 }
 
+void SimObject::update_SR2() {
+  VectorXd def_grad = J_*(P_.transpose()*(qt_+dq_)+b_);
+
+  int N = (T_.rows() / 4) + int(T_.rows() % 4 != 0);
+
+  #pragma omp parallel for 
+  for (int ii = 0; ii < N; ++ii) {
+    Matrix<float,12,3> F4,R4;
+    // SSE implementation operates on 4 matrices at a time, so assemble
+    // 12 x 3 matrices
+    for (int jj = 0; jj < 4; ++jj) {
+      int i = ii*4 +jj;
+      if (i >= T_.rows())
+        break;
+      Matrix3d f4 = Map<Matrix3d>(def_grad.segment(9*i,9).data());
+      F4.block(3*jj, 0, 3, 3) = f4.cast<float>();
+    }
+
+    // Solve rotations
+    polar_svd3x3_sse(F4,R4);
+
+    // Assign rotations to per-element matrices
+    for (int jj = 0; jj < 4; jj++) {
+      int i = ii*4 +jj;
+      if (i >= T_.rows())
+        break;
+      R_[i] = R4.block(3*jj,0,3,3).cast<double>();
+    }
+  }
+}
+
 void SimObject::update_SR() {
 
   VectorXd def_grad = J_*(P_.transpose()*(qt_+dq_)+b_);
@@ -98,7 +130,7 @@ void SimObject::update_SR() {
   int N = (T_.rows() / 4) + int(T_.rows() % 4 != 0);
 
   double fac = std::max((la_.array().abs().maxCoeff() + 1e-6), 1.0);
-  std::cout << "fac: " << fac << std::endl;
+
   #pragma omp parallel for 
   for (int ii = 0; ii < N; ++ii) {
 

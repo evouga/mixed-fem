@@ -51,6 +51,7 @@ namespace mfem {
     
     // Update per-element S, symmetric deformation, and R, rotation matrices
     virtual void update_SR();
+    virtual void update_SR2();
 
     // Recompute per-element gradient and hessians using new
     // S and R matrices.
