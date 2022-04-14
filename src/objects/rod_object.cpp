@@ -102,8 +102,8 @@ void RodObject::build_rhs() {
   #pragma omp parallel for
   for (int i = 0; i < T_.rows(); ++i) {
     // World-space normal and binormals
-    Vector9d n = sim::flatten((R_[i]*NN_[i]).transpose());
-    Vector9d bn = sim::flatten((R_[i]*BN_[i]).transpose());
+    Vector9d n = sim::flatten((R_[i]*NN_[i]));
+    Vector9d bn = sim::flatten((R_[i]*BN_[i]));
 
     rhs_.segment(qt_.size() + 9*i, 9) -= vols_(i) * (n + bn);
   }
@@ -115,6 +115,8 @@ void RodObject::update_SR() {
 
   int N = (T_.rows() / 4) + int(T_.rows() % 4 != 0);
   double fac = std::max((la_.array().abs().maxCoeff() + 1e-6), 1.0);
+
+  //std::cout << "NN: " << NN_[0] << " BN: " << BN_[0] << std::endl;
 
   #pragma omp parallel for 
   for (int ii = 0; ii < N; ++ii) {
@@ -135,14 +137,11 @@ void RodObject::update_SR() {
 
       // Solve rotation matrices
       Matrix3d Cs;
-      Cs << s(0), s(5), s(4), 
-            s(5), s(1), s(3), 
-            s(4), s(3), s(2);
-      // Cs << s(0), s(3), s(4), 
-      //       s(3), s(1), s(5), 
-      //       s(4), s(5), s(2);
+      Cs << s(0), s(3), s(4), 
+            s(3), s(1), s(5), 
+            s(4), s(5), s(2);
       Cs -= (NN_[i] + BN_[i]); // NOTE only additional line
-      Matrix3d y4 = Map<Matrix3d>(li.data()).transpose()*Cs;
+      Matrix3d y4 = Map<Matrix3d>(li.data())*Cs;
       Y4.block(3*jj, 0, 3, 3) = y4.cast<float>();
     }
 

@@ -166,10 +166,14 @@ void SimObject::update_SR() {
 
       // Solve rotation matrices
       Matrix3d Cs;
-      Cs << s(0), s(5), s(4), 
-            s(5), s(1), s(3), 
-            s(4), s(3), s(2); 
-      Matrix3d y4 = Map<Matrix3d>(li.data()).transpose()*Cs;
+      // Cs << s(0), s(5), s(4), 
+      //       s(5), s(1), s(3), 
+      //       s(4), s(3), s(2);
+      Cs << s(0), s(3), s(4), 
+            s(3), s(1), s(5), 
+            s(4), s(5), s(2);       
+      //Matrix3d y4 = Map<Matrix3d>(li.data()).transpose()*Cs;
+      Matrix3d y4 = Map<Matrix3d>(li.data())*Cs;
       Y4.block(3*jj, 0, 3, 3) = y4.cast<float>();
       //Matrix3d R4out;
       //eigen_svd(y4, R4out);
@@ -333,8 +337,8 @@ void SimObject::init() {
   //pinnedV = (V_.col(0).array() < pin_x).cast<int>(); 
   pinnedV_ = (V_.col(1).array() > pin_y).cast<int>();
   //pinnedV_.resize(V_.rows());
-  pinnedV_.setZero();
-  pinnedV_(0) = 1;
+  // pinnedV_.setZero();
+  // pinnedV_(0) = 1;
 
   P_ = pinning_matrix(V_, T_, pinnedV_, false);
   P_kkt_ = pinning_matrix(V_, T_, pinnedV_, true);

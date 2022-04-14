@@ -278,7 +278,7 @@ int main(int argc, char **argv) {
   config->inner_steps=1;
   config->outer_steps=10;
   config->thickness = 1e-2;
-  config->density = 100;
+  config->density = 10;
   config->beta = 100;
   double ym = 1e6;
   double pr = 0.45;

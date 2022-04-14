@@ -92,7 +92,7 @@ void TriObject::build_rhs() {
   // Trimesh has additional normal term on right hand side
   #pragma omp parallel for
   for (int i = 0; i < T_.rows(); ++i) {
-    Vector9d n = sim::flatten((R_[i]*NN_[i]).transpose());
+    Vector9d n = sim::flatten((R_[i]*NN_[i]));
     rhs_.segment(qt_.size() + 9*i, 9) -= vols_(i) * n;
   }
 }
@@ -123,11 +123,11 @@ void TriObject::update_SR() {
 
       // Solve rotation matrices
       Matrix3d Cs;
-      Cs << s(0), s(5), s(4), 
-            s(5), s(1), s(3), 
-            s(4), s(3), s(2);
+      Cs << s(0), s(3), s(4), 
+            s(3), s(1), s(5), 
+            s(4), s(5), s(2);
       Cs -= NN_[i]; // NOTE only additional line with cloth
-      Matrix3d y4 = Map<Matrix3d>(li.data()).transpose()*Cs;
+      Matrix3d y4 = Map<Matrix3d>(li.data())*Cs;
       Y4.block(3*jj, 0, 3, 3) = y4.cast<float>();
     }
 

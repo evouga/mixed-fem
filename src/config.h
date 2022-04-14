@@ -24,7 +24,7 @@ namespace mfem {
     double beta = 5.;
     bool warm_start = true;
     bool floor_collision = false;
-    bool regularizer = true;
+    bool regularizer = false;
     int outer_steps = 2;
     int inner_steps = 7;
     double plane_d = 0;
