@@ -140,7 +140,7 @@ void RodObject::update_SR() {
       Cs << s(0), s(3), s(4), 
             s(3), s(1), s(5), 
             s(4), s(5), s(2);
-      Cs -= (NN_[i] + BN_[i]); // NOTE only additional line
+      //Cs -= (NN_[i] + BN_[i]); // NOTE only additional line
       Matrix3d y4 = Map<Matrix3d>(li.data())*Cs;
       Y4.block(3*jj, 0, 3, 3) = y4.cast<float>();
     }

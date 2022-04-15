@@ -21,5 +21,7 @@ namespace mfem {
     void jacobian(SparseMatrixdRowMajor& J, bool weighted) override;
     void jacobian_regularized(SparseMatrixdRowMajor& J,
         bool weighted) override;
+    void jacobian_rotational(SparseMatrixdRowMajor& J, bool weighted) override;
+
   };
 }

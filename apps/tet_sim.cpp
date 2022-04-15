@@ -115,6 +115,7 @@ void callback() {
     ImGui::Checkbox("regularizer",&config->regularizer);
     ImGui::SameLine(); 
     ImGui::InputDouble("kappa", &config->kappa);
+    ImGui::Checkbox("local-global",&config->local_global);
     ImGui::Checkbox("floor collision",&config->floor_collision);
     ImGui::Checkbox("warm start",&config->warm_start);
     ImGui::TreePop();

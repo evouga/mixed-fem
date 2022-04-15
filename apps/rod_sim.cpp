@@ -275,12 +275,12 @@ int main(int argc, char **argv) {
   // Initial simulation setup
   config = std::make_shared<SimConfig>();
   config->plane_d = a(1);
-  config->inner_steps=1;
-  config->outer_steps=10;
+  config->inner_steps=2;
+  config->outer_steps=4;
   config->thickness = 1e-2;
-  config->density = 10;
+  config->density = 100;
   config->beta = 100;
-  double ym = 1e6;
+  double ym = 1e5;
   double pr = 0.45;
   material_config = std::make_shared<MaterialConfig>();
   material_config->mu = ym/(2.0*(1.0+pr));

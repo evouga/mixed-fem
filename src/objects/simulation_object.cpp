@@ -97,9 +97,11 @@ void SimObject::update_SR2() {
 
   int N = (T_.rows() / 4) + int(T_.rows() % 4 != 0);
 
+
   #pragma omp parallel for 
   for (int ii = 0; ii < N; ++ii) {
-    Matrix<float,12,3> F4,R4;
+    Matrix<float,12,3> F4,R4,U4,Vt4;
+    Matrix<float,12,1> S4;
     // SSE implementation operates on 4 matrices at a time, so assemble
     // 12 x 3 matrices
     for (int jj = 0; jj < 4; ++jj) {
@@ -109,16 +111,34 @@ void SimObject::update_SR2() {
       Matrix3d f4 = Map<Matrix3d>(def_grad.segment(9*i,9).data());
       F4.block(3*jj, 0, 3, 3) = f4.cast<float>();
     }
-
+ 
     // Solve rotations
-    polar_svd3x3_sse(F4,R4);
+    //polar_svd3x3_sse(F4,R4);
+    svd3x3_sse(F4, U4, S4, Vt4);
 
     // Assign rotations to per-element matrices
     for (int jj = 0; jj < 4; jj++) {
       int i = ii*4 +jj;
       if (i >= T_.rows())
         break;
-      R_[i] = R4.block(3*jj,0,3,3).cast<double>();
+      //R_[i] = R4.block(3*jj,0,3,3).cast<double>();
+
+      std::array<Matrix3d, 9> dR_dF;
+
+      dsvd(F4.block(3*jj,0,3,3).cast<double>(),
+          U4.block(3*jj,0,3,3).cast<double>(),
+          S4.segment(3*jj,3).cast<double>(),
+          Vt4.block(3*jj,0,3,3).cast<double>(),
+          dR_dF
+      );
+
+      Matrix<double, 9, 6> What;
+      for (int kk = 0; kk < 9; ++kk) {
+        Wmat(dR_dF[kk] , What);
+        dRS_[i].row(kk) = (What * S_[i]).transpose();
+      }
+ 
+
     }
   }
 }
@@ -162,6 +182,7 @@ void SimObject::update_SR() {
       } else {
         dS_[i] = material_->dS(R_[i], S_[i], la_.segment(9*i,9), Hinv_[i]);
       }
+
       Vector6d s = S_[i] + dS_[i];
 
       // Solve rotation matrices
@@ -188,7 +209,9 @@ void SimObject::update_SR() {
       int i = ii*4 +jj;
       if (i >= T_.rows())
         break;
-      R_[i] = R4.block(3*jj,0,3,3).cast<double>();
+
+      if (config_->local_global)
+        R_[i] = R4.block(3*jj,0,3,3).cast<double>();
     }
   }
 }
@@ -220,6 +243,21 @@ void SimObject::update_gradients() {
     lhs_reg_.setFromTriplets(trips.begin(),trips.end());
     lhs_reg_ = P_kkt_ * lhs_reg_ * P_kkt_.transpose();
   }
+
+  if (!config_->local_global) {
+    update_SR2();
+    jacobian_rotational(Jw_rot_, true);
+
+    SparseMatrixd M(J_.cols(), J_.cols());
+    int sz = V_.size() + T_.rows()*9;
+    lhs_rot_.setZero();
+    lhs_rot_.resize(sz, sz);
+    std::vector<Triplet<double>> trips;
+    kkt_lhs(M, -Jw_rot_, 1, trips); 
+    lhs_rot_.setFromTriplets(trips.begin(),trips.end());
+    lhs_rot_ = P_kkt_ * lhs_rot_ * P_kkt_.transpose();
+  }
+
 
 }
 
@@ -253,6 +291,8 @@ void SimObject::substep(bool init_guess) {
   int niter;
   if (config_->regularizer)
     niter = pcg(dq_la_, lhs_ + lhs_reg_, rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_);
+  else if (!config_->local_global) 
+    niter = pcg(dq_la_, lhs_ + lhs_rot_, rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_);
   else
     niter = pcg(dq_la_, lhs_, rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_);
   std::cout << "# PCG iter: " << niter << std::endl;
@@ -305,6 +345,7 @@ void SimObject::reset_variables() {
   dS_.resize(T_.rows());
   Hinv_.resize(T_.rows());
   g_.resize(T_.rows());
+  dRS_.resize(T_.rows());
   for (int i = 0; i < T_.rows(); ++i) {
     R_[i].setIdentity();
     S_[i] = I_vec;
@@ -337,8 +378,8 @@ void SimObject::init() {
   //pinnedV = (V_.col(0).array() < pin_x).cast<int>(); 
   pinnedV_ = (V_.col(1).array() > pin_y).cast<int>();
   //pinnedV_.resize(V_.rows());
-  // pinnedV_.setZero();
-  // pinnedV_(0) = 1;
+  pinnedV_.setZero();
+  pinnedV_(0) = 1;
 
   P_ = pinning_matrix(V_, T_, pinnedV_, false);
   P_kkt_ = pinning_matrix(V_, T_, pinnedV_, true);

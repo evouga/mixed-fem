@@ -15,7 +15,6 @@ namespace mfem {
 
   using SparseMatrixdRowMajor = Eigen::SparseMatrix<double, Eigen::RowMajor>;
 
-
   static Eigen::Vector6d I_vec = (Eigen::Vector6d() <<
       1, 1, 1, 0, 0, 0).finished();
 
@@ -39,6 +38,8 @@ namespace mfem {
     virtual void jacobian(SparseMatrixdRowMajor& J, bool weighted) = 0;
     virtual void jacobian_regularized(SparseMatrixdRowMajor& J,
         bool weighted) = 0;
+    virtual void jacobian_rotational(SparseMatrixdRowMajor& J,
+        bool weighted) {}    
 
     void init();
 
@@ -81,6 +82,7 @@ namespace mfem {
     std::vector<Eigen::Vector6d> dS_;   // Per-element deformation update
     std::vector<Eigen::Matrix6d> Hinv_; // Elemental hessians w.r.t dS
     std::vector<Eigen::Vector6d> g_;    // Elemental gradients w.r.t dS
+    std::vector<Eigen::Matrix9d> dRS_;  // dRS/dF where each row is dRS/dF_ij
 
     Eigen::SparseMatrixd M_;        // mass matrix
     Eigen::SparseMatrixd P_;        // pinning constraint (for vertices)
@@ -89,6 +91,7 @@ namespace mfem {
     SparseMatrixdRowMajor Jw_;      // integrated (weighted) jacobian
     SparseMatrixdRowMajor J_tilde_;  // jacobian for regularizer
     SparseMatrixdRowMajor Jw_tilde_; // jacobian for regularizer
+    SparseMatrixdRowMajor Jw_rot_; // jacobian for regularizer
     Eigen::VectorXi pinnedV_;
 
     // Configuration vectors & body forces
@@ -105,6 +108,7 @@ namespace mfem {
     Eigen::VectorXd rhs_;
     Eigen::SparseMatrixd lhs_;
     Eigen::SparseMatrixd lhs_reg_; // regularized mass matrix
+    Eigen::SparseMatrixd lhs_rot_; // regularized mass matrix
 
 
 

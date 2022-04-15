@@ -12,3 +12,9 @@
 //  dS - the 3x3x3 derivative of the singular values wrt to F. dS[x][i][j] contains the derivative of the x^{th} singlar value wrt to F[i][j]
 void dsvd(Eigen::Tensor3333d &dU, Eigen::Tensor333d  &dS,
     Eigen::Tensor3333d &dV, Eigen::Ref<const Eigen::Matrix3d> F);
+
+void dsvd(Eigen::Ref<const Eigen::Matrix3d> F, 
+    Eigen::Ref<const Eigen::Matrix3d> U,
+    Eigen::Ref<const Eigen::Vector3d> S,
+    Eigen::Ref<const Eigen::Matrix3d> Vt,
+    std::array<Eigen::Matrix3d, 9>& dR_dF);    
