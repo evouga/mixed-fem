@@ -35,7 +35,7 @@ namespace mfem {
 
   // Simple config for material parameters for a single object
   struct MaterialConfig {
-    double ym = 1e5;
+    double ym = 1e6;
     double pr = 0.45;
     double mu = ym/(2.0*(1.0+pr));
     double la = (ym*pr)/((1.0+pr)*(1.0-2.0*pr));

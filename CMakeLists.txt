@@ -91,8 +91,9 @@ add_subdirectory("deps/polyscope")
 #add_subdirectory("deps/libIGL")
 
 file(GLOB SOURCES 
-    ${PROJECT_SOURCE_DIR}/src/*.cpp 
-    ${PROJECT_SOURCE_DIR}/src/materials/*.cpp
+${PROJECT_SOURCE_DIR}/src/*.cpp 
+${PROJECT_SOURCE_DIR}/src/svd/*.cpp 
+${PROJECT_SOURCE_DIR}/src/materials/*.cpp
     ${PROJECT_SOURCE_DIR}/src/objects/*.cpp)
 message("SOURCES" ${SOURCES})
 add_library(mixed_fem_lib SHARED ${SOURCES})

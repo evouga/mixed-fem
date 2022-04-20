@@ -59,20 +59,29 @@ void SimObject::build_rhs() {
   rhs_.segment(0, qt_.size()) = f_ext_ + config_->ih2*M_*(q0_ - q1_);
 
   VectorXd la_rhs;
-  if (config_->regularizer) {
+  //if (config_->regularizer) {
     la_rhs.resize(T_.rows() * 9);
-  }
+  //}
+
 
   // Lagrange multiplier forces
   #pragma omp parallel for
   for (int i = 0; i < T_.rows(); ++i) {
     Vector9d rhs = material_->rhs(R_[i], S_[i], Hinv_[i], g_[i]);
+    Matrix<double,9,6> W;
+    Wmat(R_[i],W); // TODO ROTATION NEEDS TO BE RESET BASED ON svd (q)
+    rhs += W*Hinv_[i]*W.transpose()*la_.segment(9*i,9);
 
     if (config_->regularizer) {
       Matrix<double, 9, 6> W;
       Wmat(R_[i], W);
       rhs -= config_->kappa * W * (Hinv_[i] * W.transpose() * W * S_[i]);
       la_rhs.segment(9*i, 9) = rhs;
+    } else if (!config_->local_global) {
+      Vector9d tmp = (la_.segment(9*i,9).transpose() * (W * Hinv_[i] * dRL_[i].transpose()
+        + dRS_[i].transpose() - Matrix9d::Identity())).transpose();
+      Vector6d g = material_->gradient(R_[i], S_[i]);
+      la_rhs.segment(9*i, 9) = rhs - dRL_[i] * (Hinv_[i] * g);
     }
     rhs_.segment(qt_.size() + 9*i, 9) = vols_(i) * rhs;
 
@@ -81,6 +90,8 @@ void SimObject::build_rhs() {
   if (config_->regularizer) {
     rhs_.segment(0, qt_.size()) += config_->kappa * P_ * Jw_.transpose() 
         * (la_rhs - (J_ - J_tilde_) * q);
+  } else if (!config_->local_global) {
+    rhs_.segment(0, qt_.size()) += Jw_.transpose() * la_rhs;
   }
 
 
@@ -90,6 +101,11 @@ void SimObject::build_rhs() {
   } else {
     rhs_.segment(qt_.size(), 9*T_.rows()) -= Jw_*q;
   }
+
+  if (config_->local_global) {
+    //VectorXd la = la_ + dq_la_.segment(qt_.size(), 9*T_.rows());
+    rhs_.segment(0,qt_.size()) -= Jw_.transpose() * la_;
+  }
 }
 
 void SimObject::update_SR2() {
@@ -97,6 +113,7 @@ void SimObject::update_SR2() {
 
   int N = (T_.rows() / 4) + int(T_.rows() % 4 != 0);
 
+  VectorXd la = la_ + dq_la_.segment(qt_.size(), 9*T_.rows());
 
   #pragma omp parallel for 
   for (int ii = 0; ii < N; ++ii) {
@@ -131,11 +148,14 @@ void SimObject::update_SR2() {
           Vt4.block(3*jj,0,3,3).cast<double>(),
           dR_dF
       );
+      R_[i] = (U4.block(3*jj,0,3,3) 
+          * Vt4.block(3*jj,0,3,3).transpose()).cast<double>();
 
       Matrix<double, 9, 6> What;
       for (int kk = 0; kk < 9; ++kk) {
         Wmat(dR_dF[kk] , What);
         dRS_[i].row(kk) = (What * S_[i]).transpose();
+        dRL_[i].row(kk) = (What.transpose()* la.segment(9*i,9)).transpose();
       }
  
 
@@ -146,10 +166,13 @@ void SimObject::update_SR2() {
 void SimObject::update_SR() {
 
   VectorXd def_grad = J_*(P_.transpose()*(qt_+dq_)+b_);
+  VectorXd Jdq = J_*(P_.transpose()*dq_);
 
   int N = (T_.rows() / 4) + int(T_.rows() % 4 != 0);
 
-  double fac = std::max((la_.array().abs().maxCoeff() + 1e-6), 1.0);
+  VectorXd la = la_ + dq_la_.segment(qt_.size(), 9*T_.rows());
+
+  double fac = std::max((la.array().abs().maxCoeff() + 1e-6), 1.0);
 
   #pragma omp parallel for 
   for (int ii = 0; ii < N; ++ii) {
@@ -162,11 +185,11 @@ void SimObject::update_SR() {
       int i = ii*4 +jj;
       if (i >= T_.rows())
         break;
-      Vector9d li = ibeta_*(la_.segment(9*i,9)/fac) + def_grad.segment(9*i,9);
+      Vector9d li = ibeta_*(la.segment(9*i,9)/fac) + def_grad.segment(9*i,9);
       if (config_->regularizer) {
         //li = ibeta_*(la_.segment(9*i,9)/fac)
         //   + def_grad.segment(9*i,9)*config_->kappa;
-        li = (la_.segment(9*i,9))/fac
+        li = (la.segment(9*i,9))/fac
            + def_grad.segment(9*i,9)*config_->kappa;
         // li = def_grad.segment(9*i,9)*config_->kappa;   
       }
@@ -175,12 +198,15 @@ void SimObject::update_SR() {
       if (config_->regularizer) {
         Matrix<double, 9, 6> W;
         Wmat(R_[i], W);
-        dS_[i] = material_->dS(R_[i], S_[i], la_.segment(9*i,9)
+        dS_[i] = material_->dS(R_[i], S_[i], la.segment(9*i,9)
             + config_->kappa * def_grad.segment(9*i,9)
             - config_->kappa * W * S_[i]
             , Hinv_[i]);
+      } else if (!config_->local_global) {
+        dS_[i] = material_->dS(R_[i], S_[i], la.segment(9*i,9), Hinv_[i])
+               + Hinv_[i] * dRL_[i].transpose() * Jdq.segment(9*i,9);
       } else {
-        dS_[i] = material_->dS(R_[i], S_[i], la_.segment(9*i,9), Hinv_[i]);
+        dS_[i] = material_->dS(R_[i], S_[i], la.segment(9*i,9), Hinv_[i]);
       }
 
       Vector6d s = S_[i] + dS_[i];
@@ -292,7 +318,7 @@ void SimObject::substep(bool init_guess) {
   if (config_->regularizer)
     niter = pcg(dq_la_, lhs_ + lhs_reg_, rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_);
   else if (!config_->local_global) 
-    niter = pcg(dq_la_, lhs_ + lhs_rot_, rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_);
+    niter = pcg(dq_la_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_);
   else
     niter = pcg(dq_la_, lhs_, rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_);
   std::cout << "# PCG iter: " << niter << std::endl;
@@ -303,7 +329,7 @@ void SimObject::substep(bool init_guess) {
   // Update per-element R & S matrices
   start = high_resolution_clock::now();
   dq_ = dq_la_.segment(0, qt_.size());
-  la_ = dq_la_.segment(qt_.size(), 9*T_.rows());
+  // la_ = dq_la_.segment(qt_.size(), 9*T_.rows());
   update_SR();
 
   end = high_resolution_clock::now();
@@ -346,6 +372,7 @@ void SimObject::reset_variables() {
   Hinv_.resize(T_.rows());
   g_.resize(T_.rows());
   dRS_.resize(T_.rows());
+  dRL_.resize(T_.rows());
   for (int i = 0; i < T_.rows(); ++i) {
     R_[i].setIdentity();
     S_[i] = I_vec;
@@ -370,13 +397,14 @@ void SimObject::init() {
   // Pinning matrices
   double min_x = V_.col(0).minCoeff();
   double max_x = V_.col(0).maxCoeff();
-  double pin_x = min_x + (max_x-min_x)*0.15;
+  double pin_x = min_x + (max_x-min_x)*0.2;
   double min_y = V_.col(1).minCoeff();
   double max_y = V_.col(1).maxCoeff();
-  double pin_y = max_y - (max_y-min_y)*0.1;
+  double pin_y = max_y - (max_y-min_y)*0.2;
   //double pin_y = min_y + (max_y-min_y)*0.1;
-  //pinnedV = (V_.col(0).array() < pin_x).cast<int>(); 
+  //pinnedV_ = (V_.col(0).array() < pin_x).cast<int>(); 
   pinnedV_ = (V_.col(1).array() > pin_y).cast<int>();
+  //pinnedV_ = (V_.col(0).array() < pin_x && V_.col(1).array() > pin_y).cast<int>();
   //pinnedV_.resize(V_.rows());
   pinnedV_.setZero();
   pinnedV_(0) = 1;
@@ -393,6 +421,8 @@ void SimObject::init() {
   q0_ = qt_;
   q1_ = qt_;
   dq_la_ = 0*qt_;
+  dq_la_.resize(V_.size() + 9*T_.size(),1);
+  dq_la_.setZero();
   tmp_r_ = dq_la_;
   tmp_z_ = dq_la_;
   tmp_p_ = dq_la_;
@@ -415,6 +445,8 @@ void SimObject::warm_start() {
   double h2 = config_->h * config_->h;
   dq_la_.segment(0, qt_.size()) = (qt_ - q0_) + h2*f_ext0_;
   ibeta_ = 1. / config_->beta;
+  la_.setZero();
+
   update_SR();
 }
 
@@ -422,6 +454,8 @@ void SimObject::update_positions() {
   q1_ = q0_;
   q0_ = qt_;
   qt_ += dq_;
+
+  la_ += dq_la_.segment(qt_.size(), 9*T_.rows());
   dq_la_.setZero();
 
   VectorXd q = P_.transpose()*qt_ + b_;

@@ -78,6 +78,7 @@ void callback() {
   static int step = 0;
   static int export_step = 0;
   static bool sim_dirty = false;
+  static int max_steps = 300;
 
   ImGui::PushItemWidth(100);
 
@@ -137,8 +138,8 @@ void callback() {
     if (export_sim) {
       char buffer [50];
       int n = sprintf(buffer, "../data/tet_%04d.png", export_step); 
-      buffer[n] = 0;
-      polyscope::screenshot(std::string(buffer), true);
+      // buffer[n] = 0;
+      // polyscope::screenshot(std::string(buffer), true);
       n = sprintf(buffer, "../data/tet_%04d.obj", export_step++); 
       buffer[n] = 0;
       if (skinV.rows() > 0)
@@ -162,7 +163,13 @@ void callback() {
     tet_object->init();
     srf->updateVertexPositions(meshV0);
     export_step = 0;
+    step = 0;
   }
+
+  if (step >= max_steps) {
+    simulating = false;
+  }
+  ImGui::InputInt("Max Steps", &max_steps);
   ImGui::PopItemWidth();
 }
 

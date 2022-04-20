@@ -83,6 +83,7 @@ namespace mfem {
     std::vector<Eigen::Matrix6d> Hinv_; // Elemental hessians w.r.t dS
     std::vector<Eigen::Vector6d> g_;    // Elemental gradients w.r.t dS
     std::vector<Eigen::Matrix9d> dRS_;  // dRS/dF where each row is dRS/dF_ij
+    std::vector<Eigen::Matrix<double,9,6>> dRL_;
 
     Eigen::SparseMatrixd M_;        // mass matrix
     Eigen::SparseMatrixd P_;        // pinning constraint (for vertices)

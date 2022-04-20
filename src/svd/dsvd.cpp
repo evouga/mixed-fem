@@ -100,7 +100,7 @@ void dsvd(Ref<const Matrix3d> Fin, Ref<const Matrix3d> Uin,
     U = svd.matrixU();
     Vt = svd.matrixV();
     S = svd.singularValues();
-    std::cerr << "does this actually happen" << std::endl;
+    //std::cerr << "does this actually happen" << std::endl;
   }
 
   double w01, w02, w12;
