@@ -41,6 +41,7 @@ namespace mfem {
     virtual void jacobian_rotational(SparseMatrixdRowMajor& J,
         bool weighted) {}    
 
+    void energy();
     void init();
 
     // Build the KKT lhs (just initializes it). Still have to update the

@@ -69,7 +69,7 @@ void SimObject::build_rhs() {
   for (int i = 0; i < T_.rows(); ++i) {
     Vector9d rhs = material_->rhs(R_[i], S_[i], Hinv_[i], g_[i]);
     Matrix<double,9,6> W;
-    Wmat(R_[i],W); // TODO ROTATION NEEDS TO BE RESET BASED ON svd (q)
+    Wmat(R_[i],W);
     rhs += W*Hinv_[i]*W.transpose()*la_.segment(9*i,9);
 
     if (config_->regularizer) {
@@ -78,10 +78,16 @@ void SimObject::build_rhs() {
       rhs -= config_->kappa * W * (Hinv_[i] * W.transpose() * W * S_[i]);
       la_rhs.segment(9*i, 9) = rhs;
     } else if (!config_->local_global) {
-      Vector9d tmp = (la_.segment(9*i,9).transpose() * (W * Hinv_[i] * dRL_[i].transpose()
-        + dRS_[i].transpose() - Matrix9d::Identity())).transpose();
-      Vector6d g = material_->gradient(R_[i], S_[i]);
-      la_rhs.segment(9*i, 9) = rhs - dRL_[i] * (Hinv_[i] * g);
+        
+      Vector6d gs = material_->gradient(R_[i], S_[i]);
+      Vector9d la = la_.segment(9*i,9);
+      Vector9d tmp1 =  -dRL_[i] * Hinv_[i] * gs;
+      Vector9d tmp2 = (dRL_[i] * Hinv_[i] * W.transpose() + dRS_[i].transpose()
+          - Matrix9d::Identity()) * la;
+      la_rhs.segment(9*i, 9) = tmp1 + tmp2;
+
+      Vector9d tmp3 = -W * (Hinv_[i] * gs - S_[i] - Hinv_[i] * W.transpose() * la);
+      rhs = tmp3;
     }
     rhs_.segment(qt_.size() + 9*i, 9) = vols_(i) * rhs;
 
@@ -246,8 +252,24 @@ void SimObject::update_gradients() {
   
   ibeta_ = 1. / config_->beta;
 
+  if (!config_->local_global) {
+    update_SR2();
+    // jacobian_rotational(Jw_rot_, true);
+
+    // SparseMatrixd M(J_.cols(), J_.cols());
+    // int sz = V_.size() + T_.rows()*9;
+    // lhs_rot_.setZero();
+    // lhs_rot_.resize(sz, sz);
+    // std::vector<Triplet<double>> trips;
+    // kkt_lhs(M, -Jw_rot_, 1, trips); 
+    // lhs_rot_.setFromTriplets(trips.begin(),trips.end());
+    // lhs_rot_ = P_kkt_ * lhs_rot_ * P_kkt_.transpose();
+  }
+
   #pragma omp parallel for
   for (int i = 0; i < T_.rows(); ++i) {
+    S_[i] += dS_[i];
+    dS_[i].setZero();
     if (config_->regularizer) {
       Hinv_[i] = material_->hessian_inv(R_[i],S_[i],config_->kappa);
     } else {
@@ -269,22 +291,6 @@ void SimObject::update_gradients() {
     lhs_reg_.setFromTriplets(trips.begin(),trips.end());
     lhs_reg_ = P_kkt_ * lhs_reg_ * P_kkt_.transpose();
   }
-
-  if (!config_->local_global) {
-    update_SR2();
-    jacobian_rotational(Jw_rot_, true);
-
-    SparseMatrixd M(J_.cols(), J_.cols());
-    int sz = V_.size() + T_.rows()*9;
-    lhs_rot_.setZero();
-    lhs_rot_.resize(sz, sz);
-    std::vector<Triplet<double>> trips;
-    kkt_lhs(M, -Jw_rot_, 1, trips); 
-    lhs_rot_.setFromTriplets(trips.begin(),trips.end());
-    lhs_rot_ = P_kkt_ * lhs_rot_ * P_kkt_.transpose();
-  }
-
-
 }
 
 void SimObject::substep(bool init_guess) {
@@ -330,7 +336,7 @@ void SimObject::substep(bool init_guess) {
   start = high_resolution_clock::now();
   dq_ = dq_la_.segment(0, qt_.size());
   // la_ = dq_la_.segment(qt_.size(), 9*T_.rows());
-  update_SR();
+  update_SR(); // TODO ds should be initialized but ds after outer loop not inner...
 
   end = high_resolution_clock::now();
   t_SR += duration_cast<nanoseconds>(end-start).count()/1e6;
@@ -400,7 +406,7 @@ void SimObject::init() {
   double pin_x = min_x + (max_x-min_x)*0.2;
   double min_y = V_.col(1).minCoeff();
   double max_y = V_.col(1).maxCoeff();
-  double pin_y = max_y - (max_y-min_y)*0.2;
+  double pin_y = max_y - (max_y-min_y)*0.1;
   //double pin_y = min_y + (max_y-min_y)*0.1;
   //pinnedV_ = (V_.col(0).array() < pin_x).cast<int>(); 
   pinnedV_ = (V_.col(1).array() > pin_y).cast<int>();
@@ -461,4 +467,18 @@ void SimObject::update_positions() {
   VectorXd q = P_.transpose()*qt_ + b_;
   MatrixXd tmp = Map<MatrixXd>(q.data(), V_.cols(), V_.rows());
   V_ = tmp.transpose();
+
+  // #pragma omp parallel for
+  // for (int i = 0; i < T_.rows(); ++i) {
+  //   S_[i] += dS_[i];
+  //   dS_[i].setZero();
+  // }
+
+}
+
+void SimObject::energy() {
+//config_->ih2
+  VectorXd tmp1 = f_ext0_ + config_->ih2*M_*(q0_ - q1_);
+
+
 }
