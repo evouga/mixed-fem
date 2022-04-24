@@ -99,6 +99,7 @@ namespace mfem {
     // Configuration vectors & body forces
     Eigen::VectorXd dq_la_; // q & Lambda update stacked
     Eigen::VectorXd qt_;    // current positions
+    Eigen::VectorXd vt_;    // current velocities
     Eigen::VectorXd q0_;    // previous positions
     Eigen::VectorXd q1_;    // previous^2 positions
     Eigen::VectorXd dq_;    // current update

@@ -15,14 +15,19 @@ void Simulator::step() {
     object_->warm_start();
   }
   
+  object_->update_gradients();
+
   for (int i = 0; i < config_->outer_steps; ++i) {
     
-    object_->update_gradients();
+    //object_->update_gradients();
     
     for (int j = 0; j < config_->inner_steps; ++j) {
       // Do substep on each objects
       object_->substep(i==0 && j==0);
     }
+
+    object_->update_gradients();
+
   }
   object_->update_positions();
 }

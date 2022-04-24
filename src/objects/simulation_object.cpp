@@ -56,7 +56,7 @@ void SimObject::build_rhs() {
   VectorXd q = P_.transpose()*qt_+b_;
 
   // Positional forces 
-  rhs_.segment(0, qt_.size()) = f_ext_ + config_->ih2*M_*(q0_ - q1_);
+  rhs_.segment(0, qt_.size()) = f_ext_ + config_->ih2*M_*vt_;
 
   VectorXd la_rhs;
   //if (config_->regularizer) {
@@ -97,7 +97,7 @@ void SimObject::build_rhs() {
     rhs_.segment(0, qt_.size()) += config_->kappa * P_ * Jw_.transpose() 
         * (la_rhs - (J_ - J_tilde_) * q);
   } else if (!config_->local_global) {
-    rhs_.segment(0, qt_.size()) += Jw_.transpose() * la_rhs;
+    rhs_.segment(0, qt_.size()) += P_ * Jw_.transpose() * la_rhs;
   }
 
 
@@ -114,12 +114,14 @@ void SimObject::build_rhs() {
   }
 }
 
+// Call after outer iteration
 void SimObject::update_SR2() {
-  VectorXd def_grad = J_*(P_.transpose()*(qt_+dq_)+b_);
+  //VectorXd def_grad = J_*(P_.transpose()*(qt_+dq_)+b_);
+  VectorXd def_grad = J_*(P_.transpose()*qt_+b_);
 
   int N = (T_.rows() / 4) + int(T_.rows() % 4 != 0);
 
-  VectorXd la = la_ + dq_la_.segment(qt_.size(), 9*T_.rows());
+  //VectorXd la = la_ + dq_la_.segment(qt_.size(), 9*T_.rows());
 
   #pragma omp parallel for 
   for (int ii = 0; ii < N; ++ii) {
@@ -161,7 +163,7 @@ void SimObject::update_SR2() {
       for (int kk = 0; kk < 9; ++kk) {
         Wmat(dR_dF[kk] , What);
         dRS_[i].row(kk) = (What * S_[i]).transpose();
-        dRL_[i].row(kk) = (What.transpose()* la.segment(9*i,9)).transpose();
+        dRL_[i].row(kk) = (What.transpose()* la_.segment(9*i,9)).transpose();
       }
  
 
@@ -169,15 +171,14 @@ void SimObject::update_SR2() {
   }
 }
 
+// Only call within iter iteration
 void SimObject::update_SR() {
 
   VectorXd def_grad = J_*(P_.transpose()*(qt_+dq_)+b_);
   VectorXd Jdq = J_*(P_.transpose()*dq_);
-
-  int N = (T_.rows() / 4) + int(T_.rows() % 4 != 0);
-
   VectorXd la = la_ + dq_la_.segment(qt_.size(), 9*T_.rows());
 
+  int N = (T_.rows() / 4) + int(T_.rows() % 4 != 0);
   double fac = std::max((la.array().abs().maxCoeff() + 1e-6), 1.0);
 
   #pragma omp parallel for 
@@ -193,11 +194,8 @@ void SimObject::update_SR() {
         break;
       Vector9d li = ibeta_*(la.segment(9*i,9)/fac) + def_grad.segment(9*i,9);
       if (config_->regularizer) {
-        //li = ibeta_*(la_.segment(9*i,9)/fac)
-        //   + def_grad.segment(9*i,9)*config_->kappa;
         li = (la.segment(9*i,9))/fac
            + def_grad.segment(9*i,9)*config_->kappa;
-        // li = def_grad.segment(9*i,9)*config_->kappa;   
       }
       
       // Update S[i] using new lambdas
@@ -245,51 +243,6 @@ void SimObject::update_SR() {
       if (config_->local_global)
         R_[i] = R4.block(3*jj,0,3,3).cast<double>();
     }
-  }
-}
-
-void SimObject::update_gradients() {
-  
-  ibeta_ = 1. / config_->beta;
-
-  if (!config_->local_global) {
-    update_SR2();
-    // jacobian_rotational(Jw_rot_, true);
-
-    // SparseMatrixd M(J_.cols(), J_.cols());
-    // int sz = V_.size() + T_.rows()*9;
-    // lhs_rot_.setZero();
-    // lhs_rot_.resize(sz, sz);
-    // std::vector<Triplet<double>> trips;
-    // kkt_lhs(M, -Jw_rot_, 1, trips); 
-    // lhs_rot_.setFromTriplets(trips.begin(),trips.end());
-    // lhs_rot_ = P_kkt_ * lhs_rot_ * P_kkt_.transpose();
-  }
-
-  #pragma omp parallel for
-  for (int i = 0; i < T_.rows(); ++i) {
-    S_[i] += dS_[i];
-    dS_[i].setZero();
-    if (config_->regularizer) {
-      Hinv_[i] = material_->hessian_inv(R_[i],S_[i],config_->kappa);
-    } else {
-      Hinv_[i] = material_->hessian_inv(R_[i],S_[i]);
-    }
-    g_[i] = material_->gradient(R_[i], S_[i]);
-  }
-
-  if (config_->regularizer) {
-    jacobian_regularized(J_tilde_, false);
-    jacobian_regularized(Jw_tilde_, true);
-
-    SparseMatrixd M_reg = Jw_.transpose() * (J_ - J_tilde_);
-    int sz = V_.size() + T_.rows()*9;
-    lhs_reg_.setZero();
-    lhs_reg_.resize(sz, sz);
-    std::vector<Triplet<double>> trips;
-    kkt_lhs(M_reg, -Jw_tilde_, config_->kappa, trips); 
-    lhs_reg_.setFromTriplets(trips.begin(),trips.end());
-    lhs_reg_ = P_kkt_ * lhs_reg_ * P_kkt_.transpose();
   }
 }
 
@@ -383,14 +336,19 @@ void SimObject::reset_variables() {
     R_[i].setIdentity();
     S_[i] = I_vec;
     dS_[i].setZero();
+    dRS_[i].setZero();
+    dRL_[i].setZero();
     Hinv_[i].setIdentity();
     g_[i].setZero();
   }
   V_ = V0_;
 
   // Initialize lambdas
+  dq_la_.setZero();
+  dq_.setZero();
   la_.resize(9 * T_.rows());
   la_.setZero();
+  vt_.setZero();
 }
 
 void SimObject::init() {
@@ -434,6 +392,7 @@ void SimObject::init() {
   tmp_p_ = dq_la_;
   tmp_Ap_ = dq_la_;
   dq_ = 0*qt_;
+  vt_ = 0*qt_;
 
   // Initialize KKT lhs
   build_lhs();
@@ -449,36 +408,98 @@ void SimObject::init() {
 
 void SimObject::warm_start() {
   double h2 = config_->h * config_->h;
-  dq_la_.segment(0, qt_.size()) = (qt_ - q0_) + h2*f_ext0_;
+  dq_la_.segment(0, qt_.size()) =  vt_ + h2*f_ext0_;
+  //dq_ = vt_ + h2*f_ext0_; // NEW
   ibeta_ = 1. / config_->beta;
-  la_.setZero();
+ // la_.setZero();
 
   update_SR();
 }
 
+
+void SimObject::update_gradients() {
+  
+  ibeta_ = 1. / config_->beta;
+
+  #pragma omp parallel for
+  for (int i = 0; i < T_.rows(); ++i) {
+    S_[i] += dS_[i];
+    dS_[i].setZero();
+  }
+
+  // qt_ += dq_;
+  //la_ += dq_la_.segment(qt_.size(), 9*T_.rows());
+  //dq_.setZero(); // do this?
+  //dq_la_.setZero();
+
+  // qt_ += dq_;
+  // la_ += dq_la_.segment(qt_.size(), 9*T_.rows());
+
+  if (!config_->local_global) {
+    update_SR2();
+    // jacobian_rotational(Jw_rot_, true);
+
+    // SparseMatrixd M(J_.cols(), J_.cols());
+    // int sz = V_.size() + T_.rows()*9;
+    // lhs_rot_.setZero();
+    // lhs_rot_.resize(sz, sz);
+    // std::vector<Triplet<double>> trips;
+    // kkt_lhs(M, -Jw_rot_, 1, trips); 
+    // lhs_rot_.setFromTriplets(trips.begin(),trips.end());
+    // lhs_rot_ = P_kkt_ * lhs_rot_ * P_kkt_.transpose();
+  }
+
+  #pragma omp parallel for
+  for (int i = 0; i < T_.rows(); ++i) {
+    if (config_->regularizer) {
+      Hinv_[i] = material_->hessian_inv(R_[i],S_[i],config_->kappa);
+    } else {
+      Hinv_[i] = material_->hessian_inv(R_[i],S_[i]);
+    }
+    g_[i] = material_->gradient(R_[i], S_[i]);
+  }
+
+  if (config_->regularizer) {
+    jacobian_regularized(J_tilde_, false);
+    jacobian_regularized(Jw_tilde_, true);
+
+    SparseMatrixd M_reg = Jw_.transpose() * (J_ - J_tilde_);
+    int sz = V_.size() + T_.rows()*9;
+    lhs_reg_.setZero();
+    lhs_reg_.resize(sz, sz);
+    std::vector<Triplet<double>> trips;
+    kkt_lhs(M_reg, -Jw_tilde_, config_->kappa, trips); 
+    lhs_reg_.setFromTriplets(trips.begin(),trips.end());
+    lhs_reg_ = P_kkt_ * lhs_reg_ * P_kkt_.transpose();
+  }
+}
+
 void SimObject::update_positions() {
+
+  ///
+  qt_ += dq_;
+  la_ += dq_la_.segment(qt_.size(), 9*T_.rows());
+  ///
+
+  vt_ = (qt_ - q0_);
   q1_ = q0_;
   q0_ = qt_;
-  qt_ += dq_;
 
-  la_ += dq_la_.segment(qt_.size(), 9*T_.rows());
-  dq_la_.setZero();
+
+  dq_la_.setZero(); // TODO should we do this?
+  dq_la_.segment(0, qt_.size()) = dq_;
+  //dq_.setZero();
+  la_.setZero();
 
   VectorXd q = P_.transpose()*qt_ + b_;
   MatrixXd tmp = Map<MatrixXd>(q.data(), V_.cols(), V_.rows());
   V_ = tmp.transpose();
 
-  // #pragma omp parallel for
-  // for (int i = 0; i < T_.rows(); ++i) {
-  //   S_[i] += dS_[i];
-  //   dS_[i].setZero();
-  // }
-
 }
 
 void SimObject::energy() {
 //config_->ih2
-  VectorXd tmp1 = f_ext0_ + config_->ih2*M_*(q0_ - q1_);
+  VectorXd tmp1 = f_ext0_ + config_->ih2*M_*vt_;
 
 
 }
