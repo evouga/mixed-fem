@@ -1,0 +1,165 @@
+\documentclass[letterpaper,12pt]{article}
+\usepackage[margin=0.65in]{geometry}
+\usepackage{amsmath,amsthm,amsfonts,amssymb}
+\usepackage{mathtools}
+\usepackage{algorithm,algpseudocode}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{subcaption}
+\usepackage[section]{placeins}
+
+
+\theoremstyle{remark}
+\newtheorem{claim}{Claim}
+
+\DeclarePairedDelimiter\abs{\lvert}{\rvert}
+\DeclarePairedDelimiter\floor{\lfloor}{\rfloor}
+\DeclarePairedDelimiter\ceiling{\lceil}{\rceil}
+
+\usepackage{xcolor}
+ 
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+ 
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},
+    numbers=left,
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=1
+}
+ 
+\lstset{style=mystyle}
+
+
+\newcommand{\V}{\mathcal{V}}
+\newcommand{\HO}{ {H^1(\Omega)} }
+\newcommand{\LO}{ {L^2(\Omega)} }
+\newcommand{\LG}{ {L^2(\Gamma)} }
+\newcommand{\LGin}{ {L^2(\Gin)} }
+\newcommand{\LGout}{ {L^2(\Gout)} }
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\Th}{\mathcal{T}}
+\newcommand{\X}{\bar{\mathbf{x}}}
+\newcommand{\x}{\mathbf{x}}
+\newcommand{\C}{\mathbf{c}}
+\newcommand{\s}{\mathbf{s}}
+\newcommand{\la}{\mathbf{\lambda}}
+\newcommand{\dx}{\delta \x}
+\newcommand{\ds}{\delta \s}
+\newcommand{\dl}{\delta \la}
+\newcommand{\fext}{\mathbf{f}_\text{ext}}
+\DeclareMathOperator*{\argmin}{arg\,min} 
+\newcommand{\El}{E_\Lambda}
+\newcommand{\gx}{ {\mathbf{g}_\x^t} }
+\newcommand{\gs}{ {\mathbf{g}_\s^t} }
+
+
+
+\begin{document}
+
+
+\title{Mixed FEM stuff}
+\date{}
+\maketitle
+
+\input{setup.tex}
+\input{derivs.tex}
+\input{system_quad.tex}
+
+\section{oops}
+Let $c_K(\x,\s) = W_K \s_K - J_K \x$ where $W_K$ is a function of $\x$. We then have a quadratic approximation of the entire energy that takes the form
+
+\begin{equation}
+E_\Psi (\s) \approx \tilde{E}_\Psi (\s) = \sum_{K \in \Th} \left(\Psi(\s_K^t) + \ds_K^T g_K + \frac{1}{2}\ds_K^T H_K \ds_K \right) V_K
+\end{equation}
+
+\begin{align*}
+E(\x,\s,\la) \approx \tilde{E}(\x,\s,\la) &= E_M(\x^t) + E_\Psi(\s^t) - \El(\x^t,\s^t,\la^t) + 
+(\x - \x^t)^T \left(
+	\frac{\partial E_M}{\partial \x} 
+ -  \frac{\partial \C}{\partial \x} \la^t \right) & \\
+&+ (\s - \s^t)^T \left(
+	\frac{\partial E_\Psi}{\partial \s} 
+ -  \frac{\partial \C}{\partial \s} \la^t \right)  & \\
+&- (\la - \la^t)^T \C (\x^t, \s^t) & \left(\C (\x^t,\s^t) = \left. \frac{\partial \El}{\partial \la} \right|_{\x^t,\s^t,\la^t}\right) \\
+& - (\x - \x^t)^T \left(
+  \frac{\partial}{\partial \x} \left(\frac{\partial \C}{\partial \s} \la^t\right) \right)(\s - \s^t) & \\
+& - (\x - \x^t)^T \left(
+  \frac{\partial \C }{\partial \x} \right)(\la - \la^t) 
+- (\s - \s^t)^T \left(
+  \frac{\partial \C }{\partial \s} \right)(\la - \la^t) & \\
+& + \frac{1}{2} (\s- \s^t)^T \left(\frac{\partial^2 E_\Psi}{\partial \s^2} \right)(\s - \s^t) & \\
+& + \frac{1}{2}(\x- \x^t)^T \left(\frac{\partial^2 E_M}{\partial \x^2} -
+\frac{\partial}{\partial \x} \left(\frac{\partial \C}{\partial \x} \la^t\right)
+\right)(\x - \x^t) & \\
+\end{align*}
+Next we cancel out some terms and also take the second derivative of $\C$ to be zero and get
+\begin{equation}
+\begin{split}
+\tilde{E}(\x,\s,\la) &=  E_M(\x^t) + E_\Psi(\s^t) + 
+(\x - \x^t)^T \left(\frac{\partial E_M}{\partial \x} \right)  \\
+&+ (\s - \s^t)^T \left(\frac{\partial E_\Psi}{\partial \s} \right)   
+ - \la^T \C (\x^t, \s^t) \\
+& - (\x - \x^t)^T \left(
+  \frac{\partial}{\partial \x} \left(\frac{\partial \C}{\partial \s} \la^t\right) \right)(\s - \s^t) \\
+& - (\x - \x^t)^T \left(
+  \frac{\partial \C }{\partial \x} \right)(\la) 
+- (\s - \s^t)^T \left(
+  \frac{\partial \C }{\partial \s} \right)(\la) \\
+& + \frac{1}{2}(\s- \s^t)^T \left(\frac{\partial^2 E_\Psi}{\partial \s^2} \right)(\s - \s^t) \\
+& + \frac{1}{2}(\x- \x^t)^T \left(\frac{\partial^2 E_M}{\partial \x^2}
+\right)(\x - \x^t), \\
+\end{split}
+\end{equation}
+and now using that $x - x^t = \dx$ and $\s - \s^t = \ds$:
+\begin{equation}
+\begin{split}
+\tilde{E}(\x,\s,\la) &=  E_M(\x^t) + E_\Psi(\s^t) + 
+\dx^T \left(\frac{\partial E_M}{\partial \x} \right) 
++ \ds^T \left(\frac{\partial E_\Psi}{\partial \s} \right)   
+ - \la^T \C (\x^t, \s^t) \\
+& - \dx^T \left(
+  \frac{\partial}{\partial \x} \left(\frac{\partial \C}{\partial \s} \la^t\right) \right)\ds
+- \left( \dx^T 
+  \frac{\partial \C }{\partial \x}
++  \ds^T  
+  \frac{\partial \C }{\partial \s} \right) \la \\
+& + \frac{1}{2}\ds^T \left(\frac{\partial^2 E_\Psi}{\partial \s^2} \right)\ds
++ \frac{1}{2} \dx \left(\frac{\partial^2 E_M}{\partial \x^2}
+\right)\dx. \\
+\end{split}
+\end{equation}
+
+\begin{equation}
+\begin{split}
+\tilde{E}_\Lambda (\x, \s, \la) &=  \El (\x^t,\s^t,\la^t) 
++ \sum_{K \in \Th} \left( \right.
+  \dx^T \frac{\partial \El^K}{\partial \x} 
++ \ds_K^T \frac{\partial \El^K}{\partial \s_K}
++ (\la_K^{t+1} - \la_K^t)^T \frac{\partial \El^K}{\partial \la_K} \\
+&+ \dl_K^T \frac{\partial^2 \El^K}{\partial \la_K \partial \s_K} \ds_K
++ \dl_K^T \frac{\partial^2 \El^K}{\partial \la_K \partial \x} \dx
++ \dx^T \frac{\partial^2 \El^K}{\partial \x \partial \s_K} \ds_K
++ \frac{1}{2} \dx^T \frac{\partial^2 \El^K}{\partial \x^2} \dx
+\left. \right) V_K
+\end{split}
+\end{equation}
+
+
+\section{The various numerical methods}
+todo
+\end{document}
