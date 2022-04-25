@@ -5,6 +5,7 @@
 #include "pinning_matrix.h"
 #include <chrono>
 #include "svd/dsvd.h"
+#include "linesearch.h"
 
 using namespace std::chrono;
 using namespace Eigen;
@@ -56,7 +57,7 @@ void SimObject::build_rhs() {
   VectorXd q = P_.transpose()*qt_+b_;
 
   // Positional forces 
-  rhs_.segment(0, qt_.size()) = f_ext_ + config_->ih2*M_*vt_;
+  rhs_.segment(0, qt_.size()) = f_ext_ + config_->h*config_->ih2*M_*vt_;
 
   VectorXd la_rhs;
   //if (config_->regularizer) {
@@ -211,9 +212,6 @@ void SimObject::update_SR() {
 
       // Solve rotation matrices
       Matrix3d Cs;
-      // Cs << s(0), s(5), s(4), 
-      //       s(5), s(1), s(3), 
-      //       s(4), s(3), s(2);
       Cs << s(0), s(3), s(4), 
             s(3), s(1), s(5), 
             s(4), s(5), s(2);       
@@ -256,9 +254,9 @@ void SimObject::substep(bool init_guess) {
     start = end;
   }
 
-  if (init_guess) {
-    dq_la_ = solver_.solve(rhs_);
-  }
+  // if (init_guess) {
+  //   dq_la_ = solver_.solve(rhs_);
+  // }
   start=end;
 
   start = high_resolution_clock::now();
@@ -267,13 +265,14 @@ void SimObject::substep(bool init_guess) {
   t_asm += duration_cast<nanoseconds>(end-start).count()/1e6;
   start = end;
 
+  std::cout << "RHS Norm: " << rhs_.norm() << std::endl;
   int niter;
   if (config_->regularizer)
     niter = pcg(dq_la_, lhs_ + lhs_reg_, rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_);
   else if (!config_->local_global) 
     niter = pcg(dq_la_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_);
   else
-    niter = pcg(dq_la_, lhs_, rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_);
+    niter = pcg(dq_la_, lhs_, rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_, 1e-8);
   std::cout << "# PCG iter: " << niter << std::endl;
 
   end = high_resolution_clock::now();
@@ -397,12 +396,15 @@ void SimObject::init() {
   Vector3d ext = Map<Vector3f>(config_->ext).cast<double>();
   f_ext_ = M_ * P_ * ext.replicate(V_.rows(),1);
   f_ext0_ = P_ * ext.replicate(V_.rows(),1);
+  SimplicialLDLT<SparseMatrixd> llt(M_);
+  f_ext1_ = llt.solve(f_ext0_);
 }
 
 void SimObject::warm_start() {
+  double h = config_->h;
   double h2 = config_->h * config_->h;
-  dq_la_.segment(0, qt_.size()) =  vt_ + h2*f_ext0_;
-  //dq_ = vt_ + h2*f_ext0_; // NEW
+  dq_la_.segment(0, qt_.size()) =  h*vt_ + h*h*f_ext0_;
+  dq_ = h*vt_ + h2*f_ext0_; // NEW
   ibeta_ = 1. / config_->beta;
  // la_.setZero();
 
@@ -414,14 +416,57 @@ void SimObject::update_gradients() {
   
   ibeta_ = 1. / config_->beta;
 
+  std::vector<Vector6d> s(S_.size());
   // Update vars
   #pragma omp parallel for
   for (int i = 0; i < T_.rows(); ++i) {
-    S_[i] += dS_[i];
-    dS_[i].setZero();
+    s[i] = S_[i] + dS_[i];
   }
-  qt_ += dq_;
+
   la_ = dq_la_.segment(qt_.size(), 9*T_.rows());
+  energy(qt_ + dq_, s, la_);
+
+  auto value = [&](const VectorXd& x) {
+    VectorXd Jdq = J_*(P_.transpose()*(x - qt_));
+
+    #pragma omp parallel for
+    for (int i = 0; i < T_.rows(); ++i) {
+      s[i] = S_[i] + material_->dS(R_[i], S_[i], la_.segment(9*i,9), Hinv_[i]);
+
+      if (!config_->local_global) {
+        //std::cout << " ds 1: " << s[i]-S_[i] << " additional: " 
+        //    << Hinv_[i] * dRL_[i].transpose() * Jdq.segment(9*i,9) << std::endl;
+        s[i] += Hinv_[i] * dRL_[i].transpose() * Jdq.segment(9*i,9);
+      }
+    }
+    return energy(x, s, la_);
+  };
+
+  VectorXd xt = qt_;
+  VectorXd tmp;
+  std::cout << "Starting line search " << std::endl;
+  linesearch_backtracking_bisection(xt, dq_, value, tmp, 4, 1.0, 0.1, 0.5);
+
+  VectorXd Jdq = J_*(P_.transpose()*(xt - qt_));
+  #pragma omp parallel for
+  for (int i = 0; i < T_.rows(); ++i) {
+    S_[i] += material_->dS(R_[i], S_[i], la_.segment(9*i,9), Hinv_[i]);
+
+    if (!config_->local_global) {
+      //std::cout << " ds 1: " << s[i]-S_[i] << " additional: " 
+      //    << Hinv_[i] * dRL_[i].transpose() * Jdq.segment(9*i,9) << std::endl;
+      S_[i] += Hinv_[i] * dRL_[i].transpose() * Jdq.segment(9*i,9);
+    }
+  }
+  qt_ = xt;
+
+  // qt_ += dq_;
+  // // Update vars
+  // #pragma omp parallel for
+  // for (int i = 0; i < T_.rows(); ++i) {
+  //   S_[i] += dS_[i];
+  //   dS_[i].setZero();
+  // }
 
 
   if (!config_->local_global) {
@@ -476,13 +521,13 @@ void SimObject::update_positions() {
   // la_ = dq_la_.segment(qt_.size(), 9*T_.rows());
   ///
 
-  vt_ = (qt_ - q0_);
+  vt_ = (qt_ - q0_) / config_->h;
   q1_ = q0_;
   q0_ = qt_;
 
   dq_la_.setZero(); // TODO should we do this?
   //dq_la_.segment(0, qt_.size()) = dq_;
-  //dq_.setZero();
+  dq_.setZero();
   la_.setZero();
 
   VectorXd q = P_.transpose()*qt_ + b_;
@@ -491,9 +536,29 @@ void SimObject::update_positions() {
 
 }
 
-void SimObject::energy() {
+double SimObject::energy(VectorXd x, std::vector<Vector6d> s, VectorXd la) {
 //config_->ih2
-  VectorXd tmp1 = f_ext0_ + config_->ih2*M_*vt_;
+  double h = config_->h;
+  double h2 = config_->h * config_->h;
+  VectorXd xdiff = x - qt_ - h * vt_ - h2*f_ext1_;
+  double Em = 0.5*config_->ih2* xdiff.transpose()*M_*xdiff;
+  double Epsi = 0, Ela = 0;
 
+  VectorXd def_grad = J_*(P_.transpose()*x+b_);
+
+  for (int i = 0; i < T_.rows(); ++i) {
+    Matrix3d F = Map<Matrix3d>(def_grad.segment(9*i,9).data());
+    JacobiSVD<Matrix3d> svd(F, ComputeFullU | ComputeFullV);
+    Matrix3d R = svd.matrixU() *  svd.matrixV().transpose();
+    Matrix<double,9,6> W;
+    Wmat(R,W);
+
+    Epsi += material_->energy(s[i]) * vols_[i];
+    Ela += la.segment(9*i,9).dot(W*s[i] - def_grad.segment(9*i,9)) * vols_[i];
+  }
+  double e = Em + Epsi - Ela;
+  std::cout << "E: " <<  e << " ";
+  std::cout << "(Em: " << Em << " Epsi: " << Epsi << " Ela: " << Ela << ")" << std::endl;
+  return e;
 
 }

@@ -38,7 +38,7 @@ void TetrahedralObject::jacobian(SparseMatrixdRowMajor& J, bool weighted) {
           0, 0, dX(0,0), 0, 0, dX(1,0), 0, 0, dX(2,0), 0, 0, dX(3,0),
           0, 0, dX(0,1), 0, 0, dX(1,1), 0, 0, dX(2,1), 0, 0, dX(3,1),
           0, 0, dX(0,2), 0, 0, dX(1,2), 0, 0, dX(2,2), 0, 0, dX(3,2);
-      
+
     // Assembly for the i-th lagrange multiplier matrix which
     // is associated with 4 vertices (for tetrahedra)
     for (int j = 0; j < 9; ++j) {

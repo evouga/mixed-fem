@@ -41,7 +41,7 @@ namespace mfem {
     virtual void jacobian_rotational(SparseMatrixdRowMajor& J,
         bool weighted) {}    
 
-    void energy();
+    double energy(Eigen::VectorXd x, std::vector<Eigen::Vector6d> s, Eigen::VectorXd la);
     void init();
 
     // Build the KKT lhs (just initializes it). Still have to update the
@@ -105,6 +105,7 @@ namespace mfem {
     Eigen::VectorXd dq_;    // current update
     Eigen::VectorXd f_ext_; // per-node external forces
     Eigen::VectorXd f_ext0_;// per-node external forces (not integrated)
+    Eigen::VectorXd f_ext1_;// per-node external forces (not integrated)
     Eigen::VectorXd la_;    // lambdas
     Eigen::VectorXd b_;     // coordinates projected out
     Eigen::VectorXd vols_;  // per element volume

@@ -10,10 +10,12 @@ using namespace mfem;
 
 void Simulator::step() {
 
+  object_->update_gradients();
+  
   // Warm start solver
   if (config_->warm_start) {
     object_->warm_start();
-    object_->update_gradients();
+    //object_->update_gradients();
 
   }
   
