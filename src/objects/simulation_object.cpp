@@ -70,7 +70,7 @@ void SimObject::build_rhs() {
     Vector9d rhs = material_->rhs(R_[i], S_[i], Hinv_[i], g_[i]);
     Matrix<double,9,6> W;
     Wmat(R_[i],W);
-    rhs += W*Hinv_[i]*W.transpose()*la_.segment(9*i,9);
+    //rhs += W*Hinv_[i]*W.transpose()*la_.segment(9*i,9);
 
     if (config_->regularizer) {
       Matrix<double, 9, 6> W;
@@ -82,12 +82,11 @@ void SimObject::build_rhs() {
       Vector6d gs = material_->gradient(R_[i], S_[i]);
       Vector9d la = la_.segment(9*i,9);
       Vector9d tmp1 =  -dRL_[i] * Hinv_[i] * gs;
-      Vector9d tmp2 = (dRL_[i] * Hinv_[i] * W.transpose() + dRS_[i].transpose()
-          - Matrix9d::Identity()) * la;
-      la_rhs.segment(9*i, 9) = tmp1 + tmp2;
+      la_rhs.segment(9*i, 9) = tmp1;
 
-      Vector9d tmp3 = -W * (Hinv_[i] * gs - S_[i] - Hinv_[i] * W.transpose() * la);
-      rhs = tmp3;
+      // Vector9d tmp2 = (dRL_[i] * Hinv_[i] * W.transpose() + dRS_[i].transpose()
+      //     - Matrix9d::Identity()) * la;
+      // la_rhs.segment(9*i, 9) = tmp1 + tmp2;
     }
     rhs_.segment(qt_.size() + 9*i, 9) = vols_(i) * rhs;
 
@@ -107,16 +106,10 @@ void SimObject::build_rhs() {
   } else {
     rhs_.segment(qt_.size(), 9*T_.rows()) -= Jw_*q;
   }
-
-  if (config_->local_global) {
-    //VectorXd la = la_ + dq_la_.segment(qt_.size(), 9*T_.rows());
-    rhs_.segment(0,qt_.size()) -= Jw_.transpose() * la_;
-  }
 }
 
 // Call after outer iteration
 void SimObject::update_SR2() {
-  //VectorXd def_grad = J_*(P_.transpose()*(qt_+dq_)+b_);
   VectorXd def_grad = J_*(P_.transpose()*qt_+b_);
 
   int N = (T_.rows() / 4) + int(T_.rows() % 4 != 0);
@@ -176,7 +169,8 @@ void SimObject::update_SR() {
 
   VectorXd def_grad = J_*(P_.transpose()*(qt_+dq_)+b_);
   VectorXd Jdq = J_*(P_.transpose()*dq_);
-  VectorXd la = la_ + dq_la_.segment(qt_.size(), 9*T_.rows());
+  //VectorXd la = la_ + dq_la_.segment(qt_.size(), 9*T_.rows());
+  VectorXd la = dq_la_.segment(qt_.size(), 9*T_.rows());
 
   int N = (T_.rows() / 4) + int(T_.rows() % 4 != 0);
   double fac = std::max((la.array().abs().maxCoeff() + 1e-6), 1.0);
@@ -289,8 +283,7 @@ void SimObject::substep(bool init_guess) {
   start = high_resolution_clock::now();
   dq_ = dq_la_.segment(0, qt_.size());
   // la_ = dq_la_.segment(qt_.size(), 9*T_.rows());
-  update_SR(); // TODO ds should be initialized but ds after outer loop not inner...
-
+  update_SR();
   end = high_resolution_clock::now();
   t_SR += duration_cast<nanoseconds>(end-start).count()/1e6;
   ibeta_ = std::min(1e-8, 0.9*ibeta_);
@@ -421,19 +414,15 @@ void SimObject::update_gradients() {
   
   ibeta_ = 1. / config_->beta;
 
+  // Update vars
   #pragma omp parallel for
   for (int i = 0; i < T_.rows(); ++i) {
     S_[i] += dS_[i];
     dS_[i].setZero();
   }
+  qt_ += dq_;
+  la_ = dq_la_.segment(qt_.size(), 9*T_.rows());
 
-  // qt_ += dq_;
-  //la_ += dq_la_.segment(qt_.size(), 9*T_.rows());
-  //dq_.setZero(); // do this?
-  //dq_la_.setZero();
-
-  // qt_ += dq_;
-  // la_ += dq_la_.segment(qt_.size(), 9*T_.rows());
 
   if (!config_->local_global) {
     update_SR2();
@@ -477,17 +466,22 @@ void SimObject::update_gradients() {
 void SimObject::update_positions() {
 
   ///
-  qt_ += dq_;
-  la_ += dq_la_.segment(qt_.size(), 9*T_.rows());
+  // #pragma omp parallel for
+  // for (int i = 0; i < T_.rows(); ++i) {
+  //   //S_[i] += dS_[i];
+  //   //dS_[i].setZero();
+  // }
+
+  // qt_ += dq_;
+  // la_ = dq_la_.segment(qt_.size(), 9*T_.rows());
   ///
 
   vt_ = (qt_ - q0_);
   q1_ = q0_;
   q0_ = qt_;
 
-
   dq_la_.setZero(); // TODO should we do this?
-  dq_la_.segment(0, qt_.size()) = dq_;
+  //dq_la_.segment(0, qt_.size()) = dq_;
   //dq_.setZero();
   la_.setZero();
 
