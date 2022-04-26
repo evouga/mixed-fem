@@ -218,9 +218,9 @@ void SimObject::substep(bool init_guess) {
     start = end;
   }
 
-  // if (init_guess) {
-  //   dq_la_ = solver_.solve(rhs_);
-  // }
+  if (init_guess) {
+    dq_la_ = solver_.solve(rhs_);
+  }
   start=end;
 
   start = high_resolution_clock::now();
@@ -423,7 +423,7 @@ void SimObject::update_gradients() {
   //   s[i] = S_[i] + dS_[i];
   // }
 
-  // la_ = dq_la_.segment(qt_.size(), 9*T_.rows());
+  la_ = dq_la_.segment(qt_.size(), 9*T_.rows());
   // energy(qt_ + dq_, s, la_);
 
   auto value = [&](const VectorXd& x) {
@@ -451,6 +451,7 @@ void SimObject::update_gradients() {
   #pragma omp parallel for
   for (int i = 0; i < T_.rows(); ++i) {
     S_[i] += material_->dS(R_[i], S_[i], la_.segment(9*i,9), Hinv_[i]);
+    //std::cout << "g: " << material_->gradient(R_[i],S_[i]) << std::endl;
 
     if (!config_->local_global) {
       //std::cout << " ds 1: " << s[i]-S_[i] << " additional: " 
@@ -521,7 +522,13 @@ double SimObject::energy(VectorXd x, std::vector<Vector6d> s, VectorXd la) {
     Matrix<double,9,6> W;
     Wmat(R,W);
 
+    //std::cout << "s[i]: " << s[i].transpose() << std::endl;
     Epsi += material_->energy(s[i]) * vols_[i];
+    std::cout << "S_[i]: " << S_[i] << std::endl;
+    std::cout << "s[i] E_psi: " << material_->energy(s[i]) * vols_[i] << std::endl;
+    Matrix3d S = (svd.matrixV() * svd.singularValues().asDiagonal() * svd.matrixV().transpose());
+    Vector6d stmp = Vector6d(S(0,0),S(1,1),S(2,2),S(1,0),S(2,0),S(2,1));
+    std::cout << "sSVD E_psi: " << material_->energy(stmp) * vols_[i] << std::endl;
     Ela += la.segment(9*i,9).dot(W*s[i] - def_grad.segment(9*i,9)) * vols_[i];
   }
   double e = Em + Epsi - Ela;
