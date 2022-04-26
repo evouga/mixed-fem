@@ -4,6 +4,10 @@ build_debug/
 
 data/
 
+*.log
+*.aux
+*.gz
+
 # Editor and OS things
 imgui.ini
 .DS_Store

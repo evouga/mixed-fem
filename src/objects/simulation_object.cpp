@@ -85,7 +85,7 @@ void SimObject::build_rhs() {
 }
 
 // Call after outer iteration
-void SimObject::update_SR2() {
+void SimObject::update_rotations() {
   VectorXd def_grad = J_*(P_.transpose()*qt_+b_);
 
   int N = (T_.rows() / 4) + int(T_.rows() % 4 != 0);
@@ -141,15 +141,15 @@ void SimObject::update_SR2() {
 }
 
 // Only call within iter iteration
-void SimObject::update_SR() {
+void SimObject::fit_rotations(VectorXd& dq, VectorXd& la) {
 
-  VectorXd def_grad = J_*(P_.transpose()*(qt_+dq_)+b_);
-  VectorXd Jdq = J_*(P_.transpose()*dq_);
-  //VectorXd la = la_ + dq_la_.segment(qt_.size(), 9*T_.rows());
-  VectorXd la = dq_la_.segment(qt_.size(), 9*T_.rows());
+  VectorXd def_grad = J_*(P_.transpose()*(qt_+dq)+b_);
 
   int N = (T_.rows() / 4) + int(T_.rows() % 4 != 0);
   double fac = std::max((la.array().abs().maxCoeff() + 1e-6), 1.0);
+
+  std::vector<Vector6d> S(S_.size());
+  update_s(S, qt_+dq);
 
   #pragma omp parallel for 
   for (int ii = 0; ii < N; ++ii) {
@@ -163,16 +163,7 @@ void SimObject::update_SR() {
       if (i >= T_.rows())
         break;
       Vector9d li = ibeta_*(la.segment(9*i,9)/fac) + def_grad.segment(9*i,9);
-
-      // Update S[i] using new lambdas
-      if (!config_->local_global) {
-        dS_[i] = material_->dS(R_[i], S_[i], la.segment(9*i,9), Hinv_[i])
-               + Hinv_[i] * dRL_[i].transpose() * Jdq.segment(9*i,9);
-      } else {
-        dS_[i] = material_->dS(R_[i], S_[i], la.segment(9*i,9), Hinv_[i]);
-      }
-
-      Vector6d s = S_[i] + dS_[i];
+      Vector6d s = S[i];
 
       // Solve rotation matrices
       Matrix3d Cs;
@@ -182,9 +173,6 @@ void SimObject::update_SR() {
       //Matrix3d y4 = Map<Matrix3d>(li.data()).transpose()*Cs;
       Matrix3d y4 = Map<Matrix3d>(li.data())*Cs;
       Y4.block(3*jj, 0, 3, 3) = y4.cast<float>();
-      //Matrix3d R4out;
-      //eigen_svd(y4, R4out);
-      //R[i] = R4out;
     }
 
     // Solve rotations
@@ -196,8 +184,7 @@ void SimObject::update_SR() {
       if (i >= T_.rows())
         break;
 
-      if (config_->local_global)
-        R_[i] = R4.block(3*jj,0,3,3).cast<double>();
+      R_[i] = R4.block(3*jj,0,3,3).cast<double>();
     }
   }
 }
@@ -229,13 +216,13 @@ void SimObject::substep(bool init_guess) {
   t_asm += duration_cast<nanoseconds>(end-start).count()/1e6;
   start = end;
 
-  std::cout << "RHS Norm: " << rhs_.norm() << std::endl;
+  std::cout << "  - RHS Norm: " << rhs_.norm() << std::endl;
   int niter;
   if (!config_->local_global) 
     niter = pcg(dq_la_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_);
   else
     niter = pcg(dq_la_, lhs_, rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_, 1e-8);
-  std::cout << "# PCG iter: " << niter << std::endl;
+  std::cout << "  - # PCG iter: " << niter << std::endl;
 
   end = high_resolution_clock::now();
   t_solve += duration_cast<nanoseconds>(end-start).count()/1e6;
@@ -243,8 +230,10 @@ void SimObject::substep(bool init_guess) {
   // Update per-element R & S matrices
   start = high_resolution_clock::now();
   dq_ = dq_la_.segment(0, qt_.size());
-  // la_ = dq_la_.segment(qt_.size(), 9*T_.rows());
-  update_SR();
+  la_ = dq_la_.segment(qt_.size(), 9*T_.rows());
+  if (config_->local_global) {
+    fit_rotations(dq_, la_);
+  }
   end = high_resolution_clock::now();
   t_SR += duration_cast<nanoseconds>(end-start).count()/1e6;
   ibeta_ = std::min(1e-8, 0.9*ibeta_);
@@ -364,8 +353,9 @@ void SimObject::warm_start() {
   dq_ = h*vt_ + h2*f_ext_; // NEW
   ibeta_ = 1. / config_->beta;
  // la_.setZero();
-
-  update_SR();
+  if (config_->local_global) {
+    fit_rotations(dq_, la_);
+  }
 
   qt_ += dq_;
   dq_la_.setZero();
@@ -402,13 +392,49 @@ void SimObject::warm_start() {
       S = (V  * S * V.transpose());
       MatrixXd R = (U4.block(3*jj,0,3,3).cast<double>() * V.transpose());
       S_[i] = Vector6d(S(0,0),S(1,1),S(2,2),S(1,0),S(2,0),S(2,1));
-      Matrix<double,9,6> W;
-      Wmat(R,W);
-      std::cout << "RS: \n " << R*S << " def grad: " << def_grad.segment(9*i,9) << "\n Ws: " << W*S_[i] << std::endl;
+      // Matrix<double,9,6> W;
+      // Wmat(R,W);
+      //std::cout << "RS: \n " << R*S << " def grad: " << def_grad.segment(9*i,9) << "\n Ws: " << W*S_[i] << std::endl;
     }
   }
 /////////////////
 
+}
+
+void SimObject::update_s(std::vector<Vector6d> s, const VectorXd& q) {
+  VectorXd Jdq = J_*(P_.transpose()*(q - qt_));
+  #pragma omp parallel for
+  for (int i = 0; i < T_.rows(); ++i) {
+    s[i] = S_[i] + material_->dS(R_[i], S_[i], la_.segment(9*i,9), Hinv_[i]);
+    //std::cout << "g: " << material_->gradient(R_[i],S_[i]) << std::endl;
+
+    if (!config_->local_global) {
+      //std::cout << " ds 1: " << s[i]-S_[i] << " additional: " 
+      //    << Hinv_[i] * dRL_[i].transpose() * Jdq.segment(9*i,9) << std::endl;
+      s[i] = S_[i] + Hinv_[i] * dRL_[i].transpose() * Jdq.segment(9*i,9);
+    }
+  }
+}
+
+
+void SimObject::linesearch(VectorXd& q, const VectorXd& dq) {
+  std::vector<Vector6d> s(S_.size());
+ 
+  auto value = [&](const VectorXd& x)->double {
+    update_s(s, x);
+    return energy(x, s, la_);
+  };
+
+  VectorXd xt = q;
+  VectorXd tmp;
+  linesearch_backtracking_bisection(xt, dq, value, tmp, 4, 1.0, 0.1, 0.5);
+  update_s(S_, xt);
+  q = xt;
+
+}
+
+void SimObject::linesearch() {
+  linesearch(qt_, dq_);
 }
 
 
@@ -416,62 +442,10 @@ void SimObject::update_gradients() {
   
   ibeta_ = 1. / config_->beta;
 
-  std::vector<Vector6d> s(S_.size());
-  // // Update vars
-  // #pragma omp parallel for
-  // for (int i = 0; i < T_.rows(); ++i) {
-  //   s[i] = S_[i] + dS_[i];
-  // }
-
-  la_ = dq_la_.segment(qt_.size(), 9*T_.rows());
-  // energy(qt_ + dq_, s, la_);
-
-  auto value = [&](const VectorXd& x) {
-    VectorXd Jdq = J_*(P_.transpose()*(x - qt_));
-
-    #pragma omp parallel for
-    for (int i = 0; i < T_.rows(); ++i) {
-      s[i] = S_[i] + material_->dS(R_[i], S_[i], la_.segment(9*i,9), Hinv_[i]);
-
-      if (!config_->local_global) {
-        //std::cout << " ds 1: " << s[i]-S_[i] << " additional: " 
-        //    << Hinv_[i] * dRL_[i].transpose() * Jdq.segment(9*i,9) << std::endl;
-        s[i] += Hinv_[i] * dRL_[i].transpose() * Jdq.segment(9*i,9);
-      }
-    }
-    return energy(x, s, la_);
-  };
-
-  VectorXd xt = qt_;
-  VectorXd tmp;
-  std::cout << "Starting line search " << std::endl;
-  linesearch_backtracking_bisection(xt, dq_, value, tmp, 4, 1.0, 0.1, 0.5);
-
-  VectorXd Jdq = J_*(P_.transpose()*(xt - qt_));
-  #pragma omp parallel for
-  for (int i = 0; i < T_.rows(); ++i) {
-    S_[i] += material_->dS(R_[i], S_[i], la_.segment(9*i,9), Hinv_[i]);
-    //std::cout << "g: " << material_->gradient(R_[i],S_[i]) << std::endl;
-
-    if (!config_->local_global) {
-      //std::cout << " ds 1: " << s[i]-S_[i] << " additional: " 
-      //    << Hinv_[i] * dRL_[i].transpose() * Jdq.segment(9*i,9) << std::endl;
-      S_[i] += Hinv_[i] * dRL_[i].transpose() * Jdq.segment(9*i,9);
-    }
-  }
-  qt_ = xt;
-
-  // qt_ += dq_;
-  // // Update vars
-  // #pragma omp parallel for
-  // for (int i = 0; i < T_.rows(); ++i) {
-  //   S_[i] += dS_[i];
-  //   dS_[i].setZero();
-  // }
-
+  // linesearch();
 
   if (!config_->local_global) {
-    update_SR2();
+    update_rotations();
     // jacobian_rotational(Jw_rot_, true);
     // SparseMatrixd M(J_.cols(), J_.cols());
     // int sz = V_.size() + T_.rows()*9;
@@ -524,16 +498,16 @@ double SimObject::energy(VectorXd x, std::vector<Vector6d> s, VectorXd la) {
 
     //std::cout << "s[i]: " << s[i].transpose() << std::endl;
     Epsi += material_->energy(s[i]) * vols_[i];
-    std::cout << "S_[i]: " << S_[i] << std::endl;
-    std::cout << "s[i] E_psi: " << material_->energy(s[i]) * vols_[i] << std::endl;
-    Matrix3d S = (svd.matrixV() * svd.singularValues().asDiagonal() * svd.matrixV().transpose());
-    Vector6d stmp = Vector6d(S(0,0),S(1,1),S(2,2),S(1,0),S(2,0),S(2,1));
-    std::cout << "sSVD E_psi: " << material_->energy(stmp) * vols_[i] << std::endl;
+    // std::cout << "S_[i]: " << S_[i] << std::endl;
+    // std::cout << "s[i] E_psi: " << material_->energy(s[i]) * vols_[i] << std::endl;
+    // Matrix3d S = (svd.matrixV() * svd.singularValues().asDiagonal() * svd.matrixV().transpose());
+    // Vector6d stmp = Vector6d(S(0,0),S(1,1),S(2,2),S(1,0),S(2,0),S(2,1));
+    // std::cout << "sSVD E_psi: " << material_->energy(stmp) * vols_[i] << std::endl;
     Ela += la.segment(9*i,9).dot(W*s[i] - def_grad.segment(9*i,9)) * vols_[i];
   }
   double e = Em + Epsi - Ela;
-  std::cout << "E: " <<  e << " ";
-  std::cout << "(Em: " << Em << " Epsi: " << Epsi << " Ela: " << Ela << ")" << std::endl;
+  //std::cout << "E: " <<  e << " ";
+  //std::cout << "(Em: " << Em << " Epsi: " << Epsi << " Ela: " << Ela << ")" << std::endl;
   return e;
 
 }

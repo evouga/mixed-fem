@@ -34,7 +34,7 @@ namespace mfem {
     void build_rhs() override;
     
     // Update per-element S, symmetric deformation, and R, rotation matrices
-    void update_SR() override;
+    //void fit_rotations() override;
 
     std::vector<Eigen::Matrix3d> NN_; // N * N^T (normal outer product)
     std::vector<Eigen::Matrix3d> BN_; // BN * BN^T (binormal outer product)

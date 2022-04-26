@@ -30,7 +30,7 @@ namespace mfem {
     void build_rhs() override;
     
     // Update per-element S, symmetric deformation, and R, rotation matrices
-    void update_SR() override;
+    //void fit_rotations() override;
 
     // TODO should be passing in as lambda
     virtual Eigen::VectorXd collision_force() override;

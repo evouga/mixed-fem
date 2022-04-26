@@ -109,7 +109,8 @@ void RodObject::build_rhs() {
   }
 }
 
-void RodObject::update_SR() {
+/*
+void RodObject::fit_rotations() {
 
   VectorXd def_grad = J_*(P_.transpose()*(qt_+dq_)+b_);
 
@@ -157,6 +158,7 @@ void RodObject::update_SR() {
     }
   }
 }
+*/
 
 void RodObject::jacobian_regularized(SparseMatrixdRowMajor& J, bool weighted) {
   std::cerr << "jacobian_regularized not implemented for rod" << std::endl;

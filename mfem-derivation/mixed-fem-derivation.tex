@@ -2,12 +2,13 @@
 \usepackage[margin=0.65in]{geometry}
 \usepackage{amsmath,amsthm,amsfonts,amssymb}
 \usepackage{mathtools}
-\usepackage{algorithm,algpseudocode}
+%\usepackage{algorithm,algpseudocode}
 \usepackage{hyperref}
 \usepackage{graphicx}
 \usepackage{listings}
 \usepackage{subcaption}
 \usepackage[section]{placeins}
+\usepackage{algorithm2e}
 
 
 \theoremstyle{remark}
@@ -64,10 +65,12 @@
 \newcommand{\fext}{\mathbf{f}_\text{ext}}
 \DeclareMathOperator*{\argmin}{arg\,min} 
 \newcommand{\El}{E_\Lambda}
-\newcommand{\gx}{ {\mathbf{g}_\x^t} }
-\newcommand{\gs}{ {\mathbf{g}_\s^t} }
+\newcommand{\gx}{ {\mathbf{g}_\x^k} }
+\newcommand{\gs}{ {\mathbf{g}_\s^k} }
 
 
+\RestyleAlgo{ruled}
+\LinesNumbered
 
 \begin{document}
 
@@ -84,51 +87,51 @@
 Let $c_K(\x,\s) = W_K \s_K - J_K \x$ where $W_K$ is a function of $\x$. This means that $\El^K(\x,\s,\la) = \la_K \cdot c_K(\x,\s)$. We then have a quadratic approximation of the entire energy that takes the form
 
 \begin{align*}
-E(\x,\s,\la) \approx \tilde{E}(\x,\s,\la) &= E_M(\x^t) + E_\Psi(\s^t) - \El(\x^t,\s^t,\la^t) \\
+E(\x,\s,\la) \approx \tilde{E}(\x,\s,\la) &= E_M(\x^k) + E_\Psi(\s^k) - \El(\x^k,\s^k,\la^k) \\
 &+ 
-(\x - \x^t)^T \left(
+(\x - \x^k)^T \left(
 	\frac{\partial E_M}{\partial \x} 
- -  \frac{\partial \C}{\partial \x} \la^t \right) & \\
-&+ (\s - \s^t)^T \left(
+ -  \frac{\partial \C}{\partial \x} \la^k \right) & \\
+&+ (\s - \s^k)^T \left(
 	\frac{\partial E_\Psi}{\partial \s} 
- -  \frac{\partial \C}{\partial \s} \la^t \right)  & \\
-&- (\la - \la^t)^T \C (\x^t, \s^t) & \left(\C (\x^t,\s^t) = \left. \frac{\partial \El}{\partial \la} \right|_{\x^t,\s^t,\la^t}\right) \\
-& - (\x - \x^t)^T \left(
-  \frac{\partial}{\partial \x} \left(\frac{\partial \C}{\partial \s} \la^t\right) \right)(\s - \s^t) & \\
-& - (\x - \x^t)^T \left(
-  \frac{\partial \C }{\partial \x} \right)(\la - \la^t) 
-- (\s - \s^t)^T \left(
-  \frac{\partial \C }{\partial \s} \right)(\la - \la^t) & \\
-& + \frac{1}{2} (\s- \s^t)^T \left(\frac{\partial^2 E_\Psi}{\partial \s^2} \right)(\s - \s^t) & \\
-& + \frac{1}{2}(\x- \x^t)^T \left(\frac{\partial^2 E_M}{\partial \x^2} -
-\frac{\partial}{\partial \x} \left(\frac{\partial \C}{\partial \x} \la^t\right)
-\right)(\x - \x^t) & \\
+ -  \frac{\partial \C}{\partial \s} \la^k \right)  & \\
+&- (\la - \la^k)^T \C (\x^k, \s^k) & \left(\C (\x^k,\s^k) = \left. \frac{\partial \El}{\partial \la} \right|_{\x^k,\s^k,\la^k}\right) \\
+& - (\x - \x^k)^T \left(
+  \frac{\partial}{\partial \x} \left(\frac{\partial \C}{\partial \s} \la^k\right) \right)(\s - \s^k) & \\
+& - (\x - \x^k)^T \left(
+  \frac{\partial \C }{\partial \x} \right)(\la - \la^k) 
+- (\s - \s^k)^T \left(
+  \frac{\partial \C }{\partial \s} \right)(\la - \la^k) & \\
+& + \frac{1}{2} (\s- \s^k)^T \left(\frac{\partial^2 E_\Psi}{\partial \s^2} \right)(\s - \s^k) & \\
+& + \frac{1}{2}(\x- \x^k)^T \left(\frac{\partial^2 E_M}{\partial \x^2} -
+\frac{\partial}{\partial \x} \left(\frac{\partial \C}{\partial \x} \la^k\right)
+\right)(\x - \x^k) & \\
 \end{align*}
 Next we cancel out some terms and also take the second derivative of $\C$ to be zero and get
 \begin{equation}
 \begin{split}
-\tilde{E}(\x,\s,\la) &=  E_M(\x^t) + E_\Psi(\s^t) + 
-(\x - \x^t)^T \left(\frac{\partial E_M}{\partial \x} \right)  \\
-&+ (\s - \s^t)^T \left(\frac{\partial E_\Psi}{\partial \s} \right)   
- - \la^T \C (\x^t, \s^t) \\
-& - (\x - \x^t)^T \left(
-  \frac{\partial}{\partial \x} \left(\frac{\partial \C}{\partial \s} \la^t\right) \right)(\s - \s^t) \\
-& - (\x - \x^t)^T \left(
+\tilde{E}(\x,\s,\la) &=  E_M(\x^k) + E_\Psi(\s^k) + 
+(\x - \x^k)^T \left(\frac{\partial E_M}{\partial \x} \right)  \\
+&+ (\s - \s^k)^T \left(\frac{\partial E_\Psi}{\partial \s} \right)   
+ - \la^T \C (\x^k, \s^k) \\
+& - (\x - \x^k)^T \left(
+  \frac{\partial}{\partial \x} \left(\frac{\partial \C}{\partial \s} \la^k\right) \right)(\s - \s^k) \\
+& - (\x - \x^k)^T \left(
   \frac{\partial \C }{\partial \x} \right)(\la) 
-- (\s - \s^t)^T \left(
+- (\s - \s^k)^T \left(
   \frac{\partial \C }{\partial \s} \right)(\la) \\
-& + \frac{1}{2}(\s- \s^t)^T \left(\frac{\partial^2 E_\Psi}{\partial \s^2} \right)(\s - \s^t) \\
-& + \frac{1}{2}(\x- \x^t)^T \left(\frac{\partial^2 E_M}{\partial \x^2}
-\right)(\x - \x^t), \\
+& + \frac{1}{2}(\s- \s^k)^T \left(\frac{\partial^2 E_\Psi}{\partial \s^2} \right)(\s - \s^k) \\
+& + \frac{1}{2}(\x- \x^k)^T \left(\frac{\partial^2 E_M}{\partial \x^2}
+\right)(\x - \x^k), \\
 \end{split}
 \end{equation}
-and now using that $x - x^t = \dx$ and $\s - \s^t = \ds$:
+and now using that $x - x^k = \dx$ and $\s - \s^k = \ds$:
 \begin{equation}
 \begin{split}
-\tilde{E}(\x,\s,\la) &=  E_M(\x^t) + E_\Psi(\s^t) + 
+\tilde{E}(\x,\s,\la) &=  E_M(\x^k) + E_\Psi(\s^k) + 
 \dx^T \left(\frac{\partial E_M}{\partial \x} \right) 
 + \ds^T \left(\frac{\partial E_\Psi}{\partial \s} \right)   
- - \la^T \C (\x^t, \s^t) \\
+ - \la^T \C (\x^k, \s^k) \\
 & - \dx^T \left(
   \frac{\partial}{\partial \x} \left(\frac{\partial \C}{\partial \s} \la^t\right) \right)\ds
 - \left( \dx^T 
@@ -139,17 +142,17 @@ and now using that $x - x^t = \dx$ and $\s - \s^t = \ds$:
 + \frac{1}{2} \dx^T \left(\frac{\partial^2 E_M}{\partial \x^2}
 \right)\dx. \\
 &\\
-&=  E_M(\x^t) + E_\Psi(\s^t) + 
+&=  E_M(\x^k) + E_\Psi(\s^k) + 
 \dx^T \gx
 + \ds^T \gs
- - \la^T \C (\x^t, \s^t) \\
+ - \la^T \C (\x^k, \s^k) \\
 & - \dx^T \left(
-  \frac{\partial}{\partial \x} \left(\frac{\partial \C}{\partial \s} \la^t\right) \right)\ds
+  \frac{\partial}{\partial \x} \left(\frac{\partial \C}{\partial \s} \la^k\right) \right)\ds
 - \left( \dx^T 
   \frac{\partial \C }{\partial \x}
 +  \ds^T  
   \frac{\partial \C }{\partial \s} \right) \la \\
-& + \frac{1}{2}\ds^T H^t \ds
+& + \frac{1}{2}\ds^T H^k \ds
 + \frac{1}{2h^2} \dx^T M \dx. \\
 \end{split}
 \end{equation}
@@ -164,8 +167,8 @@ Last we differentiate $\tilde{E}$ with respect to $\dx$ (we omit $\frac{\partial
 \begin{equation}
 \frac{\partial \tilde{E}}{\partial \dx} = \frac{1}{h^2}M\dx + \gx 
 - \sum_{K \in \Th} \left(
-J_K^T(\hat{W}_K^{t}\cdot \la_K^t) \ds_K +
-J_K^T(\hat{W}_K^{t}\cdot \s_K^t - I)\la_K
+J_K^T(\hat{W}_K^{k}\cdot \la_K^k) \ds_K +
+J_K^T(\hat{W}_K^{k}\cdot \s_K^k - I)\la_K
 \right)V_K
 \end{equation}
 
@@ -173,12 +176,12 @@ J_K^T(\hat{W}_K^{t}\cdot \s_K^t - I)\la_K
 \subsection{Equation for $\ds$}
 We start by differentiating $\tilde{E}$ with respect to $\ds$:
 \begin{equation}
-\frac{\partial \tilde{E}^K}{\partial \ds_K} =  \gs_K + H_K^t \ds_K -
-{W_K^t}^T \la_K - (\hat{W}_K^{t}\cdot \la_K^t)^T J_K \dx
+\frac{\partial \tilde{E}^K}{\partial \ds_K} =  \gs_K + H_K^k \ds_K -
+{W_K^k}^T \la_K - (\hat{W}_K^{k}\cdot \la_K^k)^T J_K \dx
 \end{equation}
 where $(\hat{W}_K^{t}\cdot \la_K^t)$ performs a reduction over the middle index of $\hat{W}^K_{ijk}$. Setting this derivative equal to zero and solving for $\ds_K$ gives
 \begin{equation}
-\ds_K = {H_K^t}^{-1} \left( {W_K^t}^T \la_K + (\hat{W}_K^{t}\cdot \la_K^t)^T J_K \dx - \gs \right).
+\ds_K = {H_K^k}^{-1} \left( {W_K^k}^T \la_K + (\hat{W}_K^{k}\cdot \la_K^k)^T J_K \dx - \gs \right).
 \end{equation}
 
 \subsection{Equation for $\dl$}
@@ -186,27 +189,27 @@ In the same fashion we differentiate $\tilde{E}$ with respect to $\dl$:
 
 \begin{equation}
 \begin{split}
-\frac{\partial \tilde{E}^K}{\partial \la_K} &= -\C_K (x^t,\s^t)- \left( \dx^T 
+\frac{\partial \tilde{E}^K}{\partial \la_K} &= -\C_K (x^k,\s^k)- \left( \dx^T 
   \frac{\partial \C_K }{\partial \x} +  \ds^T \frac{\partial \C_K }{\partial \s} \right) \\
-  &= -\C_K (x^t,\s^t) -(\hat{W}_K^{t}\cdot \s_K^t - I)^T J_K \dx - W_K^t \ds\\
+  &= -\C_K (x^k,\s^k) -(\hat{W}_K^{k}\cdot \s_K^k - I)^T J_K \dx - W_K^k \ds\\
 \end{split}
 \end{equation}
-where $(\hat{W}_K^{t}\cdot \s_K^t)$ performs a reduction over the last index of $\hat{W}^K_{ijk}$.
+where $(\hat{W}_K^{k}\cdot \s_K^k)$ performs a reduction over the last index of $\hat{W}^K_{ijk}$.
 
 
 \subsection{System of Equations}
 To build the system of equations we define some variables to keep things neat:
 \begin{align}
-F &= - \sum_{K \in \Th} {P_K^\s}^T \left((\hat{W}_K^{t}\cdot \la_K^t)^T J_K^w \right) \\
-G &= J^w - \sum_{K \in \Th} {P_K^\la}^T \left((\hat{W}_K^{t}\cdot \s_K^t)^T J_K^w \right) \\
-D &= -\sum_{K \in \Th} {P_K^\la}^T  W_K^t P_K^\s
+F &= - \sum_{K \in \Th} {P_K^\s}^T \left((\hat{W}_K^{k}\cdot \la_K^k)^T J_K^w \right) \\
+G &= J^w - \sum_{K \in \Th} {P_K^\la}^T \left((\hat{W}_K^{k}\cdot \s_K^k)^T J_K^w \right) \\
+D &= -\sum_{K \in \Th} {P_K^\la}^T  W_K^k P_K^\s
 \end{align}
-where $J^w$ is the volume weighted Jacobian, and $P_K^\la \in \R^{9 \times 9n_e}$ and $P_K^\s \in \R^{6 \times 6n_e}$ are selection matrics for the $K$-th set of Lagrange multipliers and deformation variables, respectively. Additionally $H$ is the block diagonal Hessian for $s^t$. We form the system by setting each of the derivatives with respect to the $\delta$-variables equal to zero and get
+where $J^w$ is the volume weighted Jacobian, and $P_K^\la \in \R^{9 \times 9n_e}$ and $P_K^\s \in \R^{6 \times 6n_e}$ are selection matrics for the $K$-th set of Lagrange multipliers and deformation variables, respectively. Additionally $H^k$ is the block diagonal Hessian for $s^k$. We form the system by setting each of the derivatives with respect to the $\delta$-variables equal to zero and get
 
 \begin{equation}
 \begin{pmatrix}
 \frac{1}{h^2}M & F^T & G^T \\
-F & H^t & D^T\\
+F & H & D^T\\
 G & D & 0
 \end{pmatrix}
 \begin{pmatrix}
@@ -217,13 +220,13 @@ G & D & 0
 \begin{pmatrix}
 -\gx \\
 -\gs \\
-\C (\x^t, \s^t)
+\C (\x^k, \s^k)
 \end{pmatrix}.
 \end{equation}
 
 Next, to get this thing in a KKT-like form we substitute the solution for the $\ds$ into the other equations. So we have
 \begin{equation}
-\ds = {H^t}^{-1}\left(-\gs - D^T \la - F\dx \right),
+\ds = {H}^{-1}\left(-\gs - D^T \la - F\dx \right),
 \end{equation}
 and sorry cause it's about to get a little ugly, but for the first set of equations we have
 \begin{equation*}
@@ -236,11 +239,11 @@ F^TH^{-1}\gs -\gx.
 \end{equation}
 Next we substitute the solution for $\ds$ into the equations for $\la$:
 \begin{equation*}
-G\dx + DH^{-1}\left(-\gs - D^T\la - F\dx\right) = \C (\x^t, \s^t)
+G\dx + DH^{-1}\left(-\gs - D^T\la - F\dx\right) = \C (\x^k, \s^k)
 \end{equation*}
 and collect terms so that we have
 \begin{equation}
-(G - DH^{-1}F)\dx - DH^{-1}D^T\la = \C (\x^t, \s^t) + DH^{-1}\gs.
+(G - DH^{-1}F)\dx - DH^{-1}D^T\la = \C (\x^k, \s^k) + DH^{-1}\gs.
 \end{equation}
 Before moving the equations back into matrix form, we define the following variables:
 \begin{align}
@@ -260,10 +263,55 @@ Now our final system of equations for a single Newton step is
 \end{pmatrix} =
 \begin{pmatrix}
 F^TH^{-1}\gs -\gx \\
-\C (\x^t, \s^t) + DH^{-1}\gs
+\C (\x^k, \s^k) + DH^{-1}\gs
 \end{pmatrix}.
 \end{equation}
 
 \section{The various numerical methods}
-todo
+
+%% This declares a command \Comment
+%% The argument will be surrounded by /* ... */
+\SetKwComment{Comment}{/* }{ */}
+
+\begin{algorithm}[htp]
+\caption{Newtons method}\label{alg:one}
+\SetKwFunction{algo}{NewtonStep}
+\SetKwProg{myalg}{Algorithm}{}{}
+\myalg{\algo{$\x^t,\s^t$, \textup{max\_iters}}}{
+
+\SetKwRepeat{Do}{do}{while}
+
+$\x \gets \x^t$\;
+$\s \gets \s^t$\;
+$\la \gets 0$\;
+$\x^0 \gets \x^t$\;
+$\s^0 \gets \s^t$\;
+$E^0 \gets \text{energy}(\x,\s,\la)$\;
+
+iter $\gets 0$\;
+\Do{not converged \textup{or} \textup{iter} $ < $ \textup{max\_iters}}{
+
+	
+	\tcp{Compute system LHS and RHS}
+	$H,\mathbf{g} = \text{compute\_gradients}(\x,\s,\la)$\;
+	\BlankLine
+	\tcp{Descent direction}
+	$\dx,\la = -H^{-1} \mathbf{g}$\;
+	
+	$\alpha \gets 1$\;
+	\Do{$\text{energy}(\x,\s,\la)$}{
+	$\x \gets \x^0 + \alpha \dx$\;
+	$\alpha \gets \alpha / 2$\;
+	$\s \gets \s^0 + \text{compute\_ds}(\x,\la) > E^0$\;
+    }
+	$\x^0 \gets \x$\;
+	$\s^0 \gets \s$\;
+	$E^0 \gets \text{energy}(\x,\s,\la)$\;
+	iter $\gets$ iter $ + 1$\;
+}
+\Return $\x,\s,\la$
+
+}
+\end{algorithm}
+
 \end{document}
