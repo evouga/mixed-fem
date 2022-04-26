@@ -97,7 +97,8 @@ void TriObject::build_rhs() {
   }
 }
 
-void TriObject::update_SR() {
+/*
+void TriObject::fit_rotations() {
 
   VectorXd def_grad = J_*(P_.transpose()*(qt_+dq_)+b_);
 
@@ -143,6 +144,7 @@ void TriObject::update_SR() {
     }
   }
 }
+*/
 
 VectorXd TriObject::collision_force() {
 

@@ -95,7 +95,7 @@ Matrix6d StableNeohookean::hessian_inv(const Matrix3d& R,
     const Vector6d& S) {
   
   Matrix6d H = hessian(R, S, config_->mu, config_->la);
-  //sim::simple_psd_fix(H);
+  sim::simple_psd_fix(H);
   return H.inverse();
 }
 

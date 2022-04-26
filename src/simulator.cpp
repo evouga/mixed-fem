@@ -20,9 +20,10 @@ void Simulator::step() {
   object_->update_gradients();
 
   
-
+  std::cout << "Simulation step " << std::endl;
   for (int i = 0; i < config_->outer_steps; ++i) {
     
+    std::cout << "* Newton step: " << i << std::endl;
     //object_->update_gradients();
     
     for (int j = 0; j < config_->inner_steps; ++j) {
@@ -30,6 +31,7 @@ void Simulator::step() {
       object_->substep(i==0 && j==0);
     }
 
+    object_->linesearch();
     object_->update_gradients();
 
   }

@@ -4,34 +4,38 @@
 In the previous section we split our discrete mixed energy intro three different terms, and before we write our final system of equations for each Newton step, we need to sort out the necessary derivatives and energy approximations.
 
 \subsection{Kinetic Energy}
-Or kinetic energy term for $\x = \x^t + \dx$ is
+Or kinetic energy term is
 \begin{align}
-E_M (\x) &= \frac{1}{2h^2} ||x^t + \dx - \tilde{x}||_M^2 \\
-	&= \frac{1}{2h^2} ||\dx - h\dot{x}^t - h^2 \fext ||_M^2,
+E_M (\x) &= \frac{1}{2h^2} ||\x - \tilde{x}||_M^2 \\
 \end{align}
-and its derivative with respect to $\dx$ is
+and its derivative with respect to $\x$ is
 \begin{equation}
 \begin{split}
-\frac{\partial E_M }{\partial \dx} &= \frac{1}{h^2}M(\dx - h\dot{\x}^t - h^2 \fext) \\
-&=  \frac{1}{h^2}M(\dx -\gx) 
+\left. \frac{\partial E_M }{\partial \x} \right|_{\x^k} &= \frac{1}{h^2}M(\x^k - \tilde{\x}) \\
+&=  \gx
+\end{split},
+\end{equation}
+and its hessian is
+\begin{equation}
+\begin{split}
+\left. \frac{\partial^2 E_M }{\partial \x^2} \right|_{\x^k} &= \frac{1}{h^2}M \\
+&=  \Hx
 \end{split}
 \end{equation}
 
 \subsection{Deformation Energy}
-The deformation energy is typically quadratic or some higher order function of $\s$, so we take a quadratic approximation of the energy, so that for $\s=\s^t + \ds$ we have
+The deformation energy is typically quadratic or some higher order function of $\s$, so we take a quadratic approximation of the energy about $\s^k$, so that for $\s=\s^k + \ds$ we have
 
 \begin{equation}
-E_\Psi (\s) \approx \tilde{E}_\Psi (\s) = \sum_{K \in \Th} \left(\Psi(\s_K^t) + \ds_K^T g_K + \frac{1}{2}\ds_K^T H_K \ds_K \right) V_K
+E_\Psi (\s) \approx \tilde{E}_\Psi (\s) = \sum_{K \in \Th} \left(\Psi(\s_K^k) + \ds_K^T \gs_K + \frac{1}{2}\ds_K^T \Hsk \ds_K \right) V_K
 \end{equation}
 where 
-$\gs_K^t=\left.\frac{\partial \Psi}{\partial s_K}\right|_{s_K^t}$ and
-$H_K^t=\left.\frac{\partial^2 \Psi}{\partial s_K^2}\right|_{s_K^t}$, and its derivative is simply
+$\gs_K =\left.\frac{\partial \Psi}{\partial s_K}\right|_{\s_K^k}$ and
+$\Hsk=\left.\frac{\partial^2 \Psi}{\partial s_K^2}\right|_{s_K^k}$, and its derivative is simply
 \begin{equation}
 \frac{\partial \tilde{E}_\Psi}{\partial \ds_K} =
-\sum_{K \in \Th} \left(g_K^t + H_K^t \ds_K \right) V_K
+\sum_{K \in \Th} \left(\gs_K + \Hsk \ds_K \right) V_K
 \end{equation}
-
-\danny{The above gradient and Hessian terms should be updated to the new iterate after each Newton step. If I follow your notation they look like they are staying fixed at values from time $t$ throughout?} 
 
 \subsection{Constraint Energy}
 
@@ -39,23 +43,23 @@ First we have the original constraint energy
 \begin{equation}
 E_\Lambda (\x, \s, \la) = \sum_{K \in \Th} \left( \la_K \cdot (W_K \s_K - J_K \x) \right) V_K,
 \end{equation}
-where we have $\x = \x^t + \dx$, $\s = \s^t + \ds$, and $\la = \la^t + \dl$. And for its quadratic approximation, $\tilde{E}_\Lambda$ we have
+where we have $\x = \x^k + \dx$, $\s = \s^k + \ds$, and $\la = \la^k + \dl$. And for its quadratic approximation, $\tilde{E}_\Lambda$ we have
 
 \begin{equation}
 \begin{split}
-\tilde{E}_\Lambda (\x, \s, \la) &=  \El (\x^t,\s^t,\la^t) 
-+ \sum_{K \in \Th} \left( \right.
+\tilde{E}_\Lambda (\x, \s, \la) &=  \El (\x^k,\s^k,\la^k) 
++ \sum_{K \in \Th} \left( 
   \dx^T \frac{\partial \El^K}{\partial \x} 
 + \ds_K^T \frac{\partial \El^K}{\partial \s_K}
-+ \dl_K^T \frac{\partial \El^K}{\partial \la_K} \\
-&+ \dl_K^T \frac{\partial^2 \El^K}{\partial \la_K \partial \s_K} \ds_K
++ \dl_K^T \frac{\partial \El^K}{\partial \la_K} \right. \\
+&+ \left. \dl_K^T \frac{\partial^2 \El^K}{\partial \la_K \partial \s_K} \ds_K
 + \dl_K^T \frac{\partial^2 \El^K}{\partial \la_K \partial \x} \dx
 + \dx^T \frac{\partial^2 \El^K}{\partial \x \partial \s_K} \ds_K
 + \frac{1}{2} \dx^T \frac{\partial^2 \El^K}{\partial \x^2} \dx
-\left. \right) V_K
+ \right) V_K
 \end{split}
 \end{equation}
-where each of the derivatives is evaluated at $\x^t, \s^t, \la^t$. (\danny{Again  - should be updated over Newton iterations $i$ from $t$ to next iterate $i$ - right?)} The main difficulty in these derivatives is dealing with the derivative of the rotation term. We do this by defining the rotation in terms of the SVD of the deformation gradient,
+where each of the derivatives is evaluated at $\x^k, \s^k, \la^k$. The main difficulty in these derivatives is dealing with the derivative of the rotation term. We do this by defining the rotation in terms of the SVD of the deformation gradient,
 \begin{equation}
 R(\x) = U_K(\x) V_K(\x)^T \quad \text{where} \; F_K(\x) = U_K \Sigma_K V_K^T,
 \end{equation}
@@ -65,7 +69,7 @@ and
 + U_K \frac{\partial V_K^T}{\partial F_{ij}}.
 \end{equation}
 
-We now temporarily switch to indicial notation, and make $K$ a superscript. Our derivative is a tensor $\frac{\partial R_{ij}}{\partial F_{kl}} \in \R^{3 \times 3 \times 3 \times 3}$. Since our degrees of freedom are all written as vectors, we redefine this tensor by flattening the first two indices, and modifying the last two dimensions so that it has the effect of multiplying by a symmetric matrix and flattening the result. This gives us the tensor $\hat{W}^K_{ijk} \in \R^{9 \times 9 \times 6}$. In the same way that we have
+We now temporarily switch to indicial notation, and make $K$ a superscript. Our derivative is a tensor $\frac{\partial R_{ij}}{\partial F_{kl}} \in \R^{3 \times 3 \times 3 \times 3}$. Since our degrees of freedom are all written as vectors, we redefine this tensor by flattening the first two indices, and modifying the last two dimensions so that it has the effect of multiplying by a symmetric matrix and flattening the result. This gives us the tensor $\hat{W}^K_{ijk} \in \R^{9 \times 9 \times 6}$. So in the same way that we have
 \begin{equation}
 W^K_{ij}s^K_j = \text{vec}(R^K_{kl} S^K_{lm}),
 \end{equation}
@@ -73,7 +77,11 @@ we also have
 \begin{equation}
 \hat{W}^K_{ijk}s^K_{k} = \frac{\partial \text{vec}(R^K_{lm}S^K_{mn})}{\partial F_{(kl)}}.
 \end{equation}
-Now we write out each of the derivatives:
+The constraint energy in indicial notation for a single element is 
+\begin{equation}
+\El^K = \la_j^K(W^K_{jk}\s^K_k - J^K_{ij}\x_i),
+\end{equation}
+and the relevant derivatives are
 \begin{align}
 &\frac{\partial \El^K}{\partial \x_i} = 
 J_{ij}(\hat{W}^K_{jkl}\s^K_l - I_{jk})\la^K_k \\
