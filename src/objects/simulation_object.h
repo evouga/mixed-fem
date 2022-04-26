@@ -40,7 +40,7 @@ namespace mfem {
         bool weighted) = 0;
     virtual void jacobian_rotational(SparseMatrixdRowMajor& J,
         bool weighted) {}    
-
+    virtual void massmatrix_rotational(Eigen::SparseMatrixd& J) {}  
     double energy(Eigen::VectorXd x, std::vector<Eigen::Vector6d> s, Eigen::VectorXd la);
     void init();
 

@@ -14,8 +14,6 @@ void Simulator::step() {
   // Warm start solver
   if (config_->warm_start) {
     object_->warm_start();
-    //object_->update_gradients();
-
   }
   object_->update_gradients();
 

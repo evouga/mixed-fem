@@ -220,18 +220,20 @@ void SimObject::substep(bool init_guess) {
   if (!config_->local_global) 
     niter = pcg(dq_la_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_);
   else
-    niter = pcg(dq_la_, lhs_, rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_, 1e-8);
+    niter = pcg(dq_la_, lhs_+lhs_rot_, rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_, 1e-8);
 
-  ConjugateGradient<SparseMatrix<double>, Lower|Upper> cg;
-  int n = 10000;
-  cg.compute(lhs_);
-  dq_la_ = cg.solve(rhs_);
-  std::cout << "#iterations:     " << cg.iterations() << std::endl;
-  std::cout << "estimated error: " << cg.error()      << std::endl;
+  // ConjugateGradient<SparseMatrix<double>, Lower|Upper> cg;
+  // int n = 10000;
+  // cg.compute(lhs_);
+  // dq_la_ = cg.solve(rhs_);
+  // std::cout << "#iterations:     " << cg.iterations() << std::endl;
+  // std::cout << "estimated error: " << cg.error()      << std::endl;
+  double relative_error = (lhs_*dq_la_ - rhs_).norm() / rhs_.norm(); // norm() is L2 norm
 
   std::cout << "  - # PCG iter: " << niter << std::endl;
   std::cout << "  - RHS Norm: " << rhs_.norm() << std::endl;
-  std::cout << "  - Newton decrement: " << dq_la_.dot(-rhs_) << std::endl;
+  std::cout << "  - Newton decrement: " << dq_la_.dot(dq_la_) << std::endl;
+  //std::cout << "  - relative_error: " << relative_error << std::endl;
 
   end = high_resolution_clock::now();
   t_solve += duration_cast<nanoseconds>(end-start).count()/1e6;
@@ -452,15 +454,16 @@ void SimObject::update_gradients() {
 
   if (!config_->local_global) {
     update_rotations();
-    // jacobian_rotational(Jw_rot_, true);
-    // SparseMatrixd M(J_.cols(), J_.cols());
-    // int sz = V_.size() + T_.rows()*9;
-    // lhs_rot_.setZero();
-    // lhs_rot_.resize(sz, sz);
-    // std::vector<Triplet<double>> trips;
-    // kkt_lhs(M, -Jw_rot_, 1, trips); 
-    // lhs_rot_.setFromTriplets(trips.begin(),trips.end());
-    // lhs_rot_ = P_kkt_ * lhs_rot_ * P_kkt_.transpose();
+    jacobian_rotational(Jw_rot_, true);
+    SparseMatrixd M(J_.cols(), J_.cols());
+    int sz = V_.size() + T_.rows()*9;
+    massmatrix_rotational(M);
+    lhs_rot_.setZero();
+    lhs_rot_.resize(sz, sz);
+    std::vector<Triplet<double>> trips;
+    kkt_lhs(M, Jw_rot_, 1, trips); 
+    lhs_rot_.setFromTriplets(trips.begin(),trips.end());
+    lhs_rot_ = P_kkt_ * lhs_rot_ * P_kkt_.transpose();
   }
 
   #pragma omp parallel for
