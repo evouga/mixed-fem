@@ -23,22 +23,22 @@ There's several changes here compared to the the continuous form so we explain t
 \begin{equation}
 W_K s_K = \text{vec}(R_K S_K),
 \end{equation}
-and so it is constructed from $R_K$. $W_K$ is of size $9 \times 6$ because it has the effect of performing a matrix multiplication between the rotation matrix and a symmetric matrix, then flattening the result. To simplify notation we just write $W_K$ and $R_K$ but to be more precise we would write $W_K(F_K(\x))$ and $R_K(F_K(\x))$ to indicate that the rotation is a function of the deformation gradient for the current positional configuration. Lastly we have rewritten the deformation gradient as
+and so it is constructed from $R_K$. $W_K$ is of size $9 \times 6$ because it has the effect of performing a matrix multiplication between the rotation matrix and a symmetric matrix, then flattening the result. To simplify notation we just write $W_K$ and $R_K$ but to be more precise we would write $W_K(R_K(\x))$ and $R_K(F_K(\x))$ to indicate that the rotation is a function of the deformation gradient for the current positional configuration. Lastly we have rewritten the deformation gradient as
 \begin{equation}
 J_K \x = \text{vec}(F_K(\x))
 \end{equation}
 where $J_K \in \R^{9 \times dn}$ is a Jacobian matrix. 
 
-Next to make our energy more suitable for an iterative Newton-like method, we note that
+Next to make our energy more suitable for an iterative solver, we note that
 \begin{align*}
 \x^{k+1} &= \x^k + \dx \\
 \s^{k+1} &= \s^k + \ds \\
 \la^{k+1} &= \la^k + \dl,
 \end{align*}
-where $k$ corresponds to the current Newton iterate. With this we can instead solve for updates of our variables. Our discrete mixed energy becomes
+where $k$ corresponds to the current iterate. With this we can instead solve for updates of our variables. Our discrete mixed energy becomes
 \begin{equation}
 \begin{split}
-E(\x^{k+1}, \s^{k+1}, \la^{k+1}) &= \frac{1}{2h^2}||\x^{k+1} - \tilde{\x}||_M^2 \\
+E(\x^{k+1}, \s^{k+1}, \la^{k+1}) &= \frac{1}{2h^2}||\x^k + \dx - \tilde{\x}||_M^2 \\
 &+ \sum_{K \in \Th} \Psi(\s_K^k + \ds_K) V_K  \\
 &-  \sum_{K \in \Th} (\la_K^k + \dl_K) \cdot (W_K (\s_K^k + \ds_K) - J_K(\x^k + \dx)) V_K.
 \end{split}

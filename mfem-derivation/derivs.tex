@@ -4,31 +4,37 @@
 In the previous section we split our discrete mixed energy intro three different terms, and before we write our final system of equations for each Newton step, we need to sort out the necessary derivatives and energy approximations.
 
 \subsection{Kinetic Energy}
-Or kinetic energy term for $\x = \x^k + \dx$ is
+Or kinetic energy term is
 \begin{align}
-E_M (\x) &= \frac{1}{2h^2} ||x^k + \dx - \tilde{x}||_M^2 \\
+E_M (\x) &= \frac{1}{2h^2} ||\x - \tilde{x}||_M^2 \\
 \end{align}
-and its derivative with respect to $\dx$ is
+and its derivative with respect to $\x$ is
 \begin{equation}
 \begin{split}
-\frac{\partial E_M }{\partial \dx} &= \frac{1}{h^2}M(\dx + \x^k - \tilde{x}) \\
-&=  \frac{1}{h^2}M\dx + \gx
+\left. \frac{\partial E_M }{\partial \x} \right|_{\x^k} &= \frac{1}{h^2}M(\x^k - \tilde{\x}) \\
+&=  \gx
+\end{split},
+\end{equation}
+and its hessian is
+\begin{equation}
+\begin{split}
+\left. \frac{\partial^2 E_M }{\partial \x^2} \right|_{\x^k} &= \frac{1}{h^2}M \\
+&=  \Hx
 \end{split}
 \end{equation}
-where $\gx = \frac{1}{h^2}M(\x^k - \tilde{x})$
 
 \subsection{Deformation Energy}
 The deformation energy is typically quadratic or some higher order function of $\s$, so we take a quadratic approximation of the energy about $\s^k$, so that for $\s=\s^k + \ds$ we have
 
 \begin{equation}
-E_\Psi (\s) \approx \tilde{E}_\Psi (\s) = \sum_{K \in \Th} \left(\Psi(\s_K^k) + \ds_K^T \gs_K + \frac{1}{2}\ds_K^T H_K^k \ds_K \right) V_K
+E_\Psi (\s) \approx \tilde{E}_\Psi (\s) = \sum_{K \in \Th} \left(\Psi(\s_K^k) + \ds_K^T \gs_K + \frac{1}{2}\ds_K^T \Hsk \ds_K \right) V_K
 \end{equation}
 where 
 $\gs_K =\left.\frac{\partial \Psi}{\partial s_K}\right|_{\s_K^k}$ and
-$H_K^k=\left.\frac{\partial^2 \Psi}{\partial s_K^2}\right|_{s_K^k}$, and its derivative is simply
+$\Hsk=\left.\frac{\partial^2 \Psi}{\partial s_K^2}\right|_{s_K^k}$, and its derivative is simply
 \begin{equation}
 \frac{\partial \tilde{E}_\Psi}{\partial \ds_K} =
-\sum_{K \in \Th} \left(\gs_K + H_K^k \ds_K \right) V_K
+\sum_{K \in \Th} \left(\gs_K + \Hsk \ds_K \right) V_K
 \end{equation}
 
 
@@ -64,7 +70,7 @@ and
 + U_K \frac{\partial V_K^T}{\partial F_{ij}}.
 \end{equation}
 
-We now temporarily switch to indicial notation, and make $K$ a superscript. Our derivative is a tensor $\frac{\partial R_{ij}}{\partial F_{kl}} \in \R^{3 \times 3 \times 3 \times 3}$. Since our degrees of freedom are all written as vectors, we redefine this tensor by flattening the first two indices, and modifying the last two dimensions so that it has the effect of multiplying by a symmetric matrix and flattening the result. This gives us the tensor $\hat{W}^K_{ijk} \in \R^{9 \times 9 \times 6}$. In the same way that we have
+We now temporarily switch to indicial notation, and make $K$ a superscript. Our derivative is a tensor $\frac{\partial R_{ij}}{\partial F_{kl}} \in \R^{3 \times 3 \times 3 \times 3}$. Since our degrees of freedom are all written as vectors, we redefine this tensor by flattening the first two indices, and modifying the last two dimensions so that it has the effect of multiplying by a symmetric matrix and flattening the result. This gives us the tensor $\hat{W}^K_{ijk} \in \R^{9 \times 9 \times 6}$. So in the same way that we have
 \begin{equation}
 W^K_{ij}s^K_j = \text{vec}(R^K_{kl} S^K_{lm}),
 \end{equation}
@@ -72,7 +78,11 @@ we also have
 \begin{equation}
 \hat{W}^K_{ijk}s^K_{k} = \frac{\partial \text{vec}(R^K_{lm}S^K_{mn})}{\partial F_{(kl)}}.
 \end{equation}
-Now we write out each of the derivatives:
+The constraint energy in indicial notation for a single element is 
+\begin{equation}
+\El^K = \la_j^K(W^K_{jk}\s^K_k - J^K_{ij}\x_i),
+\end{equation}
+and the relevant derivatives are
 \begin{align}
 &\frac{\partial \El^K}{\partial \x_i} = 
 J_{ij}(\hat{W}^K_{jkl}\s^K_l - I_{jk})\la^K_k \\

@@ -292,6 +292,8 @@ void SimObject::reset_variables() {
   la_.resize(9 * T_.rows());
   la_.setZero();
   vt_.setZero();
+
+  E_prev = 0;
 }
 
 void SimObject::init() {
@@ -348,9 +350,8 @@ void SimObject::init() {
 
 void SimObject::warm_start() {
   double h = config_->h;
-  double h2 = config_->h * config_->h;
   dq_la_.segment(0, qt_.size()) =  h*vt_ + h*h*f_ext_;
-  dq_ = h*vt_ + h2*f_ext_; // NEW
+  dq_ = h*vt_ + h*h*f_ext_; // NEW
   ibeta_ = 1. / config_->beta;
  // la_.setZero();
   if (config_->local_global) {
@@ -401,7 +402,7 @@ void SimObject::warm_start() {
 
 }
 
-void SimObject::update_s(std::vector<Vector6d> s, const VectorXd& q) {
+void SimObject::update_s(std::vector<Vector6d>& s, const VectorXd& q) {
   VectorXd Jdq = J_*(P_.transpose()*(q - qt_));
   #pragma omp parallel for
   for (int i = 0; i < T_.rows(); ++i) {
@@ -427,10 +428,10 @@ void SimObject::linesearch(VectorXd& q, const VectorXd& dq) {
 
   VectorXd xt = q;
   VectorXd tmp;
-  linesearch_backtracking_bisection(xt, dq, value, tmp, 4, 1.0, 0.1, 0.5);
+  linesearch_backtracking_bisection(xt, dq, value, tmp,4,1.0,0.1,0.5,E_prev);
   update_s(S_, xt);
   q = xt;
-
+  E_prev = energy(xt, S_, la_);
 }
 
 void SimObject::linesearch() {
@@ -441,8 +442,6 @@ void SimObject::linesearch() {
 void SimObject::update_gradients() {
   
   ibeta_ = 1. / config_->beta;
-
-  // linesearch();
 
   if (!config_->local_global) {
     update_rotations();
@@ -471,7 +470,7 @@ void SimObject::update_positions() {
 
   dq_la_.setZero(); // TODO should we do this?
   dq_.setZero();
-  la_.setZero();
+  //la_.setZero();
 
   VectorXd q = P_.transpose()*qt_ + b_;
   MatrixXd tmp = Map<MatrixXd>(q.data(), V_.cols(), V_.rows());
@@ -499,15 +498,15 @@ double SimObject::energy(VectorXd x, std::vector<Vector6d> s, VectorXd la) {
     //std::cout << "s[i]: " << s[i].transpose() << std::endl;
     Epsi += material_->energy(s[i]) * vols_[i];
     // std::cout << "S_[i]: " << S_[i] << std::endl;
-    // std::cout << "s[i] E_psi: " << material_->energy(s[i]) * vols_[i] << std::endl;
-    // Matrix3d S = (svd.matrixV() * svd.singularValues().asDiagonal() * svd.matrixV().transpose());
-    // Vector6d stmp = Vector6d(S(0,0),S(1,1),S(2,2),S(1,0),S(2,0),S(2,1));
-    // std::cout << "sSVD E_psi: " << material_->energy(stmp) * vols_[i] << std::endl;
+    //  std::cout << "   s[i] E_psi: " << material_->energy(s[i]) * vols_[i] << std::endl;
+    //  Matrix3d S = (svd.matrixV() * svd.singularValues().asDiagonal() * svd.matrixV().transpose());
+    //  Vector6d stmp = Vector6d(S(0,0),S(1,1),S(2,2),S(1,0),S(2,0),S(2,1));
+    //  std::cout << "   sSVD E_psi: " << material_->energy(stmp) * vols_[i] << std::endl;
     Ela += la.segment(9*i,9).dot(W*s[i] - def_grad.segment(9*i,9)) * vols_[i];
   }
   double e = Em + Epsi - Ela;
   //std::cout << "E: " <<  e << " ";
-  //std::cout << "(Em: " << Em << " Epsi: " << Epsi << " Ela: " << Ela << ")" << std::endl;
+  //std::cout << "  - (Em: " << Em << " Epsi: " << Epsi << " Ela: " << Ela << ")" << std::endl;
   return e;
 
 }

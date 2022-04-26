@@ -65,8 +65,14 @@
 \newcommand{\fext}{\mathbf{f}_\text{ext}}
 \DeclareMathOperator*{\argmin}{arg\,min} 
 \newcommand{\El}{E_\Lambda}
-\newcommand{\gx}{ {\mathbf{g}_\x^k} }
-\newcommand{\gs}{ {\mathbf{g}_\s^k} }
+\newcommand{\Hx}{ {H_\x} }
+\newcommand{\Hs}{ {H_\s} }
+\newcommand{\Hsinv}{H_\s^{-1}}
+\newcommand{\Hsk}{ {H_{\s_K}} }
+\newcommand{\Hskinv}{H_{\s_K}^{-1}}
+
+\newcommand{\gx}{ {\mathbf{g}_\x} }
+\newcommand{\gs}{ {\mathbf{g}_\s} }
 
 
 \RestyleAlgo{ruled}
@@ -107,7 +113,7 @@ E(\x,\s,\la) \approx \tilde{E}(\x,\s,\la) &= E_M(\x^k) + E_\Psi(\s^k) - \El(\x^k
 \frac{\partial}{\partial \x} \left(\frac{\partial \C}{\partial \x} \la^k\right)
 \right)(\x - \x^k) & \\
 \end{align*}
-Next we cancel out some terms and also take the second derivative of $\C$ to be zero and get
+where all derivatives are evaluated at $\x^k, \s^k$, and $\la^k$. Next we cancel out some terms and also take the second derivative of $\C$ with respect to $\x$ to be zero and get
 \begin{equation}
 \begin{split}
 \tilde{E}(\x,\s,\la) &=  E_M(\x^k) + E_\Psi(\s^k) + 
@@ -125,7 +131,7 @@ Next we cancel out some terms and also take the second derivative of $\C$ to be 
 \right)(\x - \x^k), \\
 \end{split}
 \end{equation}
-and now using that $x - x^k = \dx$ and $\s - \s^k = \ds$:
+and now substituting in $\dx = \x - \x^k$ and $\ds = \s - \s^k$:
 \begin{equation}
 \begin{split}
 \tilde{E}(\x,\s,\la) &=  E_M(\x^k) + E_\Psi(\s^k) + 
@@ -142,7 +148,12 @@ and now using that $x - x^k = \dx$ and $\s - \s^k = \ds$:
 + \frac{1}{2} \dx^T \left(\frac{\partial^2 E_M}{\partial \x^2}
 \right)\dx. \\
 &\\
-&=  E_M(\x^k) + E_\Psi(\s^k) + 
+\end{split}
+\end{equation}
+Finally we substitute some of the gradient terms we've previously defined:
+\begin{equation}
+\begin{split}
+\tilde{E}(\x,\s,\la) &=  E_M(\x^k) + E_\Psi(\s^k) + 
 \dx^T \gx
 + \ds^T \gs
  - \la^T \C (\x^k, \s^k) \\
@@ -152,8 +163,8 @@ and now using that $x - x^k = \dx$ and $\s - \s^k = \ds$:
   \frac{\partial \C }{\partial \x}
 +  \ds^T  
   \frac{\partial \C }{\partial \s} \right) \la \\
-& + \frac{1}{2}\ds^T H^k \ds
-+ \frac{1}{2h^2} \dx^T M \dx. \\
+& + \frac{1}{2}\ds^T \Hs \ds
++ \frac{1}{2} \dx^T \Hx \dx. \\
 \end{split}
 \end{equation}
 
@@ -162,10 +173,10 @@ Now to setup our system of equations, we differentiate our energy with respect t
 
 
 \subsection{Equation for $\dx$}
-Last we differentiate $\tilde{E}$ with respect to $\dx$ (we omit $\frac{\partial^2 \C_K}{ \partial \x^2} \dx$ for now):
+Last we differentiate $\tilde{E}$ with respect to $\dx$ (we omit the $\frac{\partial^2 \C_K}{ \partial \x^2}$ term for now):
 
 \begin{equation}
-\frac{\partial \tilde{E}}{\partial \dx} = \frac{1}{h^2}M\dx + \gx 
+\frac{\partial \tilde{E}}{\partial \dx} = \Hx\dx + \gx 
 - \sum_{K \in \Th} \left(
 J_K^T(\hat{W}_K^{k}\cdot \la_K^k) \ds_K +
 J_K^T(\hat{W}_K^{k}\cdot \s_K^k - I)\la_K
@@ -176,12 +187,12 @@ J_K^T(\hat{W}_K^{k}\cdot \s_K^k - I)\la_K
 \subsection{Equation for $\ds$}
 We start by differentiating $\tilde{E}$ with respect to $\ds$:
 \begin{equation}
-\frac{\partial \tilde{E}^K}{\partial \ds_K} =  \gs_K + H_K^k \ds_K -
+\frac{\partial \tilde{E}^K}{\partial \ds_K} =  \gs_K + \Hsk \ds_K -
 {W_K^k}^T \la_K - (\hat{W}_K^{k}\cdot \la_K^k)^T J_K \dx
 \end{equation}
 where $(\hat{W}_K^{t}\cdot \la_K^t)$ performs a reduction over the middle index of $\hat{W}^K_{ijk}$. Setting this derivative equal to zero and solving for $\ds_K$ gives
 \begin{equation}
-\ds_K = {H_K^k}^{-1} \left( {W_K^k}^T \la_K + (\hat{W}_K^{k}\cdot \la_K^k)^T J_K \dx - \gs \right).
+\ds_K = \Hskinv \left( {W_K^k}^T \la_K + (\hat{W}_K^{k}\cdot \la_K^k)^T J_K \dx - \gs \right).
 \end{equation}
 
 \subsection{Equation for $\dl$}
@@ -204,12 +215,12 @@ F &= - \sum_{K \in \Th} {P_K^\s}^T \left((\hat{W}_K^{k}\cdot \la_K^k)^T J_K^w \r
 G &= J^w - \sum_{K \in \Th} {P_K^\la}^T \left((\hat{W}_K^{k}\cdot \s_K^k)^T J_K^w \right) \\
 D &= -\sum_{K \in \Th} {P_K^\la}^T  W_K^k P_K^\s
 \end{align}
-where $J^w$ is the volume weighted Jacobian, and $P_K^\la \in \R^{9 \times 9n_e}$ and $P_K^\s \in \R^{6 \times 6n_e}$ are selection matrics for the $K$-th set of Lagrange multipliers and deformation variables, respectively. Additionally $H^k$ is the block diagonal Hessian for $s^k$. We form the system by setting each of the derivatives with respect to the $\delta$-variables equal to zero and get
+where $J^w$ is the volume weighted Jacobian, and $P_K^\la \in \R^{9 \times 9n_e}$ and $P_K^\s \in \R^{6 \times 6n_e}$ are selection matrics for the $K$-th set of Lagrange multipliers and deformation variables, respectively. Additionally $\Hs$ is the block diagonal Hessian for $s^k$. We form the system by setting each of the derivatives with respect to the $\delta$-variables equal to zero and get
 
 \begin{equation}
 \begin{pmatrix}
-\frac{1}{h^2}M & F^T & G^T \\
-F & H & D^T\\
+\Hx & F^T & G^T \\
+F & \Hs & D^T\\
 G & D & 0
 \end{pmatrix}
 \begin{pmatrix}
@@ -226,44 +237,44 @@ G & D & 0
 
 Next, to get this thing in a KKT-like form we substitute the solution for the $\ds$ into the other equations. So we have
 \begin{equation}
-\ds = {H}^{-1}\left(-\gs - D^T \la - F\dx \right),
+\ds = \Hsinv \left(-\gs - D^T \la - F\dx \right),
 \end{equation}
 and sorry cause it's about to get a little ugly, but for the first set of equations we have
 \begin{equation*}
-\frac{1}{h^2}M\dx + F^TH^{-1}\left(-\gs - D^T\la - F\dx \right) +G^T \la = -\gx
+\Hx\dx + F^T\Hsinv \left(-\gs - D^T\la - F\dx \right) +G^T \la = -\gx
 \end{equation*}
 and collect terms to get
 \begin{equation}
-\left(\frac{1}{h^2}M - F^TH^{-1}F \right)\dx + (G^T - F^TH^{-1}D^T)\la = 
-F^TH^{-1}\gs -\gx.
+\left(\Hx - F^T\Hsinv F \right)\dx + (G^T - F^T\Hsinv D^T)\la = 
+F^T\Hsinv \gs -\gx.
 \end{equation}
 Next we substitute the solution for $\ds$ into the equations for $\la$:
 \begin{equation*}
-G\dx + DH^{-1}\left(-\gs - D^T\la - F\dx\right) = \C (\x^k, \s^k)
+G\dx + D\Hsinv \left(-\gs - D^T\la - F\dx\right) = \C (\x^k, \s^k)
 \end{equation*}
 and collect terms so that we have
 \begin{equation}
-(G - DH^{-1}F)\dx - DH^{-1}D^T\la = \C (\x^k, \s^k) + DH^{-1}\gs.
+(G - D\Hsinv F)\dx - D\Hsinv D^T\la = \C (\x^k, \s^k) + D\Hsinv\gs.
 \end{equation}
 Before moving the equations back into matrix form, we define the following variables:
 \begin{align}
-\tilde{M} &= (\frac{1}{h^2}M - F^TH^{-1}F) \\
-\tilde{J} &= (G - DH^{-1}F). 
+\tilde{M} &= (\Hx - F^T\Hs^{-1}F) \\
+\tilde{J} &= (G - D\Hsinv F). 
 \end{align}
 
 Now our final system of equations for a single Newton step is
 \begin{equation}
 \begin{pmatrix}
 \tilde{M} & \tilde{J}^T \\
-\tilde{J} & -DH^{-1}D^T 
+\tilde{J} & -D\Hsinv D^T 
 \end{pmatrix}
 \begin{pmatrix}
 \dx \\
 \la
 \end{pmatrix} =
 \begin{pmatrix}
-F^TH^{-1}\gs -\gx \\
-\C (\x^k, \s^k) + DH^{-1}\gs
+F^T\Hsinv\gs -\gx \\
+\C (\x^k, \s^k) + D\Hsinv\gs
 \end{pmatrix}.
 \end{equation}
 

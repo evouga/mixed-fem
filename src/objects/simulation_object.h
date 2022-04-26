@@ -54,7 +54,7 @@ namespace mfem {
     // Update per-element S, symmetric deformation, and R, rotation matrices
     virtual void fit_rotations(Eigen::VectorXd& dq, Eigen::VectorXd& la);
     virtual void update_rotations();
-    virtual void update_s(std::vector<Eigen::Vector6d> s, const Eigen::VectorXd& q);
+    virtual void update_s(std::vector<Eigen::Vector6d>& s, const Eigen::VectorXd& q);
     virtual void linesearch(Eigen::VectorXd& q, const Eigen::VectorXd& dq);
     virtual void linesearch();
 
@@ -116,6 +116,7 @@ namespace mfem {
     Eigen::SparseMatrixd lhs_;
     Eigen::SparseMatrixd lhs_reg_; // regularized mass matrix
     Eigen::SparseMatrixd lhs_rot_; // regularized mass matrix
+    double E_prev = 0;
 
 
 

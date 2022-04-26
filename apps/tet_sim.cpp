@@ -276,7 +276,7 @@ int main(int argc, char **argv) {
   // Initial simulation setup
   config = std::make_shared<SimConfig>();
   config->plane_d = a(1);
-  config->inner_steps=2;
+  config->inner_steps=1;
   material_config = std::make_shared<MaterialConfig>();
   material = std::make_shared<StableNeohookean>(material_config);
   tet_object = std::make_shared<TetrahedralObject>(meshV, meshT,

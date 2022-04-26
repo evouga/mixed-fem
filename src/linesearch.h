@@ -29,10 +29,11 @@ namespace mfem {
       Scalar alpha,
       Scalar c,
       Scalar p,
+      Scalar fx0,
       const Callback func = default_linesearch_callback) {
 
     unsigned int iteration_count = 0;
-    Scalar fx0 = f(x);
+    fx0 = f(x);
     
     bool done = false;
     while (iteration_count < max_iterations && !done) {
@@ -49,7 +50,7 @@ namespace mfem {
     }
 
     x += alpha*d;
-    printf("  - LS: f(x): %.5g, f(x + a*d): %.5g, alpha: %.5g\n", fx0, f(x), alpha);
+    printf("  - LS: f(x0): %.5g, f(x + a*d): %.5g, alpha: %.5g\n", fx0, f(x), alpha);
     return (iteration_count == max_iterations); 
     //std::cout << "f(x): " << f(x) << " alpha: " << alpha << std::endl;
     //std::cout << "f(x+alpha*d): " << f(x + alpha * d) << " f(x): " << f(x) << " cg'd: " << alpha * (c * g.transpose()*d) << std::endl;
