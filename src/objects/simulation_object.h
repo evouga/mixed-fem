@@ -83,7 +83,6 @@ namespace mfem {
 
     std::vector<Eigen::Matrix3d> R_;    // Per-element rotations
     std::vector<Eigen::Vector6d> S_;    // Per-element deformation
-    std::vector<Eigen::Vector6d> dS_;   // Per-element deformation update
     std::vector<Eigen::Matrix6d> Hinv_; // Elemental hessians w.r.t dS
     std::vector<Eigen::Vector6d> g_;    // Elemental gradients w.r.t dS
     std::vector<Eigen::Matrix9d> dRS_;  // dRS/dF where each row is dRS/dF_ij

@@ -216,13 +216,22 @@ void SimObject::substep(bool init_guess) {
   t_asm += duration_cast<nanoseconds>(end-start).count()/1e6;
   start = end;
 
-  std::cout << "  - RHS Norm: " << rhs_.norm() << std::endl;
   int niter;
   if (!config_->local_global) 
     niter = pcg(dq_la_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_);
   else
     niter = pcg(dq_la_, lhs_, rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_, 1e-8);
+
+  ConjugateGradient<SparseMatrix<double>, Lower|Upper> cg;
+  int n = 10000;
+  cg.compute(lhs_);
+  dq_la_ = cg.solve(rhs_);
+  std::cout << "#iterations:     " << cg.iterations() << std::endl;
+  std::cout << "estimated error: " << cg.error()      << std::endl;
+
   std::cout << "  - # PCG iter: " << niter << std::endl;
+  std::cout << "  - RHS Norm: " << rhs_.norm() << std::endl;
+  std::cout << "  - Newton decrement: " << dq_la_.dot(-rhs_) << std::endl;
 
   end = high_resolution_clock::now();
   t_solve += duration_cast<nanoseconds>(end-start).count()/1e6;
@@ -270,7 +279,6 @@ void SimObject::reset_variables() {
   // Initialize rotation matrices to identity
   R_.resize(T_.rows());
   S_.resize(T_.rows());
-  dS_.resize(T_.rows());
   Hinv_.resize(T_.rows());
   g_.resize(T_.rows());
   dRS_.resize(T_.rows());
@@ -278,7 +286,6 @@ void SimObject::reset_variables() {
   for (int i = 0; i < T_.rows(); ++i) {
     R_[i].setIdentity();
     S_[i] = I_vec;
-    dS_[i].setZero();
     dRS_[i].setZero();
     dRL_[i].setZero();
     Hinv_[i].setIdentity();

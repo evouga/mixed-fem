@@ -267,18 +267,22 @@ Before moving the equations back into matrix form, we define the following varia
 
 Now our final system of equations for a single Newton step is
 \begin{equation}
+\underbrace{
 \begin{pmatrix}
 \tilde{M} & \tilde{J}^T \\
 \tilde{J} & -D\Hsinv D^T 
 \end{pmatrix}
+}_H
 \begin{pmatrix}
 \dx \\
 \la
 \end{pmatrix} =
+\underbrace{
 \begin{pmatrix}
 F^T\Hsinv\gs -\gx \\
 \C (\x^k, \s^k) + D\Hsinv\gs
-\end{pmatrix}.
+\end{pmatrix}
+}_\mathbf{g} .
 \end{equation}
 
 \section{The various numerical methods}
@@ -310,7 +314,7 @@ iter $\gets 0$\;
 	$H,\mathbf{g} = \text{compute\_gradients}(\x,\s,\la)$\;
 	\BlankLine
 	\tcp{Descent direction}
-	$\dx,\la = -H^{-1} \mathbf{g}$\;
+	$\dx,\la = H^{-1} \mathbf{g}$\;
 	
 	$\alpha \gets 1$\;
 	\Do{$\text{energy}(\x,\s,\la)$}{
