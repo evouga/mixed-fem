@@ -57,56 +57,31 @@ void SimObject::build_rhs() {
   VectorXd q = P_.transpose()*qt_+b_;
 
   // Positional forces 
-  rhs_.segment(0, qt_.size()) = f_ext_ + config_->h*config_->ih2*M_*vt_;
+  double h = config_->h;
+  double ih2 = config_->ih2;
+  rhs_.segment(0, qt_.size()) = ih2*M_*(qt_ - q0_ - h*vt_ - h*h*f_ext_);
 
-  VectorXd la_rhs;
-  //if (config_->regularizer) {
-    la_rhs.resize(T_.rows() * 9);
-  //}
-
+  VectorXd la_rhs(T_.rows() * 9);
 
   // Lagrange multiplier forces
   #pragma omp parallel for
   for (int i = 0; i < T_.rows(); ++i) {
     Vector9d rhs = material_->rhs(R_[i], S_[i], Hinv_[i], g_[i]);
-    Matrix<double,9,6> W;
-    Wmat(R_[i],W);
-    //rhs += W*Hinv_[i]*W.transpose()*la_.segment(9*i,9);
 
-    if (config_->regularizer) {
-      Matrix<double, 9, 6> W;
-      Wmat(R_[i], W);
-      rhs -= config_->kappa * W * (Hinv_[i] * W.transpose() * W * S_[i]);
-      la_rhs.segment(9*i, 9) = rhs;
-    } else if (!config_->local_global) {
-        
+    if (!config_->local_global) {
       Vector6d gs = material_->gradient(R_[i], S_[i]);
       Vector9d la = la_.segment(9*i,9);
-      Vector9d tmp1 =  -dRL_[i] * Hinv_[i] * gs;
-      la_rhs.segment(9*i, 9) = tmp1;
-
-      // Vector9d tmp2 = (dRL_[i] * Hinv_[i] * W.transpose() + dRS_[i].transpose()
-      //     - Matrix9d::Identity()) * la;
-      // la_rhs.segment(9*i, 9) = tmp1 + tmp2;
+      la_rhs.segment(9*i, 9) = -dRL_[i] * Hinv_[i] * gs;
     }
     rhs_.segment(qt_.size() + 9*i, 9) = vols_(i) * rhs;
 
   }
 
-  if (config_->regularizer) {
-    rhs_.segment(0, qt_.size()) += config_->kappa * P_ * Jw_.transpose() 
-        * (la_rhs - (J_ - J_tilde_) * q);
-  } else if (!config_->local_global) {
+  if (!config_->local_global) {
     rhs_.segment(0, qt_.size()) += P_ * Jw_.transpose() * la_rhs;
   }
 
-
-  // Jacobian term
-  if (config_->regularizer) {
-    rhs_.segment(qt_.size(), 9*T_.rows()) -= (Jw_ - Jw_tilde_) * q;
-  } else {
-    rhs_.segment(qt_.size(), 9*T_.rows()) -= Jw_*q;
-  }
+  rhs_.segment(qt_.size(), 9*T_.rows()) -= Jw_*q;
 }
 
 // Call after outer iteration
@@ -188,20 +163,9 @@ void SimObject::update_SR() {
       if (i >= T_.rows())
         break;
       Vector9d li = ibeta_*(la.segment(9*i,9)/fac) + def_grad.segment(9*i,9);
-      if (config_->regularizer) {
-        li = (la.segment(9*i,9))/fac
-           + def_grad.segment(9*i,9)*config_->kappa;
-      }
-      
+
       // Update S[i] using new lambdas
-      if (config_->regularizer) {
-        Matrix<double, 9, 6> W;
-        Wmat(R_[i], W);
-        dS_[i] = material_->dS(R_[i], S_[i], la.segment(9*i,9)
-            + config_->kappa * def_grad.segment(9*i,9)
-            - config_->kappa * W * S_[i]
-            , Hinv_[i]);
-      } else if (!config_->local_global) {
+      if (!config_->local_global) {
         dS_[i] = material_->dS(R_[i], S_[i], la.segment(9*i,9), Hinv_[i])
                + Hinv_[i] * dRL_[i].transpose() * Jdq.segment(9*i,9);
       } else {
@@ -267,9 +231,7 @@ void SimObject::substep(bool init_guess) {
 
   std::cout << "RHS Norm: " << rhs_.norm() << std::endl;
   int niter;
-  if (config_->regularizer)
-    niter = pcg(dq_la_, lhs_ + lhs_reg_, rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_);
-  else if (!config_->local_global) 
+  if (!config_->local_global) 
     niter = pcg(dq_la_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_);
   else
     niter = pcg(dq_la_, lhs_, rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_, 1e-8);
@@ -375,9 +337,7 @@ void SimObject::init() {
   b_ = qt_ - P_.transpose()*P_*qt_;
   qt_ = P_ * qt_;
   q0_ = qt_;
-  q1_ = qt_;
-  dq_la_ = 0*qt_;
-  dq_la_.resize(V_.size() + 9*T_.size(),1);
+  dq_la_.resize(qt_.size() + 9*T_.rows(),1);
   dq_la_.setZero();
   tmp_r_ = dq_la_;
   tmp_z_ = dq_la_;
@@ -394,21 +354,61 @@ void SimObject::init() {
 
   // External gravity force
   Vector3d ext = Map<Vector3f>(config_->ext).cast<double>();
-  f_ext_ = M_ * P_ * ext.replicate(V_.rows(),1);
-  f_ext0_ = P_ * ext.replicate(V_.rows(),1);
-  SimplicialLDLT<SparseMatrixd> llt(M_);
-  f_ext1_ = llt.solve(f_ext0_);
+  f_ext_ = P_ * ext.replicate(V_.rows(),1);
 }
 
 void SimObject::warm_start() {
   double h = config_->h;
   double h2 = config_->h * config_->h;
-  dq_la_.segment(0, qt_.size()) =  h*vt_ + h*h*f_ext0_;
-  dq_ = h*vt_ + h2*f_ext0_; // NEW
+  dq_la_.segment(0, qt_.size()) =  h*vt_ + h*h*f_ext_;
+  dq_ = h*vt_ + h2*f_ext_; // NEW
   ibeta_ = 1. / config_->beta;
  // la_.setZero();
 
   update_SR();
+
+  qt_ += dq_;
+  dq_la_.setZero();
+  dq_.setZero();
+
+
+/////////////////
+  VectorXd def_grad = J_*(P_.transpose()*qt_+b_);
+  int N = (T_.rows() / 4) + int(T_.rows() % 4 != 0);
+
+  #pragma omp parallel for 
+  for (int ii = 0; ii < N; ++ii) {
+    Matrix<float,12,3> F4,R4,U4,V4;
+    Matrix<float,12,1> S4;
+    // SSE implementation operates on 4 matrices at a time, so assemble
+    // 12 x 3 matrices
+    for (int jj = 0; jj < 4; ++jj) {
+      int i = ii*4 +jj;
+      if (i >= T_.rows())
+        break;
+      Matrix3d f4 = Map<Matrix3d>(def_grad.segment(9*i,9).data());
+      F4.block(3*jj, 0, 3, 3) = f4.cast<float>();
+    }
+
+    svd3x3_sse(F4, U4, S4, V4);
+
+    for (int jj = 0; jj < 4; ++jj) {
+      int i = ii*4 +jj;
+      if (i >= T_.rows())
+        break;
+      
+      Matrix3d S = S4.segment(3*jj,3).cast<double>().asDiagonal();
+      Matrix3d V = V4.block(3*jj,0,3,3).cast<double>();
+      S = (V  * S * V.transpose());
+      MatrixXd R = (U4.block(3*jj,0,3,3).cast<double>() * V.transpose());
+      S_[i] = Vector6d(S(0,0),S(1,1),S(2,2),S(1,0),S(2,0),S(2,1));
+      Matrix<double,9,6> W;
+      Wmat(R,W);
+      std::cout << "RS: \n " << R*S << " def grad: " << def_grad.segment(9*i,9) << "\n Ws: " << W*S_[i] << std::endl;
+    }
+  }
+/////////////////
+
 }
 
 
@@ -417,14 +417,14 @@ void SimObject::update_gradients() {
   ibeta_ = 1. / config_->beta;
 
   std::vector<Vector6d> s(S_.size());
-  // Update vars
-  #pragma omp parallel for
-  for (int i = 0; i < T_.rows(); ++i) {
-    s[i] = S_[i] + dS_[i];
-  }
+  // // Update vars
+  // #pragma omp parallel for
+  // for (int i = 0; i < T_.rows(); ++i) {
+  //   s[i] = S_[i] + dS_[i];
+  // }
 
-  la_ = dq_la_.segment(qt_.size(), 9*T_.rows());
-  energy(qt_ + dq_, s, la_);
+  // la_ = dq_la_.segment(qt_.size(), 9*T_.rows());
+  // energy(qt_ + dq_, s, la_);
 
   auto value = [&](const VectorXd& x) {
     VectorXd Jdq = J_*(P_.transpose()*(x - qt_));
@@ -472,7 +472,6 @@ void SimObject::update_gradients() {
   if (!config_->local_global) {
     update_SR2();
     // jacobian_rotational(Jw_rot_, true);
-
     // SparseMatrixd M(J_.cols(), J_.cols());
     // int sz = V_.size() + T_.rows()*9;
     // lhs_rot_.setZero();
@@ -485,48 +484,17 @@ void SimObject::update_gradients() {
 
   #pragma omp parallel for
   for (int i = 0; i < T_.rows(); ++i) {
-    if (config_->regularizer) {
-      Hinv_[i] = material_->hessian_inv(R_[i],S_[i],config_->kappa);
-    } else {
-      Hinv_[i] = material_->hessian_inv(R_[i],S_[i]);
-    }
+    Hinv_[i] = material_->hessian_inv(R_[i],S_[i]);
     g_[i] = material_->gradient(R_[i], S_[i]);
-  }
-
-  if (config_->regularizer) {
-    jacobian_regularized(J_tilde_, false);
-    jacobian_regularized(Jw_tilde_, true);
-
-    SparseMatrixd M_reg = Jw_.transpose() * (J_ - J_tilde_);
-    int sz = V_.size() + T_.rows()*9;
-    lhs_reg_.setZero();
-    lhs_reg_.resize(sz, sz);
-    std::vector<Triplet<double>> trips;
-    kkt_lhs(M_reg, -Jw_tilde_, config_->kappa, trips); 
-    lhs_reg_.setFromTriplets(trips.begin(),trips.end());
-    lhs_reg_ = P_kkt_ * lhs_reg_ * P_kkt_.transpose();
   }
 }
 
 void SimObject::update_positions() {
 
-  ///
-  // #pragma omp parallel for
-  // for (int i = 0; i < T_.rows(); ++i) {
-  //   //S_[i] += dS_[i];
-  //   //dS_[i].setZero();
-  // }
-
-  // qt_ += dq_;
-  // la_ = dq_la_.segment(qt_.size(), 9*T_.rows());
-  ///
-
   vt_ = (qt_ - q0_) / config_->h;
-  q1_ = q0_;
   q0_ = qt_;
 
   dq_la_.setZero(); // TODO should we do this?
-  //dq_la_.segment(0, qt_.size()) = dq_;
   dq_.setZero();
   la_.setZero();
 
@@ -540,7 +508,7 @@ double SimObject::energy(VectorXd x, std::vector<Vector6d> s, VectorXd la) {
 //config_->ih2
   double h = config_->h;
   double h2 = config_->h * config_->h;
-  VectorXd xdiff = x - qt_ - h * vt_ - h2*f_ext1_;
+  VectorXd xdiff = x - qt_ - h * vt_ - h2*f_ext_;
   double Em = 0.5*config_->ih2* xdiff.transpose()*M_*xdiff;
   double Epsi = 0, Ela = 0;
 

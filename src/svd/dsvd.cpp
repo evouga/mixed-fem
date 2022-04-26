@@ -146,7 +146,7 @@ void dsvd(Ref<const Matrix3d> Fin, Ref<const Matrix3d> Uin,
       
       dU = U*tmp;
 
-      dR_dF[3*s + r] = dU*Vt + U*dVt;
+      dR_dF[3*s + r] = dU*Vt.transpose() + U*dVt.transpose();
                     
     }
   }

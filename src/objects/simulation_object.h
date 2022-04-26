@@ -101,11 +101,11 @@ namespace mfem {
     Eigen::VectorXd qt_;    // current positions
     Eigen::VectorXd vt_;    // current velocities
     Eigen::VectorXd q0_;    // previous positions
-    Eigen::VectorXd q1_;    // previous^2 positions
+    //Eigen::VectorXd q1_;    // previous^2 positions
     Eigen::VectorXd dq_;    // current update
     Eigen::VectorXd f_ext_; // per-node external forces
-    Eigen::VectorXd f_ext0_;// per-node external forces (not integrated)
-    Eigen::VectorXd f_ext1_;// per-node external forces (not integrated)
+    //Eigen::VectorXd f_ext0_;// per-node external forces (not integrated)
+    //Eigen::VectorXd f_ext1_;// per-node external forces (not integrated)
     Eigen::VectorXd la_;    // lambdas
     Eigen::VectorXd b_;     // coordinates projected out
     Eigen::VectorXd vols_;  // per element volume
