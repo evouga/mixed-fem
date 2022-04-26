@@ -31,6 +31,7 @@ $H_K^t=\left.\frac{\partial^2 \Psi}{\partial s_K^2}\right|_{s_K^t}$, and its der
 \sum_{K \in \Th} \left(g_K^t + H_K^t \ds_K \right) V_K
 \end{equation}
 
+\danny{The above gradient and Hessian terms should be updated to the new iterate after each Newton step. If I follow your notation they look like they are staying fixed at values from time $t$ throughout?} 
 
 \subsection{Constraint Energy}
 
@@ -54,7 +55,7 @@ where we have $\x = \x^t + \dx$, $\s = \s^t + \ds$, and $\la = \la^t + \dl$. And
 \left. \right) V_K
 \end{split}
 \end{equation}
-where each of the derivatives is evaluated at $\x^t, \s^t, \la^t$. The main difficulty in these derivatives is dealing with the derivative of the rotation term. We do this by defining the rotation in terms of the SVD of the deformation gradient,
+where each of the derivatives is evaluated at $\x^t, \s^t, \la^t$. (\danny{Again  - should be updated over Newton iterations $i$ from $t$ to next iterate $i$ - right?)} The main difficulty in these derivatives is dealing with the derivative of the rotation term. We do this by defining the rotation in terms of the SVD of the deformation gradient,
 \begin{equation}
 R(\x) = U_K(\x) V_K(\x)^T \quad \text{where} \; F_K(\x) = U_K \Sigma_K V_K^T,
 \end{equation}

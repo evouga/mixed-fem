@@ -1,19 +1,19 @@
 \section{Problem Setup}
 
 \subsection{Continuous Problem}
-We begin with our continuous mixed energy. We write the energy as an integral over a reference domain $\Omega \subset \R^d$. For notation we denote vectors by bold lower case letters, matrices by upper-case letters, and scalars by lower case letters. Our mixed energy is a function of deformed coordinates, $\x \in \R^d$, symmetric deformation matrices $S \in \R^{d \times d}$, and Lagrange multipliers $\Lambda \in \R^{d \times d}$. Our continuous mixed variational is 
+We begin with our continuous mixed energy. We write the energy as an integral over a reference domain $\Omega \subset \R^d$. For notation we denote vectors by bold lower case letters, matrices by upper-case letters, and scalars by lower case letters. Our mixed energy is a function of deformed coordinates, $\x \in \R^d$, symmetric deformation matrices $S \in \R^{d \times d}$, and Lagrange multipliers $\Lambda \in \R^{d \times d}$. Our continuous mixed variational is. \danny{(Note: this is a funny semi-discretization - we've discretized in time so far -- using Backwards Euler but not space - notice a lo of FE papers do the opposite to get an ODE first by discretizing in space first. No reason we need to start with this vs the other - right? Also we could propose the setup in the fully continuous setting first too - right?)} 
 
 \begin{equation}
 \mathcal{L}(\x,S,\Lambda) = \int_\Omega \frac{\rho}{2h^2} ||\x - \tilde{\x}||_2^2 
 + \Psi(S) - \Lambda : (R(\x)S - F(\x)) dV
 \end{equation}
-where $h$ is the timestep, $\rho$ is the density, and $\tilde{\x} = \x^t + h\dot{\x}^t + h^2 \fext$. In the mixed formulation, our strain energy density function $\Psi$ is now a function of $S$ rather than the deformed coordinates. $R$ is the rotation matrix from the polar decomposition of the deformation gradient, $F(\x) = R(\x)S(\x)$.
+where $h$ is the timestep, $\rho$ is the density, and $\tilde{\x} = \x^t + h\dot{\x}^t + h^2 \fext$. In the mixed formulation, our strain energy density function $\Psi$ is now a function of $S$ rather than the deformed coordinates. $R$ is the rotation matrix from the polar decomposition of the deformation gradient, $F(\x) = R(\x)S(\x)$. \danny{Where specifically we have $R(F(x))$ to indicate $R$ is a projection of the deformation gradient onto SO(3)).}
 
 \subsection{Discretized Energy}
 
 We represent the domain by $\mathcal{T} \equiv \{K_i\}_{i=1}^{n_e}$ consisting of a set of elements $K_1,\dots,K_{n_e}$.
 Per-element variables are represent by a subscript $K$. Our deformed coordinates are discretized on a nodal mesh, such as triangles or tetrahedra, and are stored in the vector $\x \in \R^{dn}$ for $n$ nodes.
-From this point on we'll assume we're working with linear tetrahedral elements in 3D, so we will have a single integration point per element and the integration weight just becomes the volume of the element, $V_K$. Using an implicit euler time integrator, our discrete variational form for the timestep $t+1$ is
+From this point on we'll assume we're working with linear tetrahedral elements in 3D, so we will have a single integration point per element and the integration weight just becomes the volume of the element, $V_K$.\danny{($V_K$ is just a scalar - right? If so can we make it lower case?)} Using an implicit euler time integrator, our discrete variational form for the timestep $t+1$ is
 
 \begin{equation}
 \x^{t+1}, \s^{t+1}, \la^{t+1} = \argmin_{\x,\s,\la} \frac{1}{2h^2}||\x - \tilde{\x}||_M^2 
@@ -23,7 +23,7 @@ There's several changes here compared to the the continuous form so we explain t
 \begin{equation}
 W_K s_K = \text{vec}(R_K S_K),
 \end{equation}
-and so it is constructed from $R_K$. $W_K$ is of size $9 \times 6$ because it has the effect of performing a matrix multiplication between the rotation matrix and a symmetric matrix, then flattening the result. To simplify notation we just write $W_K$ and $R_K$ but to be more precise we would write $W_K(F_K(\x))$ and $R_K(F_K(\x))$ to indicate that the rotation is a function of the deformation gradient for the current positional configuration. Lastly we have rewritten the deformation gradient as
+and so it is constructed from $R_K$. $W_K$ is of size $9 \times 6$ because it has the effect of performing a matrix multiplication between the rotation matrix and a symmetric matrix, then flattening the result. To simplify notation we just write $W_K$ and $R_K$ but to be more precise we would write $W_K(F_K(\x))$ and $R_K(F_K(\x))$ to indicate that the rotation is a function of the deformation gradient for the current positional configuration. \danny{(More messy looking but I'd prefer to write those dependencies out explicitly in our energies to avoid bugs and misunderstanding downstream.)} Lastly we have rewritten the deformation gradient as
 \begin{equation}
 J_K \x = \text{vec}(F_K(\x))
 \end{equation}
@@ -49,4 +49,4 @@ To simplify things for derivations we split up the three terms in this energy to
 \begin{equation}
 E(\x, \s, \la) = E_M (\x) + E_\Psi (\s) - \El (\x, \s, \la),
 \end{equation}
-and to arrive at a Newton step we just need to linearize with respect to the $\delta$ variables and construct our system of equations. The only hurdle to doing this is that $E_\Psi$ is potentially high order, and $E_\Lambda$ is nonlinear in $\x$ from the rotations, so we need to form quadratic approximations of these energies.
+and to arrive at a Newton step we just need to linearize with respect to the $\delta$ variables and construct our system of equations. The only hurdle to doing this is that $E_\Psi$ is potentially high order, and $E_\Lambda$ is nonlinear in $\x$ from the rotations, so we need to form quadratic approximations of these energies. \danny{Last two sentences are a bit contradictory I think? Newton process is no more/no less than just forming a quadratic approximation (not linear) via taylor expansion and then solving it. Probably good for us to confirm we're thinking of the same thing here before we get into the nitty gritty :). Also, for creating a Newton solver I'm not sure there's a need to create this bunch of extra $\delta$ terms in the above and below? Probably makes it messier then we need it to be for sanity checking.}
