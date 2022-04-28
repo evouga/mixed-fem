@@ -122,13 +122,16 @@ void SimObject::update_rotations() {
           * Vt4.block(3*jj,0,3,3).transpose()).cast<double>();
 
       Matrix<double, 9, 6> What;
+      Matrix<double, 9, 6> W;
+      Wmat(R_[i] , W);
+      Vector9d error = W*S_[i] - def_grad.segment(9*i,9);
+
       for (int kk = 0; kk < 9; ++kk) {
         Wmat(dR_dF[kk] , What);
         dRS_[i].row(kk) = (What * S_[i]).transpose();
-        dRL_[i].row(kk) = (What.transpose()* la_.segment(9*i,9)).transpose();
+        dRL_[i].row(kk) = (What.transpose() * la_.segment(9*i,9)).transpose();
+        dRe_[i].row(kk) = (What.transpose() * error).transpose();
       }
- 
-
     }
   }
 }
@@ -221,7 +224,7 @@ void SimObject::substep(bool init_guess) {
   dq_ds_ = cg.solve(rhs_);
   std::cout << "#iterations:     " << cg.iterations() << std::endl;
   std::cout << "estimated error: " << cg.error()      << std::endl;
-  double relative_error = (lhs_*dq_ds_ - rhs_).norm() / rhs_.norm(); // norm() is L2 norm
+  //double relative_error = (lhs_*dq_ds_ - rhs_).norm() / rhs_.norm(); // norm() is L2 norm
 
   //std::cout << "  - # PCG iter: " << niter << std::endl;
   std::cout << "  - RHS Norm: " << rhs_.norm() << std::endl;
@@ -284,11 +287,13 @@ void SimObject::reset_variables() {
   g_.resize(T_.rows());
   dRS_.resize(T_.rows());
   dRL_.resize(T_.rows());
+  dRe_.resize(T_.rows());
   for (int i = 0; i < T_.rows(); ++i) {
     R_[i].setIdentity();
     S_[i] = I_vec;
     dRS_[i].setZero();
     dRL_[i].setZero();
+    dRe_[i].setZero();
     Hinv_[i].setIdentity();
     g_[i].setZero();
   }
@@ -325,8 +330,8 @@ void SimObject::init() {
   pinnedV_ = (V_.col(1).array() > pin_y).cast<int>();
   //pinnedV_ = (V_.col(0).array() < pin_x && V_.col(1).array() > pin_y).cast<int>();
   //pinnedV_.resize(V_.rows());
-  pinnedV_.setZero();
-  pinnedV_(0) = 1;
+  //pinnedV_.setZero();
+  //pinnedV_(0) = 1;
 
   P_ = pinning_matrix(V_, T_, pinnedV_, false);
   P_kkt_ = pinning_matrix(V_, T_, pinnedV_, true);
@@ -490,17 +495,33 @@ void SimObject::update_gradients() {
 
   trips1.clear();
   for (int i = 0; i < T_.rows(); ++i) {
+    // Assembly for the i-th lagrange multiplier matrix which
+    // is associated with 4 vertices (for tetrahedra)
+    for (int j = 0; j < 9; ++j) {
+      // k-th vertex of the tetrahedra
+      for (int k = 0; k < 6; ++k) {
+        double val = dRe_[i](j, k) ;
+        trips1.push_back(Triplet<double>(6*i+k, 9*i+j, val));
+      }
+    }
+  }
+  Whate_.setZero();
+  Whate_.resize(6*T_.rows(), 9*T_.rows());
+  Whate_.setFromTriplets(trips1.begin(),trips1.end());
+
+  trips1.clear();
+  for (int i = 0; i < T_.rows(); ++i) {
     Matrix<double,9,6> W;
     Wmat(R_[i],W);
     for (int j = 0; j < 9; ++j) {
       // k-th vertex of the tetrahedra
       for (int k = 0; k < 6; ++k) {
-        trips1.push_back(Triplet<double>(9*i+j, 6*i+k, W(j,k)));
+        trips1.push_back(Triplet<double>(6*i+k, 9*i+j, W(j,k)));
       }
     }
   }
 
-  SparseMatrixdRowMajor Wk(9*T_.rows(), 6*T_.rows());
+  SparseMatrixdRowMajor Wk(6*T_.rows(), 9*T_.rows());
   Wk.setZero();
   Wk.setFromTriplets(trips1.begin(),trips1.end());
 
@@ -515,6 +536,13 @@ void SimObject::update_gradients() {
   MatrixXd F = -WhatL_ * Jw_ * P_.transpose();
   SparseMatrixdRowMajor G = WhatS_.transpose() * Jw_;
   G = Jw_ - G.eval();
+  // SparseMatrixd Fk = Whate_*Jw_;
+  // Fk -= Wk * Jw_;
+  // SparseMatrixd tmp = (WhatS_).transpose() * Jw_;
+  // Fk += Wk * tmp;
+  // Fk = Fk * P_.transpose();
+  SparseMatrixd Fk = Whate_*Jw_ - Wk * G;
+  Fk = Fk * P_.transpose();
 
   int n = qt_.size();
   int m = 6*T_.rows();
@@ -523,8 +551,8 @@ void SimObject::update_gradients() {
   //MatrixXd L = P_* (J_.transpose() * V * J_) * P_.transpose();
   MatrixXd L = P_* (G.transpose() * G) * P_.transpose();
   lhs.block(0,0,n,n) = config_->ih2*M_  + config_->kappa * L; 
-  lhs.block(0,n,n,m) = F.transpose();
-  lhs.block(n,0,m,n) = F;
+  lhs.block(0,n,n,m) = F.transpose() + config_->kappa * Fk.transpose();
+  lhs.block(n,0,m,n) = F + config_->kappa * Fk;
   
 
   //lhs.block(0,n,n,m) -= config_->kappa * P_ * G.transpose() * Wk;
@@ -541,12 +569,12 @@ void SimObject::update_gradients() {
     Wmat(R_[i],W);
 
     SelfAdjointEigenSolver<Matrix6d> es(H);
-    kappa_vals(i) = vols_[i]*es.eigenvalues().real().maxCoeff();
+    kappa_vals(i) = es.eigenvalues().real().maxCoeff();
     lhs.block(n+6*i,n+6*i,6,6) = vols_[i]*(H 
         + config_->kappa*W.transpose()*W);
   }
-  std::cout << "kappa vals: " << kappa_vals << std::endl;
-  config_->kappa = kappa_vals.maxCoeff() / 2;
+  //std::cout << "kappa vals: " << kappa_vals << std::endl;
+  config_->kappa = kappa_vals.maxCoeff();
   lhs_ = lhs.sparseView();
   //std::cout << "LA: \n" << la_ << std::endl;
   //std::cout << "LHS: \n" << lhs_ << std::endl;

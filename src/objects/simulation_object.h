@@ -88,6 +88,7 @@ namespace mfem {
     std::vector<Eigen::Vector6d> g_;    // Elemental gradients w.r.t dS
     std::vector<Eigen::Matrix9d> dRS_;  // dRS/dF where each row is dRS/dF_ij
     std::vector<Eigen::Matrix<double,9,6>> dRL_;
+    std::vector<Eigen::Matrix<double,9,6>> dRe_;
 
     Eigen::SparseMatrixd M_;        // mass matrix
     Eigen::SparseMatrixd P_;        // pinning constraint (for vertices)
@@ -99,6 +100,7 @@ namespace mfem {
     SparseMatrixdRowMajor Jw_rot_; // jacobian for regularizer
     SparseMatrixdRowMajor Ws_;      // integrated (weighted) jacobian
     SparseMatrixdRowMajor WhatS_;
+    SparseMatrixdRowMajor Whate_;
     SparseMatrixdRowMajor WhatL_;
 
     Eigen::VectorXi pinnedV_;
