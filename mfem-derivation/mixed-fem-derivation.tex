@@ -332,4 +332,153 @@ iter $\gets 0$\;
 }
 \end{algorithm}
 
+\section{Alternate approach 1}
+
+\begin{align*}
+E(\x,\s,\la) \approx \tilde{E}(\x,\s,\la) &= E_M(\x^k) + E_\Psi(\s^k) - \El(\x^k,\s^k,\la^k) \\
+&+ 
+\dx^T \left(
+	\frac{\partial E_M}{\partial \x} 
+ -  \frac{\partial \C}{\partial \x} \la^k \right) & \\
+&+ \ds^T \left(
+	\frac{\partial E_\Psi}{\partial \s} 
+ -  \frac{\partial \C}{\partial \s} \la^k \right)  & \\
+& - \dx^T \left(
+  \frac{\partial}{\partial \x} \left(\frac{\partial \C}{\partial \s} \la^k\right) \right)\ds & \\
+& + \frac{1}{2} \ds^T \left(\frac{\partial^2 E_\Psi}{\partial \s^2} \right)\ds & \\
+& + \frac{1}{2}\dx^T \left(\frac{\partial^2 E_M}{\partial \x^2} -
+\frac{\partial}{\partial \x} \left(\frac{\partial \C}{\partial \x} \la^k\right)
+\right)\dx & \\
+\end{align*}
+
+Now to setup our system of equations, we differentiate our energy with respect to the $\delta$-variables and set equal to zero. We switch back to vector notation and make $K$ a subscript to simplify the notation.
+
+
+\subsection{Equation for $\dx$}
+Last we differentiate $\tilde{E}$ with respect to $\dx$ (neglecting the $\frac{\partial^2 \C_K}{ \partial \x^2}$ term for now):
+
+\begin{equation}
+\frac{\partial \tilde{E}}{\partial \dx} = \Hx\dx + \gx 
+- \sum_{K \in \Th} \left(
+J_K^T(\hat{W}_K^{k}\cdot \la_K^k) \ds_K +
+J_K^T(\hat{W}_K^{k}\cdot \s_K^k - I)\la_K^k
+\right)V_K
+\end{equation}
+
+
+\subsection{Equation for $\ds$}
+We start by differentiating $\tilde{E}$ with respect to $\ds$:
+\begin{equation}
+\frac{\partial \tilde{E}^K}{\partial \ds_K} =  \Hsk \ds_K + \gs_K  -
+{W_K^k}^T \la_K^k - (\hat{W}_K^{k}\cdot \la_K^k)^T J_K \dx
+\end{equation}
+where $(\hat{W}_K^{t}\cdot \la_K^t)$ performs a reduction over the middle index of $\hat{W}^K_{ijk}$.
+
+
+\subsection{System of Equations}
+To build the system of equations we define some variables to keep things neat:
+\begin{align}
+F &= - \sum_{K \in \Th} {P_K^\s}^T \left((\hat{W}_K^{k}\cdot \la_K^k)^T J_K^w \right) \\
+G &= J^w - \sum_{K \in \Th} {P_K^\la}^T \left((\hat{W}_K^{k}\cdot \s_K^k)^T J_K^w \right) \\
+D &= -\sum_{K \in \Th} {P_K^\la}^T  W_K^k P_K^\s
+\end{align}
+where $J^w$ is the volume weighted Jacobian, and $P_K^\la \in \R^{9 \times 9n_e}$ and $P_K^\s \in \R^{6 \times 6n_e}$ are selection matrics for the $K$-th set of Lagrange multipliers and deformation variables, respectively. Additionally $\Hs$ is the block diagonal Hessian for $s^k$. We form the system by setting each of the derivatives with respect to the $\delta$-variables equal to zero and get
+
+\begin{equation}
+\begin{pmatrix}
+\Hx & F^T \\
+F & \Hs  \\
+\end{pmatrix}
+\begin{pmatrix}
+\dx \\
+\ds
+\end{pmatrix} =
+\begin{pmatrix}
+-\gx -G^T \la^k \\
+-\gs -D^T \la^k \\
+\end{pmatrix}.
+\end{equation}
+
+\section{Alternate approach 2}
+
+\begin{equation}
+\begin{split}
+E_R(\x,\s) &= \frac{\mu}{2} \sum_{K \in \Th} ||W^k_K\s_K - J_K\x||^2 V_K \\
+&= \frac{\mu}{2} (W^k\s - J\x)^T V (W^k\s - J\x)
+\end{split}
+\end{equation}
+
+\begin{align}
+\frac{\partial E_R}{\partial \s} &= \mu {W^k}^T V (W^k\s - J\x) \\
+\frac{\partial E_R}{\partial \x} &= -\mu G^T V (W^k\s - J\x) \\
+\frac{\partial E^2_R}{\partial \s^2} &= \mu {W^k}^T V W^k\\
+\frac{\partial E^2_R}{\partial \x^2} &= \text{ignoring right now} \\
+\frac{\partial E^2_R}{\partial \x \partial \s} &= -\mu G^T V W^k\\
+\end{align}
+
+\begin{align*}
+E(\x,\s,\la) \approx \tilde{E}(\x,\s,\la) &= E_M(\x^k) + E_\Psi(\s^k) - \El(\x^k,\s^k,\la^k) \\
+&+ 
+\dx^T \left(
+	\frac{\partial E_M}{\partial \x} 
+ -  \frac{\partial \C}{\partial \x} \la^k \right) & \\
+&+ \ds^T \left(
+	\frac{\partial E_\Psi}{\partial \s} 
+ -  \frac{\partial \C}{\partial \s} \la^k \right)  & \\
+& - \dx^T \left(
+  \frac{\partial}{\partial \x} \left(\frac{\partial \C}{\partial \s} \la^k\right) \right)\ds & \\
+& + \frac{1}{2} \ds^T \left(\frac{\partial^2 E_\Psi}{\partial \s^2} \right)\ds & \\
+& + \frac{1}{2}\dx^T \left(\frac{\partial^2 E_M}{\partial \x^2} -
+\frac{\partial}{\partial \x} \left(\frac{\partial \C}{\partial \x} \la^k\right)
+\right)\dx & \\
+\end{align*}
+
+Now to setup our system of equations, we differentiate our energy with respect to the $\delta$-variables and set equal to zero. We switch back to vector notation and make $K$ a subscript to simplify the notation.
+
+
+\subsection{Equation for $\dx$}
+Last we differentiate $\tilde{E}$ with respect to $\dx$ (neglecting the $\frac{\partial^2 \C_K}{ \partial \x^2}$ term for now):
+
+\begin{equation}
+\frac{\partial \tilde{E}}{\partial \dx} = \Hx\dx + \gx 
+- \sum_{K \in \Th} \left(
+J_K^T(\hat{W}_K^{k}\cdot \la_K^k) \ds_K +
+J_K^T(\hat{W}_K^{k}\cdot \s_K^k - I)\la_K^k
+\right)V_K
+\end{equation}
+
+
+\subsection{Equation for $\ds$}
+We start by differentiating $\tilde{E}$ with respect to $\ds$:
+\begin{equation}
+\frac{\partial \tilde{E}^K}{\partial \ds_K} =  \Hsk \ds_K + \gs_K  -
+{W_K^k}^T \la_K^k - (\hat{W}_K^{k}\cdot \la_K^k)^T J_K \dx
+\end{equation}
+where $(\hat{W}_K^{t}\cdot \la_K^t)$ performs a reduction over the middle index of $\hat{W}^K_{ijk}$.
+
+
+\subsection{System of Equations}
+To build the system of equations we define some variables to keep things neat:
+\begin{align}
+F &= - \sum_{K \in \Th} {P_K^\s}^T \left((\hat{W}_K^{k}\cdot \la_K^k)^T J_K^w \right) \\
+G &= J^w - \sum_{K \in \Th} {P_K^\la}^T \left((\hat{W}_K^{k}\cdot \s_K^k)^T J_K^w \right) \\
+D &= -\sum_{K \in \Th} {P_K^\la}^T  W_K^k P_K^\s
+\end{align}
+where $J^w$ is the volume weighted Jacobian, and $P_K^\la \in \R^{9 \times 9n_e}$ and $P_K^\s \in \R^{6 \times 6n_e}$ are selection matrics for the $K$-th set of Lagrange multipliers and deformation variables, respectively. Additionally $\Hs$ is the block diagonal Hessian for $s^k$. We form the system by setting each of the derivatives with respect to the $\delta$-variables equal to zero and get
+
+\begin{equation}
+\begin{pmatrix}
+\Hx & F^T \\
+F & \Hs  \\
+\end{pmatrix}
+\begin{pmatrix}
+\dx \\
+\ds
+\end{pmatrix} =
+\begin{pmatrix}
+-\gx -G^T \la^k \\
+-\gs -D^T \la^k \\
+\end{pmatrix}.
+\end{equation}
+
 \end{document}

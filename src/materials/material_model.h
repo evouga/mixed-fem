@@ -46,6 +46,7 @@ namespace mfem {
         const Eigen::Vector6d& S) = 0;
     virtual Eigen::Matrix6d hessian_inv(const Eigen::Matrix3d& R,
         const Eigen::Vector6d& S, double kappa) = 0;
+    virtual Eigen::Matrix6d hessian(const Eigen::Vector6d& S) {return Eigen::Matrix6d::Zero();} // TODO make pure virtual
 
     // Updates the compliance block entries in the KKT matrix.
     // Assumes the entries already exist and we can just overwite

@@ -67,6 +67,7 @@ namespace mfem {
     void substep(bool init_guess);
   
     void warm_start();
+    void update_lambdas(int t);
     void update_positions();
 
     virtual Eigen::VectorXd collision_force();
@@ -96,10 +97,14 @@ namespace mfem {
     SparseMatrixdRowMajor J_tilde_;  // jacobian for regularizer
     SparseMatrixdRowMajor Jw_tilde_; // jacobian for regularizer
     SparseMatrixdRowMajor Jw_rot_; // jacobian for regularizer
+    SparseMatrixdRowMajor Ws_;      // integrated (weighted) jacobian
+    SparseMatrixdRowMajor WhatS_;
+    SparseMatrixdRowMajor WhatL_;
+
     Eigen::VectorXi pinnedV_;
 
     // Configuration vectors & body forces
-    Eigen::VectorXd dq_la_; // q & Lambda update stacked
+    Eigen::VectorXd dq_ds_; // q & Lambda update stacked
     Eigen::VectorXd qt_;    // current positions
     Eigen::VectorXd vt_;    // current velocities
     Eigen::VectorXd q0_;    // previous positions
@@ -109,6 +114,7 @@ namespace mfem {
     //Eigen::VectorXd f_ext0_;// per-node external forces (not integrated)
     //Eigen::VectorXd f_ext1_;// per-node external forces (not integrated)
     Eigen::VectorXd la_;    // lambdas
+    Eigen::VectorXd ds_;    // lambdas
     Eigen::VectorXd b_;     // coordinates projected out
     Eigen::VectorXd vols_;  // per element volume
     Eigen::VectorXd rhs_;
