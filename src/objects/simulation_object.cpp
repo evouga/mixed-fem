@@ -120,6 +120,8 @@ void SimObject::update_rotations() {
       );
       R_[i] = (U4.block(3*jj,0,3,3) 
           * Vt4.block(3*jj,0,3,3).transpose()).cast<double>();
+  JacobiSVD<Matrix3d> svd(Map<Matrix3d>(def_grad.segment(9*i,9).data()), ComputeFullU | ComputeFullV);
+  R_[i] = svd.matrixU() * svd.matrixV().transpose();
 
       Matrix<double, 9, 6> What;
       Matrix<double, 9, 6> W;
@@ -541,7 +543,7 @@ void SimObject::update_gradients() {
   // SparseMatrixd tmp = (WhatS_).transpose() * Jw_;
   // Fk += Wk * tmp;
   // Fk = Fk * P_.transpose();
-  SparseMatrixd Fk = Whate_*Jw_ - Wk * G;
+  SparseMatrixd Fk = Whate_*Jw_- Wk * G; //TODO !!!!
   Fk = Fk * P_.transpose();
 
   int n = qt_.size();
@@ -552,7 +554,7 @@ void SimObject::update_gradients() {
   MatrixXd L = P_* (G.transpose() * G) * P_.transpose();
   lhs.block(0,0,n,n) = config_->ih2*M_  + config_->kappa * L; 
   lhs.block(0,n,n,m) = F.transpose() + config_->kappa * Fk.transpose();
-  lhs.block(n,0,m,n) = F + config_->kappa * Fk;
+  lhs.block(n,0,m,n) = F  + config_->kappa * Fk;
   
 
   //lhs.block(0,n,n,m) -= config_->kappa * P_ * G.transpose() * Wk;
@@ -574,7 +576,7 @@ void SimObject::update_gradients() {
         + config_->kappa*W.transpose()*W);
   }
   //std::cout << "kappa vals: " << kappa_vals << std::endl;
-  config_->kappa = kappa_vals.maxCoeff();
+  // config_->kappa = kappa_vals.maxCoeff();
   lhs_ = lhs.sparseView();
   //std::cout << "LA: \n" << la_ << std::endl;
   //std::cout << "LHS: \n" << lhs_ << std::endl;

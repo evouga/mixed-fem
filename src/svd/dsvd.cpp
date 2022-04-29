@@ -77,12 +77,18 @@ void dsvd(Ref<const Matrix3d> Fin, Ref<const Matrix3d> Uin,
     Ref<const Vector3d> Sin, Ref<const Matrix3d> Vtin,
     std::array<Matrix3d, 9>& dR_dF) {
 
-  Matrix3d UVT, tmp, dVt, dU;
+  Matrix3d UVT, tmp, dV, dU;
   Matrix3d U = Uin;
   Vector3d S = Sin;
-  Matrix3d Vt = Vtin;//.transpose();
+  Matrix3d V = Vtin;//.transpose();
   Matrix3d F = Fin;
   Vector3d dS;
+
+  JacobiSVD<Matrix3d> svd(F, ComputeFullU | ComputeFullV);
+  U = svd.matrixU();
+  V = svd.matrixV();
+  S = svd.singularValues();
+  
 
     // JacobiSVD<Matrix3d> svd1(F, ComputeFullU | ComputeFullV);
   // std::cout << "F: " << F << " \nU: " << U << "\n Usvd: " << svd1.matrixU() << "\n V: "
@@ -98,7 +104,7 @@ void dsvd(Ref<const Matrix3d> Fin, Ref<const Matrix3d> Uin,
     F += Matrix3d::Random()*tol;
     JacobiSVD<Matrix3d> svd(F, ComputeFullU | ComputeFullV);
     U = svd.matrixU();
-    Vt = svd.matrixV();
+    V = svd.matrixV();
     S = svd.singularValues();
     //std::cerr << "does this actually happen" << std::endl;
   }
@@ -119,7 +125,7 @@ void dsvd(Ref<const Matrix3d> Fin, Ref<const Matrix3d> Uin,
   for(unsigned int r=0; r<3; ++r) {
     for(unsigned int s =0; s <3; ++s) {
         
-      UVT = U.row(r).transpose()*Vt.row(s);
+      UVT = U.row(r).transpose()*V.row(s);
       
       //Compute dS
       dS = UVT.diagonal();
@@ -134,7 +140,7 @@ void dsvd(Ref<const Matrix3d> Fin, Ref<const Matrix3d> Uin,
               -w01, 0, w12,
               -w02, -w12, 0;
       
-      dVt = Vt*tmp;
+      dV = V*tmp;
       
       tmp = UVT*S.asDiagonal() + S.asDiagonal()*UVT.transpose();
       w01 = tmp(0,1)*d01;
@@ -146,7 +152,7 @@ void dsvd(Ref<const Matrix3d> Fin, Ref<const Matrix3d> Uin,
       
       dU = U*tmp;
 
-      dR_dF[3*s + r] = dU*Vt.transpose() + U*dVt.transpose();
+      dR_dF[3*s + r] = dU*V.transpose() + U*dV.transpose();
                     
     }
   }

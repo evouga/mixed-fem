@@ -74,7 +74,9 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 find_package(OpenMP REQUIRED)
 find_package(BLAS)
 find_package(LAPACK)
-find_package(Cholmod)
+#find_package(Cholmod)
+#find_package(Catch2 REQUIRED) 
+
 
 # Add polyscope
 message("\n\n == CMAKE recursively building Polyscope\n")
@@ -95,8 +97,17 @@ ${PROJECT_SOURCE_DIR}/src/*.cpp
 ${PROJECT_SOURCE_DIR}/src/svd/*.cpp 
 ${PROJECT_SOURCE_DIR}/src/materials/*.cpp
     ${PROJECT_SOURCE_DIR}/src/objects/*.cpp)
-message("SOURCES" ${SOURCES})
+# message("SOURCES" ${SOURCES})
 add_library(mixed_fem_lib SHARED ${SOURCES})
+
+include(FetchContent)
+FetchContent_Declare(
+    finite-diff
+    GIT_REPOSITORY https://github.com/zfergus/finite-diff.git
+    GIT_TAG main
+    GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(finite-diff)
 
 include(FetchContent)
 FetchContent_Declare(
@@ -114,6 +125,14 @@ set(BUILD_TESTING OFF)
 set(EIGEN_BUILD_PKGCONFIG OFF)
 set( OFF)
 FetchContent_MakeAvailable(Eigen)
+
+include(FetchContent)
+FetchContent_Declare(
+  Catch2
+  GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+  GIT_TAG        v2.x
+)
+FetchContent_MakeAvailable(Catch2)
 
 # Add OMP library and includes
 if(OpenMP_CXX_FOUND)
@@ -182,3 +201,5 @@ target_link_libraries(cloth_sim mixed_fem_lib)
 
 add_executable(rod_sim apps/rod_sim.cpp ${SOURCES})
 target_link_libraries(rod_sim mixed_fem_lib)
+
+add_subdirectory(tests)

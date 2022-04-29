@@ -76,7 +76,7 @@ namespace mfem {
       return V_;
     }
 
-  protected:
+  public:
 
     std::shared_ptr<SimConfig> config_;
     std::shared_ptr<MaterialModel> material_;
