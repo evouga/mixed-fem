@@ -36,11 +36,7 @@ namespace mfem {
     virtual void volumes(Eigen::VectorXd& vol) = 0;
     virtual void mass_matrix(Eigen::SparseMatrixd& M) = 0;
     virtual void jacobian(SparseMatrixdRowMajor& J, bool weighted) = 0;
-    virtual void jacobian_regularized(SparseMatrixdRowMajor& J,
-        bool weighted) = 0;
-    virtual void jacobian_rotational(SparseMatrixdRowMajor& J,
-        bool weighted) {}    
-    virtual void massmatrix_rotational(Eigen::SparseMatrixd& J) {}  
+
     double energy(Eigen::VectorXd x, std::vector<Eigen::Vector6d> s, Eigen::VectorXd la);
     void init();
 
@@ -81,6 +77,7 @@ namespace mfem {
 
     std::vector<Eigen::Matrix3d> R_;    // Per-element rotations
     std::vector<Eigen::Vector6d> S_;    // Per-element deformation
+    std::vector<Eigen::Matrix6d> H_; // Elemental hessians w.r.t dS
     std::vector<Eigen::Matrix6d> Hinv_; // Elemental hessians w.r.t dS
     std::vector<Eigen::Vector6d> g_;    // Elemental gradients w.r.t dS
     std::vector<Eigen::Matrix9d> dRS_;  // dRS/dF where each row is dRS/dF_ij

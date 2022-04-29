@@ -24,6 +24,51 @@ namespace mfem {
   void init_compliance_blocks(int N, int offset,
       std::vector<Eigen::Triplet<double>>& trips);
 
+  // Builds a block symmetric matrix of the form
+  // P = [A B^T; B C] where C is block diagonal
+  template <int N>
+  void fill_block_matrix(const Eigen::SparseMatrixd& A,
+      const Eigen::SparseMatrixd& B,
+      const std::vector<Eigen::Matrix<double, N, N>>& C,
+      Eigen::SparseMatrixd& mat) {
+    
+    using namespace Eigen;
+
+    mat.resize(A.rows()+B.rows(), A.rows()+B.rows());
+    std::vector<Triplet<double>> trips;
+
+    // Mass matrix terms
+    for (int i = 0; i < A.outerSize(); ++i) {
+      for (SparseMatrixd::InnerIterator it(A,i); it; ++it) {
+        trips.push_back(Triplet<double>(it.row(),it.col(),it.value()));
+      }
+    }
+
+    int offset = A.rows(); // offset for off diagonal blocks
+
+    // Jacobian off-diagonal entries
+    for (int i = 0; i < B.outerSize(); ++i) {
+      for (SparseMatrixd::InnerIterator it(B, i); it; ++it) {
+        trips.push_back(Triplet<double>(offset+it.row(),it.col(),it.value()));
+        trips.push_back(Triplet<double>(it.col(),offset+it.row(),it.value()));
+      }
+    }
+
+    // Compliance block entries
+    for (int i = 0; i < C.size(); ++i) {
+      
+      int offset = A.rows() + i * N;
+
+      for (int j = 0; j < N; ++j) {
+        for (int k = 0; k < N; ++k) {
+          trips.push_back(Triplet<double>(offset+j, offset+k, C[i](j,k)));
+        }
+      }
+
+    }
+    mat.setFromTriplets(trips.begin(), trips.end());
+
+  }
 
   template <int R, int C>
   void init_block_diagonal(Eigen::SparseMatrixd& mat, int N) {

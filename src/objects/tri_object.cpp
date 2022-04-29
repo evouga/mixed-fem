@@ -171,7 +171,3 @@ VectorXd TriObject::collision_force() {
 
   return M_*ret;
 }
-
-void TriObject::jacobian_regularized(SparseMatrixdRowMajor& J, bool weighted) {
-  std::cerr << "jacobian_regularized not implemented for tri" << std::endl;
-}

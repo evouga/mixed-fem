@@ -87,7 +87,7 @@ void SimObject::update_rotations() {
 
   #pragma omp parallel for 
   for (int ii = 0; ii < N; ++ii) {
-    Matrix<float,12,3> F4,R4,U4,Vt4;
+    Matrix<float,12,3> F4,R4,U4,V4;
     Matrix<float,12,1> S4;
     // SSE implementation operates on 4 matrices at a time, so assemble
     // 12 x 3 matrices
@@ -101,27 +101,29 @@ void SimObject::update_rotations() {
  
     // Solve rotations
     //polar_svd3x3_sse(F4,R4);
-    svd3x3_sse(F4, U4, S4, Vt4);
+    svd3x3_sse(F4, U4, S4, V4);
 
     // Assign rotations to per-element matrices
     for (int jj = 0; jj < 4; jj++) {
       int i = ii*4 +jj;
       if (i >= T_.rows())
         break;
-      //R_[i] = R4.block(3*jj,0,3,3).cast<double>();
 
       std::array<Matrix3d, 9> dR_dF;
 
-      dsvd(F4.block(3*jj,0,3,3).cast<double>(),
-          U4.block(3*jj,0,3,3).cast<double>(),
-          S4.segment(3*jj,3).cast<double>(),
-          Vt4.block(3*jj,0,3,3).cast<double>(),
-          dR_dF
-      );
-      R_[i] = (U4.block(3*jj,0,3,3) 
-          * Vt4.block(3*jj,0,3,3).transpose()).cast<double>();
-  JacobiSVD<Matrix3d> svd(Map<Matrix3d>(def_grad.segment(9*i,9).data()), ComputeFullU | ComputeFullV);
-  R_[i] = svd.matrixU() * svd.matrixV().transpose();
+      // dsvd(F4.block(3*jj,0,3,3).cast<double>(),
+      //     U4.block(3*jj,0,3,3).cast<double>(),
+      //     S4.segment(3*jj,3).cast<double>(),
+      //     V4.block(3*jj,0,3,3).cast<double>(),
+      //     dR_dF
+      // );
+      // R_[i] = (U4.block(3*jj,0,3,3) 
+      //     * Vt4.block(3*jj,0,3,3).transpose()).cast<double>();
+      JacobiSVD<Matrix3d> svd(Map<Matrix3d>(def_grad.segment(9*i,9).data()),
+          ComputeFullU | ComputeFullV);
+      dsvd(Map<Matrix3d>(def_grad.segment(9*i,9).data()),
+          svd.matrixU(), svd.singularValues(), svd.matrixV(), dR_dF);
+      R_[i] = svd.matrixU() * svd.matrixV().transpose();
 
       Matrix<double, 9, 6> What;
       Matrix<double, 9, 6> W;
@@ -159,23 +161,12 @@ void SimObject::substep(bool init_guess, double& decrement) {
   // }
   start=end;
 
-  start = high_resolution_clock::now();
-  //material_->update_compliance(qt_.size(), T_.rows(), R_, Hinv_, vols_, lhs_);
-  end = high_resolution_clock::now();
-  t_asm += duration_cast<nanoseconds>(end-start).count()/1e6;
-  start = end;
-
-  // int niter;
-  // if (!config_->local_global) 
-  //   niter = pcg(dq_la_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_);
-  // else
-  //   niter = pcg(dq_la_, lhs_+lhs_rot_, rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_, 1e-8);
-
-  ConjugateGradient<SparseMatrix<double>, Lower|Upper> cg;
-  int n = 10000;
-  cg.compute(lhs_);
-  dq_ds_ = cg.solve(rhs_);
-  std::cout << "#iterations:     " << cg.iterations() << std::endl;
+  int niter = pcg(dq_ds_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_);
+  // ConjugateGradient<SparseMatrix<double>, Lower|Upper> cg;
+  // cg.compute(lhs_);
+  // dq_ds_ = cg.solve(rhs_);
+  // int niter = cg.iterations();
+  std::cout << "  - CG iters: " << niter << std::endl;
   //std::cout << "estimated error: " << cg.error()      << std::endl;
   //double relative_error = (lhs_*dq_ds_ - rhs_).norm() / rhs_.norm(); // norm() is L2 norm
 
@@ -234,7 +225,7 @@ void SimObject::reset_variables() {
   // Initialize rotation matrices to identity
   R_.resize(T_.rows());
   S_.resize(T_.rows());
-  Hinv_.resize(T_.rows());
+  H_.resize(T_.rows());
   g_.resize(T_.rows());
   dRS_.resize(T_.rows());
   dRL_.resize(T_.rows());
@@ -245,7 +236,7 @@ void SimObject::reset_variables() {
     dRS_[i].setZero();
     dRL_[i].setZero();
     dRe_[i].setZero();
-    Hinv_[i].setIdentity();
+    H_[i].setIdentity();
     g_[i].setZero();
   }
   V_ = V0_;
@@ -304,7 +295,7 @@ void SimObject::init() {
   vt_ = 0*qt_;
 
   // Initialize KKT lhs
-  build_lhs();
+  // build_lhs();
 
   // Project out mass matrix pinned point
   M_ = P_ * M_ * P_.transpose();
@@ -327,6 +318,17 @@ void SimObject::init() {
     }
   }
   A_.setFromTriplets(trips.begin(),trips.end());
+
+  // Initializing preconditioner
+  update_gradients();
+  
+  #if defined(SIM_USE_CHOLMOD)
+  std::cout << "Using CHOLDMOD solver" << std::endl;
+  #endif
+  solver_.compute(lhs_);
+  if(solver_.info()!=Success) {
+    std::cerr << " KKT prefactor failed! " << std::endl;
+  }
 }
 
 void SimObject::warm_start() {
@@ -336,8 +338,6 @@ void SimObject::warm_start() {
   ibeta_ = 1. / config_->beta;
 
   qt_ += dq_;
-  dq_ds_.setZero();
-  dq_.setZero();
 }
 
 bool SimObject::linesearch(VectorXd& q, const VectorXd& dq) {
@@ -384,26 +384,26 @@ void SimObject::update_gradients() {
   update_block_diagonal(Wvec, W_);
 
 
-  MatrixXd F = -WhatL_.transpose() * Jw_ * P_.transpose();
+  SparseMatrixd F = -WhatL_.transpose() * Jw_ * P_.transpose();
   SparseMatrixdRowMajor G = WhatS_.transpose() * Jw_;
   G = Jw_ - G.eval();
   SparseMatrixd Fk = Whate_.transpose()*Jw_- W_.transpose() * G; //TODO !!!!
   Fk = Fk * P_.transpose();
+  SparseMatrixd L = P_* (G.transpose() * G) * P_.transpose();
+
 
   int n = qt_.size();
   int m = 6*T_.rows();
-  MatrixXd lhs(n+m, n+m);
-  lhs.setZero();
-  MatrixXd L = P_* (G.transpose() * G) * P_.transpose();
-  lhs.block(0,0,n,n) = config_->ih2*M_  + config_->kappa * L; 
-  lhs.block(0,n,n,m) = F.transpose() + config_->kappa * Fk.transpose();
-  lhs.block(n,0,m,n) = F  + config_->kappa * Fk;
+  // MatrixXd lhs(n+m, n+m);
+  // lhs.setZero();
+  // lhs.block(0,0,n,n) = config_->ih2*M_  + config_->kappa * L; 
+  // lhs.block(0,n,n,m) = F.transpose() + config_->kappa * Fk.transpose();
+  // lhs.block(n,0,m,n) = F  + config_->kappa * Fk;
   
 
   VectorXd kappa_vals(T_.rows());
   #pragma omp parallel for
   for (int i = 0; i < T_.rows(); ++i) {
-    Hinv_[i] = material_->hessian_inv(R_[i],S_[i]);
     g_[i] = material_->gradient(R_[i], S_[i]);
     Matrix6d H = material_->hessian(S_[i]);
 
@@ -412,12 +412,16 @@ void SimObject::update_gradients() {
 
     SelfAdjointEigenSolver<Matrix6d> es(H);
     kappa_vals(i) = es.eigenvalues().real().maxCoeff();
-    lhs.block(n+6*i,n+6*i,6,6) = vols_[i]*(H 
-        + config_->kappa*W.transpose()*W);
+
+    H_[i] = vols_[i]*(H + config_->kappa*W.transpose()*W);
+    // lhs.block(n+6*i,n+6*i,6,6) = H_[i];
   }
+
+  SparseMatrixd lhs2;
+  fill_block_matrix(config_->ih2*M_  + config_->kappa * L,
+      F  + config_->kappa * Fk, H_, lhs_);
   //std::cout << "kappa vals: " << kappa_vals << std::endl;
   // config_->kappa = kappa_vals.maxCoeff();
-  lhs_ = lhs.sparseView();
   //std::cout << "LA: \n" << la_ << std::endl;
   //std::cout << "LHS: \n" << lhs_ << std::endl;
 }
@@ -451,7 +455,6 @@ void SimObject::update_positions() {
 }
 
 double SimObject::energy(VectorXd x, std::vector<Vector6d> s, VectorXd la) {
-//config_->ih2
   double h = config_->h;
   double h2 = config_->h * config_->h;
   VectorXd xdiff = x - q0_ - h*vt_ - h2*f_ext_;
@@ -464,17 +467,11 @@ double SimObject::energy(VectorXd x, std::vector<Vector6d> s, VectorXd la) {
   for (int i = 0; i < T_.rows(); ++i) {
     Matrix3d F = Map<Matrix3d>(def_grad.segment(9*i,9).data());
     JacobiSVD<Matrix3d> svd(F, ComputeFullU | ComputeFullV);
-    Matrix3d R = svd.matrixU() *  svd.matrixV().transpose();
+    Matrix3d R = svd.matrixU() * svd.matrixV().transpose();
     Matrix<double,9,6> W;
     Wmat(R,W);
 
-    //std::cout << "s[i]: " << s[i].transpose() << std::endl;
     Epsi += material_->energy(s[i]) * vols_[i];
-    // std::cout << "S_[i]: " << S_[i] << std::endl;
-    //  std::cout << "   s[i] E_psi: " << material_->energy(s[i]) * vols_[i] << std::endl;
-      //Matrix3d S = (svd.matrixV() * svd.singularValues().asDiagonal() * svd.matrixV().transpose());
-      //Vector6d stmp = Vector6d(S(0,0),S(1,1),S(2,2),S(1,0),S(2,0),S(2,1));
-      //std::cout << "   sSVD E_psi: " << material_->energy(stmp) * vols_[i] << std::endl;
     Vector9d diff = W*s[i] - def_grad.segment(9*i,9);
     Ela += la.segment(9*i,9).dot(diff) * vols_[i];
     Er += config_->kappa * 0.5 * diff.dot(diff) * vols_[i];

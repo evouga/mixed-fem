@@ -74,39 +74,24 @@ void dsvd(Tensor3333d &dU, Tensor333d  &dS,
 }
 
 void dsvd(Ref<const Matrix3d> Fin, Ref<const Matrix3d> Uin,
-    Ref<const Vector3d> Sin, Ref<const Matrix3d> Vtin,
+    Ref<const Vector3d> Sin, Ref<const Matrix3d> Vin,
     std::array<Matrix3d, 9>& dR_dF) {
 
   Matrix3d UVT, tmp, dV, dU;
   Matrix3d U = Uin;
   Vector3d S = Sin;
-  Matrix3d V = Vtin;//.transpose();
+  Matrix3d V = Vin;
   Matrix3d F = Fin;
   Vector3d dS;
 
-  JacobiSVD<Matrix3d> svd(F, ComputeFullU | ComputeFullV);
-  U = svd.matrixU();
-  V = svd.matrixV();
-  S = svd.singularValues();
-  
-
-    // JacobiSVD<Matrix3d> svd1(F, ComputeFullU | ComputeFullV);
-  // std::cout << "F: " << F << " \nU: " << U << "\n Usvd: " << svd1.matrixU() << "\n V: "
-  //    << Vt << "\n Vsvd: " << svd1.matrixV() << "\n S: " << S 
-  //    << " \nSsvd: " << svd1.singularValues() << "\nUSV: " << svd1.matrixU() * svd1.singularValues().asDiagonal() * svd1.matrixV().transpose() << "\nUSVt: " << U*S.asDiagonal()*Vt.transpose() << std::endl;
-  
   //crappy hack for now
   double tol = 1e-5;
-    // U = svd1.matrixU();
-    // Vt = svd1.matrixV();
-    // S = svd1.singularValues();
   if(std::fabs(S[0] - S[1]) < tol || std::fabs(S[1] - S[2]) < tol || std::fabs(S[0] - S[2]) < tol) {
     F += Matrix3d::Random()*tol;
     JacobiSVD<Matrix3d> svd(F, ComputeFullU | ComputeFullV);
     U = svd.matrixU();
     V = svd.matrixV();
     S = svd.singularValues();
-    //std::cerr << "does this actually happen" << std::endl;
   }
 
   double w01, w02, w12;

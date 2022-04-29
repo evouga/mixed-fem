@@ -159,7 +159,3 @@ void RodObject::fit_rotations() {
   }
 }
 */
-
-void RodObject::jacobian_regularized(SparseMatrixdRowMajor& J, bool weighted) {
-  std::cerr << "jacobian_regularized not implemented for rod" << std::endl;
-}
