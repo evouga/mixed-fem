@@ -89,12 +89,14 @@ TEST_CASE("dsvd - dWs/dq") {
   std::shared_ptr<SimObject> obj = app.obj;
   int n = obj->J_.cols();
   MatrixXd Jk = obj->J_.block(0,0,9,n);
+  obj->qt_ *= 10;
 
   Vector9d vecF = Jk * (obj->P_.transpose() * obj->qt_ + obj->b_);
   Matrix3d F = Matrix3d(vecF.data());
   
   Vector6d s;
   s << 1.11, 1.2, 1.3, 0.2, 0.3, 0.4;
+  s *= 100;
 
   JacobiSVD<Matrix3d> svd(F, ComputeFullU | ComputeFullV);
   Matrix3d U = svd.matrixU();
@@ -114,7 +116,7 @@ TEST_CASE("dsvd - dWs/dq") {
   // function for finite differences
   auto E = [&](const VectorXd& x)-> VectorXd {
     Vector9d vecF = Jk * (obj->P_.transpose() * x + obj->b_);
-    F = Matrix3d(vecF.data());
+    Matrix3d F = Matrix3d(vecF.data());
     JacobiSVD<Matrix3d> svd(F, ComputeFullU | ComputeFullV);
     Matrix3d R = svd.matrixU() * svd.matrixV().transpose();
     Matrix<double, 9, 6> W;
@@ -125,7 +127,7 @@ TEST_CASE("dsvd - dWs/dq") {
   // Finite difference gradient
   MatrixXd fgrad;
   VectorXd qt = obj->qt_;
-  finite_jacobian(qt, E, fgrad, SECOND);
+  finite_jacobian(qt, E, fgrad, SIXTH, 1e-6);
   // std::cout << "frad: \n" << fgrad << std::endl;
   // std::cout << "grad: \n" << J.transpose() << std::endl;
   CHECK(compare_jacobian(J.transpose(), fgrad));

@@ -148,6 +148,8 @@ TEST_CASE("Constraint Energy Gradient - d2EL/dxds") {
 
   VectorXd s(6*obj->T_.rows());
   for (int i = 0; i < obj->T_.rows(); ++i) {
+    obj->S_[i].setRandom() * 10;
+
     s.segment(6*i,6) = obj->S_[i];
   }
 
@@ -189,15 +191,15 @@ TEST_CASE("Constraint Energy Gradient - d2EL/dxds") {
     // Compute gradient
     VectorXd g;
     VectorXd xt = obj->qt_;
-    finite_gradient(xt,Ex,g,FOURTH,1e-4);
+    finite_gradient(xt,Ex,g,SIXTH,1e-4);
     return g;
   };
 
   // Finite difference gradient
   MatrixXd fgrad;
-  finite_jacobian(s, E, fgrad, FOURTH, 1e-4);
+  finite_jacobian(s, E, fgrad, SIXTH, 1e-4);
 
-  // std::cout << "fgrad: \n" << fgrad << std::endl;
-  // std::cout << "grad: \n" << grad << std::endl;
-  CHECK(compare_jacobian(grad, fgrad,1e-4));
+  std::cout << "fgrad: \n" << fgrad << std::endl;
+  std::cout << "grad: \n" << grad << std::endl;
+  CHECK(compare_jacobian(grad, fgrad,1e-3));
 }

@@ -311,6 +311,8 @@ void SimObject::init() {
   // External gravity force
   Vector3d ext = Map<Vector3f>(config_->ext).cast<double>();
   f_ext_ = P_ * ext.replicate(V_.rows(),1);
+
+  // init_block_diagonal<9,6>(WhatL_, T_.rows());
 }
 
 void SimObject::warm_start() {
@@ -366,6 +368,11 @@ void SimObject::update_gradients() {
   WhatL_.setZero();
   WhatL_.resize(6*T_.rows(), 9*T_.rows());
   WhatL_.setFromTriplets(trips1.begin(),trips1.end());
+
+  //   //void init_block_diagonal(Eigen::SparseMatrixd& mat, int N);
+  // SparseMatrixd asdf;
+  // init_block_diagonal<9,6>(asdf, T_.rows());
+  // update_block_diagonal(dRL_, WhatL_);
 
   trips1.clear();
   for (int i = 0; i < T_.rows(); ++i) {

@@ -141,7 +141,7 @@ TEST_CASE("Penalty Energy Gradient - d2EL/dxds") {
     s.segment(6*i,6) = obj->S_[i];
   }
 
-  double kappa = 1e3;
+  double kappa = 1e2;
 
   // Compute jacobian
   obj->update_gradients();
@@ -194,6 +194,8 @@ TEST_CASE("Penalty Energy Gradient - d2EL/dxds") {
   MatrixXd fgrad;
   finite_jacobian(s, E, fgrad, FOURTH, 1e-4);
 
-  std::cout << "diff: \n" << (fgrad-grad).norm() << std::endl;
+  // std::cout << "fgrad: \n" << fgrad << std::endl;
+  // std::cout << "grad: \n" << grad << std::endl;
+  // std::cout << "diff: \n" << (fgrad-grad).norm() << std::endl;
   CHECK(compare_jacobian(grad, fgrad,1e-4));
 }
