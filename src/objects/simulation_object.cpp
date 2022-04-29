@@ -429,13 +429,18 @@ void SimObject::update_gradients() {
 void SimObject::update_lambdas(int t) {
   VectorXd def_grad = J_*(P_.transpose()*qt_+b_);
   
+  VectorXd dl = 0 * la_;
+
   #pragma omp parallel for
   for (int i = 0; i < T_.rows(); ++i) {
     Matrix<double,9,6> W;
     Wmat(R_[i],W);
-    la_.segment(9*i,9) = (W*S_[i] - def_grad.segment(9*i,9))* vols_[i];
+    dl.segment(9*i,9) = (W*S_[i] - def_grad.segment(9*i,9));
   }
-  la_ *= -std::pow(10,t+2);
+  //dl *= -std::pow(10,t+2);
+  //la_ = dl;
+
+  la_ -= config_-> kappa * dl;
   //la_.cwiseMax(0);
   std::cout << "  - LA norm: " << la_.norm() << std::endl;
 }
@@ -445,8 +450,7 @@ void SimObject::update_positions() {
   vt_ = (qt_ - q0_) / config_->h;
   q0_ = qt_;
 
-  dq_ds_.setZero(); // TODO should we do this?
-  dq_.setZero();
+  la_.setZero();
 
   VectorXd q = P_.transpose()*qt_ + b_;
   MatrixXd tmp = Map<MatrixXd>(q.data(), V_.cols(), V_.rows());
