@@ -161,7 +161,17 @@ void SimObject::substep(bool init_guess, double& decrement) {
   // }
   start=end;
 
-  int niter = pcg(dq_ds_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_);
+  //Eigen::SimplicialLLT<SparseMatrixd> solver(lhs_);
+  //solver.compute(lhs_);
+  //if(solver.info()!=Success) {
+  //  std::cerr << "!!!!!!!!!!!!!!!prefactor failed! " << std::endl;
+  //  std::cout <<"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" << std::endl;
+  //  exit(1);
+  //}
+  //dq_ds_ = solver.solve(rhs_);
+  int niter = 10;
+  dq_ds_ = solver_.solve(rhs_);
+  //int niter = pcg(dq_ds_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_);
   // ConjugateGradient<SparseMatrix<double>, Lower|Upper> cg;
   // cg.compute(lhs_);
   // dq_ds_ = cg.solve(rhs_);
@@ -399,7 +409,8 @@ void SimObject::update_gradients() {
   G = Jw_ - G.eval();
   SparseMatrixd Fk = Whate_.transpose()*Jw_- W_.transpose() * G; //TODO !!!!
   Fk = Fk * P_.transpose();
-  SparseMatrixd L = P_* (G.transpose() * G) * P_.transpose();
+  //SparseMatrixd L = P_* (G.transpose() * G) * P_.transpose();
+  SparseMatrixd L = P_* (J_.transpose() * A_ * J_) * P_.transpose();
 
   VectorXd kappa_vals(T_.rows());
   #pragma omp parallel for
@@ -419,8 +430,8 @@ void SimObject::update_gradients() {
 
   SparseMatrixd A = config_->ih2*M_  + config_->kappa * L;
   SparseMatrixd J = W_.transpose()  * Jw_ * P_.transpose();
-  fill_block_matrix(A,
-      F + config_->kappa * Fk, H_, lhs_);
+  fill_block_matrix(A,  
+      1 * (F + config_->kappa * Fk), H_, lhs_);
 
   //write out preconditioner to disk
   //bool did_it_write = saveMarket(lhs, "./preconditioner.txt");

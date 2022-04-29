@@ -32,7 +32,7 @@ namespace mfem {
     double thickness = 1e-3;
     double kappa = 1.0;
 
-    double newton_tol = 1e-4;
+    double newton_tol = 1e-10;
     double ls_tol = 1e-4;
     int ls_iters = 6;
   };

@@ -120,11 +120,11 @@ namespace mfem {
 
 
 
-    #if defined(SIM_USE_CHOLMOD)
-    Eigen::CholmodSimplicialLDLT<Eigen::SparseMatrixd> solver_;
-    #else
+    //#if defined(SIM_USE_CHOLMOD)
+    //Eigen::CholmodSimplicialLDLT<Eigen::SparseMatrixd> solver_;
+    //#else
     Eigen::SimplicialLDLT<Eigen::SparseMatrixd> solver_;
-    #endif
+    //#endif
 
     // CG temp variables
     Eigen::VectorXd tmp_r_;
