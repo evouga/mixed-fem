@@ -51,10 +51,7 @@ namespace mfem {
     // Build the KKT right hand side
     virtual void build_rhs();
     
-    // Update per-element S, symmetric deformation, and R, rotation matrices
-    virtual void fit_rotations(Eigen::VectorXd& dq, Eigen::VectorXd& la);
     virtual void update_rotations();
-    virtual void update_s(std::vector<Eigen::Vector6d>& s, const Eigen::VectorXd& q);
     virtual void linesearch(Eigen::VectorXd& q, const Eigen::VectorXd& dq);
     virtual void linesearch();
 

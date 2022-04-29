@@ -138,55 +138,6 @@ void SimObject::update_rotations() {
   }
 }
 
-// Only call within iter iteration
-void SimObject::fit_rotations(VectorXd& dq, VectorXd& la) {
-
-  VectorXd def_grad = J_*(P_.transpose()*(qt_+dq)+b_);
-
-  int N = (T_.rows() / 4) + int(T_.rows() % 4 != 0);
-  double fac = std::max((la.array().abs().maxCoeff() + 1e-6), 1.0);
-
-  std::vector<Vector6d> S(S_.size());
-  update_s(S, qt_+dq);
-
-  #pragma omp parallel for 
-  for (int ii = 0; ii < N; ++ii) {
-
-    Matrix<float,12,3> Y4,R4;
-
-    // SSE implementation operates on 4 matrices at a time, so assemble
-    // 12 x 3 matrices
-    for (int jj = 0; jj < 4; ++jj) {
-      int i = ii*4 +jj;
-      if (i >= T_.rows())
-        break;
-      Vector9d li = ibeta_*(la.segment(9*i,9)/fac) + def_grad.segment(9*i,9);
-      Vector6d s = S[i];
-
-      // Solve rotation matrices
-      Matrix3d Cs;
-      Cs << s(0), s(3), s(4), 
-            s(3), s(1), s(5), 
-            s(4), s(5), s(2);       
-      //Matrix3d y4 = Map<Matrix3d>(li.data()).transpose()*Cs;
-      Matrix3d y4 = Map<Matrix3d>(li.data())*Cs;
-      Y4.block(3*jj, 0, 3, 3) = y4.cast<float>();
-    }
-
-    // Solve rotations
-    polar_svd3x3_sse(Y4,R4);
-
-    // Assign rotations to per-element matrices
-    for (int jj = 0; jj < 4; jj++) {
-      int i = ii*4 +jj;
-      if (i >= T_.rows())
-        break;
-
-      R_[i] = R4.block(3*jj,0,3,3).cast<double>();
-    }
-  }
-}
-
 void SimObject::substep(bool init_guess) {
 
   auto start = high_resolution_clock::now();
@@ -225,7 +176,7 @@ void SimObject::substep(bool init_guess) {
   cg.compute(lhs_);
   dq_ds_ = cg.solve(rhs_);
   std::cout << "#iterations:     " << cg.iterations() << std::endl;
-  std::cout << "estimated error: " << cg.error()      << std::endl;
+  //std::cout << "estimated error: " << cg.error()      << std::endl;
   //double relative_error = (lhs_*dq_ds_ - rhs_).norm() / rhs_.norm(); // norm() is L2 norm
 
   //std::cout << "  - # PCG iter: " << niter << std::endl;
@@ -246,9 +197,6 @@ void SimObject::substep(bool init_guess) {
     S_[i] += ds_.segment(6*i,6);
   }
 
-  // if (config_->local_global) {
-  //   fit_rotations(dq_, la_);
-  // }
   end = high_resolution_clock::now();
   t_SR += duration_cast<nanoseconds>(end-start).count()/1e6;
   ibeta_ = std::min(1e-8, 0.9*ibeta_);
@@ -368,84 +316,24 @@ void SimObject::init() {
 void SimObject::warm_start() {
   double h = config_->h;
   dq_ds_.segment(0, qt_.size()) =  h*vt_ + h*h*f_ext_;
-  dq_ = h*vt_ + h*h*f_ext_; // NEW
+  dq_ = h*vt_ + h*h*f_ext_;
   ibeta_ = 1. / config_->beta;
-
-  if (config_->local_global) {
-  //  fit_rotations(dq_, la_);
-  }
 
   qt_ += dq_;
   dq_ds_.setZero();
   dq_.setZero();
-
-/////////////////
-  VectorXd def_grad = J_*(P_.transpose()*qt_+b_);
-  int N = (T_.rows() / 4) + int(T_.rows() % 4 != 0);
-
-  #pragma omp parallel for 
-  for (int ii = 0; ii < N; ++ii) {
-    Matrix<float,12,3> F4,R4,U4,V4;
-    Matrix<float,12,1> S4;
-    // SSE implementation operates on 4 matrices at a time, so assemble
-    // 12 x 3 matrices
-    for (int jj = 0; jj < 4; ++jj) {
-      int i = ii*4 +jj;
-      if (i >= T_.rows())
-        break;
-      Matrix3d f4 = Map<Matrix3d>(def_grad.segment(9*i,9).data());
-      F4.block(3*jj, 0, 3, 3) = f4.cast<float>();
-    }
-
-    svd3x3_sse(F4, U4, S4, V4);
-
-    for (int jj = 0; jj < 4; ++jj) {
-      int i = ii*4 +jj;
-      if (i >= T_.rows())
-        break;
-      
-      Matrix3d S = S4.segment(3*jj,3).cast<double>().asDiagonal();
-      Matrix3d V = V4.block(3*jj,0,3,3).cast<double>();
-      S = (V  * S * V.transpose());
-      MatrixXd R = (U4.block(3*jj,0,3,3).cast<double>() * V.transpose());
-      //S_[i] = Vector6d(S(0,0),S(1,1),S(2,2),S(1,0),S(2,0),S(2,1));
-      // Matrix<double,9,6> W;
-      // Wmat(R,W);
-      //std::cout << "RS: \n " << R*S << " def grad: " << def_grad.segment(9*i,9) << "\n Ws: " << W*S_[i] << std::endl;
-    }
-  }
-/////////////////
-
 }
-
-void SimObject::update_s(std::vector<Vector6d>& s, const VectorXd& q) {
-  VectorXd Jdq = J_*(P_.transpose()*(q - qt_));
-  #pragma omp parallel for
-  for (int i = 0; i < T_.rows(); ++i) {
-    s[i] = S_[i] + material_->dS(R_[i], S_[i], la_.segment(9*i,9), Hinv_[i]);
-    //std::cout << "g: " << material_->gradient(R_[i],S_[i]) << std::endl;
-
-    if (!config_->local_global) {
-      //std::cout << " ds 1: " << s[i]-S_[i] << " additional: " 
-      //    << Hinv_[i] * dRL_[i].transpose() * Jdq.segment(9*i,9) << std::endl;
-      s[i] = S_[i] + Hinv_[i] * dRL_[i].transpose() * Jdq.segment(9*i,9);
-    }
-  }
-}
-
 
 void SimObject::linesearch(VectorXd& q, const VectorXd& dq) {
   std::vector<Vector6d> s(S_.size());
  
   auto value = [&](const VectorXd& x)->double {
-    //update_s(s, x);
     return energy(x, S_, la_);
   };
 
   VectorXd xt = q;
   VectorXd tmp;
   linesearch_backtracking_bisection(xt, dq, value, tmp,5,1.0,0.1,0.5,E_prev);
-  //update_s(S_, xt);
   q = xt;
   E_prev = energy(xt, S_, la_);
 }
@@ -595,6 +483,7 @@ void SimObject::update_lambdas(int t) {
   //la_.cwiseMax(0);
   std::cout << "  - LA norm: " << la_.norm() << std::endl;
 }
+
 void SimObject::update_positions() {
 
   vt_ = (qt_ - q0_) / config_->h;
@@ -602,7 +491,6 @@ void SimObject::update_positions() {
 
   dq_ds_.setZero(); // TODO should we do this?
   dq_.setZero();
-  //la_.setZero();
 
   VectorXd q = P_.transpose()*qt_ + b_;
   MatrixXd tmp = Map<MatrixXd>(q.data(), V_.cols(), V_.rows());
