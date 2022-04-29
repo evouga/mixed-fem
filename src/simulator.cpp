@@ -26,20 +26,23 @@ void Simulator::step() {
     std::cout << "* La step: " << ii << std::endl;
     std::cout << "-------------------------------------------" << std::endl;
 
-    for (int i = 0; i < config_->outer_steps; ++i) {
-      
+    int i = 0;
+    double grad_norm;
+    bool ls_done;
+    do {
       std::cout << "* Newton step: " << i << std::endl;
-      //object_->update_gradients();
-      
-      for (int j = 0; j < 1; ++j) {
-        // Do substep on each objects
-        object_->substep(i==0 && j==0);
-      }
-
-      object_->linesearch();
+      // Do substep on each objects
+      object_->substep(i==0, grad_norm);
+      ls_done = object_->linesearch();
       object_->update_gradients();
 
-    }
+      if (ls_done) {
+        std::cout << "  - Linesearch done " << std::endl;
+        break;
+      }
+      ++i;
+    } while (i < config_->outer_steps && grad_norm > config_->newton_tol);
+
     object_->update_lambdas(ii);
   }
 

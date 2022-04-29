@@ -52,8 +52,8 @@ namespace mfem {
     virtual void build_rhs();
     
     virtual void update_rotations();
-    virtual void linesearch(Eigen::VectorXd& q, const Eigen::VectorXd& dq);
-    virtual void linesearch();
+    virtual bool linesearch(Eigen::VectorXd& q, const Eigen::VectorXd& dq);
+    virtual bool linesearch();
 
     // Recompute per-element gradient and hessians using new
     // S and R matrices.
@@ -61,7 +61,7 @@ namespace mfem {
 
     // Simulation substep for this object
     // init_guess - whether to initialize guess with a prefactor solve
-    void substep(bool init_guess);
+    void substep(bool init_guess, double& decrement);
   
     void warm_start();
     void update_lambdas(int t);
@@ -96,9 +96,11 @@ namespace mfem {
     SparseMatrixdRowMajor Jw_tilde_; // jacobian for regularizer
     SparseMatrixdRowMajor Jw_rot_; // jacobian for regularizer
     SparseMatrixdRowMajor Ws_;      // integrated (weighted) jacobian
-    SparseMatrixdRowMajor WhatS_;
-    SparseMatrixdRowMajor Whate_;
-    SparseMatrixdRowMajor WhatL_;
+    Eigen::SparseMatrixd WhatL_;
+    Eigen::SparseMatrixd WhatS_;
+    Eigen::SparseMatrixd Whate_;
+    Eigen::SparseMatrixd W_;
+    Eigen::SparseMatrixd A_;
 
     Eigen::VectorXi pinnedV_;
 
@@ -107,11 +109,8 @@ namespace mfem {
     Eigen::VectorXd qt_;    // current positions
     Eigen::VectorXd vt_;    // current velocities
     Eigen::VectorXd q0_;    // previous positions
-    //Eigen::VectorXd q1_;    // previous^2 positions
     Eigen::VectorXd dq_;    // current update
     Eigen::VectorXd f_ext_; // per-node external forces
-    //Eigen::VectorXd f_ext0_;// per-node external forces (not integrated)
-    //Eigen::VectorXd f_ext1_;// per-node external forces (not integrated)
     Eigen::VectorXd la_;    // lambdas
     Eigen::VectorXd ds_;    // lambdas
     Eigen::VectorXd b_;     // coordinates projected out

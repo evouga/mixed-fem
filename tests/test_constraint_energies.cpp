@@ -159,7 +159,7 @@ TEST_CASE("Constraint Energy Gradient - d2EL/dxds") {
   // Compute jacobian
   obj->update_gradients();
 
-  MatrixXd grad = obj->WhatL_ * obj->Jw_ * obj->P_.transpose();
+  MatrixXd grad = obj->WhatL_.transpose() * obj->Jw_ * obj->P_.transpose();
   grad.transposeInPlace();
 
   

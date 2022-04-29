@@ -158,7 +158,7 @@ TEST_CASE("Penalty Energy Gradient - d2EL/dxds") {
 
   MatrixXd grad = kappa * obj->P_ * (obj->Jw_.transpose() 
       * obj->WhatS_ - obj->Jw_.transpose()) * Wk;
-  grad += kappa * obj->P_ * (obj->Jw_.transpose() * obj->Whate_.transpose());
+  grad += kappa * obj->P_ * (obj->Jw_.transpose() * obj->Whate_);
 
   // Energy function for finite differences
   auto Ex = [&](const VectorXd& x)-> double {

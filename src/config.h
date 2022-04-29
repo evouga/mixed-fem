@@ -31,6 +31,10 @@ namespace mfem {
     double plane_d = 0;
     double thickness = 1e-3;
     double kappa = 1.0;
+
+    double newton_tol = 1e-4;
+    double ls_tol = 1e-4;
+    int ls_iters = 6;
   };
 
   // Simple config for material parameters for a single object

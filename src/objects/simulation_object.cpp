@@ -138,7 +138,7 @@ void SimObject::update_rotations() {
   }
 }
 
-void SimObject::substep(bool init_guess) {
+void SimObject::substep(bool init_guess, double& decrement) {
 
   auto start = high_resolution_clock::now();
   build_rhs();
@@ -179,9 +179,10 @@ void SimObject::substep(bool init_guess) {
   //std::cout << "estimated error: " << cg.error()      << std::endl;
   //double relative_error = (lhs_*dq_ds_ - rhs_).norm() / rhs_.norm(); // norm() is L2 norm
 
+  decrement = std::sqrt(dq_ds_.dot(dq_ds_));
   //std::cout << "  - # PCG iter: " << niter << std::endl;
   std::cout << "  - RHS Norm: " << rhs_.norm() << std::endl;
-  std::cout << "  - Newton decrement: " << dq_ds_.dot(dq_ds_) << std::endl;
+  std::cout << "  - Newton decrement: " << decrement  << std::endl;
   //std::cout << "  - relative_error: " << relative_error << std::endl;
 
   end = high_resolution_clock::now();
@@ -312,7 +313,20 @@ void SimObject::init() {
   Vector3d ext = Map<Vector3f>(config_->ext).cast<double>();
   f_ext_ = P_ * ext.replicate(V_.rows(),1);
 
-  // init_block_diagonal<9,6>(WhatL_, T_.rows());
+  init_block_diagonal<9,6>(Whate_, T_.rows());
+  init_block_diagonal<9,6>(WhatL_, T_.rows());
+  init_block_diagonal<9,9>(WhatS_, T_.rows());
+  init_block_diagonal<9,6>(W_, T_.rows());
+
+  // Initialize volume sparse matrix
+  A_.resize(T_.rows()*9, T_.rows()*9);
+  std::vector<Triplet<double>> trips;
+  for (int i = 0; i < T_.rows(); ++i) {
+    for (int j = 0; j < 9; ++j) {
+      trips.push_back(Triplet<double>(9*i+j, 9*i+j,vols_[i]));
+    }
+  }
+  A_.setFromTriplets(trips.begin(),trips.end());
 }
 
 void SimObject::warm_start() {
@@ -326,7 +340,7 @@ void SimObject::warm_start() {
   dq_.setZero();
 }
 
-void SimObject::linesearch(VectorXd& q, const VectorXd& dq) {
+bool SimObject::linesearch(VectorXd& q, const VectorXd& dq) {
   std::vector<Vector6d> s(S_.size());
  
   auto value = [&](const VectorXd& x)->double {
@@ -335,15 +349,19 @@ void SimObject::linesearch(VectorXd& q, const VectorXd& dq) {
 
   VectorXd xt = q;
   VectorXd tmp;
-  linesearch_backtracking_bisection(xt, dq, value, tmp,5,1.0,0.1,0.5,E_prev);
+  SolverExitStatus status = linesearch_backtracking_bisection(xt, dq, value,
+      tmp, config_->ls_iters, 1.0, 0.1, 0.5, E_prev);
+  bool done = (status == MAX_ITERATIONS_REACHED ||
+              (xt-dq).norm() < config_->ls_tol);
   q = xt;
   E_prev = energy(xt, S_, la_);
+  return done;
 }
 
-void SimObject::linesearch() {
+bool SimObject::linesearch() {
   std::cout << "  - dq norm: " << dq_.norm() 
             << " ds norm: " << ds_.norm() << std::endl;
-  linesearch(qt_, dq_);
+  return linesearch(qt_, dq_);
 }
 
 
@@ -354,106 +372,33 @@ void SimObject::update_gradients() {
   update_rotations();
     
   std::vector<Triplet<double>> trips1;
+
+  update_block_diagonal(dRL_, WhatL_);
+  update_block_diagonal(dRS_, WhatS_);
+  update_block_diagonal(dRe_, Whate_);
+
+  std::vector<Matrix<double,9,6>> Wvec(T_.rows());
   for (int i = 0; i < T_.rows(); ++i) {
-    // Assembly for the i-th lagrange multiplier matrix which
-    // is associated with 4 vertices (for tetrahedra)
-    for (int j = 0; j < 9; ++j) {
-      // k-th vertex of the tetrahedra
-      for (int k = 0; k < 6; ++k) {
-        double val = dRL_[i](j, k) ;
-        trips1.push_back(Triplet<double>(6*i+k, 9*i+j, val));
-      }
-    }
+    Wmat(R_[i],Wvec[i]);
   }
-  WhatL_.setZero();
-  WhatL_.resize(6*T_.rows(), 9*T_.rows());
-  WhatL_.setFromTriplets(trips1.begin(),trips1.end());
-
-  //   //void init_block_diagonal(Eigen::SparseMatrixd& mat, int N);
-  // SparseMatrixd asdf;
-  // init_block_diagonal<9,6>(asdf, T_.rows());
-  // update_block_diagonal(dRL_, WhatL_);
-
-  trips1.clear();
-  for (int i = 0; i < T_.rows(); ++i) {
-    // Assembly for the i-th lagrange multiplier matrix which
-    // is associated with 4 vertices (for tetrahedra)
-    for (int j = 0; j < 9; ++j) {
-      // k-th vertex of the tetrahedra
-      for (int k = 0; k < 9; ++k) {
-        double val = dRS_[i](j, k) ;
-        trips1.push_back(Triplet<double>(9*i+j, 9*i+k, val));
-      }
-    }
-  }
-  WhatS_.setZero();
-  WhatS_.resize(9*T_.rows(), 9*T_.rows());
-  WhatS_.setFromTriplets(trips1.begin(),trips1.end());
-
-  trips1.clear();
-  for (int i = 0; i < T_.rows(); ++i) {
-    // Assembly for the i-th lagrange multiplier matrix which
-    // is associated with 4 vertices (for tetrahedra)
-    for (int j = 0; j < 9; ++j) {
-      // k-th vertex of the tetrahedra
-      for (int k = 0; k < 6; ++k) {
-        double val = dRe_[i](j, k) ;
-        trips1.push_back(Triplet<double>(6*i+k, 9*i+j, val));
-      }
-    }
-  }
-  Whate_.setZero();
-  Whate_.resize(6*T_.rows(), 9*T_.rows());
-  Whate_.setFromTriplets(trips1.begin(),trips1.end());
-
-  trips1.clear();
-  for (int i = 0; i < T_.rows(); ++i) {
-    Matrix<double,9,6> W;
-    Wmat(R_[i],W);
-    for (int j = 0; j < 9; ++j) {
-      // k-th vertex of the tetrahedra
-      for (int k = 0; k < 6; ++k) {
-        trips1.push_back(Triplet<double>(6*i+k, 9*i+j, W(j,k)));
-      }
-    }
-  }
-
-  SparseMatrixdRowMajor Wk(6*T_.rows(), 9*T_.rows());
-  Wk.setZero();
-  Wk.setFromTriplets(trips1.begin(),trips1.end());
+  update_block_diagonal(Wvec, W_);
 
 
-  MatrixXd V(T_.rows()*9, T_.rows()*9);
-  V.setZero();
-  for (int i = 0; i < T_.rows(); ++i) {
-    for (int j = 0; j < 9; ++j) {
-      V(9*i + j, 9*i + j) = vols_[i];
-    }
-  }
-  MatrixXd F = -WhatL_ * Jw_ * P_.transpose();
+  MatrixXd F = -WhatL_.transpose() * Jw_ * P_.transpose();
   SparseMatrixdRowMajor G = WhatS_.transpose() * Jw_;
   G = Jw_ - G.eval();
-  // SparseMatrixd Fk = Whate_*Jw_;
-  // Fk -= Wk * Jw_;
-  // SparseMatrixd tmp = (WhatS_).transpose() * Jw_;
-  // Fk += Wk * tmp;
-  // Fk = Fk * P_.transpose();
-  SparseMatrixd Fk = Whate_*Jw_- Wk * G; //TODO !!!!
+  SparseMatrixd Fk = Whate_.transpose()*Jw_- W_.transpose() * G; //TODO !!!!
   Fk = Fk * P_.transpose();
 
   int n = qt_.size();
   int m = 6*T_.rows();
   MatrixXd lhs(n+m, n+m);
   lhs.setZero();
-  //MatrixXd L = P_* (J_.transpose() * V * J_) * P_.transpose();
   MatrixXd L = P_* (G.transpose() * G) * P_.transpose();
   lhs.block(0,0,n,n) = config_->ih2*M_  + config_->kappa * L; 
   lhs.block(0,n,n,m) = F.transpose() + config_->kappa * Fk.transpose();
   lhs.block(n,0,m,n) = F  + config_->kappa * Fk;
   
-
-  //lhs.block(0,n,n,m) -= config_->kappa * P_ * G.transpose() * Wk;
-  //lhs.block(n,0,m,n) -= config_->kappa * Wk.transpose() * G * P_.transpose();
 
   VectorXd kappa_vals(T_.rows());
   #pragma omp parallel for
@@ -536,8 +481,8 @@ double SimObject::energy(VectorXd x, std::vector<Vector6d> s, VectorXd la) {
   }
   double e = Em + Epsi - Ela + Er;
   //std::cout << "E: " <<  e << " ";
-  std::cout << "  - (Em: " << Em << " Epsi: " << Epsi 
-      << " Ela: " << Ela << " Er: " << Er << " )" << std::endl;
+  //std::cout << "  - (Em: " << Em << " Epsi: " << Epsi 
+  //    << " Ela: " << Ela << " Er: " << Er << " )" << std::endl;
   return e;
 
 }

@@ -17,10 +17,14 @@
 //  x - contains point to which linesearch converged, or final accepted point before termination
 //  SolverExitStatus - exit code for solver 
 namespace mfem {
+  enum SolverExitStatus {
+      CONVERGED,
+      MAX_ITERATIONS_REACHED
+  };
     
   template <typename DerivedX, typename Scalar, class Objective,
            class Callback = decltype(default_linesearch_callback)>
-  bool linesearch_backtracking_bisection(
+  SolverExitStatus linesearch_backtracking_bisection(
       Eigen::MatrixBase<DerivedX> &x, 
       const Eigen::MatrixBase<DerivedX> &d,
       const Objective &f,
@@ -51,7 +55,9 @@ namespace mfem {
 
     x += alpha*d;
     printf("  - LS: f(x0): %.5g, f(x + a*d): %.5g, alpha: %.5g\n", fx0, f(x), alpha);
-    return (iteration_count == max_iterations); 
+    return (iteration_count == max_iterations 
+        ? SolverExitStatus::MAX_ITERATIONS_REACHED 
+        : SolverExitStatus::CONVERGED);
     //std::cout << "f(x): " << f(x) << " alpha: " << alpha << std::endl;
     //std::cout << "f(x+alpha*d): " << f(x + alpha * d) << " f(x): " << f(x) << " cg'd: " << alpha * (c * g.transpose()*d) << std::endl;
     //while ((iteration_count < max_iterations) && (f(x + alpha * d) > (f(x) + alpha*c*g.transpose()*d))) {
