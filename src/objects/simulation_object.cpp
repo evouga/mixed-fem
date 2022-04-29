@@ -168,13 +168,13 @@ void SimObject::substep(bool init_guess, double& decrement) {
   // int niter = cg.iterations();
   std::cout << "  - CG iters: " << niter << std::endl;
   //std::cout << "estimated error: " << cg.error()      << std::endl;
-  //double relative_error = (lhs_*dq_ds_ - rhs_).norm() / rhs_.norm(); // norm() is L2 norm
+  double relative_error = (lhs_*dq_ds_ - rhs_).norm() / rhs_.norm(); // norm() is L2 norm
 
   decrement = std::sqrt(dq_ds_.dot(dq_ds_));
   //std::cout << "  - # PCG iter: " << niter << std::endl;
   std::cout << "  - RHS Norm: " << rhs_.norm() << std::endl;
   std::cout << "  - Newton decrement: " << decrement  << std::endl;
-  //std::cout << "  - relative_error: " << relative_error << std::endl;
+  std::cout << "  - relative_error: " << relative_error << std::endl;
 
   end = high_resolution_clock::now();
   t_solve += duration_cast<nanoseconds>(end-start).count()/1e6;
@@ -338,6 +338,17 @@ void SimObject::warm_start() {
   ibeta_ = 1. / config_->beta;
 
   qt_ += dq_;
+
+  // VectorXd def_grad = J_*(P_.transpose()*dq_+b_);
+  // for (int i = 0; i < T_.rows(); ++i) {
+  //   Matrix3d F = Map<Matrix3d>(def_grad.segment(9*i,9).data());
+  //   JacobiSVD<Matrix3d> svd(F, ComputeFullU | ComputeFullV);
+  //   Matrix3d dS = svd.matrixV() * svd.singularValues().asDiagonal()
+  //       * svd.matrixV().transpose();
+  //   Vector6d ds;
+  //   ds << dS(0,0), dS(1,1), dS(2,2), dS(1,0), dS(2,0), dS(2,1);
+  //   S_[i] += ds;
+  // }
 }
 
 bool SimObject::linesearch(VectorXd& q, const VectorXd& dq) {
@@ -363,7 +374,6 @@ bool SimObject::linesearch() {
             << " ds norm: " << ds_.norm() << std::endl;
   return linesearch(qt_, dq_);
 }
-
 
 void SimObject::update_gradients() {
   
@@ -391,16 +401,6 @@ void SimObject::update_gradients() {
   Fk = Fk * P_.transpose();
   SparseMatrixd L = P_* (G.transpose() * G) * P_.transpose();
 
-
-  int n = qt_.size();
-  int m = 6*T_.rows();
-  // MatrixXd lhs(n+m, n+m);
-  // lhs.setZero();
-  // lhs.block(0,0,n,n) = config_->ih2*M_  + config_->kappa * L; 
-  // lhs.block(0,n,n,m) = F.transpose() + config_->kappa * Fk.transpose();
-  // lhs.block(n,0,m,n) = F  + config_->kappa * Fk;
-  
-
   VectorXd kappa_vals(T_.rows());
   #pragma omp parallel for
   for (int i = 0; i < T_.rows(); ++i) {
@@ -414,12 +414,21 @@ void SimObject::update_gradients() {
     kappa_vals(i) = es.eigenvalues().real().maxCoeff();
 
     H_[i] = vols_[i]*(H + config_->kappa*W.transpose()*W);
-    // lhs.block(n+6*i,n+6*i,6,6) = H_[i];
+    // WTW is just diag(1 1 1 2 2 2)
   }
 
-  SparseMatrixd lhs2;
-  fill_block_matrix(config_->ih2*M_  + config_->kappa * L,
-      F  + config_->kappa * Fk, H_, lhs_);
+  SparseMatrixd A = config_->ih2*M_  + config_->kappa * L;
+  SparseMatrixd J = W_.transpose()  * Jw_ * P_.transpose();
+  fill_block_matrix(A,
+      F + config_->kappa * Fk, H_, lhs_);
+
+  //write out preconditioner to disk
+  //bool did_it_write = saveMarket(lhs, "./preconditioner.txt");
+  //exit(1);
+
+  //MatrixXd lhs(lhs_);
+  //EigenSolver<MatrixXd> es(lhs);
+  //std::cout << "EVALS: \n" << es.eigenvalues().real() << std::endl;
   //std::cout << "kappa vals: " << kappa_vals << std::endl;
   // config_->kappa = kappa_vals.maxCoeff();
   //std::cout << "LA: \n" << la_ << std::endl;
@@ -482,8 +491,8 @@ double SimObject::energy(VectorXd x, std::vector<Vector6d> s, VectorXd la) {
   }
   double e = Em + Epsi - Ela + Er;
   //std::cout << "E: " <<  e << " ";
-  //std::cout << "  - (Em: " << Em << " Epsi: " << Epsi 
-  //    << " Ela: " << Ela << " Er: " << Er << " )" << std::endl;
+  std::cout << "  - (Em: " << Em << " Epsi: " << Epsi 
+     << " Ela: " << Ela << " Er: " << Er << " )" << std::endl;
   return e;
 
 }
