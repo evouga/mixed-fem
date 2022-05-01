@@ -22,7 +22,7 @@ namespace mfem {
     double grav = -9.8;
     float ext[3] = {0., -9.8, 0.};
     double beta = 5.;
-    bool warm_start = true;
+    bool warm_start = false;
     bool floor_collision = false;
     bool regularizer = false;
     bool local_global = true;
@@ -30,7 +30,7 @@ namespace mfem {
     int inner_steps = 7;
     double plane_d = 0;
     double thickness = 1e-3;
-    double kappa = 1.0;
+    double kappa = 1000.0;
 
     double newton_tol = 1e-10;
     double ls_tol = 1e-4;
