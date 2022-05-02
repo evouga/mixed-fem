@@ -32,10 +32,21 @@ void Simulator::step() {
     do {
       std::cout << "* Newton step: " << i << std::endl;
       // Do substep on each objects
+      auto start = high_resolution_clock::now();
       object_->substep(i==0, grad_norm);
+      auto end = high_resolution_clock::now();
+      double t1 = duration_cast<nanoseconds>(end-start).count()/1e6;
+      start = high_resolution_clock::now();
       ls_done = object_->linesearch();
+      end = high_resolution_clock::now();
+      double t2 = duration_cast<nanoseconds>(end-start).count()/1e6;
+      start = high_resolution_clock::now();
       object_->update_gradients();
-
+      end = high_resolution_clock::now();
+      double t3 = duration_cast<nanoseconds>(end-start).count()/1e6;
+      std::cout << " Substep time: " << t1
+          << " Linesearch: " << t2
+          << " Update gradients: " << t3 << std::endl;
       if (ls_done) {
         std::cout << "  - Linesearch done " << std::endl;
         break;

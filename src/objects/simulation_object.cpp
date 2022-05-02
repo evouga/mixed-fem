@@ -13,18 +13,23 @@ using namespace mfem;
 
 void SimObject::build_lhs() {
 
+  auto start = high_resolution_clock::now();
   SparseMatrixd F = -WhatL_.transpose() * Jw_ * P_.transpose();
-  SparseMatrixdRowMajor G = WhatS_.transpose() * Jw_;
-  G = Jw_ - G.eval();
-  SparseMatrixd Fk = Whate_.transpose()*Jw_- W_.transpose() * G; //TODO !!!!
+  SparseMatrixdRowMajor G = WhatS_.transpose() * J_;
+  G = J_ - G.eval();
+  SparseMatrixdRowMajor Gw = A_ * G;
+  SparseMatrixd Fk = Whate_.transpose()*Jw_- W_.transpose() * Gw;
   Fk = Fk * P_.transpose();
-  //SparseMatrixd L = P_* (G.transpose() * G) * P_.transpose();
-  SparseMatrixd L = P_* (J_.transpose() * A_ * J_) * P_.transpose();
+  SparseMatrixd L = P_* (G.transpose() * A_ * G) * P_.transpose();
+  //SparseMatrixd L = P_* (J_.transpose() * A_ * J_) * P_.transpose();
+  auto end = high_resolution_clock::now();
+  double t_1 = duration_cast<nanoseconds>(end-start).count()/1e6;
 
   VectorXd kappa_vals(T_.rows());
-
   Vector6d tmp; tmp << 1,1,1,2,2,2;
   Matrix6d WTW = tmp.asDiagonal();
+  double h2 = config_->h * config_->h;
+  start = high_resolution_clock::now();
   #pragma omp parallel for
   for (int i = 0; i < T_.rows(); ++i) {
     g_[i] = material_->gradient(R_[i], S_[i]);
@@ -36,13 +41,19 @@ void SimObject::build_lhs() {
     SelfAdjointEigenSolver<Matrix6d> es(H);
     kappa_vals(i) = es.eigenvalues().real().maxCoeff();
 
-    H_[i] = vols_[i]*(H + config_->kappa*WTW);
+    H_[i] = vols_[i]*h2*(H + config_->kappa*WTW);
   }
+  end = high_resolution_clock::now();
+  double t_2 = duration_cast<nanoseconds>(end-start).count()/1e6;
 
-  SparseMatrixd A = config_->ih2*M_  + config_->kappa * L;
+  start = high_resolution_clock::now();
+  SparseMatrixd A = M_ + h2 * config_->kappa * L;
   SparseMatrixd J = W_.transpose()  * Jw_ * P_.transpose();
-  fill_block_matrix(A, (F + config_->kappa * Fk), H_, lhs_);
-
+  fill_block_matrix(A, h2 * (F + config_->kappa * Fk), H_, lhs_);
+  end = high_resolution_clock::now();
+  double t_3 = duration_cast<nanoseconds>(end-start).count()/1e6;
+  std::cout << "  - Timing LHS [1]: " << t_1 << " [2]: "
+      << t_2 << " [3]: " << t_3 << std::endl;
   //write out preconditioner to disk
   //bool did_it_write = saveMarket(lhs, "./preconditioner.txt");
   //exit(1);
@@ -52,8 +63,6 @@ void SimObject::build_lhs() {
   // std::cout << "EVALS: \n" << es.eigenvalues().real() << std::endl;
   //std::cout << "kappa vals: " << kappa_vals << std::endl;
   //config_->kappa = kappa_vals.maxCoeff();
-  //std::cout << "LA: \n" << la_ << std::endl;
-  //std::cout << "LHS: \n" << lhs_ << std::endl;
 
 }
 
@@ -64,8 +73,8 @@ void SimObject::build_rhs() {
 
   // Positional forces 
   double h = config_->h;
-  double ih2 = config_->ih2;
-  rhs_.segment(0, qt_.size()) = -ih2*M_*(qt_ - q0_ - h*vt_ - h*h*f_ext_);
+  double h2 = h*h;
+  rhs_.segment(0, qt_.size()) = -M_*(qt_ - q0_ - h*vt_ - h*h*f_ext_);
 
   VectorXd reg_x(9*T_.rows());
   VectorXd def_grad = J_*(P_.transpose()*qt_+b_);
@@ -77,12 +86,12 @@ void SimObject::build_rhs() {
     Wmat(R_[i],W);
     Vector9d la = la_.segment(9*i,9);
     Vector9d diff = W*S_[i] - def_grad.segment(9*i,9);
-    rhs_.segment(qt_.size() + 6*i, 6) = vols_(i) * (W.transpose()*la - g_[i]
-        - config_->kappa * W.transpose()*diff);
-    reg_x.segment(9*i,9) = vols_(i) * diff;
+    rhs_.segment(qt_.size() + 6*i, 6) = vols_(i) * h2 * (W.transpose()*la
+        - g_[i] - config_->kappa * W.transpose()*diff);
+    reg_x.segment(9*i,9) = /*vols_(i) **/ diff;
   }
 
-  rhs_.segment(0, qt_.size()) += -P_ * (Jw_.transpose() 
+  rhs_.segment(0, qt_.size()) += -h2 * P_ * (Jw_.transpose() 
      - Jw_.transpose() * WhatS_) * (la_ - config_->kappa*reg_x);
   //rhs_.segment(0, qt_.size()) -= P_ * (Jw_.transpose() * la_);
 }
@@ -149,7 +158,9 @@ void SimObject::update_rotations() {
 }
 
 void SimObject::substep(bool init_guess, double& decrement) {
-
+  t_rhs = 0;
+  t_solve = 0;
+  t_SR = 0;
   auto start = high_resolution_clock::now();
   build_rhs();
   auto end = high_resolution_clock::now();
@@ -170,16 +181,16 @@ void SimObject::substep(bool init_guess, double& decrement) {
   start=end;
 
   //Eigen::SimplicialLLT<SparseMatrixd> solver(lhs_);
-  CholmodSupernodalLLT<SparseMatrixd> solver(lhs_);
-  solver.compute(lhs_);
-  if(solver.info()!=Success) {
-   std::cerr << "!!!!!!!!!!!!!!!prefactor failed! " << std::endl;
-   std::cout <<"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" << std::endl;
-   exit(1);
-  }
-  dq_ds_ = solver.solve(rhs_);
+  // CholmodSupernodalLLT<SparseMatrixd> solver(lhs_);
+  // solver.compute(lhs_);
+  // if(solver.info()!=Success) {
+  //  std::cerr << "!!!!!!!!!!!!!!!prefactor failed! " << std::endl;
+  //  std::cout <<"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" << std::endl;
+  //  exit(1);
+  // }
+  // dq_ds_ = solver.solve(rhs_);
   int niter = 10;
-  // dq_ds_ = solver_.solve(rhs_);
+  dq_ds_ = solver_.solve(rhs_);
   //int niter = pcg(dq_ds_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_);
   // ConjugateGradient<SparseMatrix<double>, Lower|Upper> cg;
   // cg.compute(lhs_);
@@ -211,6 +222,9 @@ void SimObject::substep(bool init_guess, double& decrement) {
   end = high_resolution_clock::now();
   t_SR += duration_cast<nanoseconds>(end-start).count()/1e6;
   ibeta_ = std::min(1e-8, 0.9*ibeta_);
+
+  std::cout << "  - Timing Substep [RHS]: " << t_rhs << " [Solve]: "
+      << t_solve << " [Update vars]: " << t_SR << std::endl;
 }
 
 VectorXd SimObject::collision_force() {
@@ -291,8 +305,8 @@ void SimObject::init() {
   pinnedV_ = (V_.col(1).array() > pin_y).cast<int>();
   //pinnedV_ = (V_.col(0).array() < pin_x && V_.col(1).array() > pin_y).cast<int>();
   //pinnedV_.resize(V_.rows());
-  pinnedV_.setZero();
-  pinnedV_(0) = 1;
+  // pinnedV_.setZero();
+  // pinnedV_(0) = 1;
 
   P_ = pinning_matrix(V_, T_, pinnedV_, false);
   P_kkt_ = pinning_matrix(V_, T_, pinnedV_, true);
@@ -396,10 +410,14 @@ void SimObject::update_gradients() {
   
   ibeta_ = 1. / config_->beta;
 
+  auto start = high_resolution_clock::now();
   // Compute rotations and rotation derivatives
   update_rotations();
+  auto end = high_resolution_clock::now();
+  double t_1 = duration_cast<nanoseconds>(end-start).count()/1e6;
 
   // Assemble rotation derivatives into block matrices
+  start = high_resolution_clock::now();
   update_block_diagonal(dRL_, WhatL_);
   update_block_diagonal(dRS_, WhatS_);
   update_block_diagonal(dRe_, Whate_);
@@ -411,9 +429,16 @@ void SimObject::update_gradients() {
     Wmat(R_[i],Wvec[i]);
   }
   update_block_diagonal(Wvec, W_);
+  end = high_resolution_clock::now();
+  double t_2 = duration_cast<nanoseconds>(end-start).count()/1e6;
 
   // Assemble blocks for left hand side
+  start = high_resolution_clock::now();
   build_lhs();
+  end = high_resolution_clock::now();
+  double t_3 = duration_cast<nanoseconds>(end-start).count()/1e6;
+  std::cout << "  - Time [update rotations]: " << t_1 
+      << " [update blocks]: " << t_2 << " [LHS]: " << t_3 << std::endl;
 }
 
 void SimObject::update_lambdas(int t) {
@@ -449,8 +474,9 @@ void SimObject::update_positions() {
 
 double SimObject::energy(VectorXd x, std::vector<Vector6d> s, VectorXd la) {
   double h = config_->h;
+  double h2 = h*h;
   VectorXd xdiff = x - q0_ - h*vt_ - h*h*f_ext_;
-  double Em = 0.5*config_->ih2* xdiff.transpose()*M_*xdiff;
+  double Em = 0.5*xdiff.transpose()*M_*xdiff;
 
   VectorXd def_grad = J_*(P_.transpose()*x+b_);
 
@@ -471,9 +497,9 @@ double SimObject::energy(VectorXd x, std::vector<Vector6d> s, VectorXd la) {
     e_Psi(i) = material_->energy(s[i]) * vols_[i];
   }
 
-  double Er = e_R.sum();
-  double Ela = e_L.sum();
-  double Epsi = e_Psi.sum();
+  double Er = h2 * e_R.sum();
+  double Ela = h2 * e_L.sum();
+  double Epsi = h2 * e_Psi.sum();
 
   double e = Em + Epsi - Ela + Er;
   //std::cout << "E: " <<  e << " ";

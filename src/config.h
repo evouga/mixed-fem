@@ -17,6 +17,7 @@ namespace mfem {
   // Global parameters for the simulation
   struct SimConfig {
     double h = 0.034; 
+    double h2 = h*h;
     double density = 1000.0;
     double ih2 = 1.0/h/h;
     double grav = -9.8;
