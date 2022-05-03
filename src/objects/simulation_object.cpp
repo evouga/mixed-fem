@@ -12,41 +12,44 @@ using namespace Eigen;
 using namespace mfem;
 
 void SimObject::build_lhs() {
+  double h2 = config_->h * config_->h;
+  double k = config_->kappa;
 
   auto start = high_resolution_clock::now();
-  SparseMatrixd F = -WhatL_.transpose() * Jw_ * P_.transpose();
-  SparseMatrixdRowMajor G = WhatS_.transpose() * J_;
-  G = J_ - G.eval();
-  SparseMatrixdRowMajor Gw = A_ * G;
-  SparseMatrixd Fk = Whate_.transpose()*Jw_- W_.transpose() * Gw;
-  Fk = Fk * P_.transpose();
-  SparseMatrixd L = P_* (G.transpose() * A_ * G) * P_.transpose();
+  //SparseMatrixd F = -WhatL_.transpose() * Jw_ * P_.transpose();
+  // SparseMatrixd F = -WhatL_.transpose() * A_ * J2_ * P_.transpose();
+  //SparseMatrixd G = WhatS_.transpose() * J2_;
+  //G = J2_ - G.eval();
+  G_ = WhatS_.transpose() * J2_ - J2_;
+  // SparseMatrixd Fk = Whate_.transpose()*A_*J2_ - W_.transpose() * Gw;
+  // Fk = Fk * P_.transpose();
+  L_ = (P_* (G_.transpose() * A_ * G_) * P_.transpose());
+  Hx_ = M_ + h2 * config_->kappa * L_;
   //SparseMatrixd L = P_* (J_.transpose() * A_ * J_) * P_.transpose();
+  J_tilde_ = h2*(k*(Whate_.transpose()*A_*J2_ + W_.transpose() * A_ * G_)
+      - WhatL_.transpose() * A_ * J2_) * P_.transpose();
   auto end = high_resolution_clock::now();
   double t_1 = duration_cast<nanoseconds>(end-start).count()/1e6;
 
   VectorXd kappa_vals(T_.rows());
   Vector6d tmp; tmp << 1,1,1,2,2,2;
   Matrix6d WTW = tmp.asDiagonal();
-  double h2 = config_->h * config_->h;
   start = high_resolution_clock::now();
   #pragma omp parallel for
   for (int i = 0; i < T_.rows(); ++i) {
     g_[i] = material_->gradient(R_[i], S_[i]);
     Matrix6d H = material_->hessian(S_[i]);
-
     // SelfAdjointEigenSolver<Matrix6d> es(H);
     // kappa_vals(i) = es.eigenvalues().real().maxCoeff();
-
-    H_[i] = vols_[i]*h2*(H + config_->kappa*WTW);
+    Hs_[i] = vols_[i]*h2*(H + config_->kappa*WTW);
   }
   end = high_resolution_clock::now();
   double t_2 = duration_cast<nanoseconds>(end-start).count()/1e6;
 
   start = high_resolution_clock::now();
-  SparseMatrixd A = M_ + h2 * config_->kappa * L;
-  SparseMatrixd J = W_.transpose()  * Jw_ * P_.transpose();
-  fill_block_matrix(A, h2 * (F + 1 * config_->kappa * Fk), H_, lhs_);
+  //SparseMatrixd J = W_.transpose()  * Jw_ * P_.transpose();
+  //fill_block_matrix(A, h2 * (F + 0 * config_->kappa * Fk), H_, lhs_);
+  fill_block_matrix(Hx_, J_tilde_, Hs_, lhs_);
   end = high_resolution_clock::now();
   double t_3 = duration_cast<nanoseconds>(end-start).count()/1e6;
   std::cout << "  - Timing LHS [1]: " << t_1 << " [2]: "
@@ -60,9 +63,9 @@ void SimObject::build_lhs() {
   // std::cout << "EVALS: \n" << es.eigenvalues().real() << std::endl;
   //std::cout << "kappa vals: " << kappa_vals << std::endl;
   //config_->kappa = kappa_vals.maxCoeff();
-  MatrixXd lhs(L);
-  EigenSolver<MatrixXd> es(lhs);
-  std::cout << "J^TJ Evals: \n" << es.eigenvalues().real() << std::endl;
+  // MatrixXd lhs(L);
+  // EigenSolver<MatrixXd> es(lhs);
+  // std::cout << "J^TJ Evals: \n" << es.eigenvalues().real() << std::endl;
 
 }
 
@@ -257,7 +260,7 @@ void SimObject::reset_variables() {
   // Initialize rotation matrices to identity
   R_.resize(T_.rows());
   S_.resize(T_.rows());
-  H_.resize(T_.rows());
+  Hs_.resize(T_.rows());
   g_.resize(T_.rows());
   dRS_.resize(T_.rows());
   dRL_.resize(T_.rows());
@@ -268,7 +271,7 @@ void SimObject::reset_variables() {
     dRS_[i].setZero();
     dRL_[i].setZero();
     dRe_[i].setZero();
-    H_[i].setIdentity();
+    Hs_[i].setIdentity();
     g_[i].setZero();
   }
   V_ = V0_;
@@ -291,6 +294,7 @@ void SimObject::init() {
   mass_matrix(M_);
   jacobian(J_, false);
   jacobian(Jw_, true);
+  J2_ = J_;
 
   // Pinning matrices
   double min_x = V_.col(0).minCoeff();
@@ -455,7 +459,7 @@ void SimObject::update_lambdas(int t, double residual) {
   //residual /= config_->h;
   residual *= config_->h;
   double constraint_residual = dl.lpNorm<Infinity>();
-  double max_kappa = 1e4;
+  double max_kappa = 1e5;
   double constraint_tol = 1e-2;
   // update kappa and lambda if residual below this tolerance
   double update_zone_tol = 1e-1; 

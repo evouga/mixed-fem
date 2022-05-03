@@ -77,8 +77,7 @@ namespace mfem {
 
     std::vector<Eigen::Matrix3d> R_;    // Per-element rotations
     std::vector<Eigen::Vector6d> S_;    // Per-element deformation
-    std::vector<Eigen::Matrix6d> H_; // Elemental hessians w.r.t dS
-    std::vector<Eigen::Matrix6d> Hinv_; // Elemental hessians w.r.t dS
+    std::vector<Eigen::Matrix6d> Hs_; // Elemental hessians w.r.t dS
     std::vector<Eigen::Vector6d> g_;    // Elemental gradients w.r.t dS
     std::vector<Eigen::Matrix9d> dRS_;  // dRS/dF where each row is dRS/dF_ij
     std::vector<Eigen::Matrix<double,9,6>> dRL_;
@@ -89,15 +88,17 @@ namespace mfem {
     Eigen::SparseMatrixd P_kkt_;    // pinning constraint (for kkt matrix)
     SparseMatrixdRowMajor J_;       // jacobian
     SparseMatrixdRowMajor Jw_;      // integrated (weighted) jacobian
-    SparseMatrixdRowMajor J_tilde_;  // jacobian for regularizer
-    SparseMatrixdRowMajor Jw_tilde_; // jacobian for regularizer
-    SparseMatrixdRowMajor Jw_rot_; // jacobian for regularizer
+    Eigen::SparseMatrixd J2_;
+    Eigen::SparseMatrixd J_tilde_;
     SparseMatrixdRowMajor Ws_;      // integrated (weighted) jacobian
     Eigen::SparseMatrixd WhatL_;
     Eigen::SparseMatrixd WhatS_;
     Eigen::SparseMatrixd Whate_;
     Eigen::SparseMatrixd W_;
     Eigen::SparseMatrixd A_;
+    Eigen::SparseMatrixd G_;
+    Eigen::SparseMatrixd Hx_;
+    Eigen::SparseMatrixd L_;
 
     Eigen::VectorXi pinnedV_;
 
