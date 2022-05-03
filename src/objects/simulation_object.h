@@ -60,7 +60,7 @@ namespace mfem {
     void substep(bool init_guess, double& decrement);
   
     void warm_start();
-    void update_lambdas(int t);
+    void update_lambdas(int t, double residual);
     void update_positions();
 
     virtual Eigen::VectorXd collision_force();

@@ -50,3 +50,18 @@ To simplify things for derivations we split up the three terms in this energy to
 E(\x, \s, \la) = E_M (\x) + E_\Psi (\s) - \El (\x, \s, \la),
 \end{equation}
 and to arrive at a Newton step we just need to linearize with respect to the $\delta$ variables and construct our system of equations. The only hurdle to doing this is that $E_\Psi$ is potentially high order, and $E_\Lambda$ is nonlinear in $\x$ from the rotations, so we need to form quadratic approximations of these energies. \danny{Last two sentences are a bit contradictory I think? Newton process is no more/no less than just forming a quadratic approximation (not linear) via taylor expansion and then solving it. Probably good for us to confirm we're thinking of the same thing here before we get into the nitty gritty :). Also, for creating a Newton solver I'm not sure there's a need to create this bunch of extra $\delta$ terms in the above and below? Probably makes it messier then we need it to be for sanity checking.}
+
+
+\section{Augmented Lagrangian}
+We rewrite our discrete Lagrangian as a saddle point problem and also introduce a quadratic penalty so that we have the augmented lagrangian:
+\begin{equation}
+\begin{split}
+\x^{t+1}, \s^{t+1}, \la^{t+1} &= \argmin_{\x,\s} \argmax_{\la}  \frac{1}{2}||\x - \tilde{\x}||_M^2 
++ h^2 \sum_{K \in \Th} \Psi(\s_K) V_K.\\
+&+ h^2 \left( \frac{\kappa}{2} ||W(\x) \s - J \x||_V^2 - \la^T V (W(\x) \s - J \x) \right) \\
+\end{split}
+\end{equation}
+where we have $W(\x) \in R^{9|\Th| \times 6|\Th|}$ as the block diagonal matrix with the $W_K$ matrices as each block, and $V$ is the element weights. To solve this we separate out the primal and dual variables and solve separately. Also, to simplify things for derivations we split up the three terms in this energy:
+\begin{equation}
+E(\x, \s, \la) = E_M (\x) + E_\Psi (\s) + E_\kappa(\x, \s) - \El (\x, \s, \la).
+\end{equation}

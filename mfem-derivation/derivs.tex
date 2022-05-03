@@ -6,20 +6,18 @@ In the previous section we split our discrete mixed energy intro three different
 \subsection{Kinetic Energy}
 Or kinetic energy term is
 \begin{align}
-E_M (\x) &= \frac{1}{2h^2} ||\x - \tilde{x}||_M^2 \\
+E_M (\x) &= \frac{1}{2} ||\x - \tilde{\x}||_M^2 \\
 \end{align}
 and its derivative with respect to $\x$ is
 \begin{equation}
 \begin{split}
-\left. \frac{\partial E_M }{\partial \x} \right|_{\x^k} &= \frac{1}{h^2}M(\x^k - \tilde{\x}) \\
-&=  \gx
+\left. \frac{\partial E_M }{\partial \x} \right|_{\x^k} &= M(\x^k - \tilde{\x}) \\
 \end{split},
 \end{equation}
 and its hessian is
 \begin{equation}
 \begin{split}
-\left. \frac{\partial^2 E_M }{\partial \x^2} \right|_{\x^k} &= \frac{1}{h^2}M \\
-&=  \Hx
+\left. \frac{\partial^2 E_M }{\partial \x^2} \right|_{\x^k} &= M \\
 \end{split}
 \end{equation}
 
@@ -27,39 +25,27 @@ and its hessian is
 The deformation energy is typically quadratic or some higher order function of $\s$, so we take a quadratic approximation of the energy about $\s^k$, so that for $\s=\s^k + \ds$ we have
 
 \begin{equation}
-E_\Psi (\s) \approx \tilde{E}_\Psi (\s) = \sum_{K \in \Th} \left(\Psi(\s_K^k) + \ds_K^T \gs_K + \frac{1}{2}\ds_K^T \Hsk \ds_K \right) V_K
+E_\Psi (\s) \approx \tilde{E}_\Psi (\s) = h^2 \sum_{K \in \Th} \left(\Psi(\s_K^k) +
+ \ds_K^T \frac{\partial \Psi}{\partial \s_K}
+ + \frac{1}{2}\ds_K^T \frac{\partial^2 \Psi}{\partial \s_K^2} \ds_K \right) V_K
 \end{equation}
-where 
-$\gs_K =\left.\frac{\partial \Psi}{\partial s_K}\right|_{\s_K^k}$ and
-$\Hsk=\left.\frac{\partial^2 \Psi}{\partial s_K^2}\right|_{s_K^k}$, and its derivative is simply
-\begin{equation}
-\frac{\partial \tilde{E}_\Psi}{\partial \ds_K} =
-\sum_{K \in \Th} \left(\gs_K + \Hsk \ds_K \right) V_K
-\end{equation}
+where the derivatives are evaluated at $\s^k$.
+%$\gs_K =\left.\frac{\partial \Psi}{\partial s_K}\right|_{\s_K^k}$ and
+%$\Hsk=\left.\frac{\partial^2 \Psi}{\partial s_K^2}\right|_{s_K^k}$, and its derivative is simply
+%\begin{equation}
+%\frac{\partial \tilde{E}_\Psi}{\partial \ds_K} =
+%\sum_{K \in \Th} \left(\gs_K + \Hsk \ds_K \right) V_K
+%\end{equation}
 
 \subsection{Constraint Energy}
 
 First we have the original constraint energy
 \begin{equation}
-E_\Lambda (\x, \s, \la) = \sum_{K \in \Th} \left( \la_K \cdot (W_K \s_K - J_K \x) \right) V_K,
+E_\Lambda (\x, \s, \la) = h^2 \sum_{K \in \Th} \left( \la_K \cdot (W_K \s_K - J_K \x) \right) V_K,
 \end{equation}
-where we have $\x = \x^k + \dx$, $\s = \s^k + \ds$, and $\la = \la^k + \dl$. And for its quadratic approximation, $\tilde{E}_\Lambda$ we have
-
-\begin{equation}
-\begin{split}
-\tilde{E}_\Lambda (\x, \s, \la) &=  \El (\x^k,\s^k,\la^k) 
-+ \sum_{K \in \Th} \left( 
-  \dx^T \frac{\partial \El^K}{\partial \x} 
-+ \ds_K^T \frac{\partial \El^K}{\partial \s_K}
-+ \dl_K^T \frac{\partial \El^K}{\partial \la_K} \right. \\
-&+ \left. \dl_K^T \frac{\partial^2 \El^K}{\partial \la_K \partial \s_K} \ds_K
-+ \dl_K^T \frac{\partial^2 \El^K}{\partial \la_K \partial \x} \dx
-+ \dx^T \frac{\partial^2 \El^K}{\partial \x \partial \s_K} \ds_K
-+ \frac{1}{2} \dx^T \frac{\partial^2 \El^K}{\partial \x^2} \dx
- \right) V_K
-\end{split}
-\end{equation}
-where each of the derivatives is evaluated at $\x^k, \s^k, \la^k$. The main difficulty in these derivatives is dealing with the derivative of the rotation term. We do this by defining the rotation in terms of the SVD of the deformation gradient,
+and now we need to derive its derivatives.
+The main difficulty in these derivatives is dealing with the derivative of the rotation term.
+We do this by defining the rotation in terms of the SVD of the deformation gradient,
 \begin{equation}
 R(\x) = U_K(\x) V_K(\x)^T \quad \text{where} \; F_K(\x) = U_K \Sigma_K V_K^T,
 \end{equation}
@@ -79,7 +65,7 @@ we also have
 \end{equation}
 The constraint energy in indicial notation for a single element is 
 \begin{equation}
-\El^K = \la_j^K(W^K_{jk}\s^K_k - J^K_{ij}\x_i),
+\El^K = h^2 \la_j^K(W^K_{jk}\s^K_k - J^K_{ij}\x_i),
 \end{equation}
 and the relevant derivatives are
 \begin{align}
@@ -98,4 +84,33 @@ J_{ij}\hat{W}^K_{jkl}\la^K_k \\
 &\frac{\partial^2 \El^K}{\partial \x_i^2} =
 \text{i'll get around to it} \\
 \end{align}
-where $I_{jk}$ is a $9 \times 9$ identity matrix.
+where $I_{jk}$ is a $9 \times 9$ identity matrix. We omitted the $h^2$ factor from the above derivatives to make things cleaner too.
+
+
+
+\subsection{Penalty Energy Derivatives}
+The last energy term is the penalty energy. We start with the  equation
+\begin{equation}
+E_\kappa(\x,\s) = h^2 \frac{\mu}{2} (W(\x)\s - J\x)^T V (W(\x)\s - J\x),
+\end{equation}
+and switch to indicial notation in the same way we did for the constraint energy so that we have
+\begin{equation}
+E_\kappa(\x_i,\s_j) = h^2 \frac{\mu}{2} (W_{jk}\s_j - J_{ik}\x_i) V_{kl} (W_{lm}\s_m - J_{ln}\x_n).
+\end{equation}
+Its derivatives are (again we omit the $h^2$ factor)
+\begin{align}
+\frac{\partial E_\kappa}{\partial \s_j} &= \mu W_{jk} V_{kl} (W_{lm}\s_m - J_{ln}\x_n) \\
+\frac{\partial E_\kappa}{\partial \x_i} &= \mu \left(J_{im}\hat{W}_{mjk}\s_j - J_{ik}\right) V_{kl} (W_{lm}\s_m - J_{ln}\x_n)  \\
+\frac{\partial^2 E_\kappa}{\partial \s_j^2} &= \mu W_{jk} V_{kk} W_{jk} \\
+\frac{\partial^2 E_\kappa}{\partial \x_i \partial \s_j} &= \mu \left( 
+	J_{im}\hat{W}_{mjk}V_{kl} (W_{lm}\s_m - J_{ln}\x_n)	
+  + \left(J_{im}\hat{W}_{mjk}\s_j - J_{ik}\right) V_{kl} W_{lj}
+   \right)\\
+\frac{\partial^2 E_\kappa}{\partial \x^2_i} &= \mu \left( 
+	\underbrace{
+		J_{im} \frac{\partial \hat{W}_{mjk} \s_j}{\partial \x_i} V_{kl} (W_{lm}\s_m - J_{ln}\x_n)	
+		}_\text{Ignoring for now}
+  + \left(J_{im}\hat{W}_{mjk}\s_j - J_{ik}\right) V_{kl} \left( J_{im}\hat{W}_{mjl}\s_j - J_{il}\right)
+   \right).
+\end{align}
+Right now we currently ignore the second derivative of the rotation for $\frac{\partial^2 E_\kappa}{\partial \x^2_i}$.

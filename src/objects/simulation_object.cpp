@@ -35,11 +35,8 @@ void SimObject::build_lhs() {
     g_[i] = material_->gradient(R_[i], S_[i]);
     Matrix6d H = material_->hessian(S_[i]);
 
-    Matrix<double,9,6> W;
-    Wmat(R_[i],W);
-
-    SelfAdjointEigenSolver<Matrix6d> es(H);
-    kappa_vals(i) = es.eigenvalues().real().maxCoeff();
+    // SelfAdjointEigenSolver<Matrix6d> es(H);
+    // kappa_vals(i) = es.eigenvalues().real().maxCoeff();
 
     H_[i] = vols_[i]*h2*(H + config_->kappa*WTW);
   }
@@ -49,7 +46,7 @@ void SimObject::build_lhs() {
   start = high_resolution_clock::now();
   SparseMatrixd A = M_ + h2 * config_->kappa * L;
   SparseMatrixd J = W_.transpose()  * Jw_ * P_.transpose();
-  fill_block_matrix(A, h2 * (F + config_->kappa * Fk), H_, lhs_);
+  fill_block_matrix(A, h2 * (F + 1 * config_->kappa * Fk), H_, lhs_);
   end = high_resolution_clock::now();
   double t_3 = duration_cast<nanoseconds>(end-start).count()/1e6;
   std::cout << "  - Timing LHS [1]: " << t_1 << " [2]: "
@@ -63,6 +60,9 @@ void SimObject::build_lhs() {
   // std::cout << "EVALS: \n" << es.eigenvalues().real() << std::endl;
   //std::cout << "kappa vals: " << kappa_vals << std::endl;
   //config_->kappa = kappa_vals.maxCoeff();
+  MatrixXd lhs(L);
+  EigenSolver<MatrixXd> es(lhs);
+  std::cout << "J^TJ Evals: \n" << es.eigenvalues().real() << std::endl;
 
 }
 
@@ -180,27 +180,26 @@ void SimObject::substep(bool init_guess, double& decrement) {
   // }
   start=end;
 
-  //Eigen::SimplicialLLT<SparseMatrixd> solver(lhs_);
-  // CholmodSupernodalLLT<SparseMatrixd> solver(lhs_);
-  // solver.compute(lhs_);
-  // if(solver.info()!=Success) {
-  //  std::cerr << "!!!!!!!!!!!!!!!prefactor failed! " << std::endl;
-  //  std::cout <<"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" << std::endl;
-  //  exit(1);
-  // }
-  // dq_ds_ = solver.solve(rhs_);
-  int niter = 10;
-  dq_ds_ = solver_.solve(rhs_);
+  CholmodSupernodalLLT<SparseMatrixd> solver(lhs_);
+  solver.compute(lhs_);
+  if(solver.info()!=Success) {
+   std::cerr << "!!!!!!!!!!!!!!!prefactor failed! " << std::endl;
+   std::cout <<"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" << std::endl;
+   exit(1);
+  }
+  dq_ds_ = solver.solve(rhs_);
+  //dq_ds_ = solver_.solve(rhs_);
   //int niter = pcg(dq_ds_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_);
   // ConjugateGradient<SparseMatrix<double>, Lower|Upper> cg;
   // cg.compute(lhs_);
   // dq_ds_ = cg.solve(rhs_);
   // int niter = cg.iterations();
-  std::cout << "  - CG iters: " << niter << std::endl;
+  // std::cout << "  - CG iters: " << niter << std::endl;
   //std::cout << "estimated error: " << cg.error()      << std::endl;
   double relative_error = (lhs_*dq_ds_ - rhs_).norm() / rhs_.norm(); // norm() is L2 norm
 
-  decrement = std::sqrt(dq_ds_.dot(dq_ds_));
+  decrement = dq_ds_.norm(); // if doing "full newton use this"
+  //decrement = rhs_.norm();
   //std::cout << "  - # PCG iter: " << niter << std::endl;
   std::cout << "  - RHS Norm: " << rhs_.norm() << std::endl;
   std::cout << "  - Newton decrement: " << decrement  << std::endl;
@@ -305,8 +304,8 @@ void SimObject::init() {
   pinnedV_ = (V_.col(1).array() > pin_y).cast<int>();
   //pinnedV_ = (V_.col(0).array() < pin_x && V_.col(1).array() > pin_y).cast<int>();
   //pinnedV_.resize(V_.rows());
-  // pinnedV_.setZero();
-  // pinnedV_(0) = 1;
+   pinnedV_.setZero();
+   pinnedV_(0) = 1;
 
   P_ = pinning_matrix(V_, T_, pinnedV_, false);
   P_kkt_ = pinning_matrix(V_, T_, pinnedV_, true);
@@ -441,7 +440,7 @@ void SimObject::update_gradients() {
       << " [update blocks]: " << t_2 << " [LHS]: " << t_3 << std::endl;
 }
 
-void SimObject::update_lambdas(int t) {
+void SimObject::update_lambdas(int t, double residual) {
   VectorXd def_grad = J_*(P_.transpose()*qt_+b_);
   
   VectorXd dl = 0 * la_;
@@ -452,11 +451,29 @@ void SimObject::update_lambdas(int t) {
     Wmat(R_[i],W);
     dl.segment(9*i,9) = (W*S_[i] - def_grad.segment(9*i,9));
   }
+
+  //residual /= config_->h;
+  residual *= config_->h;
+  double constraint_residual = dl.lpNorm<Infinity>();
+  double max_kappa = 1e4;
+  double constraint_tol = 1e-2;
+  // update kappa and lambda if residual below this tolerance
+  double update_zone_tol = 1e-1; 
   //dl *= -std::pow(10,t+2);
   //la_ = dl;
+  std::cout << "kappa: " << config_->kappa << " max: " << max_kappa << std::endl;
 
-  la_ -= config_-> kappa * dl;
-  std::cout << "  - LA norm: " << la_.norm() << std::endl;
+  if (residual < update_zone_tol && constraint_residual > constraint_tol) {
+    if (config_->kappa  < max_kappa) {
+      config_->kappa *=2;
+    } else {
+      la_ -= config_->kappa * dl;
+    }
+  }
+  //la_ -= config_-> kappa * dl;
+  std::cout << "  [Update Lambda] constraint res: " << constraint_residual 
+      << " residual: " << residual << std::endl;
+  std::cout << "  - LA norm: " << la_.norm() << " kappa: " << config_->kappa << std::endl;
 }
 
 void SimObject::update_positions() {
