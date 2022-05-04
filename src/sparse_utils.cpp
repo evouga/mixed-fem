@@ -1,4 +1,4 @@
-#include "kkt.h"
+#include "sparse_utils.h"
 
 using namespace Eigen;
 using SparseMatrixdRowMajor = SparseMatrix<double,RowMajor>;

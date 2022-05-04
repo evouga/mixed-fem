@@ -20,7 +20,7 @@
 #include "simulator.h"
 #include "objects/simulation_object.h"
 #include "materials/material_model.h"
-
+#include "optimizers/mixed_alm_optimizer.h"
 using namespace Eigen;
 
 // The mesh, Eigen representation
@@ -39,6 +39,7 @@ std::shared_ptr<SimConfig> config;
 std::shared_ptr<MaterialModel> material;
 std::shared_ptr<MaterialConfig> material_config;
 std::shared_ptr<SimObject> tet_object;
+std::shared_ptr<Optimizer> optimizer;
 
 // ------------------------------------ //
 
@@ -58,8 +59,9 @@ static void HelpMarker(const char* desc)
 
 void simulation_step() {
 
-  Simulator sim(tet_object, config);
-  sim.step();
+  // Simulator sim(tet_object, config);
+  // sim.step();
+  optimizer->step();
   meshV = tet_object->vertices();
 
   // if skin enabled too
@@ -166,6 +168,7 @@ void callback() {
   ImGui::SameLine();
   if(ImGui::Button("reset")) {
     tet_object->init();
+    optimizer->reset();
     srf->updateVertexPositions(meshV0);
     export_step = 0;
     step = 0;
@@ -288,6 +291,9 @@ int main(int argc, char **argv) {
   tet_object = std::make_shared<TetrahedralObject>(meshV, meshT,
       config, material, material_config);
   tet_object->init();
+
+  optimizer = std::make_shared<MixedALMOptimizer>(tet_object, config);
+  optimizer->reset();
 
   // Show the gui
   polyscope::show();

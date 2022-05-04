@@ -1,7 +1,7 @@
 #include "simulation_object.h"
 #include "svd/svd3x3_sse.h"
 #include "pcg.h"
-#include "kkt.h"
+#include "sparse_utils.h"
 #include "pinning_matrix.h"
 #include <chrono>
 #include "svd/dsvd.h"
@@ -490,7 +490,6 @@ void SimObject::update_positions() {
   VectorXd q = P_.transpose()*qt_ + b_;
   MatrixXd tmp = Map<MatrixXd>(q.data(), V_.cols(), V_.rows());
   V_ = tmp.transpose();
-
 }
 
 double SimObject::energy(VectorXd x, std::vector<Vector6d> s, VectorXd la) {
