@@ -10,9 +10,9 @@ namespace mfem {
 
   // Mixed FEM Augmented Lagrangian method with proximal point method for
   // solving the dual variables.
-  class MixedALMOptimizer : public Optimizer {
+  class MixedADMMOptimizer : public Optimizer {
   public:
-    MixedALMOptimizer(std::shared_ptr<SimObject> object,
+    MixedADMMOptimizer(std::shared_ptr<SimObject> object,
         std::shared_ptr<SimConfig> config) : Optimizer(object, config) {}
 
     void reset() override;
@@ -25,10 +25,11 @@ namespace mfem {
         const Eigen::VectorXd& la);
 
     // Build system left hand side
-    virtual void build_lhs();
-
     // Build linear system right hand side
-    virtual void build_rhs();
+
+    virtual void hessians();
+    virtual void gradient_x();
+    virtual void gradient_s();
 
     // For a new set of positions, update the rotations and their
     // derivatives
@@ -62,7 +63,6 @@ namespace mfem {
     virtual Eigen::VectorXd collision_force();
 
     // Configuration vectors & body forces
-    Eigen::VectorXd dx_ds_;     // q & Lambda update stacked
     Eigen::VectorXd xt_;        // current positions
     Eigen::VectorXd vt_;        // current velocities
     Eigen::VectorXd x0_;        // previous positions
@@ -73,11 +73,11 @@ namespace mfem {
     Eigen::VectorXd s_;         // deformation variables
     Eigen::VectorXd b_;         // coordinates projected out
     Eigen::VectorXd vols_;      // per element volume
-    Eigen::VectorXd rhs_;       // linear system right hand side
-    Eigen::SparseMatrixd lhs_;  // linear system left hand side
+    Eigen::VectorXd gx_;
+    Eigen::VectorXd gs_;
 
-    std::vector<Eigen::Matrix3d> R_;  // Per-element rotations
-    //std::vector<Eigen::Vector6d> S_;    // Per-element deformation
+    std::vector<Eigen::Matrix3d> R_;    // Per-element rotations
+    //std::vector<Eigen::Vector6d> S_;  // Per-element deformation
     std::vector<Eigen::Matrix6d> Hs_;   // Elemental hessians w.r.t dS
     std::vector<Eigen::Vector6d> g_;    // Elemental gradients w.r.t dS
     std::vector<Eigen::Matrix9d> dRS_;           // dRS/dF

@@ -20,6 +20,7 @@
 #include "objects/simulation_object.h"
 #include "materials/material_model.h"
 #include "optimizers/mixed_alm_optimizer.h"
+#include "optimizers/mixed_admm_optimizer.h"
 using namespace Eigen;
 
 // The mesh, Eigen representation
@@ -314,7 +315,8 @@ int main(int argc, char **argv) {
   tet_object = std::make_shared<TetrahedralObject>(meshV, meshT,
       material, material_config);
 
-  optimizer = std::make_shared<MixedALMOptimizer>(tet_object, config);
+  //optimizer = std::make_shared<MixedALMOptimizer>(tet_object, config);
+  optimizer = std::make_shared<MixedADMMOptimizer>(tet_object, config);
   optimizer->reset();
 
   // Show the gui
