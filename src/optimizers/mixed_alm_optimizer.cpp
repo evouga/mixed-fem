@@ -187,6 +187,10 @@ void MixedALMOptimizer::update_rotations() {
           svd.matrixU(), svd.singularValues(), svd.matrixV(), dR_dF);
       R_[i] = svd.matrixU() * svd.matrixV().transpose();
 
+      // Matrix3d S = svd.matrixV() * svd.singularValues().asDiagonal() * svd.matrixV().transpose();
+      // Vector6d stmp; stmp << S(0,0), S(1,1), S(2,2), S(1,0), S(2,0), S(2,1);
+      // s_.segment(6*i, 6) = stmp;
+
       Matrix<double, 9, 6> What;
       Matrix<double, 9, 6> W;
       Wmat(R_[i] , W);
@@ -366,6 +370,16 @@ void MixedALMOptimizer::update_configuration() {
   la_.setZero();
 
   VectorXd x = P_.transpose()*xt_ + b_;
+
+  // VectorXd def_grad = J_*x;
+  // for (int i = 0; i < nelem_; ++i) {
+  //   JacobiSVD<Matrix3d> svd(Map<Matrix3d>(def_grad.segment(9*i,9).data()),
+  //         ComputeFullU | ComputeFullV);
+
+  //   Matrix3d S = svd.matrixV() * svd.singularValues().asDiagonal() * svd.matrixV().transpose();
+  //   Vector6d stmp; stmp << S(0,0), S(1,1), S(2,2), S(1,0), S(2,0), S(2,1);
+  //   s_.segment(6*i, 6) = stmp;
+  // }
 
   // Update mesh vertices
   MatrixXd V = Map<MatrixXd>(x.data(), object_->V_.cols(), object_->V_.rows());

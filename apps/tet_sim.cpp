@@ -41,6 +41,21 @@ std::shared_ptr<SimObject> tet_object;
 std::shared_ptr<Optimizer> optimizer;
 
 // ------------------------------------ //
+std::shared_ptr<MaterialModel> make_material_model(
+    std::shared_ptr<MaterialConfig> config) {
+  switch (config->material_model) {
+  case MATERIAL_SNH:
+    return std::make_shared<StableNeohookean>(config);
+    break;
+  case MATERIAL_FCR:
+    //return std::make_shared<CorotationalModel>(config);
+    break;
+  case MATERIAL_ARAP:
+    return std::make_shared<ArapModel>(config);
+    break;
+  } 
+  return std::make_shared<ArapModel>(config);
+}
 
 // Helper to display a little (?) mark which shows a tooltip when hovered.
 static void HelpMarker(const char* desc)
@@ -85,14 +100,24 @@ void callback() {
   ImGui::Checkbox("export",&export_sim);
 
   if (ImGui::TreeNode("Material Params")) {
+
+    int type = material_config->material_model;
+    if (ImGui::Combo("Material Model", &type,"SNH\0FCR\0ARAP\0\0")) {
+      material_config->material_model = 
+          static_cast<MaterialModelType>(type);
+      material = make_material_model(material_config);
+      tet_object->material_ = material;
+    }
+
     double lo=0.1,hi=0.5;
     if (ImGui::InputScalar("Young's Modulus", ImGuiDataType_Double,
         &material_config->ym, NULL, NULL, "%.3e")) {
       
       Enu_to_lame(material_config->ym, material_config->pr,
           material_config->la, material_config->mu);
-      std::cout << "MU: " << material_config->mu;
-      std::cout << " LA: " << material_config->la << std::endl;
+      // std::cout << "MU: " << material_config->mu;
+      // std::cout << " LA: " << material_config->la << std::endl;
+      config->kappa = material_config->mu;
       sim_dirty = true;    
     }
     // ImGui::SameLine(); 
@@ -281,11 +306,13 @@ int main(int argc, char **argv) {
   config = std::make_shared<SimConfig>();
   config->plane_d = a(1);
   config->inner_steps=1;
+
   material_config = std::make_shared<MaterialConfig>();
-  //material = std::make_shared<StableNeohookean>(material_config);
-  material = std::make_shared<ArapModel>(material_config);
+  material = make_material_model(material_config);
+  config->kappa = material_config->mu;
+
   tet_object = std::make_shared<TetrahedralObject>(meshV, meshT,
-      config, material, material_config);
+      material, material_config);
 
   optimizer = std::make_shared<MixedALMOptimizer>(tet_object, config);
   optimizer->reset();

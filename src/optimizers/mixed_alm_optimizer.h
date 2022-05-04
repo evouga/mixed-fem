@@ -15,7 +15,7 @@ namespace mfem {
 
 
   // Mixed FEM Augmented Lagrangian method with proximal point method for
-  // sovling the dual variables.
+  // solving the dual variables.
   class MixedALMOptimizer : public Optimizer {
   public:
     MixedALMOptimizer(std::shared_ptr<SimObject> object,
@@ -121,10 +121,8 @@ namespace mfem {
     Eigen::SimplicialLLT<Eigen::SparseMatrixd> solver_;
     #endif
 
-
     int nelem_;     // number of elements
     double E_prev_; // energy from last result of linesearch
-
 
     Eigen::VectorXi pinnedV_;
   };

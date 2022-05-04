@@ -21,11 +21,10 @@ namespace mfem {
   public:
 
     SimObject(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
-        std::shared_ptr<SimConfig> config,
         std::shared_ptr<MaterialModel> material,
         std::shared_ptr<MaterialConfig> material_config)
-        : V_(V), V0_(V), T_(T), config_(config), material_(material),
-          material_config_(material_config) {
+        : V_(V), V0_(V), T_(T), material_(material),
+          config_(material_config) {
     }
     
     virtual void volumes(Eigen::VectorXd& vol) = 0;
@@ -40,9 +39,8 @@ namespace mfem {
 
   public:
 
-    std::shared_ptr<SimConfig> config_;
     std::shared_ptr<MaterialModel> material_;
-    std::shared_ptr<MaterialConfig> material_config_;
+    std::shared_ptr<MaterialConfig> config_;
 
     Eigen::MatrixXd V_;
     Eigen::MatrixXd V0_;

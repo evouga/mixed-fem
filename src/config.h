@@ -14,11 +14,16 @@ namespace mfem {
     lambda = (E*nu)/((1.0+nu)*(1.0-2.0*nu));
   }
 
+  enum MaterialModelType {
+      MATERIAL_SNH,
+      MATERIAL_FCR,
+      MATERIAL_ARAP
+  };
+  
   // Global parameters for the simulation
   struct SimConfig {
     double h = 0.034; 
     double h2 = h*h;
-    double density = 1000.0;
     double ih2 = 1.0/h/h;
     double grav = -9.8;
     float ext[3] = {0., -9.8, 0.};
@@ -30,7 +35,6 @@ namespace mfem {
     int outer_steps = 5;
     int inner_steps = 7;
     double plane_d = 0;
-    double thickness = 1e-3;
     double kappa = 1000.0;
     double max_kappa = 1e5;
     double constraint_tol = 1e-2;
@@ -45,10 +49,13 @@ namespace mfem {
 
   // Simple config for material parameters for a single object
   struct MaterialConfig {
+    MaterialModelType material_model = MATERIAL_ARAP;
     double ym = 1e6;
     double pr = 0.45;
     double mu = ym/(2.0*(1.0+pr));
     double la = (ym*pr)/((1.0+pr)*(1.0-2.0*pr));
+    double density = 1000.0;
+    double thickness = 1e-3;
   };
 
 }

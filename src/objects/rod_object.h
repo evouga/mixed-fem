@@ -11,10 +11,9 @@ namespace mfem {
 
     RodObject(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
         const Eigen::MatrixXd& N, const Eigen::MatrixXd& BN,
-        std::shared_ptr<SimConfig> config,
         std::shared_ptr<MaterialModel> material,
         std::shared_ptr<MaterialConfig> material_config)
-        : SimObject(V,T,config,material,material_config) {
+        : SimObject(V,T,material,material_config) {
       
       NN_.resize(T_.rows());
       BN_.resize(T_.rows());
@@ -29,10 +28,6 @@ namespace mfem {
         const Eigen::VectorXd& vols) override;
     void jacobian(SparseMatrixdRowMajor& J, const Eigen::VectorXd& vols,
         bool weighted) override;
-
-    
-    // Update per-element S, symmetric deformation, and R, rotation matrices
-    //void fit_rotations() override;
 
     std::vector<Eigen::Matrix3d> NN_; // N * N^T (normal outer product)
     std::vector<Eigen::Matrix3d> BN_; // BN * BN^T (binormal outer product)

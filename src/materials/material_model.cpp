@@ -3,7 +3,6 @@
 using namespace Eigen;
 using namespace mfem;
 
-
 void MaterialModel::fill_compliance_block(int offset, int row,
     double vol, double tol, const Eigen::Matrix9d& WHiW,
     Eigen::SparseMatrixd& mat) {

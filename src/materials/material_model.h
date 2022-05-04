@@ -46,7 +46,7 @@ namespace mfem {
         const Eigen::Vector6d& S) = 0;
     virtual Eigen::Matrix6d hessian_inv(const Eigen::Matrix3d& R,
         const Eigen::Vector6d& S, double kappa) = 0;
-    virtual Eigen::Matrix6d hessian(const Eigen::Vector6d& S) {return Eigen::Matrix6d::Zero();} // TODO make pure virtual
+    virtual Eigen::Matrix6d hessian(const Eigen::Vector6d& S) = 0;
 
     // Updates the compliance block entries in the KKT matrix.
     // Assumes the entries already exist and we can just overwite
@@ -93,10 +93,9 @@ namespace mfem {
     std::shared_ptr<MaterialConfig> config_;     
 
   };
-
 }
 
-// Add material models
-#include "materials/neohookean_model.h"
-#include "materials/corotational_model.h"
-#include "materials/arap_model.h"
+  // Add material models
+  #include "materials/neohookean_model.h"
+  #include "materials/corotational_model.h"
+  #include "materials/arap_model.h"

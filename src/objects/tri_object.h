@@ -10,10 +10,10 @@ namespace mfem {
   public:
 
     TriObject(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
-        const Eigen::MatrixXd& N, std::shared_ptr<SimConfig> config,
+        const Eigen::MatrixXd& N,
         std::shared_ptr<MaterialModel> material,
         std::shared_ptr<MaterialConfig> material_config)
-        : SimObject(V,T,config,material,material_config) {
+        : SimObject(V,T,material,material_config) {
       NN_.resize(T_.rows());
       for (int i = 0; i < T_.rows(); ++i) {
         NN_[i] = N.row(i).transpose() * N.row(i);
