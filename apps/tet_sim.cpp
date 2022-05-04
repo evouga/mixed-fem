@@ -92,6 +92,8 @@ void callback() {
       
       Enu_to_lame(material_config->ym, material_config->pr,
           material_config->la, material_config->mu);
+      std::cout << "MU: " << material_config->mu;
+      std::cout << " LA: " << material_config->la << std::endl;
       sim_dirty = true;    
     }
     // ImGui::SameLine(); 
@@ -108,14 +110,17 @@ void callback() {
 
   ImGui::SetNextItemOpen(true, ImGuiCond_Once);
   if (ImGui::TreeNode("Sim Params")) {
-    ImGui::InputInt("Outer Steps", &config->outer_steps);
-    ImGui::InputInt("Inner Steps", &config->inner_steps);
+    ImGui::InputInt("Max Newton Iters", &config->outer_steps);
+    //ImGui::InputInt("Inner Steps", &config->inner_steps);
     if (ImGui::InputFloat3("Body Force", config->ext, 3)) {
       sim_dirty = true;
     }
-    ImGui::Checkbox("regularizer",&config->regularizer);
+    //ImGui::Checkbox("regularizer",&config->regularizer);
+    ImGui::InputDouble("kappa", &config->kappa,0,0,"%.5g");
     ImGui::SameLine(); 
-    ImGui::InputDouble("kappa", &config->kappa);
+    ImGui::InputDouble("max kappa", &config->max_kappa, 0,0,"%.5g");
+    ImGui::InputDouble("constraint tol",&config->constraint_tol, 0,0,"%.5g");
+    ImGui::InputDouble("lamda update tol",&config->update_zone_tol,0,0,"%.5g");
     ImGui::Checkbox("local-global",&config->local_global);
     ImGui::Checkbox("floor collision",&config->floor_collision);
     ImGui::Checkbox("warm start",&config->warm_start);
@@ -278,7 +283,8 @@ int main(int argc, char **argv) {
   config->plane_d = a(1);
   config->inner_steps=1;
   material_config = std::make_shared<MaterialConfig>();
-  material = std::make_shared<StableNeohookean>(material_config);
+  //material = std::make_shared<StableNeohookean>(material_config);
+  material = std::make_shared<ArapModel>(material_config);
   tet_object = std::make_shared<TetrahedralObject>(meshV, meshT,
       config, material, material_config);
   tet_object->init();

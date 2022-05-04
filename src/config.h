@@ -27,11 +27,16 @@ namespace mfem {
     bool floor_collision = false;
     bool regularizer = false;
     bool local_global = true;
-    int outer_steps = 2;
+    int outer_steps = 5;
     int inner_steps = 7;
     double plane_d = 0;
     double thickness = 1e-3;
     double kappa = 1000.0;
+    double max_kappa = 1e5;
+    double constraint_tol = 1e-2;
+    
+    // update kappa and lambda if residual below this tolerance
+    double update_zone_tol = 1e-1; 
 
     double newton_tol = 1e-10;
     double ls_tol = 1e-4;

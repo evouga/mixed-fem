@@ -65,3 +65,10 @@ Matrix6d ArapModel::hessian_inv(const Matrix3d& R,
   std::cerr << "hessian_inv with regularizer not implemented!" << std::endl;
   return hessian_inv(R,S);
 }
+
+Matrix6d ArapModel::hessian(const Vector6d& S) {
+  double mu = config_->mu;
+  Vector6d tmp; tmp << 1,1,1,2,2,2;
+  return tmp.asDiagonal() * mu;
+}
+
