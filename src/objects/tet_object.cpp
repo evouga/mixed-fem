@@ -12,12 +12,14 @@ void TetrahedralObject::volumes(Eigen::VectorXd& vol) {
   vol = vol.cwiseAbs();
 }
 
-void TetrahedralObject::mass_matrix(Eigen::SparseMatrixd& M) {
+void TetrahedralObject::mass_matrix(Eigen::SparseMatrixd& M,
+    const VectorXd& vols) {
   VectorXd densities = VectorXd::Constant(T_.rows(), config_->density);
-  sim::linear_tetmesh_mass_matrix(M, V_, T_, densities, vols_);
+  sim::linear_tetmesh_mass_matrix(M, V_, T_, densities, vols);
 }
 
-void TetrahedralObject::jacobian(SparseMatrixdRowMajor& J, bool weighted) {
+void TetrahedralObject::jacobian(SparseMatrixdRowMajor& J, const VectorXd& vols,
+      bool weighted) {
   // J matrix (big jacobian guy)
   MatrixXd dphidX;
   sim::linear_tetmesh_dphi_dX(dphidX, V_, T_);
@@ -29,15 +31,6 @@ void TetrahedralObject::jacobian(SparseMatrixdRowMajor& J, bool weighted) {
 
     // Local block
     Matrix<double,9,12> B;
-    // B  << dX(0,0), 0, 0, dX(1,0), 0, 0, dX(2,0), 0, 0, dX(3,0), 0, 0,
-    //       dX(0,1), 0, 0, dX(1,1), 0, 0, dX(2,1), 0, 0, dX(3,1), 0, 0, 
-    //       dX(0,2), 0, 0, dX(1,2), 0, 0, dX(2,2), 0, 0, dX(3,2), 0, 0, 
-    //       0, dX(0,0), 0, 0, dX(1,0), 0, 0, dX(2,0), 0, 0, dX(3,0), 0,
-    //       0, dX(0,1), 0, 0, dX(1,1), 0, 0, dX(2,1), 0, 0, dX(3,1), 0,
-    //       0, dX(0,2), 0, 0, dX(1,2), 0, 0, dX(2,2), 0, 0, dX(3,2), 0,
-    //       0, 0, dX(0,0), 0, 0, dX(1,0), 0, 0, dX(2,0), 0, 0, dX(3,0),
-    //       0, 0, dX(0,1), 0, 0, dX(1,1), 0, 0, dX(2,1), 0, 0, dX(3,1),
-    //       0, 0, dX(0,2), 0, 0, dX(1,2), 0, 0, dX(2,2), 0, 0, dX(3,2);
     B  << dX(0,0), 0, 0, dX(1,0), 0, 0, dX(2,0), 0, 0, dX(3,0), 0, 0,
           0, dX(0,0), 0, 0, dX(1,0), 0, 0, dX(2,0), 0, 0, dX(3,0), 0,
           0, 0, dX(0,0), 0, 0, dX(1,0), 0, 0, dX(2,0), 0, 0, dX(3,0),
@@ -60,7 +53,7 @@ void TetrahedralObject::jacobian(SparseMatrixdRowMajor& J, bool weighted) {
         for (int l = 0; l < 3; ++l) {
           double val = B(j,3*k+l) ;//* vols(i); 
           if (weighted)
-            val *= vols_(i);
+            val *= vols(i);
           trips.push_back(Triplet<double>(9*i+j, 3*vid+l, val));
         }
       }

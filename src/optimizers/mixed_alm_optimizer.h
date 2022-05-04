@@ -8,6 +8,12 @@
 
 namespace mfem {
 
+
+
+  static Eigen::Vector6d I_vec = (Eigen::Vector6d() <<
+      1, 1, 1, 0, 0, 0).finished();
+
+
   // Mixed FEM Augmented Lagrangian method with proximal point method for
   // sovling the dual variables.
   class MixedALMOptimizer : public Optimizer {

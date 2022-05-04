@@ -423,8 +423,6 @@ void MixedALMOptimizer::reset() {
   s_.resize(6 * nelem_);
   ds_.resize(6 * nelem_);
   ds_.setZero();
-  Eigen::Vector6d I_vec;
-  I_vec << 1, 1, 1, 0, 0, 0;
 
   // Make sure matrices are initially zero
   #pragma omp parallel for
@@ -446,9 +444,9 @@ void MixedALMOptimizer::reset() {
   E_prev_ = 0;
   
   object_->volumes(vols_);
-  object_->mass_matrix(M_);
-  object_->jacobian(J_, false);
-  object_->jacobian(Jw_, true);
+  object_->mass_matrix(M_, vols_);
+  object_->jacobian(J_, vols_, false);
+  object_->jacobian(Jw_, vols_, true);
   J2_ = J_;
 
   // Pinning matrices

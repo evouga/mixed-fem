@@ -17,7 +17,6 @@
 #include "args/args.hxx"
 #include "json/json.hpp"
 
-#include "simulator.h"
 #include "objects/simulation_object.h"
 #include "materials/material_model.h"
 #include "optimizers/mixed_alm_optimizer.h"
@@ -59,8 +58,6 @@ static void HelpMarker(const char* desc)
 
 void simulation_step() {
 
-  // Simulator sim(tet_object, config);
-  // sim.step();
   optimizer->step();
   meshV = tet_object->vertices();
 
@@ -167,7 +164,6 @@ void callback() {
   }
   ImGui::SameLine();
   if(ImGui::Button("reset")) {
-    tet_object->init();
     optimizer->reset();
     srf->updateVertexPositions(meshV0);
     export_step = 0;
@@ -290,7 +286,6 @@ int main(int argc, char **argv) {
   material = std::make_shared<ArapModel>(material_config);
   tet_object = std::make_shared<TetrahedralObject>(meshV, meshT,
       config, material, material_config);
-  tet_object->init();
 
   optimizer = std::make_shared<MixedALMOptimizer>(tet_object, config);
   optimizer->reset();

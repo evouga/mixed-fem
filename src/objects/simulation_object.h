@@ -15,10 +15,6 @@ namespace mfem {
 
   using SparseMatrixdRowMajor = Eigen::SparseMatrix<double, Eigen::RowMajor>;
 
-  static Eigen::Vector6d I_vec = (Eigen::Vector6d() <<
-      1, 1, 1, 0, 0, 0).finished();
-
-
   // Class to maintain the state and perform physics updates on an object,
   // which has a particular discretization, material, and material config
   class SimObject {
@@ -32,38 +28,11 @@ namespace mfem {
           material_config_(material_config) {
     }
     
-    void reset_variables();
     virtual void volumes(Eigen::VectorXd& vol) = 0;
-    virtual void mass_matrix(Eigen::SparseMatrixd& M) = 0;
-    virtual void jacobian(SparseMatrixdRowMajor& J, bool weighted) = 0;
-
-    double energy(Eigen::VectorXd x, std::vector<Eigen::Vector6d> s, Eigen::VectorXd la);
-    void init();
-
-    // Build the KKT lhs (just initializes it). Still have to update the
-    // compliance blocks each timestep.
-    virtual void build_lhs();
-
-    // Build the KKT right hand side
-    virtual void build_rhs();
-    
-    virtual void update_rotations();
-    virtual bool linesearch(Eigen::VectorXd& q, const Eigen::VectorXd& dq);
-    virtual bool linesearch();
-
-    // Recompute per-element gradient and hessians using new
-    // S and R matrices.
-    void update_gradients();
-
-    // Simulation substep for this object
-    // init_guess - whether to initialize guess with a prefactor solve
-    void substep(bool init_guess, double& decrement);
-  
-    void warm_start();
-    void update_lambdas(double residual);
-    void update_positions();
-
-    virtual Eigen::VectorXd collision_force();
+    virtual void mass_matrix(Eigen::SparseMatrixd& M,
+        const Eigen::VectorXd& vols) = 0;
+    virtual void jacobian(SparseMatrixdRowMajor& J,
+        const Eigen::VectorXd& vols, bool weighted) = 0;
 
     Eigen::MatrixXd vertices() {
       return V_;
@@ -75,77 +44,9 @@ namespace mfem {
     std::shared_ptr<MaterialModel> material_;
     std::shared_ptr<MaterialConfig> material_config_;
 
-    std::vector<Eigen::Matrix3d> R_;    // Per-element rotations
-    std::vector<Eigen::Vector6d> S_;    // Per-element deformation
-    std::vector<Eigen::Matrix6d> Hs_; // Elemental hessians w.r.t dS
-    std::vector<Eigen::Vector6d> g_;    // Elemental gradients w.r.t dS
-    std::vector<Eigen::Matrix9d> dRS_;  // dRS/dF where each row is dRS/dF_ij
-    std::vector<Eigen::Matrix<double,9,6>> dRL_;
-    std::vector<Eigen::Matrix<double,9,6>> dRe_;
-
-    Eigen::SparseMatrixd M_;        // mass matrix
-    Eigen::SparseMatrixd P_;        // pinning constraint (for vertices)
-    Eigen::SparseMatrixd P_kkt_;    // pinning constraint (for kkt matrix)
-    SparseMatrixdRowMajor J_;       // jacobian
-    SparseMatrixdRowMajor Jw_;      // integrated (weighted) jacobian
-    Eigen::SparseMatrixd J2_;
-    Eigen::SparseMatrixd J_tilde_;
-    SparseMatrixdRowMajor Ws_;      // integrated (weighted) jacobian
-    Eigen::SparseMatrixd WhatL_;
-    Eigen::SparseMatrixd WhatS_;
-    Eigen::SparseMatrixd Whate_;
-    Eigen::SparseMatrixd W_;
-    Eigen::SparseMatrixd A_;
-    Eigen::SparseMatrixd G_;
-    Eigen::SparseMatrixd Hx_;
-    Eigen::SparseMatrixd L_;
-
-    Eigen::VectorXi pinnedV_;
-
-    // Configuration vectors & body forces
-    Eigen::VectorXd dq_ds_; // q & Lambda update stacked
-    Eigen::VectorXd qt_;    // current positions
-    Eigen::VectorXd vt_;    // current velocities
-    Eigen::VectorXd q0_;    // previous positions
-    Eigen::VectorXd dq_;    // current update
-    Eigen::VectorXd f_ext_; // per-node external forces
-    Eigen::VectorXd la_;    // lambdas
-    Eigen::VectorXd ds_;    // lambdas
-    Eigen::VectorXd b_;     // coordinates projected out
-    Eigen::VectorXd vols_;  // per element volume
-    Eigen::VectorXd rhs_;
-    Eigen::SparseMatrixd lhs_;
-    Eigen::SparseMatrixd lhs_reg_; // regularized mass matrix
-    Eigen::SparseMatrixd lhs_rot_; // regularized mass matrix
-    double E_prev = 0;
-
-
-
-    #if defined(SIM_USE_CHOLMOD)
-    Eigen::CholmodSimplicialLDLT<Eigen::SparseMatrixd> solver_;
-    #else
-    Eigen::SimplicialLDLT<Eigen::SparseMatrixd> solver_;
-    #endif
-
-    // CG temp variables
-    Eigen::VectorXd tmp_r_;
-    Eigen::VectorXd tmp_z_;
-    Eigen::VectorXd tmp_p_;
-    Eigen::VectorXd tmp_Ap_;
-
     Eigen::MatrixXd V_;
     Eigen::MatrixXd V0_;
     Eigen::MatrixXi T_;
-
-    double ibeta_;
-
-    // Debug timing variables
-    double t_coll = 0;
-    double t_asm = 0;
-    double t_precond = 0;
-    double t_rhs = 0;
-    double t_solve = 0;
-    double t_SR = 0; 
   };
 }
 

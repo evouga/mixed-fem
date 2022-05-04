@@ -17,7 +17,9 @@ namespace mfem {
     }
 
     void volumes(Eigen::VectorXd& vol) override;
-    void mass_matrix(Eigen::SparseMatrixd& M) override;
-    void jacobian(SparseMatrixdRowMajor& J, bool weighted) override;
+    void mass_matrix(Eigen::SparseMatrixd& M,
+        const Eigen::VectorXd& vols) override;
+    void jacobian(SparseMatrixdRowMajor& J, const Eigen::VectorXd& vols,
+        bool weighted) override;
   };
 }
