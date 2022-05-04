@@ -14,6 +14,11 @@ namespace mfem {
     lambda = (E*nu)/((1.0+nu)*(1.0-2.0*nu));
   }
 
+  enum OptimizerType {
+      OPTIMIZER_ALM,
+      OPTIMIZER_ADMM,
+  };
+
   enum MaterialModelType {
       MATERIAL_SNH,
       MATERIAL_FCR,
@@ -36,7 +41,7 @@ namespace mfem {
     int inner_steps = 7;
     double plane_d = 0;
     double kappa = 1000.0;
-    double max_kappa = 1e5;
+    double max_kappa = 1e6;
     double constraint_tol = 1e-2;
     
     // update kappa and lambda if residual below this tolerance
@@ -45,6 +50,8 @@ namespace mfem {
     double newton_tol = 1e-10;
     double ls_tol = 1e-4;
     int ls_iters = 6;
+    OptimizerType optimizer = OPTIMIZER_ALM;
+
   };
 
   // Simple config for material parameters for a single object

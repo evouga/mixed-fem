@@ -71,7 +71,7 @@ void MixedALMOptimizer::build_lhs() {
   L_ = (P_* (G_.transpose() * A_ * G_) * P_.transpose());
   Hx_ = M_ + h2 * config_->kappa * L_;
   //SparseMatrixd L = P_* (J_.transpose() * A_ * J_) * P_.transpose();
-  J_tilde_ = 1*h2*(1*k*(Whate_.transpose()*A_*J2_ + W_.transpose() * A_ * G_)
+  J_tilde_ = 0*h2*(1*k*(Whate_.transpose()*A_*J2_ + W_.transpose() * A_ * G_)
       - WhatL_.transpose() * A_ * J2_) * P_.transpose();
   auto end = high_resolution_clock::now();
   double t_1 = duration_cast<nanoseconds>(end-start).count()/1e6;

@@ -58,6 +58,20 @@ std::shared_ptr<MaterialModel> make_material_model(
   return std::make_shared<ArapModel>(config);
 }
 
+std::shared_ptr<Optimizer> make_optimizer(std::shared_ptr<SimObject> object,
+    std::shared_ptr<SimConfig> config) {
+
+  switch (config->optimizer) {
+  case OPTIMIZER_ALM:
+    return std::make_shared<MixedALMOptimizer>(object,config);
+    break;
+  case OPTIMIZER_ADMM:
+    return std::make_shared<MixedADMMOptimizer>(object,config);
+    break;
+  } 
+  return std::make_shared<MixedALMOptimizer>(object,config);
+}
+
 // Helper to display a little (?) mark which shows a tooltip when hovered.
 static void HelpMarker(const char* desc)
 {
@@ -135,18 +149,24 @@ void callback() {
 
   ImGui::SetNextItemOpen(true, ImGuiCond_Once);
   if (ImGui::TreeNode("Sim Params")) {
+
+    int type = config->optimizer;
+    if (ImGui::Combo("Optimizer", &type,"ALM\0ADMM\0\0")) {
+      config->optimizer = static_cast<OptimizerType>(type);
+      optimizer = make_optimizer(tet_object, config);
+      optimizer->reset();
+    }
+
     ImGui::InputInt("Max Newton Iters", &config->outer_steps);
     //ImGui::InputInt("Inner Steps", &config->inner_steps);
     if (ImGui::InputFloat3("Body Force", config->ext, 3)) {
       sim_dirty = true;
     }
-    //ImGui::Checkbox("regularizer",&config->regularizer);
     ImGui::InputDouble("kappa", &config->kappa,0,0,"%.5g");
     ImGui::SameLine(); 
     ImGui::InputDouble("max kappa", &config->max_kappa, 0,0,"%.5g");
     ImGui::InputDouble("constraint tol",&config->constraint_tol, 0,0,"%.5g");
     ImGui::InputDouble("lamda update tol",&config->update_zone_tol,0,0,"%.5g");
-    ImGui::Checkbox("local-global",&config->local_global);
     ImGui::Checkbox("floor collision",&config->floor_collision);
     ImGui::Checkbox("warm start",&config->warm_start);
     ImGui::TreePop();
@@ -316,8 +336,10 @@ int main(int argc, char **argv) {
       material, material_config);
 
   //optimizer = std::make_shared<MixedALMOptimizer>(tet_object, config);
-  optimizer = std::make_shared<MixedADMMOptimizer>(tet_object, config);
+  //optimizer = std::make_shared<MixedADMMOptimizer>(tet_object, config);
+  optimizer = make_optimizer(tet_object, config);
   optimizer->reset();
+
 
   // Show the gui
   polyscope::show();
