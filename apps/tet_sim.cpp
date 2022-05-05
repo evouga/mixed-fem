@@ -130,8 +130,8 @@ void callback() {
       
       Enu_to_lame(material_config->ym, material_config->pr,
           material_config->la, material_config->mu);
-      // std::cout << "MU: " << material_config->mu;
-      // std::cout << " LA: " << material_config->la << std::endl;
+      std::cout << "MU: " << material_config->mu;
+      std::cout << " LA: " << material_config->la << std::endl;
       config->kappa = material_config->mu;
       sim_dirty = true;    
     }
@@ -319,6 +319,7 @@ int main(int argc, char **argv) {
   polyscope::state::lengthScale = 1.;
   polyscope::state::boundingBox = std::tuple<glm::vec3, glm::vec3>{
     {a(0),a(1),a(2)},{b(0),b(1),b(2)}};
+  polyscope::options::groundPlaneMode = polyscope::GroundPlaneMode::None;
 
   std::cout << "V : " << meshV.rows() << " T: " << meshT.rows() << std::endl;
   meshV0 = meshV;

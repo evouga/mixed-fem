@@ -52,7 +52,7 @@ void MixedALMOptimizer::step() {
 
     if (ls_done) {
       std::cout << "  - Linesearch done " << std::endl;
-      break;
+      // break;
     }
     ++i;
   } while (i < config_->outer_steps && grad_norm > config_->newton_tol);
@@ -336,8 +336,8 @@ void MixedALMOptimizer::update_constraints(double residual) {
   // Evaluate constraint
   VectorXd dl = W_*s_ - def_grad;
 
-  //residual /= config_->h;
-  residual *= config_->h; // TODO probably divide :p
+  residual /= config_->h;
+  //residual *= config_->h; // TODO probably divide :p
   double constraint_residual = dl.lpNorm<Infinity>();
   double constraint_tol = config_->constraint_tol;
   double update_zone_tol = config_->update_zone_tol; 
@@ -476,8 +476,25 @@ void MixedALMOptimizer::reset() {
   //pinnedV_ = (V_.col(0).array() < pin_x 
   //    && V_.col(1).array() > pin_y).cast<int>();
   //pinnedV_.resize(V_.rows());
+  // pinnedV_.setZero();
+  // pinnedV_(0) = 1;
+
+  vt_.resize(object_->V_.size());
+  vt_.setZero();
+  pinnedV_ = (object_->V_.col(1).array() > (max_y - (max_y-min_y)*0.49)).cast<int>();
+
+  for (int i = 0; i < pinnedV_.size(); ++i) {
+    if (pinnedV_[i] == 1) {
+      vt_(3*i + 1) = -10;  
+    }
+  }
+  pinnedV_ = (object_->V_.col(1).array() < (min_y + (max_y-min_y)*0.2)).cast<int>();
+  for (int i = 0; i < pinnedV_.size(); ++i) {
+    if (pinnedV_[i] == 1) {
+      vt_(3*i + 1) = 10;  
+    }
+  }
   pinnedV_.setZero();
-  pinnedV_(0) = 1;
 
   P_ = pinning_matrix(object_->V_, object_->T_, pinnedV_, false);
 
@@ -494,14 +511,7 @@ void MixedALMOptimizer::reset() {
   tmp_p_ = dx_ds_;
   tmp_Ap_ = dx_ds_;
   dx_ = 0*xt_;
-  vt_ = 0*xt_;
-
-//   for (int i = 0; i < pinnedV_.size(); ++i) {
-//     if (pinnedV_[i] == 1) {
-//       vt_(3*i) = 1000;  
-//     }
-//   }
-// pinnedV_.setZero();
+  // vt_ = 0*xt_;
 
   // Project out mass matrix pinned point
   M_ = P_ * M_ * P_.transpose();

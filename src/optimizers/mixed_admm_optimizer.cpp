@@ -51,8 +51,10 @@ void MixedADMMOptimizer::step() {
     // Solve for 's' variables
     #pragma omp parallel for
     for (int i = 0; i < nelem_; ++i) {
-      s_.segment(6*i,6) += Hs_[i].inverse() * gs_.segment(6*i,6);
+      ds_.segment(6*i,6) = Hs_[i].inverse() * gs_.segment(6*i,6);
     }
+    linesearch_s(s_, ds_);
+
     update_system();
     
     update_constraints(grad_norm);
@@ -60,7 +62,7 @@ void MixedADMMOptimizer::step() {
 
     if (ls_done) {
       std::cout << "  - Linesearch done " << std::endl;
-      break;
+      // break;
     }
     ++i;
   } while (i < config_->outer_steps && grad_norm > config_->newton_tol);
@@ -266,6 +268,24 @@ bool MixedADMMOptimizer::linesearch(VectorXd& x, const VectorXd& dx) {
   return done;
 }
 
+bool MixedADMMOptimizer::linesearch_s(VectorXd& s, const VectorXd& ds) {
+ 
+  auto value = [&](const VectorXd& s)->double {
+    return energy(xt_, s, la_);
+  };
+
+  std::cout << "Linesearch over 's'" << std::endl;
+  VectorXd st = s;
+  VectorXd tmp;
+  SolverExitStatus status = linesearch_backtracking_bisection(st, ds, value,
+      tmp, config_->ls_iters, 1.0, 0.1, 0.5, E_prev_);
+  bool done = (status == MAX_ITERATIONS_REACHED ||
+              (st-ds).norm() < config_->ls_tol);
+  s = st;
+  E_prev_ = energy(xt_, s, la_);
+  return done;
+}
+
 void MixedADMMOptimizer::substep(bool init_guess, double& decrement) {
   double t_rhs = 0;
   double t_solve = 0;
@@ -332,8 +352,8 @@ void MixedADMMOptimizer::update_constraints(double residual) {
   // Evaluate constraint
   VectorXd dl = W_*s_ - def_grad;
 
-  //residual /= config_->h;
-  residual *= config_->h; // TODO probably divide :p
+  residual /= config_->h;
+  //residual *= config_->h; // TODO probably divide :p
   double constraint_residual = dl.lpNorm<Infinity>();
   double constraint_tol = config_->constraint_tol;
   double update_zone_tol = config_->update_zone_tol; 
@@ -349,7 +369,6 @@ void MixedADMMOptimizer::update_constraints(double residual) {
     } else {
       la_ -= config_->kappa * dl;
     }
-    
   }
 
   // TODO logger

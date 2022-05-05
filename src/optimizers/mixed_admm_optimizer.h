@@ -42,6 +42,7 @@ namespace mfem {
     // x  - initial positions. Output of linesearch updates this variable
     // dx - direction we perform linesearch on
     virtual bool linesearch(Eigen::VectorXd& x, const Eigen::VectorXd& dx);
+    virtual bool linesearch_s(Eigen::VectorXd& s, const Eigen::VectorXd& ds);
 
     // Simulation substep for this object
     // init_guess - whether to initialize guess with a prefactor solve
