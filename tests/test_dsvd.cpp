@@ -86,12 +86,12 @@ TEST_CASE("dsvd - dWs/dF") {
 
 TEST_CASE("dsvd - dWs/dq") {
   App app;
-  std::shared_ptr<SimObject> obj = app.obj;
+  std::shared_ptr<MixedALMOptimizer> obj = app.sim;
   int n = obj->J_.cols();
   MatrixXd Jk = obj->J_.block(0,0,9,n);
-  obj->qt_ *= 10;
+  obj->xt_ *= 10;
 
-  Vector9d vecF = Jk * (obj->P_.transpose() * obj->qt_ + obj->b_);
+  Vector9d vecF = Jk * (obj->P_.transpose() * obj->xt_ + obj->b_);
   Matrix3d F = Matrix3d(vecF.data());
   
   Vector6d s;
@@ -126,7 +126,7 @@ TEST_CASE("dsvd - dWs/dq") {
 
   // Finite difference gradient
   MatrixXd fgrad;
-  VectorXd qt = obj->qt_;
+  VectorXd qt = obj->xt_;
   finite_jacobian(qt, E, fgrad, SIXTH, 1e-6);
   // std::cout << "frad: \n" << fgrad << std::endl;
   // std::cout << "grad: \n" << J.transpose() << std::endl;

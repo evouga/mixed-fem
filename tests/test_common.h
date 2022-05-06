@@ -2,7 +2,8 @@
 
 #include "finitediff.hpp"
 #include "igl/readMESH.h"
-#include "simulator.h"
+//#include "simulator.h"
+#include "optimizers/mixed_alm_optimizer.h"
 
 namespace Test {
 
@@ -30,9 +31,9 @@ namespace Test {
       material_config = std::make_shared<MaterialConfig>();
       material = std::make_shared<StableNeohookean>(material_config);
       obj = std::make_shared<TetrahedralObject>(meshV,
-          meshT, config, material, material_config);
-      obj->init();
-      sim = std::make_shared<Simulator>(obj,config);
+          meshT, material, material_config);
+      sim = std::make_shared<MixedALMOptimizer>(obj,config);
+      sim->reset();
 
       // Perform simulation step
       config->inner_steps=1;
@@ -43,6 +44,6 @@ namespace Test {
     std::shared_ptr<MaterialConfig> material_config;
     std::shared_ptr<MaterialModel> material;
     std::shared_ptr<SimObject> obj;
-    std::shared_ptr<Simulator> sim;
+    std::shared_ptr<MixedALMOptimizer> sim;
   };
 };

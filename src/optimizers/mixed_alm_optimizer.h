@@ -12,13 +12,14 @@ namespace mfem {
   // solving the dual variables.
   class MixedALMOptimizer : public Optimizer {
   public:
+    
     MixedALMOptimizer(std::shared_ptr<SimObject> object,
         std::shared_ptr<SimConfig> config) : Optimizer(object, config) {}
 
     void reset() override;
     void step() override;
   
-  protected:
+  public:
 
     // Evaluated augmented lagrangian energy
     virtual double energy(const Eigen::VectorXd& x, const Eigen::VectorXd& s,

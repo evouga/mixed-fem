@@ -419,8 +419,8 @@ double MixedALMOptimizer::energy(const VectorXd& x, const VectorXd& s,
 
   double e = Em + Epsi - Ela + Er;
   //std::cout << "E: " <<  e << " ";
-  std::cout << "  - (Em: " << Em << " Epsi: " << Epsi 
-     << " Ela: " << Ela << " Er: " << Er << " )" << std::endl;
+  // std::cout << "  - (Em: " << Em << " Epsi: " << Epsi 
+  //    << " Ela: " << Ela << " Er: " << Er << " )" << std::endl;
   return e;
 }
 
@@ -476,25 +476,25 @@ void MixedALMOptimizer::reset() {
   //pinnedV_ = (V_.col(0).array() < pin_x 
   //    && V_.col(1).array() > pin_y).cast<int>();
   //pinnedV_.resize(V_.rows());
-  // pinnedV_.setZero();
-  // pinnedV_(0) = 1;
-
-  vt_.resize(object_->V_.size());
-  vt_.setZero();
-  pinnedV_ = (object_->V_.col(1).array() > (max_y - (max_y-min_y)*0.49)).cast<int>();
-
-  for (int i = 0; i < pinnedV_.size(); ++i) {
-    if (pinnedV_[i] == 1) {
-      vt_(3*i + 1) = -10;  
-    }
-  }
-  pinnedV_ = (object_->V_.col(1).array() < (min_y + (max_y-min_y)*0.2)).cast<int>();
-  for (int i = 0; i < pinnedV_.size(); ++i) {
-    if (pinnedV_[i] == 1) {
-      vt_(3*i + 1) = 10;  
-    }
-  }
   pinnedV_.setZero();
+  pinnedV_(0) = 1;
+
+  // vt_.resize(object_->V_.size());
+  // vt_.setZero();
+  // pinnedV_ = (object_->V_.col(1).array() > (max_y - (max_y-min_y)*0.49)).cast<int>();
+
+  // for (int i = 0; i < pinnedV_.size(); ++i) {
+  //   if (pinnedV_[i] == 1) {
+  //     vt_(3*i + 1) = -30;  
+  //   }
+  // }
+  // pinnedV_ = (object_->V_.col(1).array() < (min_y + (max_y-min_y)*0.2)).cast<int>();
+  // for (int i = 0; i < pinnedV_.size(); ++i) {
+  //   if (pinnedV_[i] == 1) {
+  //     vt_(3*i + 1) = 30;  
+  //   }
+  // }
+  // pinnedV_.setZero();
 
   P_ = pinning_matrix(object_->V_, object_->T_, pinnedV_, false);
 
@@ -511,7 +511,7 @@ void MixedALMOptimizer::reset() {
   tmp_p_ = dx_ds_;
   tmp_Ap_ = dx_ds_;
   dx_ = 0*xt_;
-  // vt_ = 0*xt_;
+  vt_ = 0*xt_;
 
   // Project out mass matrix pinned point
   M_ = P_ * M_ * P_.transpose();
