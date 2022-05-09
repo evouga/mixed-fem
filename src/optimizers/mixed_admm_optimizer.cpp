@@ -43,9 +43,9 @@ void MixedADMMOptimizer::step() {
     update_system();
     end = high_resolution_clock::now();
     double t3 = duration_cast<nanoseconds>(end-start).count()/1e6;
-    std::cout << "  - ! Timing Substep time: " << t1
-        << " Linesearch: " << t2
-        << " Update gradients: " << t3 << std::endl;
+    // std::cout << "  - ! Timing Substep time: " << t1
+    //     << " Linesearch: " << t2
+    //     << " Update gradients: " << t3 << std::endl;
 
     gradient_s();
     // Solve for 's' variables
@@ -55,11 +55,17 @@ void MixedADMMOptimizer::step() {
     }
     linesearch_s(s_, ds_);
 
+    //double relative_error = std::fabs(m_objectives[m_iter+1] - m_objectives[m_iter]) / (std::fabs(m_objectives[m_iter+1]) + 1.0);  // the 1.0 was added to denominator for better handling of zero-energy solutions
+
+
     update_system();
     
     update_constraints(grad_norm);
 
-
+    double E0 = E_prev_;
+    E_prev_ = energy(xt_, s_, la_);
+    double relative_obj = std::abs(E_prev_ - E0) / std::abs(E_prev_ + 1.0);
+    std::cout << "  - Objective Residual: " << relative_obj << std::endl;
     if (ls_done) {
       std::cout << "  - Linesearch done " << std::endl;
       // break;
@@ -92,13 +98,13 @@ void MixedADMMOptimizer::hessians() {
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
     const Vector6d& si = s_.segment(6*i,6);
-    g_[i] = object_->material_->gradient(R_[i], si);
+    g_[i] = object_->material_->gradient(si);
     Matrix6d H = object_->material_->hessian(si);
     Hs_[i] = vols_[i]*h2*(H + config_->kappa*WTW);
   }
   end = high_resolution_clock::now();
   double t_2 = duration_cast<nanoseconds>(end-start).count()/1e6;
-  std::cout << "  - Timing LHS [1]: " << t_1 << " [2]: " << t_2 << std::endl;
+  // std::cout << "  - Timing LHS [1]: " << t_1 << " [2]: " << t_2 << std::endl;
 }
 
 void MixedADMMOptimizer::gradient_x() {
@@ -246,8 +252,8 @@ void MixedADMMOptimizer::update_system() {
   hessians();
   end = high_resolution_clock::now();
   double t_3 = duration_cast<nanoseconds>(end-start).count()/1e6;
-  std::cout << "  - Time [update rotations]: " << t_1 
-      << " [update blocks]: " << t_2 << " [LHS]: " << t_3 << std::endl;
+  // std::cout << "  - Timing [update rotations]: " << t_1 
+  //     << " [update blocks]: " << t_2 << " [LHS]: " << t_3 << std::endl;
 }
 
 
@@ -264,7 +270,6 @@ bool MixedADMMOptimizer::linesearch(VectorXd& x, const VectorXd& dx) {
   bool done = (status == MAX_ITERATIONS_REACHED ||
               (xt-dx).norm() < config_->ls_tol);
   x = xt;
-  E_prev_ = energy(xt, s_, la_);
   return done;
 }
 
@@ -274,7 +279,7 @@ bool MixedADMMOptimizer::linesearch_s(VectorXd& s, const VectorXd& ds) {
     return energy(xt_, s, la_);
   };
 
-  std::cout << "Linesearch over 's'" << std::endl;
+  // std::cout << "Linesearch over 's'" << std::endl;
   VectorXd st = s;
   VectorXd tmp;
   SolverExitStatus status = linesearch_backtracking_bisection(st, ds, value,
@@ -282,7 +287,6 @@ bool MixedADMMOptimizer::linesearch_s(VectorXd& s, const VectorXd& ds) {
   bool done = (status == MAX_ITERATIONS_REACHED ||
               (st-ds).norm() < config_->ls_tol);
   s = st;
-  E_prev_ = energy(xt_, s, la_);
   return done;
 }
 
@@ -335,8 +339,8 @@ void MixedADMMOptimizer::substep(bool init_guess, double& decrement) {
   end = high_resolution_clock::now();
   t_solve += duration_cast<nanoseconds>(end-start).count()/1e6;
   
-  std::cout << "  - Timing Substep [RHS]: " << t_rhs << " [Solve]: "
-      << t_solve << std::endl;
+  // std::cout << "  - Timing Substep [RHS]: " << t_rhs << " [Solve]: "
+  //     << t_solve << std::endl;
 }
 
 void MixedADMMOptimizer::warm_start() {
@@ -435,8 +439,8 @@ double MixedADMMOptimizer::energy(const VectorXd& x, const VectorXd& s,
 
   double e = Em + Epsi - Ela + Er;
   //std::cout << "E: " <<  e << " ";
-  std::cout << "  - (Em: " << Em << " Epsi: " << Epsi 
-     << " Ela: " << Ela << " Er: " << Er << " )" << std::endl;
+  // std::cout << "  - (Em: " << Em << " Epsi: " << Epsi 
+  //    << " Ela: " << Ela << " Er: " << Er << " )" << std::endl;
   return e;
 }
 

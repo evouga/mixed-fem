@@ -17,8 +17,7 @@ double CorotationalModel::energy(const Vector6d& S) {
       +pow(S3-1.0,2.0)+(S4*S4)*2.0+(S5*S5)*2.0+(S6*S6)*2.0);
 }
 
-Vector6d CorotationalModel::gradient(const Matrix3d& R,
-    const Vector6d& S) {
+Vector6d CorotationalModel::gradient(const Vector6d& S) {
   
   double mu = config_->mu;
   double la = config_->la;

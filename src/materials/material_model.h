@@ -34,10 +34,8 @@ namespace mfem {
     virtual double energy(const Eigen::Vector6d& S) = 0; 
 
     // Gradient with respect to symmetric deformation, S
-    // R - 3x3 rotation
-    // S - 3x3 symmetric deformation
-    virtual Eigen::Vector6d gradient(const Eigen::Matrix3d& R,
-        const Eigen::Vector6d& S) = 0;
+    // S - 6x1 symmetric deformation
+    virtual Eigen::Vector6d gradient(const Eigen::Vector6d& S) = 0;
 
     // Hessian matrix for symmetric deformation, S
     // R - 3x3 rotation

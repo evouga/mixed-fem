@@ -82,7 +82,7 @@ void MixedALMOptimizer::build_lhs() {
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
     const Vector6d& si = s_.segment(6*i,6);
-    g_[i] = object_->material_->gradient(R_[i], si);
+    g_[i] = object_->material_->gradient(si);
     Matrix6d H = object_->material_->hessian(si);
     Hs_[i] = vols_[i]*h2*(H + config_->kappa*WTW);
   }

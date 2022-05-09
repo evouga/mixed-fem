@@ -17,6 +17,8 @@ namespace mfem {
   enum OptimizerType {
       OPTIMIZER_ALM,
       OPTIMIZER_ADMM,
+      OPTIMIZER_LBFGS,
+      OPTIMIZER_SQP,
   };
 
   enum MaterialModelType {

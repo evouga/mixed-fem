@@ -69,8 +69,7 @@ double StableNeohookean::energy(const Vector6d& S) {
     /2.0+(mu*(S1*S1+S2*S2+S3*S3+(S4*S4)*2.0+(S5*S5)*2.0+(S6*S6)*2.0-3.0))/2.0;
 }
 
-Vector6d StableNeohookean::gradient(const Matrix3d& R,
-    const Vector6d& S) {
+Vector6d StableNeohookean::gradient(const Vector6d& S) {
   
   double mu = config_->mu;
   double la = config_->la;

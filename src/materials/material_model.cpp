@@ -64,7 +64,7 @@ Vector6d MaterialModel::dS(const Matrix3d& R,
     const Vector6d& S, const Vector9d& L,
     const Matrix6d& Hinv) {
   
-  Vector6d g = gradient(R,S);
+  Vector6d g = gradient(S);
   Matrix<double,9,6> W;
   Wmat(R,W);
   return Hinv*(W.transpose()*L - g); 
