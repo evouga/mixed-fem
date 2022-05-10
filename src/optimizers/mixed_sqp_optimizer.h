@@ -40,7 +40,8 @@ namespace mfem {
     // Linesearch over positions
     // x  - initial positions. Output of linesearch updates this variable
     // dx - direction we perform linesearch on
-    virtual bool linesearch(Eigen::VectorXd& x, const Eigen::VectorXd& dx);
+    virtual bool linesearch_x(Eigen::VectorXd& x, const Eigen::VectorXd& dx);
+    virtual bool linesearch_s(Eigen::VectorXd& s, const Eigen::VectorXd& ds);
 
     // Simulation substep for this object
     // init_guess - whether to initialize guess with a prefactor solve
@@ -52,7 +53,7 @@ namespace mfem {
     virtual void update_configuration();
 
     // Configuration vectors & body forces
-    Eigen::VectorXd xt_;        // current positions
+    Eigen::VectorXd x_;        // current positions
     Eigen::VectorXd vt_;        // current velocities
     Eigen::VectorXd x0_;        // previous positions
     Eigen::VectorXd dx_;        // current update

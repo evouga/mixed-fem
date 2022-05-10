@@ -24,11 +24,12 @@ void MixedSQPOptimizer::step() {
     update_system();
     substep(i==0, grad_norm);
 
-    linesearch(xt_, dx_);
-    // xt_ += dx_;
-    // s_ += ds_; // currently not doing linesearch on s
+    linesearch_x(x_, dx_);
+    linesearch_s(s_, ds_);
+    // x_ += dx_;
+    // s_ += ds_;
 
-    energy(xt_, s_, la_);
+    energy(x_, s_, la_);
 
     ++i;
   } while (i < config_->outer_steps && grad_norm > config_->newton_tol);
@@ -51,7 +52,7 @@ void MixedSQPOptimizer::build_lhs() {
   init_block_diagonal<6,6>(Hs, nelem_);
   update_block_diagonal<6,6>(H_, Hs);
 
-  size_t n = xt_.size();
+  size_t n = x_.size();
   size_t m = 6*nelem_;
   size_t sz = n + m + m;
 
@@ -78,7 +79,7 @@ void MixedSQPOptimizer::build_lhs() {
 }
 
 void MixedSQPOptimizer::build_rhs() {
-  size_t n = xt_.size();
+  size_t n = x_.size();
   size_t m = 6*nelem_;
   rhs_.resize(n + m + m);
   rhs_.setZero();
@@ -86,7 +87,7 @@ void MixedSQPOptimizer::build_rhs() {
   double h2 = h*h;
 
   // -g_x
-  rhs_.segment(0, n) = -M_*(xt_ - x0_ - h*vt_ - h2*f_ext_)/h2;
+  rhs_.segment(0, n) = -M_*(x_ - x0_ - h*vt_ - h2*f_ext_)/h2;
 
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
@@ -103,9 +104,9 @@ void MixedSQPOptimizer::build_rhs() {
 
 void MixedSQPOptimizer::update_rotations() {
   dS_.resize(nelem_);
-  VectorXd def_grad = J_*(P_.transpose()*xt_+b_);
+  VectorXd def_grad = J_*(P_.transpose()*x_+b_);
 
-  // #pragma omp parallel for 
+  #pragma omp parallel for 
   for (int i = 0; i < nelem_; ++i) {
     JacobiSVD<Matrix3d> svd(Map<Matrix3d>(def_grad.segment(9*i,9).data()),
         ComputeFullU | ComputeFullV);
@@ -171,28 +172,11 @@ void MixedSQPOptimizer::update_system() {
   build_rhs();
 }
 
-bool MixedSQPOptimizer::linesearch(VectorXd& x, const VectorXd& dx) {
- 
-  auto value = [&](const VectorXd& x)->double {
-    return energy(x, s_, la_);
-  };
-
-  VectorXd xt = x;
-  VectorXd tmp;
-  SolverExitStatus status = linesearch_backtracking_bisection(xt, dx, value,
-      tmp, config_->ls_iters, 1.0, 0.1, 0.5, E_prev_);
-  bool done = (status == MAX_ITERATIONS_REACHED ||
-              (xt-dx).norm() < config_->ls_tol);
-  x = xt;
-  E_prev_ = energy(xt, s_, la_);
-  return done;
-}
-
 void MixedSQPOptimizer::substep(bool init_guess, double& decrement) {
   // Factorize LHS (using SparseLU right now)
   solver_.compute(lhs_);
   if(solver_.info()!=Success) {
-   std::cerr << "!!!!!!!!!!!!!!!prefactor failed! " << std::endl;
+   std::cerr << "prefactor failed! " << std::endl;
    exit(1);
   }
 
@@ -206,9 +190,9 @@ void MixedSQPOptimizer::substep(bool init_guess, double& decrement) {
   std::cout << "  - relative_error: " << relative_error << std::endl;
 
   // Extract updates
-  dx_ = x.segment(0, xt_.size());
-  ds_ = x.segment(xt_.size(), 6*nelem_);
-  la_ = x.segment(xt_.size() + 6*nelem_, 6*nelem_);
+  dx_ = x.segment(0, x_.size());
+  ds_ = x.segment(x_.size(), 6*nelem_);
+  la_ = x.segment(x_.size() + 6*nelem_, 6*nelem_);
 
   std::cout << "  - la norm: " << la_.norm() << " dx norm: "
       << dx_.norm() << " ds_.norm: " << ds_.norm() << std::endl;
@@ -216,12 +200,12 @@ void MixedSQPOptimizer::substep(bool init_guess, double& decrement) {
 
 void MixedSQPOptimizer::update_configuration() {
 
-  vt_ = (xt_ - x0_) / config_->h;
-  x0_ = xt_;
+  vt_ = (x_ - x0_) / config_->h;
+  x0_ = x_;
   la_.setZero();
 
   // Update mesh vertices
-  VectorXd x = P_.transpose()*xt_ + b_;
+  VectorXd x = P_.transpose()*x_ + b_;
   MatrixXd V = Map<MatrixXd>(x.data(), object_->V_.cols(), object_->V_.rows());
   object_->V_ = V.transpose();
 }
@@ -263,6 +247,41 @@ double MixedSQPOptimizer::energy(const VectorXd& x, const VectorXd& s,
   std::cout << "  - (Em: " << Em << " Epsi: " << Epsi 
      << " Ela: " << Ela << " )" << std::endl;
   return e;
+}
+
+
+bool MixedSQPOptimizer::linesearch_x(VectorXd& x, const VectorXd& dx) {
+ 
+  auto value = [&](const VectorXd& x)->double {
+    return energy(x, s_, la_);
+  };
+
+  VectorXd xt = x;
+  VectorXd tmp;
+  SolverExitStatus status = linesearch_backtracking_bisection(xt, dx, value,
+      tmp, config_->ls_iters, 1.0, 0.1, 0.5, E_prev_);
+  bool done = (status == MAX_ITERATIONS_REACHED ||
+              (xt-dx).norm() < config_->ls_tol);
+  x = xt;
+  E_prev_ = energy(xt, s_, la_);
+  return done;
+}
+
+bool MixedSQPOptimizer::linesearch_s(VectorXd& s, const VectorXd& ds) {
+ 
+  auto value = [&](const VectorXd& s)->double {
+    return energy(x_, s, la_);
+  };
+
+  VectorXd st = s;
+  VectorXd tmp;
+  SolverExitStatus status = linesearch_backtracking_bisection(st, ds, value,
+      tmp, config_->ls_iters, 1.0, 0.1, 0.5, E_prev_);
+  bool done = (status == MAX_ITERATIONS_REACHED ||
+              (st-ds).norm() < config_->ls_tol);
+  s = st;
+  E_prev_ = energy(x_, s, la_);
+  return done;
 }
 
 void MixedSQPOptimizer::reset() {
@@ -319,13 +338,13 @@ void MixedSQPOptimizer::reset() {
   P_ = pinning_matrix(object_->V_, object_->T_, pinnedV_, false);
 
   MatrixXd tmp = object_->V_.transpose();
-  xt_ = Map<VectorXd>(tmp.data(), object_->V_.size());
+  x_ = Map<VectorXd>(tmp.data(), object_->V_.size());
 
-  b_ = xt_ - P_.transpose()*P_*xt_;
-  xt_ = P_ * xt_;
-  x0_ = xt_;
-  dx_ = 0*xt_;
-  vt_ = 0*xt_;
+  b_ = x_ - P_.transpose()*P_*x_;
+  x_ = P_ * x_;
+  x0_ = x_;
+  dx_ = 0*x_;
+  vt_ = 0*x_;
 
   // Project out mass matrix pinned point
   M_ = P_ * M_ * P_.transpose();
