@@ -9,10 +9,10 @@
 namespace mfem {
 
   // Mixed FEM Sequential Quadratic Program
-  class MixedSQPOptimizer : public Optimizer {
+  class MixedSQPFullOptimizer : public Optimizer {
   public:
     
-    MixedSQPOptimizer(std::shared_ptr<SimObject> object,
+    MixedSQPFullOptimizer(std::shared_ptr<SimObject> object,
         std::shared_ptr<SimConfig> config) : Optimizer(object, config) {}
 
     void reset() override;
@@ -69,7 +69,6 @@ namespace mfem {
     std::vector<Eigen::Matrix3d> R_;  // Per-element rotations
     std::vector<Eigen::Vector6d> S_;    // Per-element deformation
     std::vector<Eigen::Matrix6d> H_; // Elemental hessians w.r.t dS
-    std::vector<Eigen::Matrix6d> Hinv_; // Elemental hessians w.r.t dS
     std::vector<Eigen::Vector6d> g_;    // Elemental gradients w.r.t dS
     std::vector<Eigen::Matrix<double,9,6>> dS_;
 

@@ -11,6 +11,9 @@ namespace mfem {
   static Eigen::Vector6d I_vec = (Eigen::Vector6d() <<
       1, 1, 1, 0, 0, 0).finished();
 
+  static Eigen::Matrix6d Sym = (Eigen::Vector6d() <<
+      1, 1, 1, 2, 2, 2).finished().asDiagonal();
+
   class Optimizer {
   public:
     Optimizer(std::shared_ptr<SimObject> object,

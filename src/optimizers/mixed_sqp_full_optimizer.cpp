@@ -1,4 +1,4 @@
-#include "mixed_sqp_optimizer.h"
+#include "mixed_sqp_full_optimizer.h"
 
 #include <chrono>
 #include "sparse_utils.h"
@@ -12,10 +12,10 @@ using namespace mfem;
 using namespace Eigen;
 using namespace std::chrono;
 
-void MixedSQPOptimizer::step() {
+void MixedSQPFullOptimizer::step() {
 
   std::cout << "/////////////////////////////////////////////" << std::endl;
-  std::cout << " GOOD? Simulation step " << std::endl;
+  std::cout << "Simulation step " << std::endl;
 
   int i = 0;
   double grad_norm;
@@ -38,15 +38,13 @@ void MixedSQPOptimizer::step() {
 }
 
 
-void MixedSQPOptimizer::build_lhs() {
+void MixedSQPFullOptimizer::build_lhs() {
 
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
     const Vector6d& si = s_.segment(6*i,6);
     Matrix6d H = object_->material_->hessian(si);
-    Hinv_[i] = H.inverse();
-    g_[i] = object_->material_->gradient(si);
-    H_[i] = - Sym * Hinv_[i] * Sym *vols_[i];
+    H_[i] = H*vols_[i];
   }
 
   // H_s
@@ -56,7 +54,7 @@ void MixedSQPOptimizer::build_lhs() {
 
   size_t n = x_.size();
   size_t m = 6*nelem_;
-  size_t sz = n + m;
+  size_t sz = n + m + m;
 
   MatrixXd lhs(sz,sz);
   lhs.setZero();
@@ -67,8 +65,12 @@ void MixedSQPOptimizer::build_lhs() {
   lhs.block(n, n, m, m) = MatrixXd(Hs);
 
   // G_x blocks
-  lhs.block(0, n, n, m) = Gx_;
-  lhs.block(n, 0, m, n) = Gx_.transpose();
+  lhs.block(0, n + m, n, m) = Gx_;
+  lhs.block(n + m, 0, m, n) = Gx_.transpose();
+
+  // G_s blocks
+  lhs.block(n, n + m, m, m) = W_ * Gs_;
+  lhs.block(n + m, n, m, m) = W_ * Gs_;
 
   // All dense right now for testing...
   lhs_ = lhs.sparseView();
@@ -76,10 +78,10 @@ void MixedSQPOptimizer::build_lhs() {
   // std::cout << " LHS \n" << lhs << std::endl;
 }
 
-void MixedSQPOptimizer::build_rhs() {
+void MixedSQPFullOptimizer::build_rhs() {
   size_t n = x_.size();
   size_t m = 6*nelem_;
-  rhs_.resize(n + m);
+  rhs_.resize(n + m + m);
   rhs_.setZero();
   double h = config_->h;
   double h2 = h*h;
@@ -91,12 +93,16 @@ void MixedSQPOptimizer::build_rhs() {
   for (int i = 0; i < nelem_; ++i) {
     const Vector6d& si = s_.segment(6*i,6);
 
-    // W * c(x^k, s^k) + H^-1 * g_s
-    rhs_.segment<6>(n + 6*i, 6) = vols_[i]*Sym*((S_[i] - si) + Hinv_[i]*g_[i]);
+    // -g_s
+    Vector6d gs = vols_[i]*object_->material_->gradient(si);
+    rhs_.segment<6>(n + 6*i, 6) = -gs;
+
+    // W * c(x^k, s^k)
+    rhs_.segment<6>(n + m + 6*i, 6) = vols_[i]*Sym*(S_[i] - si);
   }
 }
 
-void MixedSQPOptimizer::update_rotations() {
+void MixedSQPFullOptimizer::update_rotations() {
   dS_.resize(nelem_);
   VectorXd def_grad = J_*(P_.transpose()*x_+b_);
 
@@ -145,7 +151,7 @@ void MixedSQPOptimizer::update_rotations() {
   
 }
 
-void MixedSQPOptimizer::update_system() {
+void MixedSQPFullOptimizer::update_system() {
 
   // Compute rotations and rotation derivatives
   update_rotations();
@@ -159,7 +165,7 @@ void MixedSQPOptimizer::update_system() {
   build_rhs();
 }
 
-void MixedSQPOptimizer::substep(bool init_guess, double& decrement) {
+void MixedSQPFullOptimizer::substep(bool init_guess, double& decrement) {
   // Factorize LHS (using SparseLU right now)
   solver_.compute(lhs_);
   if(solver_.info()!=Success) {
@@ -178,18 +184,14 @@ void MixedSQPOptimizer::substep(bool init_guess, double& decrement) {
 
   // Extract updates
   dx_ = x.segment(0, x_.size());
-  la_ = x.segment(x_.size(), 6*nelem_);
-
-  #pragma omp parallel for 
-  for (int i = 0; i < nelem_; ++i) {
-    ds_.segment<6>(6*i) = -Hinv_[i] * (Sym * la_.segment<6>(6*i) + g_[i]); 
-  }
+  ds_ = x.segment(x_.size(), 6*nelem_);
+  la_ = x.segment(x_.size() + 6*nelem_, 6*nelem_);
 
   std::cout << "  - la norm: " << la_.norm() << " dx norm: "
       << dx_.norm() << " ds_.norm: " << ds_.norm() << std::endl;
 }
 
-void MixedSQPOptimizer::update_configuration() {
+void MixedSQPFullOptimizer::update_configuration() {
 
   vt_ = (x_ - x0_) / config_->h;
   x0_ = x_;
@@ -201,7 +203,7 @@ void MixedSQPOptimizer::update_configuration() {
   object_->V_ = V.transpose();
 }
 
-double MixedSQPOptimizer::energy(const VectorXd& x, const VectorXd& s,
+double MixedSQPFullOptimizer::energy(const VectorXd& x, const VectorXd& s,
         const VectorXd& la) {
   double h = config_->h;
   double h2 = h*h;
@@ -241,7 +243,7 @@ double MixedSQPOptimizer::energy(const VectorXd& x, const VectorXd& s,
 }
 
 
-bool MixedSQPOptimizer::linesearch_x(VectorXd& x, const VectorXd& dx) {
+bool MixedSQPFullOptimizer::linesearch_x(VectorXd& x, const VectorXd& dx) {
  
   auto value = [&](const VectorXd& x)->double {
     return energy(x, s_, la_);
@@ -258,7 +260,7 @@ bool MixedSQPOptimizer::linesearch_x(VectorXd& x, const VectorXd& dx) {
   return done;
 }
 
-bool MixedSQPOptimizer::linesearch_s(VectorXd& s, const VectorXd& ds) {
+bool MixedSQPFullOptimizer::linesearch_s(VectorXd& s, const VectorXd& ds) {
  
   auto value = [&](const VectorXd& s)->double {
     return energy(x_, s, la_);
@@ -275,14 +277,13 @@ bool MixedSQPOptimizer::linesearch_s(VectorXd& s, const VectorXd& ds) {
   return done;
 }
 
-void MixedSQPOptimizer::reset() {
+void MixedSQPFullOptimizer::reset() {
   // Reset variables
     // Initialize rotation matrices to identity
   nelem_ = object_->T_.rows();
   R_.resize(nelem_);
   S_.resize(nelem_);
   H_.resize(nelem_);
-  Hinv_.resize(nelem_);
   g_.resize(nelem_);
   s_.resize(6 * nelem_);
   ds_.resize(6 * nelem_);
@@ -293,7 +294,6 @@ void MixedSQPOptimizer::reset() {
   for (int i = 0; i < nelem_; ++i) {
     R_[i].setIdentity();
     H_[i].setIdentity();
-    Hinv_[i].setIdentity();
     g_[i].setZero();
     S_[i] = I_vec;
     s_.segment<6>(6*i) = I_vec;
