@@ -25,6 +25,9 @@ void MixedSQPOptimizer::step() {
     substep(i==0, grad_norm);
 
     linesearch(xt_, dx_);
+    // xt_ += dx_;
+    // s_ += ds_; // currently not doing linesearch on s
+
     energy(xt_, s_, la_);
 
     ++i;
@@ -62,14 +65,16 @@ void MixedSQPOptimizer::build_lhs() {
 
   // G_x blocks
   lhs.block(0, n + m, n, m) = Gx_;
-  lhs.block(n + m, 0, m, n) = -W_ * Gx_.transpose();
+  lhs.block(n + m, 0, m, n) = Gx_.transpose();
 
   // G_s blocks
-  lhs.block(m, n + m, m, m) = W_;
-  lhs.block(n + m, m, m, m) = W_;
+  lhs.block(n, n + m, m, m) = W_;
+  lhs.block(n + m, n, m, m) = W_;
 
   // All dense right now for testing...
   lhs_ = lhs.sparseView();
+
+  // std::cout << " LHS \n" << lhs << std::endl;
 }
 
 void MixedSQPOptimizer::build_rhs() {
@@ -100,7 +105,7 @@ void MixedSQPOptimizer::update_rotations() {
   dS_.resize(nelem_);
   VectorXd def_grad = J_*(P_.transpose()*xt_+b_);
 
-  #pragma omp parallel for 
+  // #pragma omp parallel for 
   for (int i = 0; i < nelem_; ++i) {
     JacobiSVD<Matrix3d> svd(Map<Matrix3d>(def_grad.segment(9*i,9).data()),
         ComputeFullU | ComputeFullV);
@@ -139,7 +144,7 @@ void MixedSQPOptimizer::update_rotations() {
     Js.row(2) = J.row(8);
     Js.row(3) = J.row(1);
     Js.row(4) = J.row(2);
-
+    // std::cout << "Js: \n" << Js << std::endl;
     // Js <<
     // 1, 0, 0, 0, 0, 0, 0, 0, 0,
     // 0, 0, 0, 0, 1, 0, 0, 0, 0,
@@ -153,7 +158,7 @@ void MixedSQPOptimizer::update_rotations() {
 }
 
 void MixedSQPOptimizer::update_system() {
-  
+
   // Compute rotations and rotation derivatives
   update_rotations();
 
@@ -184,26 +189,26 @@ bool MixedSQPOptimizer::linesearch(VectorXd& x, const VectorXd& dx) {
 }
 
 void MixedSQPOptimizer::substep(bool init_guess, double& decrement) {
-  int niter = 0;
+  // Factorize LHS (using SparseLU right now)
   solver_.compute(lhs_);
   if(solver_.info()!=Success) {
    std::cerr << "!!!!!!!!!!!!!!!prefactor failed! " << std::endl;
    exit(1);
   }
 
+  // Solve for updates
   VectorXd x = solver_.solve(rhs_);
-  double relative_error = (lhs_*x - rhs_).norm() / rhs_.norm(); // norm() is L2 norm
 
+  double relative_error = (lhs_*x - rhs_).norm() / rhs_.norm(); // norm() is L2 norm
   decrement = x.norm(); // if doing "full newton use this"
   std::cout << "  - RHS Norm: " << rhs_.norm() << std::endl;
   std::cout << "  - Newton decrement: " << decrement  << std::endl;
   std::cout << "  - relative_error: " << relative_error << std::endl;
-  // Update per-element R & S matrices
+
+  // Extract updates
   dx_ = x.segment(0, xt_.size());
   ds_ = x.segment(xt_.size(), 6*nelem_);
   la_ = x.segment(xt_.size() + 6*nelem_, 6*nelem_);
-  xt_ += dx_;
-  s_ += ds_; // currently not doing linesearch on s
 
   std::cout << "  - la norm: " << la_.norm() << " dx norm: "
       << dx_.norm() << " ds_.norm: " << ds_.norm() << std::endl;
