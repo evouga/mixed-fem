@@ -24,10 +24,10 @@ void MixedSQPOptimizer::step() {
     update_system();
     substep(i==0, grad_norm);
 
-    linesearch_x(x_, dx_);
-    linesearch_s(s_, ds_);
-    // x_ += dx_;
-    // s_ += ds_;
+    // linesearch_x(x_, dx_);
+    // linesearch_s(s_, ds_);
+    x_ += dx_;
+    s_ += ds_;
 
     energy(x_, s_, la_);
 
@@ -145,6 +145,7 @@ void MixedSQPOptimizer::update_rotations() {
     Js.row(2) = J.row(8);
     Js.row(3) = J.row(1);
     Js.row(4) = J.row(2);
+    Js.row(5) = J.row(5);
     // std::cout << "Js: \n" << Js << std::endl;
     // Js <<
     // 1, 0, 0, 0, 0, 0, 0, 0, 0,
