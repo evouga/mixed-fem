@@ -23,11 +23,16 @@ void MixedSQPOptimizer::step() {
     std::cout << "* Newton step: " << i << std::endl;
     update_system();
     substep(i==0, grad_norm);
-
-    // linesearch_x(x_, dx_);
-    // linesearch_s(s_, ds_);
-    x_ += dx_;
-    s_ += ds_;
+    // 1. Try to doing linesearch over both, and also try only minimizing the "primal energy"
+    // 2. Try removing h^2 from constraint term
+    // 3. Try regular neohookean, flickering from SNH?
+    // 1. Try diagonal only LHS as the preconditioner
+    // 4. Find some wrapd failures
+    // main objective
+    linesearch_x(x_, dx_);
+    linesearch_s(s_, ds_);
+    // x_ += dx_;
+    // s_ += ds_;
 
     energy(x_, s_, la_);
 
@@ -39,6 +44,7 @@ void MixedSQPOptimizer::step() {
 
 
 void MixedSQPOptimizer::build_lhs() {
+  double h2 = config_->h * config_->h;
 
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
@@ -46,34 +52,10 @@ void MixedSQPOptimizer::build_lhs() {
     Matrix6d H = object_->material_->hessian(si);
     Hinv_[i] = H.inverse();
     g_[i] = object_->material_->gradient(si);
-    H_[i] = - Sym * Hinv_[i] * Sym *vols_[i];
+    H_[i] = - h2 * vols_[i] *  Sym * Hinv_[i] * Sym;
   }
 
-  // H_s
-  SparseMatrixd Hs;
-  init_block_diagonal<6,6>(Hs, nelem_);
-  update_block_diagonal<6,6>(H_, Hs);
-
-  size_t n = x_.size();
-  size_t m = 6*nelem_;
-  size_t sz = n + m;
-
-  MatrixXd lhs(sz,sz);
-  lhs.setZero();
-
-  // H_x, H_s
-  double h2 = config_->h * config_->h;
-  lhs.block(0, 0, n, n) = M_ / h2;
-  lhs.block(n, n, m, m) = MatrixXd(Hs);
-
-  // G_x blocks
-  lhs.block(0, n, n, m) = Gx_;
-  lhs.block(n, 0, m, n) = Gx_.transpose();
-
-  // All dense right now for testing...
-  lhs_ = lhs.sparseView();
-
-  // std::cout << " LHS \n" << lhs << std::endl;
+  fill_block_matrix(M_, Gx_.transpose(), H_, lhs_);
 }
 
 void MixedSQPOptimizer::build_rhs() {
@@ -85,14 +67,14 @@ void MixedSQPOptimizer::build_rhs() {
   double h2 = h*h;
 
   // -g_x
-  rhs_.segment(0, n) = -M_*(x_ - x0_ - h*vt_ - h2*f_ext_)/h2;
+  rhs_.segment(0, n) = -M_*(x_ - x0_ - h*vt_ - h2*f_ext_);
 
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
     const Vector6d& si = s_.segment(6*i,6);
 
     // W * c(x^k, s^k) + H^-1 * g_s
-    rhs_.segment<6>(n + 6*i, 6) = vols_[i]*Sym*((S_[i] - si) + Hinv_[i]*g_[i]);
+    rhs_.segment<6>(n + 6*i) = vols_[i]*h2*Sym*(S_[i] - si + Hinv_[i]*g_[i]);
   }
 }
 
@@ -151,8 +133,9 @@ void MixedSQPOptimizer::update_system() {
   update_rotations();
 
   // Assemble rotation derivatives into block matrices
+  double h2 = config_->h * config_->h;
   update_block_diagonal(dS_, C_);
-  Gx_ = -P_ * J_.transpose() * C_.eval() * W_;
+  Gx_ = -h2 * P_ * J_.transpose() * C_.eval() * W_;
 
   // Assemble blocks for left and right hand side
   build_lhs();
@@ -167,18 +150,23 @@ void MixedSQPOptimizer::substep(bool init_guess, double& decrement) {
    exit(1);
   }
 
-  // Solve for updates
-  VectorXd x = solver_.solve(rhs_);
+  // Solve for update
+  q_ = solver_.solve(rhs_);
 
-  double relative_error = (lhs_*x - rhs_).norm() / rhs_.norm(); // norm() is L2 norm
-  decrement = x.norm(); // if doing "full newton use this"
+  // VectorXd x(rhs_.size());
+  // x.setZero();
+  // int niter = pcg(q_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_);
+
+  double relative_error = (lhs_*q_ - rhs_).norm() / rhs_.norm(); // norm() is L2 norm
+  decrement = q_.norm(); // if doing "full newton use this"
+  // std::cout << "  - CG iter: " << niter << std::endl;
   std::cout << "  - RHS Norm: " << rhs_.norm() << std::endl;
   std::cout << "  - Newton decrement: " << decrement  << std::endl;
   std::cout << "  - relative_error: " << relative_error << std::endl;
 
   // Extract updates
-  dx_ = x.segment(0, x_.size());
-  la_ = x.segment(x_.size(), 6*nelem_);
+  dx_ = q_.segment(0, x_.size());
+  la_ = q_.segment(x_.size(), 6*nelem_);
 
   #pragma omp parallel for 
   for (int i = 0; i < nelem_; ++i) {
@@ -207,7 +195,7 @@ double MixedSQPOptimizer::energy(const VectorXd& x, const VectorXd& s,
   double h2 = h*h;
   VectorXd xdiff = x - x0_ - h*vt_ - h*h*f_ext_;
   
-  double Em = (0.5/h2)*xdiff.transpose()*M_*xdiff;
+  double Em = 0.5*xdiff.transpose()*M_*xdiff;
 
   VectorXd def_grad = J_*(P_.transpose()*x+b_);
 
@@ -230,8 +218,8 @@ double MixedSQPOptimizer::energy(const VectorXd& x, const VectorXd& s,
     e_Psi(i) = object_->material_->energy(si) * vols_[i];
   }
 
-  double Ela = e_L.sum();
-  double Epsi = e_Psi.sum();
+  double Ela = h2 * e_L.sum();
+  double Epsi = h2 * e_Psi.sum();
 
   double e = Em + Epsi - Ela;
   //std::cout << "E: " <<  e << " ";
@@ -338,6 +326,9 @@ void MixedSQPOptimizer::reset() {
   x0_ = x_;
   dx_ = 0*x_;
   vt_ = 0*x_;
+  q_.resize(x_.size() + 6 * nelem_ + 6 * nelem_);
+  q_.setZero();
+
 
   // Project out mass matrix pinned point
   M_ = P_ * M_ * P_.transpose();

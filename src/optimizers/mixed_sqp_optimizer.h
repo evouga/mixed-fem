@@ -53,6 +53,7 @@ namespace mfem {
     virtual void update_configuration();
 
     // Configuration vectors & body forces
+    Eigen::VectorXd q_;
     Eigen::VectorXd x_;        // current positions
     Eigen::VectorXd vt_;        // current velocities
     Eigen::VectorXd x0_;        // previous positions
