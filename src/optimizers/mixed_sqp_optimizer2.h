@@ -9,10 +9,10 @@
 namespace mfem {
 
   // Mixed FEM Sequential Quadratic Program
-  class MixedSQPOptimizer : public Optimizer {
+  class MixedSQPOptimizer2 : public Optimizer {
   public:
     
-    MixedSQPOptimizer(std::shared_ptr<SimObject> object,
+    MixedSQPOptimizer2(std::shared_ptr<SimObject> object,
         std::shared_ptr<SimConfig> config) : Optimizer(object, config) {}
 
     void reset() override;
@@ -47,9 +47,16 @@ namespace mfem {
     // decrement  - newton decrement norm
     virtual void substep(bool init_guess, double& decrement);
 
+    // Warm start the timestep with a explicit euler prediction of 
+    // the positions
+    virtual void warm_start();
+
     // At the end of the timestep, update position, velocity variables,
     // and reset lambda & kappa.
     virtual void update_configuration();
+
+    // TODO this is terrible
+    virtual Eigen::VectorXd collision_force();
 
     // Configuration vectors & body forces
     Eigen::VectorXd xt_;        // current positions
@@ -67,7 +74,7 @@ namespace mfem {
 
     std::vector<Eigen::Matrix3d> R_;  // Per-element rotations
     std::vector<Eigen::Vector6d> S_;    // Per-element deformation
-    std::vector<Eigen::Matrix6d> H_; // Elemental hessians w.r.t dS
+    std::vector<Eigen::Matrix6d> Hinv_; // Elemental hessians w.r.t dS
     std::vector<Eigen::Vector6d> g_;    // Elemental gradients w.r.t dS
     std::vector<Eigen::Matrix<double,9,6>> dS_;
 
@@ -79,11 +86,12 @@ namespace mfem {
     Eigen::SparseMatrixd J_tilde_;
     SparseMatrixdRowMajor Ws_;      // integrated (weighted) jacobian
     Eigen::SparseMatrixd W_;
+    Eigen::SparseMatrixd A_;        
     Eigen::SparseMatrixd G_;
     Eigen::SparseMatrixd D_;
     Eigen::SparseMatrixd L_;
     Eigen::SparseMatrixd C_;
-    Eigen::SparseMatrixd Gx_;
+    Eigen::SparseMatrixd JC_;
     Eigen::SparseMatrixd Hx_;
     Eigen::SparseMatrixd MinvC_;
     Eigen::SparseMatrixd Minv_;
