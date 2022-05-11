@@ -143,16 +143,18 @@ void MixedSQPOptimizer::update_system() {
   build_rhs();
 }
 
+#include <unsupported/Eigen/IterativeSolvers>
+
 void MixedSQPOptimizer::substep(bool init_guess, double& decrement) {
   // Factorize LHS (using SparseLU right now)
-  solver_.compute(lhs_);
-  if(solver_.info()!=Success) {
-   std::cerr << "prefactor failed! " << std::endl;
-   exit(1);
-  }
+  // solver_.compute(lhs_);
+  // if(solver_.info()!=Success) {
+  //  std::cerr << "prefactor failed! " << std::endl;
+  //  exit(1);
+  // }
 
-  // Solve for update
-  q_ = solver_.solve(rhs_);
+  // // Solve for update
+  // q_ = solver_.solve(rhs_);
   
   SparseMatrixd precon;
   // fill_block_matrix(M_, H_, precon);
@@ -160,6 +162,17 @@ void MixedSQPOptimizer::substep(bool init_guess, double& decrement) {
   // solver_.compute(precon);
   // q_.setZero();
   // int niter = pcg(q_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_, 1e-8);
+
+  // Eigen CG
+  //ConjugateGradient<SparseMatrix<double>, Lower|Upper, IncompleteLUT<double>> cg;
+  BiCGSTAB<SparseMatrix<double>, IncompleteLUT<double>> cg;
+  // IDRS<SparseMatrix<double>, IncompleteLUT<double>> cg;
+  // GMRES<SparseMatrixd, IncompleteLUT<double>> cg;
+  cg.setTolerance(1e-8);
+  cg.compute(lhs_);
+  q_ = cg.solveWithGuess(rhs_, q_);
+  std::cout << "  - #iterations:     " << cg.iterations() << std::endl;
+  std::cout << "  - estimated error: " << cg.error()      << std::endl;
 
   double relative_error = (lhs_*q_ - rhs_).norm() / rhs_.norm();
   decrement = q_.norm(); // if doing "full newton use this"

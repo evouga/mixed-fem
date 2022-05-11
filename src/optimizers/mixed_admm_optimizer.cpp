@@ -313,7 +313,12 @@ void MixedADMMOptimizer::substep(bool init_guess, double& decrement) {
   // }
   start=end;
 
-  CholmodSupernodalLLT<SparseMatrixd> solver(Hx_);
+  // Solve used for preconditioner
+  #if defined(SIM_USE_CHOLMOD)
+  Eigen::CholmodSupernodalLLT<Eigen::SparseMatrixd> solver(Hx_);
+  #else
+  Eigen::SimplicialLLT<Eigen::SparseMatrixd> solver(Hx_);
+  #endif
   if(solver.info()!=Success) {
    std::cerr << "!!!!!!!!!!!!!!!prefactor failed! " << std::endl;
    std::cout <<"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" << std::endl;
