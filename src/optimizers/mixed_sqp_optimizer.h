@@ -42,6 +42,8 @@ namespace mfem {
     // dx - direction we perform linesearch on
     virtual bool linesearch_x(Eigen::VectorXd& x, const Eigen::VectorXd& dx);
     virtual bool linesearch_s(Eigen::VectorXd& s, const Eigen::VectorXd& ds);
+    virtual bool linesearch(Eigen::VectorXd& x, const Eigen::VectorXd& dx,
+        Eigen::VectorXd& s, const Eigen::VectorXd& ds);
 
     // Simulation substep for this object
     // init_guess - whether to initialize guess with a prefactor solve
@@ -87,6 +89,7 @@ namespace mfem {
     Eigen::SparseMatrixd L_;
     Eigen::SparseMatrixd C_;
     Eigen::SparseMatrixd Gx_;
+    Eigen::SparseMatrixd Gx0_;
     Eigen::SparseMatrixd Gs_;
     Eigen::SparseMatrixd Hx_;
     Eigen::SparseMatrixd MinvC_;

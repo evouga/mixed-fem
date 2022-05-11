@@ -53,13 +53,13 @@ namespace mfem {
     double newton_tol = 1e-10;
     double ls_tol = 1e-4;
     int ls_iters = 6;
-    OptimizerType optimizer = OPTIMIZER_ALM;
+    OptimizerType optimizer = OPTIMIZER_SQP;
 
   };
 
   // Simple config for material parameters for a single object
   struct MaterialConfig {
-    MaterialModelType material_model = MATERIAL_ARAP;
+    MaterialModelType material_model = MATERIAL_SNH;
     double ym = 1e6;
     double pr = 0.45;
     double mu = ym/(2.0*(1.0+pr));

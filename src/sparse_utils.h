@@ -67,8 +67,42 @@ namespace mfem {
 
     }
     mat.setFromTriplets(trips.begin(), trips.end());
-
   }
+
+  // Builds a block symmetric matrix of the form
+  // P = [A 0; 0 C] where C is block diagonal
+  template <int N>
+  void fill_block_matrix(const Eigen::SparseMatrixd& A,
+      const std::vector<Eigen::Matrix<double, N, N>>& C,
+      Eigen::SparseMatrixd& mat) {
+    
+    using namespace Eigen;
+    int m = N * C.size();
+    mat.resize(A.rows()+m, A.rows()+m);
+    std::vector<Triplet<double>> trips;
+
+    // Mass matrix terms
+    for (int i = 0; i < A.outerSize(); ++i) {
+      for (SparseMatrixd::InnerIterator it(A,i); it; ++it) {
+        trips.push_back(Triplet<double>(it.row(),it.col(),it.value()));
+      }
+    }
+
+    // Compliance block entries
+    for (int i = 0; i < C.size(); ++i) {
+      
+      int offset = A.rows() + i * N;
+
+      for (int j = 0; j < N; ++j) {
+        for (int k = 0; k < N; ++k) {
+          trips.push_back(Triplet<double>(offset+j, offset+k, C[i](j,k)));
+        }
+      }
+
+    }
+    mat.setFromTriplets(trips.begin(), trips.end());
+  }
+
 
   template <int R, int C>
   void init_block_diagonal(Eigen::SparseMatrixd& mat, int N) {

@@ -29,8 +29,11 @@ void MixedSQPOptimizer::step() {
     // 1. Try diagonal only LHS as the preconditioner
     // 4. Find some wrapd failures
     // main objective
-    linesearch_x(x_, dx_);
-    linesearch_s(s_, ds_);
+    // linesearch_x(x_, dx_);
+    // linesearch_s(s_, ds_);
+
+    linesearch(x_, dx_, s_, ds_);
+
     // x_ += dx_;
     // s_ += ds_;
 
@@ -42,9 +45,8 @@ void MixedSQPOptimizer::step() {
   update_configuration();
 }
 
-
 void MixedSQPOptimizer::build_lhs() {
-  double h2 = config_->h * config_->h;
+  double ih2 = 1. / (config_->h * config_->h);
 
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
@@ -52,7 +54,7 @@ void MixedSQPOptimizer::build_lhs() {
     Matrix6d H = object_->material_->hessian(si);
     Hinv_[i] = H.inverse();
     g_[i] = object_->material_->gradient(si);
-    H_[i] = - h2 * vols_[i] *  Sym * Hinv_[i] * Sym;
+    H_[i] = - ih2 * vols_[i] *  Sym * Hinv_[i] * Sym;
   }
 
   fill_block_matrix(M_, Gx_.transpose(), H_, lhs_);
@@ -74,7 +76,7 @@ void MixedSQPOptimizer::build_rhs() {
     const Vector6d& si = s_.segment(6*i,6);
 
     // W * c(x^k, s^k) + H^-1 * g_s
-    rhs_.segment<6>(n + 6*i) = vols_[i]*h2*Sym*(S_[i] - si + Hinv_[i]*g_[i]);
+    rhs_.segment<6>(n + 6*i) = vols_[i]*Sym*(S_[i] - si + Hinv_[i] * g_[i]);
   }
 }
 
@@ -133,9 +135,8 @@ void MixedSQPOptimizer::update_system() {
   update_rotations();
 
   // Assemble rotation derivatives into block matrices
-  double h2 = config_->h * config_->h;
   update_block_diagonal(dS_, C_);
-  Gx_ = -h2 * P_ * J_.transpose() * C_.eval() * W_;
+  Gx_ = -P_ * J_.transpose() * C_.eval() * W_;
 
   // Assemble blocks for left and right hand side
   build_lhs();
@@ -152,14 +153,16 @@ void MixedSQPOptimizer::substep(bool init_guess, double& decrement) {
 
   // Solve for update
   q_ = solver_.solve(rhs_);
+  
+  SparseMatrixd precon;
+  // fill_block_matrix(M_, H_, precon);
+  // fill_block_matrix(M_, Gx0_.transpose(), H_, precon);
+  // solver_.compute(precon);
+  // int niter = pcg(q_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_, 1e-8);
 
-  // VectorXd x(rhs_.size());
-  // x.setZero();
-  // int niter = pcg(q_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_);
-
-  double relative_error = (lhs_*q_ - rhs_).norm() / rhs_.norm(); // norm() is L2 norm
+  double relative_error = (lhs_*q_ - rhs_).norm() / rhs_.norm();
   decrement = q_.norm(); // if doing "full newton use this"
-  // std::cout << "  - CG iter: " << niter << std::endl;
+  std::cout << "  - CG iter: " << niter << std::endl;
   std::cout << "  - RHS Norm: " << rhs_.norm() << std::endl;
   std::cout << "  - Newton decrement: " << decrement  << std::endl;
   std::cout << "  - relative_error: " << relative_error << std::endl;
@@ -168,9 +171,11 @@ void MixedSQPOptimizer::substep(bool init_guess, double& decrement) {
   dx_ = q_.segment(0, x_.size());
   la_ = q_.segment(x_.size(), 6*nelem_);
 
+  double ih2 = 1. / (config_->h * config_->h);
+
   #pragma omp parallel for 
   for (int i = 0; i < nelem_; ++i) {
-    ds_.segment<6>(6*i) = -Hinv_[i] * (Sym * la_.segment<6>(6*i) + g_[i]); 
+    ds_.segment<6>(6*i) = -Hinv_[i] * (ih2 * Sym * la_.segment<6>(6*i)+ g_[i]);
   }
 
   std::cout << "  - la norm: " << la_.norm() << " dx norm: "
@@ -218,13 +223,13 @@ double MixedSQPOptimizer::energy(const VectorXd& x, const VectorXd& s,
     e_Psi(i) = object_->material_->energy(si) * vols_[i];
   }
 
-  double Ela = h2 * e_L.sum();
+  double Ela = e_L.sum();
   double Epsi = h2 * e_Psi.sum();
 
-  double e = Em + Epsi - Ela;
+  double e = Em + Epsi;// - Ela;
   //std::cout << "E: " <<  e << " ";
-  std::cout << "  - (Em: " << Em << " Epsi: " << Epsi 
-     << " Ela: " << Ela << " )" << std::endl;
+  // std::cout << "  - (Em: " << Em << " Epsi: " << Epsi 
+  //    << " Ela: " << Ela << " )" << std::endl;
   return e;
 }
 
@@ -261,6 +266,32 @@ bool MixedSQPOptimizer::linesearch_s(VectorXd& s, const VectorXd& ds) {
   s = st;
   E_prev_ = energy(x_, s, la_);
   return done;
+}
+
+bool MixedSQPOptimizer::linesearch(Eigen::VectorXd& x, const Eigen::VectorXd& dx,
+        Eigen::VectorXd& s, const Eigen::VectorXd& ds) {
+
+  auto value = [&](const VectorXd& xs)->double {
+    return energy(xs.segment(0,x.size()), xs.segment(x.size(),s.size()), la_);
+  };
+
+  VectorXd f(x.size() + s.size());
+  f.segment(0,x.size()) = x;
+  f.segment(x.size(),s.size()) = s;
+
+  VectorXd g(x.size() + s.size());
+  g.segment(0,x.size()) = dx;
+  g.segment(x.size(),s.size()) = ds;
+
+  VectorXd tmp;
+  SolverExitStatus status = linesearch_backtracking_bisection(f, g, value,
+      tmp, config_->ls_iters, 1.0, 0.1, 0.5, E_prev_);
+  bool done = (status == MAX_ITERATIONS_REACHED);
+  x = f.segment(0, x.size());
+  s = f.segment(x.size(), s.size());
+  E_prev_ = energy(x, s, la_);
+  return done;
+      
 }
 
 void MixedSQPOptimizer::reset() {
@@ -326,7 +357,7 @@ void MixedSQPOptimizer::reset() {
   x0_ = x_;
   dx_ = 0*x_;
   vt_ = 0*x_;
-  q_.resize(x_.size() + 6 * nelem_ + 6 * nelem_);
+  q_.resize(x_.size() + 6 * nelem_);
   q_.setZero();
 
 
@@ -361,6 +392,8 @@ void MixedSQPOptimizer::reset() {
 
   // Initializing gradients and LHS
   update_system();
+
+  Gx0_ = Gx_;
   
   // Compute preconditioner
   #if defined(SIM_USE_CHOLMOD)
