@@ -5,7 +5,7 @@ using namespace Test;
 
 TEST_CASE("Penalty Energy Gradient - dER/ds") {
 
-  App app;
+  App<> app;
   std::shared_ptr<MixedALMOptimizer> obj = app.sim;
 
   VectorXd s(6*obj->nelem_);
@@ -48,7 +48,7 @@ TEST_CASE("Penalty Energy Gradient - dER/ds") {
 
 TEST_CASE("Penalty Energy Gradient - dER/dx") {
 
-  App app;
+  App<> app;
   std::shared_ptr<MixedALMOptimizer> obj = app.sim;
   double kappa = 100;
 
@@ -89,7 +89,7 @@ TEST_CASE("Penalty Energy Gradient - dER/dx") {
 }
 
 TEST_CASE("Penalty Energy Hessian - d2EL/ds2") {
-  App app;
+  App<> app;
   std::shared_ptr<MixedALMOptimizer> obj = app.sim;
 
   VectorXd s(6*obj->nelem_);
@@ -133,7 +133,7 @@ TEST_CASE("Penalty Energy Hessian - d2EL/ds2") {
 
 TEST_CASE("Penalty Energy Gradient - d2EL/dxds") {
 
-  App app;
+  App<> app;
   std::shared_ptr<MixedALMOptimizer> obj = app.sim;
 
   VectorXd s(6*obj->nelem_);

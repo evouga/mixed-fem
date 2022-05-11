@@ -8,7 +8,7 @@ using namespace Test;
 TEST_CASE("Jacobian - dF/dx") {
 
 
-  App app;
+  App<> app;
   std::shared_ptr<MixedALMOptimizer> obj = app.sim;
   int n = obj->J_.cols();
   MatrixXd Jk = obj->J_.block(0,0,9,n);
@@ -32,7 +32,7 @@ TEST_CASE("Jacobian - dF/dx") {
 
 TEST_CASE("Constraint Energy Gradient - dEL/dL") {
 
-  App app;
+  App<> app;
   std::shared_ptr<MixedALMOptimizer> obj = app.sim;
   VectorXd def_grad = obj->J_*(obj->P_.transpose()*obj->xt_+obj->b_);
 
@@ -68,7 +68,7 @@ TEST_CASE("Constraint Energy Gradient - dEL/dL") {
 
 TEST_CASE("Constraint Energy Gradient - dEL/ds") {
 
-  App app;
+  App<> app;
   std::shared_ptr<MixedALMOptimizer> obj = app.sim;
 
   VectorXd s(6*obj->nelem_);
@@ -109,7 +109,7 @@ TEST_CASE("Constraint Energy Gradient - dEL/ds") {
 
 TEST_CASE("Constraint Energy Gradient - dEL/dx") {
 
-  App app;
+  App<> app;
   std::shared_ptr<MixedALMOptimizer> obj = app.sim;
   
   // Energy function for finite differences
@@ -143,7 +143,7 @@ TEST_CASE("Constraint Energy Gradient - dEL/dx") {
 
 TEST_CASE("Constraint Energy Gradient - d2EL/dxds") {
 
-  App app;
+  App<> app;
   std::shared_ptr<MixedALMOptimizer> obj = app.sim;
 
   VectorXd s(6*obj->nelem_);

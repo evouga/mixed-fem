@@ -63,8 +63,9 @@ TEST_CASE("dsvd - dS/dF") {
   VectorXd vecF = Vector9d(F.data());
   finite_jacobian(vecF, E, fgrad, SECOND);
 
-  // std::cout << "fgrad: \n" << fgrad << std::endl;
-  // std::cout << "grad: \n" << Js << std::endl;
+  std::cout << "J: " << J << std::endl;
+  std::cout << "fgrad: \n" << fgrad << std::endl;
+  std::cout << "grad: \n" << Js << std::endl;
   CHECK(compare_jacobian(Js, fgrad));
 }
 
@@ -150,7 +151,7 @@ TEST_CASE("dsvd - dWs/dF") {
 
 
 TEST_CASE("dsvd - dWs/dq") {
-  App app;
+  App<> app;
   std::shared_ptr<MixedALMOptimizer> obj = app.sim;
   int n = obj->J_.cols();
   MatrixXd Jk = obj->J_.block(0,0,9,n);

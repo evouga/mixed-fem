@@ -11,6 +11,7 @@ namespace Test {
   using namespace mfem;
   using namespace fd;
 
+  template <class T = MixedALMOptimizer>
   struct App {
 
     App() {
@@ -32,7 +33,7 @@ namespace Test {
       material = std::make_shared<StableNeohookean>(material_config);
       obj = std::make_shared<TetrahedralObject>(meshV,
           meshT, material, material_config);
-      sim = std::make_shared<MixedALMOptimizer>(obj,config);
+      sim = std::make_shared<T>(obj,config);
       sim->reset();
 
       // Perform simulation step
@@ -44,6 +45,6 @@ namespace Test {
     std::shared_ptr<MaterialConfig> material_config;
     std::shared_ptr<MaterialModel> material;
     std::shared_ptr<SimObject> obj;
-    std::shared_ptr<MixedALMOptimizer> sim;
+    std::shared_ptr<T> sim;
   };
 };
