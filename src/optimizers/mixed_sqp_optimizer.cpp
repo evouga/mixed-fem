@@ -94,6 +94,7 @@ void MixedSQPOptimizer::update_rotations() {
         * svd.matrixV().transpose();
     Vector6d stmp; stmp << S(0,0), S(1,1), S(2,2), S(1,0), S(2,0), S(2,1);
     S_[i] = stmp;
+    R_[i] = svd.matrixU() * svd.matrixV().transpose();
 
     // Compute SVD derivatives
     Tensor3333d dU, dV;
@@ -156,7 +157,20 @@ void MixedSQPOptimizer::substep(bool init_guess, double& decrement) {
   // // Solve for update
   // q_ = solver_.solve(rhs_);
   
-  SparseMatrixd precon;
+  std::vector<Matrix9d> C(nelem_); 
+  #pragma parallel for
+  for (int i = 0; i < nelem_; ++i) {
+    C[i].setIdentity();
+    C[i] *= -vols_[i] / object_->config_->mu
+        / config_->h / config_->h;
+  }
+  SparseMatrixd P;
+  SparseMatrixd J = Jw_;
+  fill_block_matrix(M_, J * P_.transpose(), C, P); 
+  solver_.compute(P);
+  int niter = corot_pcg(q_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_,
+      R_, solver_, 1e-8);
+
   // fill_block_matrix(M_, H_, precon);
   // fill_block_matrix(M_, Gx0_.transpose(), H_, precon);
   // solver_.compute(precon);
@@ -165,18 +179,18 @@ void MixedSQPOptimizer::substep(bool init_guess, double& decrement) {
 
   // Eigen CG
   //ConjugateGradient<SparseMatrix<double>, Lower|Upper, IncompleteLUT<double>> cg;
-  BiCGSTAB<SparseMatrix<double>, IncompleteLUT<double>> cg;
+  //BiCGSTAB<SparseMatrix<double>, IncompleteLUT<double>> cg;
   // IDRS<SparseMatrix<double>, IncompleteLUT<double>> cg;
   // GMRES<SparseMatrixd, IncompleteLUT<double>> cg;
-  cg.setTolerance(1e-8);
-  cg.compute(lhs_);
-  q_ = cg.solveWithGuess(rhs_, q_);
-  std::cout << "  - #iterations:     " << cg.iterations() << std::endl;
-  std::cout << "  - estimated error: " << cg.error()      << std::endl;
+  //cg.setTolerance(1e-8);
+  //cg.compute(lhs_);
+  //q_ = cg.solveWithGuess(rhs_, q_);
+  //std::cout << "  - #iterations:     " << cg.iterations() << std::endl;
+  //std::cout << "  - estimated error: " << cg.error()      << std::endl;
 
   double relative_error = (lhs_*q_ - rhs_).norm() / rhs_.norm();
   decrement = q_.norm(); // if doing "full newton use this"
-  // std::cout << "  - CG iter: " << niter << std::endl;
+  std::cout << "  - CG iter: " << niter << std::endl;
   std::cout << "  - RHS Norm: " << rhs_.norm() << std::endl;
   std::cout << "  - Newton decrement: " << decrement  << std::endl;
   std::cout << "  - relative_error: " << relative_error << std::endl;
