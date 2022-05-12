@@ -20,6 +20,7 @@ namespace mfem {
       OPTIMIZER_LBFGS,
       OPTIMIZER_SQP,
       OPTIMIZER_SQP_FULL,
+      OPTIMIZER_SQP_LA,
   };
 
   enum MaterialModelType {

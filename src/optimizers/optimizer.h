@@ -4,7 +4,7 @@
 #include <memory>
 #include "objects/simulation_object.h"
 #include "config.h"
-
+#include "optimizer_data.h"
 
 namespace mfem {
 
@@ -25,6 +25,7 @@ namespace mfem {
   
   protected:
 
+    OptimizerData data_;
     std::shared_ptr<SimConfig> config_;
     std::shared_ptr<SimObject> object_;
 

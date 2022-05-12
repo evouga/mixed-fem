@@ -1,5 +1,6 @@
 d=3;
 R=sym('R',[d d]);
+F=sym('F',[3 3]);
 s = sym('S',[6,1]);
 L = sym('L',[9,1]);
 syms mu la
@@ -35,6 +36,13 @@ ccode(H)
 ccode(g)
 
 % neohookean
+nh = 0.5*mu*(I2/(I3^(2/3)) - 3) + 0.5*la*(I3-1)^2;
+H=simplify(hessian(nh,s(:)));
+g=simplify(gradient(nh,s(:)));
+ccode(nh)
+ccode(H)
+ccode(g)
+
 %F=R*S;
 %J=det(F);
 %I3=trace(F'*F)/J^(2/3);

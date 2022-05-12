@@ -92,7 +92,7 @@ namespace mfem {
     Eigen::SparseMatrixd Gx0_;
     Eigen::SparseMatrixd Gs_;
     Eigen::SparseMatrixd Hx_;
-    Eigen::SparseMatrixd MinvC_;
+    Eigen::SparseMatrixd MinvG_;
     Eigen::SparseMatrixd Minv_;
     Eigen::VectorXd gx_;
     Eigen::VectorXd gs_;

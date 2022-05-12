@@ -15,12 +15,15 @@ using namespace std::chrono;
 void MixedSQPOptimizer::step() {
 
   std::cout << "/////////////////////////////////////////////" << std::endl;
-  std::cout << " GOOD? Simulation step " << std::endl;
+  std::cout << " SQP Simulation step " << std::endl;
+  
+  data_.clear();
+  E_prev_ = 0;
 
   int i = 0;
   double grad_norm;
   do {
-    std::cout << "* Newton step: " << i << std::endl;
+    // std::cout << "* Newton step: " << i << std::endl;
     update_system();
     substep(i==0, grad_norm);
     // 1. Try to doing linesearch over both, and also try only minimizing the "primal energy"
@@ -37,11 +40,17 @@ void MixedSQPOptimizer::step() {
     // x_ += dx_;
     // s_ += ds_;
 
-    energy(x_, s_, la_);
+    double E = energy(x_, s_, la_);
+    double res = std::abs((E - E_prev_) / E);
+    data_.egrad_.push_back(rhs_.norm());
+    data_.energies_.push_back(E);
+    data_.energy_residuals_.push_back(res);
+    E_prev_ = E;
 
     ++i;
   } while (i < config_->outer_steps && grad_norm > config_->newton_tol);
 
+  data_.print_data();
   update_configuration();
 }
 
@@ -78,6 +87,47 @@ void MixedSQPOptimizer::build_rhs() {
     // W * c(x^k, s^k) + H^-1 * g_s
     rhs_.segment<6>(n + 6*i) = vols_[i]*Sym*(S_[i] - si + Hinv_[i] * g_[i]);
   }
+
+
+  double gradx = (rhs_.segment(0, n) - Gx_ * la_).norm();
+  double grads = 0;
+  double gradl = 0;
+  #pragma omp parallel for reduction(+ : grads)
+  for (int i = 0; i < nelem_; ++i) {
+    Vector6d g = h2*g_[i] + Sym*la_.segment<6>(6*i);
+    grads += (vols_[i]*g).squaredNorm();
+  }
+
+  #pragma omp parallel for reduction(+ : gradl)
+  for (int i = 0; i < nelem_; ++i) {
+    const Vector6d& si = s_.segment(6*i,6);
+    gradl += (vols_[i]*Sym*(S_[i] - si)).squaredNorm();
+  }
+  data_.egrad_x_.push_back(gradx);
+  data_.egrad_s_.push_back(std::sqrt(grads));
+  data_.egrad_la_.push_back(std::sqrt(gradl));
+
+
+  // VectorXd def_grad = J_*(P_.transpose()*x+b_);
+
+  // VectorXd e_L(nelem_);
+  // VectorXd e_Psi(nelem_);
+
+  // #pragma omp parallel for
+  // for (int i = 0; i < nelem_; ++i) {
+  //   Matrix3d F = Map<Matrix3d>(def_grad.segment<9>(9*i).data());
+  //   JacobiSVD<Matrix3d> svd(F, ComputeFullU | ComputeFullV);
+
+  //   Matrix3d S = svd.matrixV() * svd.singularValues().asDiagonal() 
+  //       * svd.matrixV().transpose();
+  //   Vector6d stmp; stmp << S(0,0), S(1,1), S(2,2), S(1,0), S(2,0), S(2,1);
+
+  //   const Vector6d& si = s.segment<6>(6*i);
+  //   Vector6d diff = Sym * (stmp - si);
+
+  //   e_L(i) = la.segment<6>(6*i).dot(diff) * vols_[i];
+  //   e_Psi(i) = object_->material_->energy(si) * vols_[i];
+  // }
 }
 
 void MixedSQPOptimizer::update_rotations() {
@@ -144,39 +194,61 @@ void MixedSQPOptimizer::update_system() {
   build_rhs();
 }
 
-#include <unsupported/Eigen/IterativeSolvers>
-
 void MixedSQPOptimizer::substep(bool init_guess, double& decrement) {
+  // (1)
   // Factorize LHS (using SparseLU right now)
-  // solver_.compute(lhs_);
+  solver_.compute(lhs_);
+  if(solver_.info()!=Success) {
+   std::cerr << "prefactor failed! " << std::endl;
+   exit(1);
+  }
+
+  // Solve for update
+  q_ = solver_.solve(rhs_);
+
+  // (2)
+  // std::vector<Matrix9d> C(nelem_); 
+  // #pragma parallel for
+  // for (int i = 0; i < nelem_; ++i) {
+  //   C[i].setIdentity();
+  //   C[i] *= -vols_[i] / object_->config_->mu
+  //       / config_->h / config_->h;
+  // }
+  // SparseMatrixd P;
+  // SparseMatrixd J = Jw_;
+  // fill_block_matrix(M_, J * P_.transpose(), C, P); 
+  // solver_.compute(P);
+  // int niter = corot_pcg(q_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_,
+  //     R_, solver_, 1e-8);
+
+  // (3)
+  SparseMatrixd precon;
+  // fill_block_matrix(M_, H_, precon);
+  // fill_block_matrix(M_, Gx0_.transpose(), H_, precon);
+  // fill_asym_block_matrix(M_, Gx_, H_, precon);
+  // Eigen::SimplicialLDLT<Eigen::SparseMatrixd> Msolver(M_);
+  // SparseMatrix<double> I(M_.rows(),M_.cols());
+  // I.setIdentity();
+  // SparseMatrix<double> Minv = Msolver.solve(I);
+  // SparseMatrixd Hs;
+  // init_block_diagonal<6,6>(Hs, nelem_);
+  // update_block_diagonal<6,6>(H_, Hs);
+  // SparseMatrixd S = Hs - Gx_.transpose() * Minv * Gx_;
+  // fill_block_matrix(M_, S, precon);
+
+  // MatrixXd lhs(precon);
+  // EigenSolver<MatrixXd> es(lhs);
+  // std::cout << "LHS EVALS: \n" << es.eigenvalues().real() << std::endl;
+  // // std::cout << "PRECON: \n" << precon << std::endl;
+  // solver_.compute(precon);
   // if(solver_.info()!=Success) {
   //  std::cerr << "prefactor failed! " << std::endl;
   //  exit(1);
   // }
-
-  // // Solve for update
-  // q_ = solver_.solve(rhs_);
-  
-  std::vector<Matrix9d> C(nelem_); 
-  #pragma parallel for
-  for (int i = 0; i < nelem_; ++i) {
-    C[i].setIdentity();
-    C[i] *= -vols_[i] / object_->config_->mu
-        / config_->h / config_->h;
-  }
-  SparseMatrixd P;
-  SparseMatrixd J = Jw_;
-  fill_block_matrix(M_, J * P_.transpose(), C, P); 
-  solver_.compute(P);
-  int niter = corot_pcg(q_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_,
-      R_, solver_, 1e-8);
-
-  // fill_block_matrix(M_, H_, precon);
-  // fill_block_matrix(M_, Gx0_.transpose(), H_, precon);
-  // solver_.compute(precon);
   // q_.setZero();
   // int niter = pcg(q_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_, 1e-8);
 
+  // (4)
   // Eigen CG
   //ConjugateGradient<SparseMatrix<double>, Lower|Upper, IncompleteLUT<double>> cg;
   //BiCGSTAB<SparseMatrix<double>, IncompleteLUT<double>> cg;
@@ -190,10 +262,9 @@ void MixedSQPOptimizer::substep(bool init_guess, double& decrement) {
 
   double relative_error = (lhs_*q_ - rhs_).norm() / rhs_.norm();
   decrement = q_.norm(); // if doing "full newton use this"
-  std::cout << "  - CG iter: " << niter << std::endl;
-  std::cout << "  - RHS Norm: " << rhs_.norm() << std::endl;
-  std::cout << "  - Newton decrement: " << decrement  << std::endl;
-  std::cout << "  - relative_error: " << relative_error << std::endl;
+  // std::cout << "  - CG iter: " << niter << std::endl;
+  // std::cout << "  - Newton decrement: " << decrement  << std::endl;
+  // std::cout << "  - relative_error: " << relative_error << std::endl;
 
   // Extract updates
   dx_ = q_.segment(0, x_.size());
@@ -206,8 +277,8 @@ void MixedSQPOptimizer::substep(bool init_guess, double& decrement) {
     ds_.segment<6>(6*i) = -Hinv_[i] * (ih2 * Sym * la_.segment<6>(6*i)+ g_[i]);
   }
 
-  std::cout << "  - la norm: " << la_.norm() << " dx norm: "
-      << dx_.norm() << " ds_.norm: " << ds_.norm() << std::endl;
+  // std::cout << "  - la norm: " << la_.norm() << " dx norm: "
+  //     << dx_.norm() << " ds_.norm: " << ds_.norm() << std::endl;
 }
 
 void MixedSQPOptimizer::update_configuration() {
@@ -275,7 +346,6 @@ bool MixedSQPOptimizer::linesearch_x(VectorXd& x, const VectorXd& dx) {
   bool done = (status == MAX_ITERATIONS_REACHED ||
               (xt-dx).norm() < config_->ls_tol);
   x = xt;
-  E_prev_ = energy(xt, s_, la_);
   return done;
 }
 
@@ -292,7 +362,6 @@ bool MixedSQPOptimizer::linesearch_s(VectorXd& s, const VectorXd& ds) {
   bool done = (status == MAX_ITERATIONS_REACHED ||
               (st-ds).norm() < config_->ls_tol);
   s = st;
-  E_prev_ = energy(x_, s, la_);
   return done;
 }
 
@@ -317,7 +386,6 @@ bool MixedSQPOptimizer::linesearch(Eigen::VectorXd& x, const Eigen::VectorXd& dx
   bool done = (status == MAX_ITERATIONS_REACHED);
   x = f.segment(0, x.size());
   s = f.segment(x.size(), s.size());
-  E_prev_ = energy(x, s, la_);
   return done;
       
 }

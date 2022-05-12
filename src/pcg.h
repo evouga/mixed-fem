@@ -69,7 +69,6 @@ inline int corot_pcg(Eigen::VectorXd& x, const Eigen::SparseMatrixd &A,
   z.segment(0, n) = ztilde.segment(0, n);
   #pragma omp parallel for
   for (int i = 0; i < R.size(); ++i) {
-    Eigen::Vector6d rl = r.segment<6>(n + 6*i);
     Eigen::Matrix3d A = R[i].transpose() * Eigen::Map<Eigen::Matrix3d>(
         ztilde.segment<9>(n + 9*i).data());
     Eigen::Matrix3d S = 0.5*(A + A.transpose());
@@ -89,8 +88,6 @@ inline int corot_pcg(Eigen::VectorXd& x, const Eigen::SparseMatrixd &A,
     alpha = rsold / (p.dot(Ap));
     x = x + alpha * p;
     r = r - alpha * Ap;
-
-
 
     rsnew = r.dot(r);
     
@@ -114,7 +111,6 @@ inline int corot_pcg(Eigen::VectorXd& x, const Eigen::SparseMatrixd &A,
     z.segment(0, n) = ztilde.segment(0, n);
     #pragma omp parallel for
     for (int i = 0; i < R.size(); ++i) {
-      Eigen::Vector6d rl = r.segment<6>(n + 6*i);
       Eigen::Matrix3d A = R[i].transpose() * Eigen::Map<Eigen::Matrix3d>(
           ztilde.segment<9>(n + 9*i).data());
       Eigen::Matrix3d S = 0.5*(A + A.transpose());
