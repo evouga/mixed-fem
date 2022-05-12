@@ -10,10 +10,14 @@ template<typename PreconditionerSolver>
 inline int pcg(Eigen::VectorXd& x, const Eigen::SparseMatrixd &A,
     const Eigen::VectorXd &b, Eigen::VectorXd &r, Eigen::VectorXd &z,
     Eigen::VectorXd &p, Eigen::VectorXd &Ap, PreconditionerSolver &pre,
-    double tol = 1e-4) {
+    double tol = 1e-4, unsigned int num_itr = 500) {
 
-  unsigned int num_itr = 20;
   r = b - A * x;
+
+  if (r.dot(r) < tol) {
+      return 0; 
+  }
+
   z = pre.solve(r);
   p = z;
   double rsold = r.dot(z);
@@ -55,6 +59,11 @@ inline int corot_pcg(Eigen::VectorXd& x, const Eigen::SparseMatrixd &A,
 
   unsigned int num_itr = 200;
   r = b - A * x;
+
+   if (r.dot(r) < tol) {
+      return 0; 
+  }
+
   z = pre.solve(r);
   /*int n = x.size() - 6 * R.size();
   Eigen::VectorXd rtilde(n + 9 * R.size());
@@ -122,7 +131,7 @@ inline int corot_pcg(Eigen::VectorXd& x, const Eigen::SparseMatrixd &A,
 }
 
 template<typename PreconditionerSolver>
-inline int pcr(Eigen::VectorXd& x, unsigned int nd, unsigned int ne, const Eigen::SparseMatrixd &A,
+inline int pcr(Eigen::VectorXd& x, const Eigen::SparseMatrixd &A,
     const Eigen::VectorXd &b, Eigen::VectorXd &r, Eigen::VectorXd &z,
     Eigen::VectorXd &p, Eigen::VectorXd &Ap,
     PreconditionerSolver &pre, double tol = 1e-4, unsigned int num_itr = 500) {
@@ -131,6 +140,10 @@ inline int pcr(Eigen::VectorXd& x, unsigned int nd, unsigned int ne, const Eigen
       Eigen::VectorXd Api;
 
       r = b-A*x;
+
+      if (r.dot(r) < tol) {
+        return 0; 
+    }
       r = pre.solve(r);
       p = r;
       Ap = A*p;
@@ -150,7 +163,7 @@ inline int pcr(Eigen::VectorXd& x, unsigned int nd, unsigned int ne, const Eigen
         
         r = r - alpha*Api;
         
-        if ((b-A*x).squaredNorm() < (tol*b.squaredNorm() + tol)) {
+        if ((b-A*x).squaredNorm() < tol) {
           return i;
         }
 

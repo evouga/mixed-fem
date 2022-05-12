@@ -47,15 +47,16 @@ void MixedSQPOptimizer::step() {
 
   setup_preconditioner();
   
-  std::cout << "/////////////////////////////////////////////" << std::endl;
-  std::cout << " GOOD? Simulation step " << std::endl;
+  //std::cout << "/////////////////////////////////////////////" << std::endl;
+  //std::cout << " GOOD? Simulation step " << std::endl;
 
   int i = 0;
   double grad_norm;
-  q_.segment(P_.rows(), 6*nelem_).setZero();
+  q_.setZero();
+  q_.segment(0, P_.rows()) = x_.segment(0, P_.rows()) - x0_.segment(0, P_.rows());
 
   do {
-    std::cout << "* Newton step: " << i << std::endl;
+    //std::cout << "* Newton step: " << i << std::endl;
     update_system();
     substep(i==0, grad_norm);
     // 1. Try to doing linesearch over both, and also try only minimizing the "primal energy"
@@ -125,12 +126,17 @@ void MixedSQPOptimizer::update_rotations() {
     JacobiSVD<Matrix3d> svd(Map<Matrix3d>(def_grad.segment(9*i,9).data()),
         ComputeFullU | ComputeFullV);
 
+    Eigen::Vector3d stemp;
+
+    stemp[0] = 1;
+    stemp[1] = 1;
+    stemp[2] = (svd.matrixU()*svd.matrixV().transpose()).determinant();
     // S(x^k)
     Matrix3d S = svd.matrixV() * svd.singularValues().asDiagonal() 
         * svd.matrixV().transpose();
     Vector6d stmp; stmp << S(0,0), S(1,1), S(2,2), S(1,0), S(2,0), S(2,1);
     S_[i] = stmp;
-    R_[i] = svd.matrixU() * svd.matrixV().transpose();
+    R_[i] = svd.matrixU() * stemp.asDiagonal()*svd.matrixV().transpose();
 
     // Compute SVD derivatives
     Tensor3333d dU, dV;
@@ -193,13 +199,13 @@ void MixedSQPOptimizer::substep(bool init_guess, double& decrement) {
   // // Solve for update
   // q_ = solver_.solve(rhs_);
   
-  //q_.setZero();
+  q_.segment(P_.rows(), 6*nelem_).setZero();
 
    //Gx_ = -P_ * J_.transpose() * C_.eval() * W_;
 
-  int niter = pcr(q_, P_.rows(), nelem_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, preconditioner_, 1e-4, config_->max_iterative_solver_iters);
+  //int niter = pcg(q_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, preconditioner_, 1e-4, config_->max_iterative_solver_iters);
 
-    //int niter = pcr(q_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, preconditioner_, 1e-4);
+  int niter = pcr(q_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, preconditioner_, 1e-4);
 
   //fill_block_matrix(M_, H_, P);
   //fill_block_matrix(M_, Gx0_.transpose(), H_, P);
@@ -219,10 +225,10 @@ void MixedSQPOptimizer::substep(bool init_guess, double& decrement) {
 
   double relative_error = (lhs_*q_ - rhs_).norm() / rhs_.norm();
   decrement = q_.norm(); // if doing "full newton use this"
-  std::cout << "  - CG iter: " << niter << std::endl;
+  /*std::cout << "  - CG iter: " << niter << std::endl;
   std::cout << "  - RHS Norm: " << rhs_.norm() << std::endl;
   std::cout << "  - Newton decrement: " << decrement  << std::endl;
-  std::cout << "  - relative_error: " << relative_error << std::endl;
+  std::cout << "  - relative_error: " << relative_error << std::endl;*/
 
   // Extract updates
   dx_ = q_.segment(0, x_.size());
@@ -235,8 +241,8 @@ void MixedSQPOptimizer::substep(bool init_guess, double& decrement) {
     ds_.segment<6>(6*i) = -Hinv_[i] * (ih2 * Sym * la_.segment<6>(6*i)+ g_[i]);
   }
 
-  std::cout << "  - la norm: " << la_.norm() << " dx norm: "
-      << dx_.norm() << " ds_.norm: " << ds_.norm() << std::endl;
+  //std::cout << "  - la norm: " << la_.norm() << " dx norm: "
+    //  << dx_.norm() << " ds_.norm: " << ds_.norm() << std::endl;
 }
 
 void MixedSQPOptimizer::update_configuration() {
@@ -300,7 +306,7 @@ bool MixedSQPOptimizer::linesearch_x(VectorXd& x, const VectorXd& dx) {
   VectorXd xt = x;
   VectorXd tmp;
   SolverExitStatus status = linesearch_backtracking_bisection(xt, dx, value,
-      tmp, config_->ls_iters, 1.0, 0.1, 0.5, E_prev_);
+      tmp, config_->ls_iters, 1.0, 0.1, 0.66, E_prev_);
   bool done = (status == MAX_ITERATIONS_REACHED ||
               (xt-dx).norm() < config_->ls_tol);
   x = xt;

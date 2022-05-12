@@ -53,8 +53,10 @@ namespace mfem {
       }
     }
 
-    x += alpha*d;
-    printf("  - LS: f(x0): %.5g, f(x + a*d): %.5g, alpha: %.5g\n", fx0, f(x), alpha);
+    if(iteration_count < max_iterations) {
+      x += alpha*d;
+    }
+    //printf("  - LS: f(x0): %.5g, f(x + a*d): %.5g, alpha: %.5g\n", fx0, f(x), alpha);
     return (iteration_count == max_iterations 
         ? SolverExitStatus::MAX_ITERATIONS_REACHED 
         : SolverExitStatus::CONVERGED);

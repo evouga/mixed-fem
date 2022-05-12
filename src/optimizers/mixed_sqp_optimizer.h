@@ -250,8 +250,8 @@ namespace mfem {
     Eigen::SparseLU<Eigen::SparseMatrixd> solver_;
 
     Eigen::CorotatedPreconditioner<double> preconditioner_;
-    //Eigen::SimplicialLDLT<SparseMatrixd> preconditioner_;
-    Eigen::ConjugateGradient<Eigen::SparseMatrix<double>, Eigen::Lower|Eigen::Upper, Eigen::CorotatedPreconditioner<double>> cg;
+    //Eigen::SimplicialLDLT<Eigen::SparseMatrixd> preconditioner_;
+    //Eigen::ConjugateGradient<Eigen::SparseMatrix<double>, Eigen::Lower|Eigen::Upper, Eigen::CorotatedPreconditioner<double>> cg;
 
     int nelem_;     // number of elements
     double E_prev_; // energy from last result of linesearch
