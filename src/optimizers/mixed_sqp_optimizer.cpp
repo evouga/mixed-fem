@@ -13,16 +13,14 @@ using namespace Eigen;
 using namespace std::chrono;
 
 void MixedSQPOptimizer::step() {
-
-  std::cout << "/////////////////////////////////////////////" << std::endl;
-  std::cout << " SQP Simulation step " << std::endl;
-  
   data_.clear();
+
   E_prev_ = 0;
 
   int i = 0;
   double grad_norm;
   do {
+    data_.timer.start("step");
     // std::cout << "* Newton step: " << i << std::endl;
     update_system();
     substep(i==0, grad_norm);
@@ -46,6 +44,8 @@ void MixedSQPOptimizer::step() {
     data_.energies_.push_back(E);
     data_.energy_residuals_.push_back(res);
     E_prev_ = E;
+    data_.timer.stop("step");
+
 
     ++i;
   } while (i < config_->outer_steps && grad_norm > config_->newton_tol);
@@ -55,6 +55,8 @@ void MixedSQPOptimizer::step() {
 }
 
 void MixedSQPOptimizer::build_lhs() {
+  data_.timer.start("LHS");
+
   double ih2 = 1. / (config_->h * config_->h);
 
   #pragma omp parallel for
@@ -67,9 +69,12 @@ void MixedSQPOptimizer::build_lhs() {
   }
 
   fill_block_matrix(M_, Gx_.transpose(), H_, lhs_);
+  data_.timer.stop("LHS");
 }
 
 void MixedSQPOptimizer::build_rhs() {
+  data_.timer.start("RHS");
+
   size_t n = x_.size();
   size_t m = 6*nelem_;
   rhs_.resize(n + m);
@@ -128,9 +133,12 @@ void MixedSQPOptimizer::build_rhs() {
   //   e_L(i) = la.segment<6>(6*i).dot(diff) * vols_[i];
   //   e_Psi(i) = object_->material_->energy(si) * vols_[i];
   // }
+  data_.timer.stop("RHS");
 }
 
 void MixedSQPOptimizer::update_rotations() {
+  data_.timer.start("Rot Update");
+
   dS_.resize(nelem_);
   VectorXd def_grad = J_*(P_.transpose()*x_+b_);
 
@@ -177,7 +185,7 @@ void MixedSQPOptimizer::update_rotations() {
     Js.row(5) = J.row(5);
     dS_[i] = Js.transpose() * Sym;
   }
-  
+  data_.timer.stop("Rot Update");
 }
 
 void MixedSQPOptimizer::update_system() {
@@ -186,8 +194,10 @@ void MixedSQPOptimizer::update_system() {
   update_rotations();
 
   // Assemble rotation derivatives into block matrices
+  data_.timer.start("Gx");
   update_block_diagonal(dS_, C_);
   Gx_ = -P_ * J_.transpose() * C_.eval() * W_;
+  data_.timer.stop("Gx");
 
   // Assemble blocks for left and right hand side
   build_lhs();
@@ -195,6 +205,8 @@ void MixedSQPOptimizer::update_system() {
 }
 
 void MixedSQPOptimizer::substep(bool init_guess, double& decrement) {
+  data_.timer.start("substep");
+
   // (1)
   // Factorize LHS (using SparseLU right now)
   solver_.compute(lhs_);
@@ -276,6 +288,7 @@ void MixedSQPOptimizer::substep(bool init_guess, double& decrement) {
   for (int i = 0; i < nelem_; ++i) {
     ds_.segment<6>(6*i) = -Hinv_[i] * (ih2 * Sym * la_.segment<6>(6*i)+ g_[i]);
   }
+  data_.timer.stop("substep");
 
   // std::cout << "  - la norm: " << la_.norm() << " dx norm: "
   //     << dx_.norm() << " ds_.norm: " << ds_.norm() << std::endl;
@@ -499,5 +512,4 @@ void MixedSQPOptimizer::reset() {
   if(solver_.info()!=Success) {
     std::cerr << " KKT prefactor failed! " << std::endl;
   }
-
 }

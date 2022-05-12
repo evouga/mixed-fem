@@ -2,6 +2,7 @@ d=3;
 R=sym('R',[d d]);
 F=sym('F',[3 3]);
 s = sym('S',[6,1]);
+sval = sym('sval',[3,1]);
 L = sym('L',[9,1]);
 syms mu la
 assume(R,'real')
@@ -9,6 +10,7 @@ assume(F,'real')
 assume(s,'real')
 assume(mu,'real')
 assume(L,'real')
+assume(sval,'real')
 
 S = [s(1) s(4) s(5);
      s(4) s(2) s(6);
@@ -29,11 +31,15 @@ W = [
 % stable neohookean
 I3=det(F);
 I2=trace(F'*F);
-% I3=det(S);
-% I2=trace(S'*S);
+I3=det(S);
+I2=trace(S'*S);
+I2 = sum(sval.^2);
+I3 = prod(sval);
+
+
 snh= 0.5*mu*(I2-d)- mu*(I3-1)+ 0.5*la*(I3-1)^2;
-H=simplify(hessian(snh,s(:)));
-g=simplify(gradient(snh,s(:)));
+H=simplify(hessian(snh,sval(:)));
+g=simplify(gradient(snh,sval(:)));
 ccode(snh)
 ccode(H)
 ccode(g)

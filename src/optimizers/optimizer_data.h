@@ -1,8 +1,40 @@
 #pragma once
 
 #include <EigenTypes.h>
+#include <chrono>
+#include <unordered_map>
 
 namespace mfem {
+
+
+  class Timer {
+    using Time = std::chrono::high_resolution_clock;
+    using T = std::tuple<std::chrono::time_point<Time>, double, int>;
+  public:
+    void start(const std::string& key);
+
+    void stop(const std::string& key);
+
+    double total(const std::string& key)  const;
+
+    double average(const std::string& key)  const;
+
+    void print() const;
+
+    void reset() {
+      times_.clear();
+    }
+
+  private:
+
+    // Current clock time
+    //std::string curr_key_;
+    //std::chrono::time_point<Time> curr_;
+
+    // For each key, store total time and # of measurements
+    std::map<std::string, T> times_;	
+  };
+
 
   struct OptimizerData {
     
@@ -25,8 +57,8 @@ namespace mfem {
     std::vector<double> egrad_x_;
     std::vector<double> egrad_s_;
     std::vector<double> egrad_la_;
+    Timer timer;
 
   }; 
-
 
 }
