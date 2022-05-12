@@ -125,8 +125,7 @@ template<typename PreconditionerSolver>
 inline int pcr(Eigen::VectorXd& x, unsigned int nd, unsigned int ne, const Eigen::SparseMatrixd &A,
     const Eigen::VectorXd &b, Eigen::VectorXd &r, Eigen::VectorXd &z,
     Eigen::VectorXd &p, Eigen::VectorXd &Ap,
-    PreconditionerSolver &pre,
-    double tol = 1e-4) {
+    PreconditionerSolver &pre, double tol = 1e-4, unsigned int num_itr = 500) {
 
       Eigen::VectorXd Ar;
       Eigen::VectorXd Api;
@@ -136,7 +135,7 @@ inline int pcr(Eigen::VectorXd& x, unsigned int nd, unsigned int ne, const Eigen
       p = r;
       Ap = A*p;
       Ar = A*r;
-      unsigned int num_itr = 500;
+
       double rold;
 
       for(unsigned int i=0; i<num_itr; ++i) {

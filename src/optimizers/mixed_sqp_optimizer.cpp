@@ -13,13 +13,12 @@ using namespace Eigen;
 using namespace std::chrono;
 
 
-
-
 void MixedSQPOptimizer::setup_preconditioner() {
 
   //really soft preconditioner works better
-  double mat_val = std::min(object_->config_->mu, object_->config_->la);
+  double mat_val = std::min(object_->config_->mu, 1e10);
 
+  
   if(std::abs(mat_val - preconditioner_.mat_val()) > 1e-3) {
 
     std::cout<<"Rebuilding Preconditioner\n";
@@ -33,12 +32,14 @@ void MixedSQPOptimizer::setup_preconditioner() {
     SparseMatrixd P;
     SparseMatrixd J = Jw_;
     fill_block_matrix(M_, -J * P_.transpose(), C, P); 
-    //preconditioner_ = Eigen::CorotatedPreconditioner<double>(mat_val, P_.rows(), nelem_, P, dS_);
+    preconditioner_ = Eigen::CorotatedPreconditioner<double>(mat_val, P_.rows(), nelem_, P, dS_);
 
     //cg.preconditioner() = preconditioner_;
     //cg.setTolerance(1e-5);
     //cg.compute(lhs_);
   }
+
+  preconditioner_.compute(lhs_);
   
 }
 
@@ -88,7 +89,7 @@ void MixedSQPOptimizer::build_lhs() {
     Matrix6d H = object_->material_->hessian(si);
     Hinv_[i] = H.inverse();
     g_[i] = object_->material_->gradient(si);
-    H_[i] = - ih2 * vols_[i] *  Sym * (Hinv_[i] + Matrix6d::Identity()*1./std::min(object_->config_->mu,object_->config_->la)) * Sym;
+    H_[i] = - ih2 * vols_[i] *  Sym * (Hinv_[i] + Matrix6d::Identity()*(1./(std::min(std::min(object_->config_->mu, object_->config_->la), 1e10)))) * Sym;
   }
 
   fill_block_matrix(M_, Gx_.transpose(), H_, lhs_);
@@ -196,7 +197,7 @@ void MixedSQPOptimizer::substep(bool init_guess, double& decrement) {
 
    //Gx_ = -P_ * J_.transpose() * C_.eval() * W_;
 
-  int niter = pcr(q_, P_.rows(), nelem_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, preconditioner_, 1e-4);
+  int niter = pcr(q_, P_.rows(), nelem_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, preconditioner_, 1e-4, config_->max_iterative_solver_iters);
 
     //int niter = pcr(q_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, preconditioner_, 1e-4);
 
