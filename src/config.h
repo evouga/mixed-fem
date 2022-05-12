@@ -21,12 +21,14 @@ namespace mfem {
       OPTIMIZER_SQP,
       OPTIMIZER_SQP_FULL,
       OPTIMIZER_SQP_LA,
+      OPTIMIZER_NEWTON,
   };
 
   enum MaterialModelType {
-      MATERIAL_SNH,
-      MATERIAL_FCR,
-      MATERIAL_ARAP
+      MATERIAL_SNH,   // Stable neohookean
+      MATERIAL_NH,    // neohookean
+      MATERIAL_FCR,   // fixed corotated
+      MATERIAL_ARAP   // as-rigid-as possible
   };
   
   // Global parameters for the simulation

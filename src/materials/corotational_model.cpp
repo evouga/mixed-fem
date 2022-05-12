@@ -38,8 +38,7 @@ Vector6d CorotationalModel::gradient(const Vector6d& S) {
 
 }
 
-Matrix6d CorotationalModel::hessian_inv(const Matrix3d& R,
-    const Vector6d& S) {
+Matrix6d CorotationalModel::hessian_inv(const Vector6d& S) {
   
   double mu = config_->mu;
   double la = config_->la;
@@ -64,12 +63,23 @@ Matrix6d CorotationalModel::hessian_inv(const Matrix3d& R,
   Hinv(4,4) = 1.0/(mu*4.0);
   Hinv(5,5) = 1.0/(mu*4.0);
   return Hinv;
-     
 }
 
-Matrix6d CorotationalModel::hessian_inv(const Matrix3d& R,
-    const Vector6d& S, double kappa) {
-
-  std::cerr << "hessian_inv with regularizer not implemented!" << std::endl;
-  return hessian_inv(R,S);
+Matrix6d CorotationalModel::hessian(const Vector6d& S) {
+  Matrix6d H;
+  double mu = config_->mu;
+  double la = config_->la;
+  H(0,0) = la+mu*2.0;
+  H(0,1) = la;
+  H(0,2) = la;
+  H(1,0) = la;
+  H(1,1) = la+mu*2.0;
+  H(1,2) = la;
+  H(2,0) = la;
+  H(2,1) = la;
+  H(2,2) = la+mu*2.0;
+  H(3,3) = mu*4.0;
+  H(4,4) = mu*4.0;
+  H(5,5) = mu*4.0;
+  return H;
 }

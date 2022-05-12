@@ -24,48 +24,22 @@ void MaterialModel::fill_compliance_block(int offset, int row,
   }
 }
 
-void MaterialModel::update_compliance(int n, int m, 
-    const std::vector<Matrix3d>& R,
-    const std::vector<Matrix6d>& Hinv,
-    const VectorXd& vols, SparseMatrixd& mat) {
-
-  int offset = n;
-
-  double mu = config_->mu;
-  double tol = std::min(1e-6, 1./mu);
-
-  #pragma omp parallel for
-  for (int i = 0; i < m; ++i) {
-    Matrix9d WHiW = WHinvW(R[i], Hinv[i]);
-    MaterialModel::fill_compliance_block(offset, i, vols(i), tol, WHiW, mat);
-  }
-  //write out matrix here
-  //bool did_it_write = saveMarket(mat, "./lhs.txt");
-  //exit(0);
-}
-
-Matrix9d MaterialModel::WHinvW(const Matrix3d& R,
-    const Matrix6d& Hinv) {
-  Matrix<double,9,6> W;
-  Wmat(R,W);
-  return W*Hinv*W.transpose();
-}
-
-Vector9d MaterialModel::rhs(const Matrix3d& R,
-    const Vector6d& S, const Matrix6d& Hinv,
-    const Vector6d& g) {
-  
-  Matrix<double,9,6> W;
-  Wmat(R,W);
-  return W*(S - Hinv*g);    
-}
-
-Vector6d MaterialModel::dS(const Matrix3d& R, 
-    const Vector6d& S, const Vector9d& L,
-    const Matrix6d& Hinv) {
-  
-  Vector6d g = gradient(S);
-  Matrix<double,9,6> W;
-  Wmat(R,W);
-  return Hinv*(W.transpose()*L - g); 
-}
+//void MaterialModel::update_compliance(int n, int m, 
+//    const std::vector<Matrix3d>& R,
+//    const std::vector<Matrix6d>& Hinv,
+//    const VectorXd& vols, SparseMatrixd& mat) {
+//
+//  int offset = n;
+//
+//  double mu = config_->mu;
+//  double tol = std::min(1e-6, 1./mu);
+//
+//  #pragma omp parallel for
+//  for (int i = 0; i < m; ++i) {
+//    Matrix9d WHiW = WHinvW(R[i], Hinv[i]);
+//    MaterialModel::fill_compliance_block(offset, i, vols(i), tol, WHiW, mat);
+//  }
+//  //write out matrix here
+//  //bool did_it_write = saveMarket(mat, "./lhs.txt");
+//  //exit(0);
+//}

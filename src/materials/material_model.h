@@ -30,51 +30,40 @@ namespace mfem {
         : name_(name), config_(config) {}
 
     // Computes psi, the strain energy density value.
-    // S - 3x3 symmetric deformation
+    // S - 6x1 symmetric deformation
     virtual double energy(const Eigen::Vector6d& S) = 0; 
 
     // Gradient with respect to symmetric deformation, S
     // S - 6x1 symmetric deformation
     virtual Eigen::Vector6d gradient(const Eigen::Vector6d& S) = 0;
 
-    // Hessian matrix for symmetric deformation, S
-    // R - 3x3 rotation
-    // S - 3x3 symmetric deformation
-    virtual Eigen::Matrix6d hessian_inv(const Eigen::Matrix3d& R,
-        const Eigen::Vector6d& S) = 0;
-    virtual Eigen::Matrix6d hessian_inv(const Eigen::Matrix3d& R,
-        const Eigen::Vector6d& S, double kappa) = 0;
+    // Hessian matrix for symmetric deformation
+    // S - 6x1 symmetric deformation
     virtual Eigen::Matrix6d hessian(const Eigen::Vector6d& S) = 0;
 
-    // Updates the compliance block entries in the KKT matrix.
-    // Assumes the entries already exist and we can just overwite
-    // the 3x3 blocks.
-    virtual void update_compliance(int n, int m, 
-        const std::vector<Eigen::Matrix3d>& R,
-        const std::vector<Eigen::Matrix6d>& Hinv,
-        const Eigen::VectorXd& vols, Eigen::SparseMatrixd& mat);
+    // Optional energy,gradient, and hessian for non-mixed systems
+    // Computes psi, the strain energy density value.
+    // F - 9x1 deformation gradient flattened (column-major)
+    virtual double energy(const Eigen::Vector9d& F) {
+      std::cerr << "energy unimplemented for 9x1 input" << std::endl;
+      return 0;
+    }
 
-    // WHinvW matrix for the compliance block
-    // R    - 3x3 rotation
-    // Hinv - 6x6 deformation Hessian
-    virtual Eigen::Matrix9d WHinvW(const Eigen::Matrix3d& R,
-        const Eigen::Matrix6d& Hinv);
+    // Gradient with respect to deformation gradient
+    // F - 9x1 deformation gradient flattened (column-major)
+    virtual Eigen::Vector9d gradient(const Eigen::Vector9d& F) {
+      Eigen::Vector9d g;
+      std::cerr << "gradient unimplemented for 9x1 input" << std::endl;
+      return g;
+    }
 
-    // Right hand side contribution in KKT problem from the material model.
-    // R - 3x3 rotation
-    // S - 3x3 symmetric deformation
-    virtual Eigen::Vector9d rhs(const Eigen::Matrix3d& R,
-        const Eigen::Vector6d& S, const Eigen::Matrix6d& Hinv,
-        const Eigen::Vector6d& g);
-
-    // Computes S matrix update
-    // R    - 3x3 rotation
-    // S    - 3x3 symmetric deformation
-    // L    - 9x1 lagrange multipliers
-    // Hinv - 6x6 symmetric deformation Hessian
-    virtual Eigen::Vector6d dS(const Eigen::Matrix3d& R, 
-        const Eigen::Vector6d& S, const Eigen::Vector9d& L,
-        const Eigen::Matrix6d& Hinv);
+    // Hessian energy
+    // F - 9x1 deformation gradient flattened (column-major)
+    virtual Eigen::Matrix9d hessian(const Eigen::Vector9d& F) {
+      std::cerr << "gradient unimplemented for 9x1 input" << std::endl;
+      Eigen::Matrix9d H;
+      return H;
+    }
 
     std::string name() {
       return name_;

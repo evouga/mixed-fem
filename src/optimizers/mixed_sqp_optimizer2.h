@@ -24,12 +24,12 @@ namespace mfem {
     virtual void build_lhs() override;
 
     // Build linear system right hand side
-    virtual void build_rhs();
+    virtual void build_rhs() override;
 
     // Simulation substep for this object
     // init_guess - whether to initialize guess with a prefactor solve
     // decrement  - newton decrement norm
-    virtual void substep(bool init_guess, double& decrement);
+    virtual void substep(bool init_guess, double& decrement) override;
 
     Eigen::SparseMatrixd Minv_;
   };

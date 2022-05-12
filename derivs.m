@@ -5,6 +5,7 @@ s = sym('S',[6,1]);
 L = sym('L',[9,1]);
 syms mu la
 assume(R,'real')
+assume(F,'real')
 assume(s,'real')
 assume(mu,'real')
 assume(L,'real')
@@ -26,8 +27,10 @@ W = [
   ];
 
 % stable neohookean
-I3=det(S);
-I2=trace(S'*S);
+I3=det(F);
+I2=trace(F'*F);
+% I3=det(S);
+% I2=trace(S'*S);
 snh= 0.5*mu*(I2-d)- mu*(I3-1)+ 0.5*la*(I3-1)^2;
 H=simplify(hessian(snh,s(:)));
 g=simplify(gradient(snh,s(:)));
@@ -36,9 +39,12 @@ ccode(H)
 ccode(g)
 
 % neohookean
-nh = 0.5*mu*(I2/(I3^(2/3)) - 3) + 0.5*la*(I3-1)^2;
-H=simplify(hessian(nh,s(:)));
-g=simplify(gradient(nh,s(:)));
+%nh = 0.5*mu*(I2/(I3^(2/3)) - 3) + 0.5*la*(I3-1)^2;
+nh = 0.5*mu*(I2- 3) - mu*log(I3) + 0.5*la*(log(I3))^2;
+% H=(hessian(nh,s(:)));
+% g=gradient(nh,s(:));
+H=(hessian(nh,F(:)));
+g=gradient(nh,F(:));
 ccode(nh)
 ccode(H)
 ccode(g)
@@ -60,5 +66,5 @@ corot = la*0.5*trace(S-eye(d))^2 + 2*arap;
 H=hessian(corot,s(:));
 g=gradient(corot,s(:));
 ccode(corot)
-ccode(inv(H))
+ccode((H))
 ccode(g)

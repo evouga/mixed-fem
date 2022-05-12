@@ -37,8 +37,7 @@ Vector6d ArapModel::gradient(const Vector6d& S) {
 
 }
 
-Matrix6d ArapModel::hessian_inv(const Matrix3d& R,
-    const Vector6d& S) {
+Matrix6d ArapModel::hessian_inv(const Vector6d& S) {
   
   double mu = config_->mu;
   double S1 = S(0);
@@ -56,13 +55,6 @@ Matrix6d ArapModel::hessian_inv(const Matrix3d& R,
   Hinv(4,4) = 1. / (2.0 * mu);
   Hinv(5,5) = 1. / (2.0 * mu);
   return Hinv;
-}
-
-Matrix6d ArapModel::hessian_inv(const Matrix3d& R,
-    const Vector6d& S, double kappa) {
-
-  std::cerr << "hessian_inv with regularizer not implemented!" << std::endl;
-  return hessian_inv(R,S);
 }
 
 Matrix6d ArapModel::hessian(const Vector6d& S) {
