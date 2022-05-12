@@ -82,7 +82,8 @@ namespace mfem {
   };
 }
 
-  // Add material models
-  #include "materials/neohookean_model.h"
-  #include "materials/corotational_model.h"
-  #include "materials/arap_model.h"
+// Add material models
+#include "materials/neohookean_model.h"
+#include "materials/corotational_model.h"
+#include "materials/arap_model.h"
+#include "materials/stable_nh_model.h"

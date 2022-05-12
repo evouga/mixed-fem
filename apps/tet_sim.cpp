@@ -25,6 +25,7 @@
 #include "optimizers/mixed_sqp_optimizer.h"
 #include "optimizers/mixed_sqp_full_optimizer.h"
 #include "optimizers/mixed_sqp_optimizer2.h"
+#include "optimizers/newton_optimizer.h"
 using namespace Eigen;
 
 // The mesh, Eigen representation
@@ -52,8 +53,11 @@ std::shared_ptr<MaterialModel> make_material_model(
   case MATERIAL_SNH:
     return std::make_shared<StableNeohookean>(config);
     break;
+  case MATERIAL_NH:
+    return std::make_shared<Neohookean>(config);
+    break;
   case MATERIAL_FCR:
-    //return std::make_shared<CorotationalModel>(config);
+    return std::make_shared<CorotationalModel>(config);
     break;
   case MATERIAL_ARAP:
     return std::make_shared<ArapModel>(config);
@@ -83,6 +87,9 @@ std::shared_ptr<Optimizer> make_optimizer(std::shared_ptr<SimObject> object,
     break;
   case OPTIMIZER_SQP_LA:
     return std::make_shared<MixedSQPOptimizer2>(object,config);
+    break;
+  case OPTIMIZER_NEWTON:
+    return std::make_shared<NewtonOptimizer>(object,config);
     break;
   } 
   return std::make_shared<MixedALMOptimizer>(object,config);
@@ -133,7 +140,7 @@ void callback() {
   if (ImGui::TreeNode("Material Params")) {
 
     int type = material_config->material_model;
-    if (ImGui::Combo("Material Model", &type,"SNH\0FCR\0ARAP\0\0")) {
+    if (ImGui::Combo("Material Model", &type,"SNH\0NH\0FCR\0ARAP\0\0")) {
       material_config->material_model = 
           static_cast<MaterialModelType>(type);
       material = make_material_model(material_config);
@@ -167,7 +174,7 @@ void callback() {
   if (ImGui::TreeNode("Sim Params")) {
 
     int type = config->optimizer;
-    if (ImGui::Combo("Optimizer", &type,"ALM\0ADMM\0LBFGS\0SQP\0SQP_FULL\0SQP_LA\0\0")) {
+    if (ImGui::Combo("Optimizer", &type,"ALM\0ADMM\0LBFGS\0SQP\0SQP_FULL\0SQP_LA\0NEWTON\0\0")) {
       config->optimizer = static_cast<OptimizerType>(type);
       optimizer = make_optimizer(tet_object, config);
       optimizer->reset();
@@ -191,6 +198,7 @@ void callback() {
   ImGui::Checkbox("simulate",&simulating);
   ImGui::SameLine();
   if(ImGui::Button("step") || simulating) {
+    std::cout << "Timestep: " << step << std::endl;
     simulation_step();
     ++step;
     srf->updateVertexPositions(meshV);
@@ -352,8 +360,6 @@ int main(int argc, char **argv) {
   tet_object = std::make_shared<TetrahedralObject>(meshV, meshT,
       material, material_config);
 
-  //optimizer = std::make_shared<MixedALMOptimizer>(tet_object, config);
-  //optimizer = std::make_shared<MixedADMMOptimizer>(tet_object, config);
   optimizer = make_optimizer(tet_object, config);
   optimizer->reset();
 
