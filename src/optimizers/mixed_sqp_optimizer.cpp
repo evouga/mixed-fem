@@ -12,13 +12,47 @@ using namespace mfem;
 using namespace Eigen;
 using namespace std::chrono;
 
+
+
+
+void MixedSQPOptimizer::setup_preconditioner() {
+
+  //really soft preconditioner works better
+  double mat_val = std::min(object_->config_->mu, object_->config_->la);
+
+  if(std::abs(mat_val - preconditioner_.mat_val()) > 1e-3) {
+
+    std::cout<<"Rebuilding Preconditioner\n";
+    std::vector<Matrix9d> C(nelem_);  
+    #pragma parallel for
+    for (int i = 0; i < nelem_; ++i) {
+      
+      C[i] = Eigen::Matrix9d::Identity()*(-vols_[i] / (mat_val* config_->h * config_->h));
+    }
+    
+    SparseMatrixd P;
+    SparseMatrixd J = Jw_;
+    fill_block_matrix(M_, -J * P_.transpose(), C, P); 
+    //preconditioner_ = Eigen::CorotatedPreconditioner<double>(mat_val, P_.rows(), nelem_, P, dS_);
+
+    //cg.preconditioner() = preconditioner_;
+    //cg.setTolerance(1e-5);
+    //cg.compute(lhs_);
+  }
+  
+}
+
 void MixedSQPOptimizer::step() {
 
+  setup_preconditioner();
+  
   std::cout << "/////////////////////////////////////////////" << std::endl;
   std::cout << " GOOD? Simulation step " << std::endl;
 
   int i = 0;
   double grad_norm;
+  q_.segment(P_.rows(), 6*nelem_).setZero();
+
   do {
     std::cout << "* Newton step: " << i << std::endl;
     update_system();
@@ -54,7 +88,7 @@ void MixedSQPOptimizer::build_lhs() {
     Matrix6d H = object_->material_->hessian(si);
     Hinv_[i] = H.inverse();
     g_[i] = object_->material_->gradient(si);
-    H_[i] = - ih2 * vols_[i] *  Sym * Hinv_[i] * Sym;
+    H_[i] = - ih2 * vols_[i] *  Sym * (Hinv_[i] + Matrix6d::Identity()*1./std::min(object_->config_->mu,object_->config_->la)) * Sym;
   }
 
   fill_block_matrix(M_, Gx_.transpose(), H_, lhs_);
@@ -82,6 +116,7 @@ void MixedSQPOptimizer::build_rhs() {
 
 void MixedSQPOptimizer::update_rotations() {
   dS_.resize(nelem_);
+
   VectorXd def_grad = J_*(P_.transpose()*x_+b_);
 
   #pragma omp parallel for 
@@ -157,34 +192,27 @@ void MixedSQPOptimizer::substep(bool init_guess, double& decrement) {
   // // Solve for update
   // q_ = solver_.solve(rhs_);
   
-  std::vector<Matrix9d> C(nelem_); 
-  #pragma parallel for
-  for (int i = 0; i < nelem_; ++i) {
-    C[i].setIdentity();
-    C[i] *= -vols_[i] / object_->config_->mu
-        / config_->h / config_->h;
-  }
-  SparseMatrixd P;
-  SparseMatrixd J = Jw_;
-  fill_block_matrix(M_, J * P_.transpose(), C, P); 
-  solver_.compute(P);
-  int niter = corot_pcg(q_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_,
-      R_, solver_, 1e-8);
+  //q_.setZero();
 
-  // fill_block_matrix(M_, H_, precon);
-  // fill_block_matrix(M_, Gx0_.transpose(), H_, precon);
-  // solver_.compute(precon);
-  // q_.setZero();
-  // int niter = pcg(q_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_, 1e-8);
+   //Gx_ = -P_ * J_.transpose() * C_.eval() * W_;
+
+  int niter = pcr(q_, P_.rows(), nelem_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, preconditioner_, 1e-4);
+
+    //int niter = pcr(q_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, preconditioner_, 1e-4);
+
+  //fill_block_matrix(M_, H_, P);
+  //fill_block_matrix(M_, Gx0_.transpose(), H_, P);
+  //solver_.compute(P);
+  //q_.setZero();
+  //int niter = pcg(q_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_, 1e-4);
 
   // Eigen CG
   //ConjugateGradient<SparseMatrix<double>, Lower|Upper, IncompleteLUT<double>> cg;
-  //BiCGSTAB<SparseMatrix<double>, IncompleteLUT<double>> cg;
   // IDRS<SparseMatrix<double>, IncompleteLUT<double>> cg;
   // GMRES<SparseMatrixd, IncompleteLUT<double>> cg;
-  //cg.setTolerance(1e-8);
   //cg.compute(lhs_);
   //q_ = cg.solveWithGuess(rhs_, q_);
+  //int niter = cg.iterations();
   //std::cout << "  - #iterations:     " << cg.iterations() << std::endl;
   //std::cout << "  - estimated error: " << cg.error()      << std::endl;
 
@@ -432,4 +460,5 @@ void MixedSQPOptimizer::reset() {
     std::cerr << " KKT prefactor failed! " << std::endl;
   }
 
+  setup_preconditioner();
 }
