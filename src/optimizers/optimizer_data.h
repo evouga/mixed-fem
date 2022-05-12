@@ -6,13 +6,16 @@
 
 namespace mfem {
 
-
   class Timer {
+
     using Time = std::chrono::high_resolution_clock;
     using T = std::tuple<std::chrono::time_point<Time>, double, int>;
+
   public:
+    // Start timer for a key (creates entry if does not exist)
     void start(const std::string& key);
 
+    // Records elapsed time for given key
     void stop(const std::string& key);
 
     double total(const std::string& key)  const;
@@ -26,12 +29,7 @@ namespace mfem {
     }
 
   private:
-
-    // Current clock time
-    //std::string curr_key_;
-    //std::chrono::time_point<Time> curr_;
-
-    // For each key, store total time and # of measurements
+    // For each key, store the clock, total time, and # of measurements
     std::map<std::string, T> times_;	
   };
 

@@ -4,6 +4,7 @@ build_debug/
 
 data/
 
+*.pdf
 *.log
 *.aux
 *.gz
