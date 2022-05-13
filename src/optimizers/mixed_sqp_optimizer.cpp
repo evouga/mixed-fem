@@ -8,8 +8,6 @@
 #include "pinning_matrix.h"
 #include "pcg.h"
 
-#include "linsolver/nasoq_lbl_eigen.h"
-
 using namespace mfem;
 using namespace Eigen;
 using namespace std::chrono;
@@ -232,17 +230,12 @@ void MixedSQPOptimizer::substep(bool init_guess, double& decrement) {
   // // Solve for update
   //solver_.compute(lhs_);
   //q_ = solver_.solve(rhs_);
-  
-  SparseMatrixd test = lhs_.triangularView<Eigen::Lower>();
-  test.makeCompressed();
-  q_.segment(P_.rows(), 6*nelem_).setZero();
-  nasoq::linear_solve(test, rhs_, q_);
 
   //int niter = pcg(q_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_,
   //    preconditioner_, 1e-4, config_->max_iterative_solver_iters);
-  //std::cout << "niter: " << niter << std::endl;
-  //int niter = pcr(q_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_,
-  //    preconditioner_, 1e-4);
+  std::cout << "niter: " << niter << std::endl;
+  int niter = pcr(q_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_,
+     preconditioner_, 1e-4);
 
   //fill_block_matrix(M_, H_, P);
   //fill_block_matrix(M_, Gx0_.transpose(), H_, P);

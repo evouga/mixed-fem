@@ -91,12 +91,6 @@ add_subdirectory("deps/polyscope")
 #set(LIBIGL_WITH_OPENGL_GLFW_IMGUI OFF CACHE BOOL "Use ImGui" )
 #add_subdirectory("deps/libIGL")
 
-
-set(NASOQ_BLAS_BACKEND  "OpenBLAS")
-set(NASOQ_USE_CLAPACK  ON)
-set(NASOQ_WITH_EIGEN OFF)
-add_subdirectory("deps/nasoq")
-
 file(GLOB SOURCES 
     ${PROJECT_SOURCE_DIR}/src/*.cpp 
     ${PROJECT_SOURCE_DIR}/src/svd/*.cpp 
