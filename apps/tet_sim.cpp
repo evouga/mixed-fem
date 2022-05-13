@@ -181,6 +181,9 @@ void callback() {
     }
 
     ImGui::InputInt("Max Newton Iters", &config->outer_steps);
+
+    ImGui::InputInt("Max LS Iters", &config->max_iterative_solver_iters);
+
     //ImGui::InputInt("Inner Steps", &config->inner_steps);
     if (ImGui::InputFloat3("Body Force", config->ext, 3)) {
       sim_dirty = true;

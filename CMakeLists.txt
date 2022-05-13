@@ -75,7 +75,7 @@ find_package(OpenMP REQUIRED)
 find_package(BLAS)
 find_package(LAPACK)
 #find_package(Cholmod)
-find_package(SuiteSparse)
+#find_package(SuiteSparse)
 
 # Add polyscope
 message("\n\n == CMAKE recursively building Polyscope\n")
@@ -166,7 +166,7 @@ endif()
 if(CHOLMOD_FOUND AND BLAS_FOUND AND LAPACK_FOUND)
   include_directories(${CHOLMOD_INCLUDE_DIR})
   target_link_libraries(mixed_fem_lib ${CHOLMOD_LIBRARIES})
-  target_compile_definitions(mixed_fem_lib PUBLIC -DSIM_USE_CHOLMOD)
+  #target_compile_definitions(mixed_fem_lib PUBLIC -DSIM_USE_CHOLMOD)
 endif()
 
 TRY_COMPILE(COMPILER_SUPPORTS_ARM_NEON ${CMAKE_BINARY_DIR}

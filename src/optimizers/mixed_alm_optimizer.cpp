@@ -281,7 +281,7 @@ void MixedALMOptimizer::substep(bool init_guess, double& decrement) {
   // }
   start=end;
 
-  CholmodSupernodalLLT<SparseMatrixd> solver(lhs_);
+  Eigen::SimplicialLLT<SparseMatrixd> solver(lhs_);
   solver.compute(lhs_);
   if(solver.info()!=Success) {
    std::cerr << "!!!!!!!!!!!!!!!prefactor failed! " << std::endl;
