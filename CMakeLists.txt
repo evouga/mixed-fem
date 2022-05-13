@@ -91,6 +91,12 @@ add_subdirectory("deps/polyscope")
 #set(LIBIGL_WITH_OPENGL_GLFW_IMGUI OFF CACHE BOOL "Use ImGui" )
 #add_subdirectory("deps/libIGL")
 
+
+set(NASOQ_BLAS_BACKEND  "OpenBLAS")
+set(NASOQ_USE_CLAPACK  ON)
+set(NASOQ_WITH_EIGEN OFF)
+add_subdirectory("deps/nasoq")
+
 file(GLOB SOURCES 
     ${PROJECT_SOURCE_DIR}/src/*.cpp 
     ${PROJECT_SOURCE_DIR}/src/svd/*.cpp 
@@ -187,11 +193,13 @@ target_include_directories(mixed_fem_lib PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}/src"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/libigl/include" 
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/Bartels/include" 
+  "${CMAKE_CURRENT_SOURCE_DIR}/deps/nasoq/include"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope/deps/args"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope/deps/json/include")
+  
 
 # Link settings
-target_link_libraries(mixed_fem_lib polyscope Eigen3::Eigen)
+target_link_libraries(mixed_fem_lib polyscope Eigen3::Eigen nasoq)
 
 # Create an executable
 add_executable(tet_sim apps/tet_sim.cpp ${SOURCES})

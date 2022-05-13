@@ -8,6 +8,8 @@
 #include "pinning_matrix.h"
 #include "pcg.h"
 
+#include "linsolver/nasoq_lbl_eigen.h"
+
 using namespace mfem;
 using namespace Eigen;
 using namespace std::chrono;
@@ -224,18 +226,23 @@ void MixedSQPOptimizer::update_system() {
 }
 
 void MixedSQPOptimizer::substep(bool init_guess, double& decrement) {
+  //SparseMatrix<double,RowMajor> lhsr = lhs_;
+
   data_.timer.start("substep");
-
   // // Solve for update
-  // q_ = solver_.solve(rhs_);
+  //solver_.compute(lhs_);
+  //q_ = solver_.solve(rhs_);
   
+  SparseMatrixd test = lhs_.triangularView<Eigen::Lower>();
+  test.makeCompressed();
   q_.segment(P_.rows(), 6*nelem_).setZero();
+  nasoq::linear_solve(test, rhs_, q_);
 
-   //Gx_ = -P_ * J_.transpose() * C_.eval() * W_;
-
-  //int niter = pcg(q_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, preconditioner_, 1e-4, config_->max_iterative_solver_iters);
-
-  int niter = pcr(q_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, preconditioner_, 1e-4);
+  //int niter = pcg(q_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_,
+  //    preconditioner_, 1e-4, config_->max_iterative_solver_iters);
+  //std::cout << "niter: " << niter << std::endl;
+  //int niter = pcr(q_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_,
+  //    preconditioner_, 1e-4);
 
   //fill_block_matrix(M_, H_, P);
   //fill_block_matrix(M_, Gx0_.transpose(), H_, P);
@@ -363,6 +370,7 @@ bool MixedSQPOptimizer::linesearch_s(VectorXd& s, const VectorXd& ds) {
 
 bool MixedSQPOptimizer::linesearch(Eigen::VectorXd& x, const Eigen::VectorXd& dx,
         Eigen::VectorXd& s, const Eigen::VectorXd& ds) {
+  data_.timer.start("linesearch");
 
   auto value = [&](const VectorXd& xs)->double {
     return energy(xs.segment(0,x.size()), xs.segment(x.size(),s.size()), la_);
@@ -382,8 +390,8 @@ bool MixedSQPOptimizer::linesearch(Eigen::VectorXd& x, const Eigen::VectorXd& dx
   bool done = (status == MAX_ITERATIONS_REACHED);
   x = f.segment(0, x.size());
   s = f.segment(x.size(), s.size());
+  data_.timer.stop("linesearch");
   return done;
-      
 }
 
 void MixedSQPOptimizer::reset() {

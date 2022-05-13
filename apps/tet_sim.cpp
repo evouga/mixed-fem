@@ -21,7 +21,6 @@
 #include "materials/material_model.h"
 #include "optimizers/mixed_alm_optimizer.h"
 #include "optimizers/mixed_admm_optimizer.h"
-#include "optimizers/mixed_lbfgs_optimizer.h"
 #include "optimizers/mixed_sqp_optimizer.h"
 #include "optimizers/mixed_sqp_full_optimizer.h"
 #include "optimizers/mixed_sqp_optimizer2.h"
@@ -75,9 +74,6 @@ std::shared_ptr<Optimizer> make_optimizer(std::shared_ptr<SimObject> object,
     break;
   case OPTIMIZER_ADMM:
     return std::make_shared<MixedADMMOptimizer>(object,config);
-    break;
-  case OPTIMIZER_LBFGS:
-    return std::make_shared<MixedLBFGSOptimizer>(object,config);
     break;
   case OPTIMIZER_SQP:
     return std::make_shared<MixedSQPOptimizer>(object,config);
@@ -174,7 +170,7 @@ void callback() {
   if (ImGui::TreeNode("Sim Params")) {
 
     int type = config->optimizer;
-    if (ImGui::Combo("Optimizer", &type,"ALM\0ADMM\0LBFGS\0SQP\0SQP_FULL\0SQP_LA\0NEWTON\0\0")) {
+    if (ImGui::Combo("Optimizer", &type,"ALM\0ADMM\0SQP\0SQP_FULL\0SQP_LA\0NEWTON\0\0")) {
       config->optimizer = static_cast<OptimizerType>(type);
       optimizer = make_optimizer(tet_object, config);
       optimizer->reset();

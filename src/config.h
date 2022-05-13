@@ -17,7 +17,6 @@ namespace mfem {
   enum OptimizerType {
       OPTIMIZER_ALM,
       OPTIMIZER_ADMM,
-      OPTIMIZER_LBFGS,
       OPTIMIZER_SQP,
       OPTIMIZER_SQP_FULL,
       OPTIMIZER_SQP_LA,
