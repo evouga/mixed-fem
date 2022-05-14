@@ -20,11 +20,12 @@ namespace nasoq {
  //   x  n by 1 solution vector
  // Returns nasoq exit flag
  //
+ template<typename Scalar>
  int linear_solve(
    // Pass inputs by copy so we get non-const and casted data
-   Eigen::SparseMatrix<double,Eigen::ColMajor,int> A,
-   Eigen::Matrix<double,Eigen::Dynamic,1> b,
-   Eigen::Matrix<double,Eigen::Dynamic,1> & x){
+   Eigen::SparseMatrix<Scalar,Eigen::ColMajor,int> A,
+   Eigen::Matrix<Scalar,Eigen::Dynamic,1> b,
+   Eigen::Matrix<Scalar,Eigen::Dynamic,1> & x){
   assert(A.isApprox(A.triangularView<Eigen::Lower>(),0) &&
          "P should be lower triangular");
   assert(A.isCompressed());

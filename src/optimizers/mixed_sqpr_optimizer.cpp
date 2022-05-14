@@ -136,6 +136,7 @@ void MixedSQPROptimizer::substep(bool init_guess, double& decrement) {
       std::cout << "H[s]: " << H << std::endl;
       std::cout << "H[s]2: " << object_->material_->hessian(si,false) << std::endl;
       std::cout << "evals: " << H.eigenvalues().real() << std::endl;
+      std::cout << "evals2: " << object_->material_->hessian(si,false).eigenvalues().real() << std::endl;
 
       std::cout << "i: " << i << std::endl;
       Vector6d gs = (Sym * la_.segment<6>(6*i)+ g_[i]);
@@ -217,8 +218,8 @@ void MixedSQPROptimizer::reset() {
   //pinnedV_ = (V_.col(0).array() < pin_x 
   //    && V_.col(1).array() > pin_y).cast<int>();
   //pinnedV_.resize(V_.rows());
-  pinnedV_.setZero();
-  pinnedV_(0) = 1;
+  // pinnedV_.setZero();
+  // pinnedV_(0) = 1;
 
   P_ = pinning_matrix(object_->V_, object_->T_, pinnedV_, false);
 
