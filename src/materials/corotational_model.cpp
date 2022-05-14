@@ -65,7 +65,7 @@ Matrix6d CorotationalModel::hessian_inv(const Vector6d& S) {
   return Hinv;
 }
 
-Matrix6d CorotationalModel::hessian(const Vector6d& S) {
+Matrix6d CorotationalModel::hessian(const Vector6d& S, bool psd_fix) {
   Matrix6d H;
   double mu = config_->mu;
   double la = config_->la;

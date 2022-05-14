@@ -57,7 +57,7 @@ Matrix6d ArapModel::hessian_inv(const Vector6d& S) {
   return Hinv;
 }
 
-Matrix6d ArapModel::hessian(const Vector6d& S) {
+Matrix6d ArapModel::hessian(const Vector6d& S, bool psd_fix) {
   double mu = config_->mu;
   Vector6d tmp; tmp << 1,1,1,2,2,2;
   return tmp.asDiagonal() * mu;

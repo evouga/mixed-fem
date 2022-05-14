@@ -39,7 +39,8 @@ namespace mfem {
 
     // Hessian matrix for symmetric deformation
     // S - 6x1 symmetric deformation
-    virtual Eigen::Matrix6d hessian(const Eigen::Vector6d& S) = 0;
+    virtual Eigen::Matrix6d hessian(const Eigen::Vector6d& S,
+        bool psd_fix = true) = 0;
 
     // Optional energy,gradient, and hessian for non-mixed systems
     // Computes psi, the strain energy density value.

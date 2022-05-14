@@ -40,7 +40,7 @@ Vector6d StableNeohookean::gradient(const Vector6d& S) {
 
 }
 
-Matrix6d StableNeohookean::hessian(const Eigen::Vector6d& S) {
+Matrix6d StableNeohookean::hessian(const Eigen::Vector6d& S, bool psd_fix) {
   double mu = config_->mu;
   double la = config_->la;
   double S1 = S(0);
@@ -86,7 +86,10 @@ Matrix6d StableNeohookean::hessian(const Eigen::Vector6d& S) {
   H(5,3) = S5*mu*-2.0-S5*la*(S1*(S6*S6)+S2*(S5*S5)+S3*(S4*S4)-S1*S2*S3-S4*S5*S6*2.0+1.0)*2.0+la*(S1*S6*2.0-S4*S5*2.0)*(S3*S4*2.0-S5*S6*2.0);
   H(5,4) = S4*mu*-2.0-S4*la*(S1*(S6*S6)+S2*(S5*S5)+S3*(S4*S4)-S1*S2*S3-S4*S5*S6*2.0+1.0)*2.0+la*(S1*S6*2.0-S4*S5*2.0)*(S2*S5*2.0-S4*S6*2.0);
   H(5,5) = mu*2.0+S1*mu*2.0+la*pow(S1*S6*2.0-S4*S5*2.0,2.0)+S1*la*(S1*(S6*S6)+S2*(S5*S5)+S3*(S4*S4)-S1*S2*S3-S4*S5*S6*2.0+1.0)*2.0;
-  sim::simple_psd_fix(H);
+  
+  if (psd_fix) {
+    sim::simple_psd_fix(H);
+  }
   return H;
 }
 

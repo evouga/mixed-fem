@@ -38,13 +38,15 @@ namespace mfem {
     }
 
   public:
+  
+    Eigen::MatrixXd V_;
+    Eigen::MatrixXd V0_;
+    Eigen::MatrixXi T_;
 
     std::shared_ptr<MaterialModel> material_;
     std::shared_ptr<MaterialConfig> config_;
 
-    Eigen::MatrixXd V_;
-    Eigen::MatrixXd V0_;
-    Eigen::MatrixXi T_;
+
   };
 }
 

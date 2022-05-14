@@ -8,6 +8,7 @@
 #include "pinning_matrix.h"
 #include "pcg.h"
 #include "linsolver/nasoq_lbl_eigen.h"
+#include "svd/svd_eigen.h"
 
 #include <fstream>
 #include "unsupported/Eigen/src/SparseExtra/MarketIO.h"
@@ -53,7 +54,7 @@ void MixedSQPOptimizer::step() {
   data_.clear();
 
   E_prev_ = 0;
-  setup_preconditioner();
+  // setup_preconditioner();
 
   int i = 0;
   double grad_norm;
@@ -69,8 +70,8 @@ void MixedSQPOptimizer::step() {
     // convergence check with norm([dx;ds])
     // data ordering for performance :)
 
-    // linesearch_x(x_, dx_);
-    // linesearch_s(s_, ds_);
+    //linesearch_x(x_, dx_);
+    //linesearch_s(s_, ds_);
     linesearch(x_, dx_, s_, ds_);
 
     // x_ += dx_;
@@ -157,6 +158,7 @@ void MixedSQPOptimizer::build_rhs() {
   data_.egrad_la_.push_back(std::sqrt(gradl));
 }
 
+
 void MixedSQPOptimizer::update_rotations() {
   data_.timer.start("Rot Update");
 
@@ -166,20 +168,15 @@ void MixedSQPOptimizer::update_rotations() {
 
   #pragma omp parallel for 
   for (int i = 0; i < nelem_; ++i) {
-    JacobiSVD<Matrix3d> svd(Map<Matrix3d>(def_grad.segment(9*i,9).data()),
-        ComputeFullU | ComputeFullV);
+    Vector3d sigma;
+    Matrix3d U,V;
+    svd(Map<Matrix3d>(def_grad.segment(9*i,9).data()), sigma, U, V);
 
     Eigen::Vector3d stemp;
-
-    stemp[0] = 1;
-    stemp[1] = 1;
-    stemp[2] = (svd.matrixU()*svd.matrixV().transpose()).determinant();
-    // S(x^k)
-    Matrix3d S = svd.matrixV() * svd.singularValues().asDiagonal() 
-        * svd.matrixV().transpose();
+    Matrix3d S = V * sigma.asDiagonal() * V.transpose();
     Vector6d stmp; stmp << S(0,0), S(1,1), S(2,2), S(1,0), S(2,0), S(2,1);
     S_[i] = stmp;
-    R_[i] = svd.matrixU() * stemp.asDiagonal()*svd.matrixV().transpose();
+    R_[i] = U * V.transpose();
 
     // Compute SVD derivatives
     Tensor3333d dU, dV;
@@ -187,8 +184,7 @@ void MixedSQPOptimizer::update_rotations() {
     dsvd(dU, dS, dV, Map<Matrix3d>(def_grad.segment<9>(9*i).data()));
 
     // Compute dS/dF
-    S = svd.singularValues().asDiagonal();
-    Matrix3d V = svd.matrixV();
+    S = sigma.asDiagonal();
     std::array<Matrix3d, 9> dS_dF;
     for (int r = 0; r < 3; ++r) {
       for (int c = 0; c < 3; ++c) {
@@ -258,8 +254,8 @@ void MixedSQPOptimizer::substep(bool init_guess, double& decrement) {
 
   data_.timer.start("substep");
   // // Solve for update
-  //solver_.compute(lhs_);
-  //q_ = solver_.solve(rhs_);
+  solver_.compute(lhs_);
+  q_ = solver_.solve(rhs_);
 
   // SparseMatrixd test = lhs_.triangularView<Eigen::Lower>();
   // test.makeCompressed();
@@ -272,69 +268,69 @@ void MixedSQPOptimizer::substep(bool init_guess, double& decrement) {
   // int niter = pcr(q_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_,
   //    preconditioner_, 1e-4);
 
-  SparseMatrix<double,RowMajor> A = lhs_;
-  //A.makeCompressed();
-  typedef amgcl::backend::eigen<double> Backend;
-  typedef amgcl::backend::eigen<Matrix<double,6,6>> BlockBackend;
-  typedef amgcl::make_solver<
-      amgcl::amg<
-          Backend,
-          amgcl::coarsening::aggregation,
-          amgcl::relaxation::ilut
-          >,
-      amgcl::solver::preonly<Backend>
-      > Usolver;
-  typedef amgcl::make_solver<
-      amgcl::relaxation::as_preconditioner<
-          Backend,
-          amgcl::relaxation::ilut
-          >,
-      amgcl::solver::preonly<Backend>
-      > Psolver;
+  // SparseMatrix<double,RowMajor> A = lhs_;
+  // //A.makeCompressed();
+  // typedef amgcl::backend::eigen<double> Backend;
+  // typedef amgcl::backend::eigen<Matrix<double,6,6>> BlockBackend;
+  // typedef amgcl::make_solver<
+  //     amgcl::amg<
+  //         Backend,
+  //         amgcl::coarsening::aggregation,
+  //         amgcl::relaxation::ilut
+  //         >,
+  //     amgcl::solver::preonly<Backend>
+  //     > Usolver;
+  // typedef amgcl::make_solver<
+  //     amgcl::relaxation::as_preconditioner<
+  //         Backend,
+  //         amgcl::relaxation::ilut
+  //         >,
+  //     amgcl::solver::preonly<Backend>
+  //     > Psolver;
 
-  typedef amgcl::make_solver<
-      amgcl::preconditioner::schur_pressure_correction<
-          Usolver, Psolver>,
-      amgcl::solver::idrs<amgcl::backend::eigen<double>>
-      > Solver;
+  // typedef amgcl::make_solver<
+  //     amgcl::preconditioner::schur_pressure_correction<
+  //         Usolver, Psolver>,
+  //     amgcl::solver::idrs<amgcl::backend::eigen<double>>
+  //     > Solver;
 
-  // Solver parameters
-  Solver::params prm;
-  prm.solver.s=5;
-  prm.precond.adjust_p = 1;
-  prm.precond.approx_schur = false;
-  prm.solver.maxiter = 300;
-  // prm.precond.verbose=1;
-  // prm.precond.simplec_dia = false;
-  // prm.precond.usolver.solver.maxiter=8;
-  // prm.precond.psolver.solver.maxiter=8;
-  // prm.precond.simplec_dia = false;
-  prm.precond.pmask.resize(A.rows());
-  for(ptrdiff_t i = 0; i < A.rows(); ++i) prm.precond.pmask[i] = (i >= x_.size());
+  // // Solver parameters
+  // Solver::params prm;
+  // prm.solver.s=5;
+  // prm.precond.adjust_p = 1;
+  // prm.precond.approx_schur = false;
+  // prm.solver.maxiter = 300;
+  // // prm.precond.verbose=1;
+  // // prm.precond.simplec_dia = false;
+  // // prm.precond.usolver.solver.maxiter=8;
+  // // prm.precond.psolver.solver.maxiter=8;
+  // // prm.precond.simplec_dia = false;
+  // prm.precond.pmask.resize(A.rows());
+  // for(ptrdiff_t i = 0; i < A.rows(); ++i) prm.precond.pmask[i] = (i >= x_.size());
   
-  typedef amgcl::make_solver<
-      amgcl::relaxation::as_preconditioner<Backend, amgcl::relaxation::ilut>,
-      amgcl::solver::fgmres<Backend>
-  > SolverGMRES;
+  // typedef amgcl::make_solver<
+  //     amgcl::relaxation::as_preconditioner<Backend, amgcl::relaxation::ilut>,
+  //     amgcl::solver::fgmres<Backend>
+  // > SolverGMRES;
   
-  SolverGMRES::params prm2;
-  prm2.solver.verbose = 1;
-  prm2.solver.tol = 1e-6;
-  //prm2.solver.pside = amgcl::preconditioner::side::left;
-  prm2.solver.maxiter = 100;
-  prm2.precond.tau = 1e-6;
-  prm2.precond.p = 10;
-  //SolverGMRES solve(A, prm2);
-  Solver solve(A, prm);
-  // std::cout << solve << std::endl;
+  // SolverGMRES::params prm2;
+  // prm2.solver.verbose = 1;
+  // prm2.solver.tol = 1e-6;
+  // //prm2.solver.pside = amgcl::preconditioner::side::left;
+  // prm2.solver.maxiter = 100;
+  // prm2.precond.tau = 1e-6;
+  // prm2.precond.p = 10;
+  // //SolverGMRES solve(A, prm2);
+  // Solver solve(A, prm);
+  // // std::cout << solve << std::endl;
 
 
-  // Solve the system for the given RHS:
-  int    iters;
-  double error;
-  q_.setZero();
-  std::tie(iters, error) = solve(rhs_, q_);
-  std::cout << iters << " " << error << std::endl;
+  // // Solve the system for the given RHS:
+  // int    iters;
+  // double error;
+  // q_.setZero();
+  // std::tie(iters, error) = solve(rhs_, q_);
+  // std::cout << iters << " " << error << std::endl;
   //fill_block_matrix(M_, H_, P);
   //fill_block_matrix(M_, Gx0_.transpose(), H_, P);
   //solver_.compute(P);
@@ -372,8 +368,8 @@ void MixedSQPOptimizer::substep(bool init_guess, double& decrement) {
   }
   data_.timer.stop("substep");
 
-  //std::cout << "  - la norm: " << la_.norm() << " dx norm: "
-    //  << dx_.norm() << " ds_.norm: " << ds_.norm() << std::endl;
+  std::cout << "  - la norm: " << la_.norm() << " dx norm: "
+     << dx_.norm() << " ds_.norm: " << ds_.norm() << std::endl;
 }
 
 void MixedSQPOptimizer::update_configuration() {
