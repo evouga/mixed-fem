@@ -14,11 +14,8 @@ namespace mfem {
     
     MixedSQPROptimizer(std::shared_ptr<SimObject> object,
         std::shared_ptr<SimConfig> config) : MixedSQPOptimizer(object, config) {}
-
-    void reset() override;
   
   public:
-
 
     // Build system left hand side
     virtual void build_lhs() override;
@@ -31,7 +28,6 @@ namespace mfem {
     // decrement  - newton decrement norm
     virtual void substep(bool init_guess, double& decrement) override;
 
-    Eigen::SparseMatrixd Minv_;
     Eigen::VectorXd gl_;
   };
 }
