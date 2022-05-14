@@ -7,6 +7,10 @@
 #include "linesearch.h"
 #include "pinning_matrix.h"
 #include "pcg.h"
+#include "linsolver/nasoq_lbl_eigen.h"
+
+#include <fstream>
+#include "unsupported/Eigen/src/SparseExtra/MarketIO.h"
 
 using namespace mfem;
 using namespace Eigen;
@@ -102,9 +106,13 @@ void MixedSQPOptimizer::build_lhs() {
     H_[i] = - ih2 * vols_[i] *  Sym * (Hinv_[i] + Matrix6d::Identity()
         *(1./(std::min(std::min(object_->config_->mu, object_->config_->la),
         1e10)))) * Sym;
+    // H_[i] = - ih2 * vols_[i] *  Sym * (Hinv_[i]) * Sym;
   }
 
   fill_block_matrix(M_, Gx_.transpose(), H_, lhs_);
+
+  saveMarket(lhs_, "output");
+
   data_.timer.stop("LHS");
 }
 
@@ -223,6 +231,28 @@ void MixedSQPOptimizer::update_system() {
   build_rhs();
 }
 
+
+#include <amgcl/backend/eigen.hpp>
+#include <amgcl/make_solver.hpp>
+#include <amgcl/solver/bicgstab.hpp>
+#include <amgcl/solver/idrs.hpp>
+#include <amgcl/amg.hpp>
+#include <amgcl/coarsening/smoothed_aggregation.hpp>
+#include <amgcl/relaxation/spai0.hpp>
+#include <amgcl/relaxation/ilu0.hpp>
+#include <amgcl/relaxation/as_preconditioner.hpp>
+#include <amgcl/relaxation/ilut.hpp>
+#include <amgcl/relaxation/gauss_seidel.hpp>
+#include <amgcl/relaxation/chebyshev.hpp>
+#include <amgcl/solver/gmres.hpp>
+#include <amgcl/solver/cg.hpp>
+#include <amgcl/solver/fgmres.hpp>
+#include <amgcl/coarsening/aggregation.hpp>
+#include <amgcl/preconditioner/schur_pressure_correction.hpp>
+#include <amgcl/solver/preonly.hpp>
+#include <amgcl/adapter/block_matrix.hpp>
+#include <amgcl/make_block_solver.hpp>
+
 void MixedSQPOptimizer::substep(bool init_guess, double& decrement) {
   //SparseMatrix<double,RowMajor> lhsr = lhs_;
 
@@ -231,28 +261,97 @@ void MixedSQPOptimizer::substep(bool init_guess, double& decrement) {
   //solver_.compute(lhs_);
   //q_ = solver_.solve(rhs_);
 
+  // SparseMatrixd test = lhs_.triangularView<Eigen::Lower>();
+  // test.makeCompressed();
+  // q_.segment(P_.rows(), 6*nelem_).setZero();
+  // nasoq::linear_solve(test, rhs_, q_);
+
   //int niter = pcg(q_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_,
   //    preconditioner_, 1e-4, config_->max_iterative_solver_iters);
-  std::cout << "niter: " << niter << std::endl;
-  int niter = pcr(q_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_,
-     preconditioner_, 1e-4);
+  //std::cout << "niter: " << niter << std::endl;
+  // int niter = pcr(q_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_,
+  //    preconditioner_, 1e-4);
 
+  SparseMatrix<double,RowMajor> A = lhs_;
+  //A.makeCompressed();
+  typedef amgcl::backend::eigen<double> Backend;
+  typedef amgcl::backend::eigen<Matrix<double,6,6>> BlockBackend;
+  typedef amgcl::make_solver<
+      amgcl::amg<
+          Backend,
+          amgcl::coarsening::aggregation,
+          amgcl::relaxation::ilut
+          >,
+      amgcl::solver::preonly<Backend>
+      > Usolver;
+  typedef amgcl::make_solver<
+      amgcl::relaxation::as_preconditioner<
+          Backend,
+          amgcl::relaxation::ilut
+          >,
+      amgcl::solver::preonly<Backend>
+      > Psolver;
+
+  typedef amgcl::make_solver<
+      amgcl::preconditioner::schur_pressure_correction<
+          Usolver, Psolver>,
+      amgcl::solver::idrs<amgcl::backend::eigen<double>>
+      > Solver;
+
+  // Solver parameters
+  Solver::params prm;
+  prm.solver.s=5;
+  prm.precond.adjust_p = 1;
+  prm.precond.approx_schur = false;
+  prm.solver.maxiter = 300;
+  // prm.precond.verbose=1;
+  // prm.precond.simplec_dia = false;
+  // prm.precond.usolver.solver.maxiter=8;
+  // prm.precond.psolver.solver.maxiter=8;
+  // prm.precond.simplec_dia = false;
+  prm.precond.pmask.resize(A.rows());
+  for(ptrdiff_t i = 0; i < A.rows(); ++i) prm.precond.pmask[i] = (i >= x_.size());
+  
+  typedef amgcl::make_solver<
+      amgcl::relaxation::as_preconditioner<Backend, amgcl::relaxation::ilut>,
+      amgcl::solver::fgmres<Backend>
+  > SolverGMRES;
+  
+  SolverGMRES::params prm2;
+  prm2.solver.verbose = 1;
+  prm2.solver.tol = 1e-6;
+  //prm2.solver.pside = amgcl::preconditioner::side::left;
+  prm2.solver.maxiter = 100;
+  prm2.precond.tau = 1e-6;
+  prm2.precond.p = 10;
+  //SolverGMRES solve(A, prm2);
+  Solver solve(A, prm);
+  // std::cout << solve << std::endl;
+
+
+  // Solve the system for the given RHS:
+  int    iters;
+  double error;
+  q_.setZero();
+  std::tie(iters, error) = solve(rhs_, q_);
+  std::cout << iters << " " << error << std::endl;
   //fill_block_matrix(M_, H_, P);
   //fill_block_matrix(M_, Gx0_.transpose(), H_, P);
   //solver_.compute(P);
-  //q_.setZero();
+  // q_.setZero();
   //int niter = pcg(q_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_, 1e-4);
-
+  // q_.segment(x_.size(),6*nelem_).setZero();
   // (4)
   // Eigen CG
-  //ConjugateGradient<SparseMatrix<double>, Lower|Upper, IncompleteLUT<double>> cg;
+  // BiCGSTAB<SparseMatrix<double>, IncompleteLUT<double>> cg;
   // IDRS<SparseMatrix<double>, IncompleteLUT<double>> cg;
   // GMRES<SparseMatrixd, IncompleteLUT<double>> cg;
-  //cg.compute(lhs_);
-  //q_ = cg.solveWithGuess(rhs_, q_);
-  //int niter = cg.iterations();
-  //std::cout << "  - #iterations:     " << cg.iterations() << std::endl;
-  //std::cout << "  - estimated error: " << cg.error()      << std::endl;
+  // cg.compute(lhs_);
+  // cg.setTolerance(1e-6);
+  // q_ = cg.solveWithGuess(rhs_, q_);
+  // //int niter = cg.iterations();
+  // std::cout << "  - #iterations:     " << cg.iterations() << std::endl;
+  // std::cout << "  - estimated error: " << cg.error()      << std::endl;
 
   double relative_error = (lhs_*q_ - rhs_).norm() / rhs_.norm();
   decrement = q_.norm();
@@ -497,5 +596,5 @@ void MixedSQPOptimizer::reset() {
     std::cerr << " KKT prefactor failed! " << std::endl;
   }
 
-  setup_preconditioner();
+  //setup_preconditioner();
 }

@@ -23,7 +23,7 @@
 #include "optimizers/mixed_admm_optimizer.h"
 #include "optimizers/mixed_sqp_optimizer.h"
 #include "optimizers/mixed_sqp_full_optimizer.h"
-#include "optimizers/mixed_sqp_optimizer2.h"
+#include "optimizers/mixed_sqpr_optimizer.h"
 #include "optimizers/newton_optimizer.h"
 using namespace Eigen;
 
@@ -82,7 +82,7 @@ std::shared_ptr<Optimizer> make_optimizer(std::shared_ptr<SimObject> object,
     return std::make_shared<MixedSQPFullOptimizer>(object,config);
     break;
   case OPTIMIZER_SQP_LA:
-    return std::make_shared<MixedSQPOptimizer2>(object,config);
+    return std::make_shared<MixedSQPROptimizer>(object,config);
     break;
   case OPTIMIZER_NEWTON:
     return std::make_shared<NewtonOptimizer>(object,config);

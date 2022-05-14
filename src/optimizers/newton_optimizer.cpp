@@ -7,6 +7,14 @@
 #include "linear_tetmesh_dphi_dX.h"
 #include "assemble.h"
 
+#include <amgcl/backend/eigen.hpp>
+#include <amgcl/amg.hpp>
+#include <amgcl/make_solver.hpp>
+#include <amgcl/relaxation/spai0.hpp>
+#include <amgcl/coarsening/smoothed_aggregation.hpp>
+#include <amgcl/solver/bicgstab.hpp>
+#include <amgcl/solver/cg.hpp>
+
 using namespace mfem;
 using namespace Eigen;
 using namespace std::chrono;
@@ -137,14 +145,32 @@ void NewtonOptimizer::build_rhs() {
 
 void NewtonOptimizer::substep(bool init_guess, double& decrement) {
   // Factorize and solve system
-  solver_.compute(lhs_);
-  if(solver_.info()!=Success) {
-   std::cerr << "prefactor failed! " << std::endl;
-   exit(1);
-  }
+  // solver_.compute(lhs_);
+  // if(solver_.info()!=Success) {
+  //  std::cerr << "prefactor failed! " << std::endl;
+  //  exit(1);
+  // }
 
-  // Solve for update
-  dx_ = solver_.solve(rhs_);
+  // // Solve for update
+  // dx_ = solver_.solve(rhs_);
+
+  SparseMatrix<double, RowMajor> A = lhs_;
+  typedef amgcl::backend::eigen<double> Backend;
+  typedef amgcl::make_solver<
+          amgcl::amg<
+              Backend,
+              amgcl::coarsening::smoothed_aggregation,
+              amgcl::relaxation::spai0
+              >,
+          amgcl::solver::cg<Backend>
+          > Solver;
+  Solver solve(A);
+  std::cout << solve << std::endl;
+  int iters;
+  double error;
+  std::tie(iters, error) = solve(rhs_, dx_);
+  std::cout << "Iters: " << iters << std::endl
+            << "Error: " << error << std::endl;
 
   double relative_error = (lhs_*dx_ - rhs_).norm() / rhs_.norm();
   decrement = dx_.norm(); // if doing "full newton use this"

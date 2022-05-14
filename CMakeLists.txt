@@ -12,6 +12,9 @@ if (CMAKE_BINARY_DIR STREQUAL CMAKE_SOURCE_DIR)
     message(FATAL_ERROR "Source and build directories cannot be the same. Go use the /build directory.")
 endif()
 
+# For nasoq
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 ### Configure output locations
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -90,6 +93,12 @@ add_subdirectory("deps/polyscope")
 #set(LIBIGL_WITH_OPENGL_GLFW       OFF CACHE BOOL "Use GLFW"  )
 #set(LIBIGL_WITH_OPENGL_GLFW_IMGUI OFF CACHE BOOL "Use ImGui" )
 #add_subdirectory("deps/libIGL")
+
+set(NASOQ_BLAS_BACKEND  "OpenBLAS")
+set(NASOQ_USE_CLAPACK  ON)
+set(NASOQ_WITH_EIGEN OFF)
+add_subdirectory("deps/nasoq")
+add_subdirectory("deps/amgcl")
 
 file(GLOB SOURCES 
     ${PROJECT_SOURCE_DIR}/src/*.cpp 
@@ -188,12 +197,13 @@ target_include_directories(mixed_fem_lib PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/libigl/include" 
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/Bartels/include" 
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/nasoq/include"
+  "${CMAKE_CURRENT_SOURCE_DIR}/deps/agmcl"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope/deps/args"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope/deps/json/include")
   
 
 # Link settings
-target_link_libraries(mixed_fem_lib polyscope Eigen3::Eigen nasoq)
+target_link_libraries(mixed_fem_lib polyscope Eigen3::Eigen nasoq amgcl::amgcl)
 
 # Create an executable
 add_executable(tet_sim apps/tet_sim.cpp ${SOURCES})
