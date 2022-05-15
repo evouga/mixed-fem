@@ -396,16 +396,6 @@ void MixedADMMOptimizer::update_configuration() {
 
   VectorXd x = P_.transpose()*xt_ + b_;
 
-  // VectorXd def_grad = J_*x;
-  // for (int i = 0; i < nelem_; ++i) {
-  //   JacobiSVD<Matrix3d> svd(Map<Matrix3d>(def_grad.segment(9*i,9).data()),
-  //         ComputeFullU | ComputeFullV);
-
-  //   Matrix3d S = svd.matrixV() * svd.singularValues().asDiagonal() * svd.matrixV().transpose();
-  //   Vector6d stmp; stmp << S(0,0), S(1,1), S(2,2), S(1,0), S(2,0), S(2,1);
-  //   s_.segment(6*i, 6) = stmp;
-  // }
-
   // Update mesh vertices
   MatrixXd V = Map<MatrixXd>(x.data(), object_->V_.cols(), object_->V_.rows());
   object_->V_ = V.transpose();
@@ -443,9 +433,6 @@ double MixedADMMOptimizer::energy(const VectorXd& x, const VectorXd& s,
   double Epsi = h2 * e_Psi.sum();
 
   double e = Em + Epsi - Ela + Er;
-  //std::cout << "E: " <<  e << " ";
-  // std::cout << "  - (Em: " << Em << " Epsi: " << Epsi 
-  //    << " Ela: " << Ela << " Er: " << Er << " )" << std::endl;
   return e;
 }
 

@@ -7,6 +7,25 @@
 using namespace Eigen;
 using namespace mfem;
 
+namespace {
+
+  // From dphi/dX, form jacobian dphi/dq where
+  // q is an elements local set of vertices
+  template <typename Scalar>
+  void local_jacobian(Matrix<Scalar,9,12>& B, const Matrix<Scalar,4,3>& dX) {
+    B  << dX(0,0), 0, 0, dX(1,0), 0, 0, dX(2,0), 0, 0, dX(3,0), 0, 0,
+          0, dX(0,0), 0, 0, dX(1,0), 0, 0, dX(2,0), 0, 0, dX(3,0), 0,
+          0, 0, dX(0,0), 0, 0, dX(1,0), 0, 0, dX(2,0), 0, 0, dX(3,0),
+          dX(0,1), 0, 0, dX(1,1), 0, 0, dX(2,1), 0, 0, dX(3,1), 0, 0, 
+          0, dX(0,1), 0, 0, dX(1,1), 0, 0, dX(2,1), 0, 0, dX(3,1), 0,
+          0, 0, dX(0,1), 0, 0, dX(1,1), 0, 0, dX(2,1), 0, 0, dX(3,1),
+          dX(0,2), 0, 0, dX(1,2), 0, 0, dX(2,2), 0, 0, dX(3,2), 0, 0, 
+          0, dX(0,2), 0, 0, dX(1,2), 0, 0, dX(2,2), 0, 0, dX(3,2), 0,
+          0, 0, dX(0,2), 0, 0, dX(1,2), 0, 0, dX(2,2), 0, 0, dX(3,2);
+  }
+
+}
+
 void TetrahedralObject::volumes(Eigen::VectorXd& vol) {
   igl::volume(V_, T_, vol);
   vol = vol.cwiseAbs();
@@ -27,19 +46,10 @@ void TetrahedralObject::jacobian(SparseMatrixdRowMajor& J, const VectorXd& vols,
   std::vector<Triplet<double>> trips;
   for (int i = 0; i < T_.rows(); ++i) { 
 
-    Matrix<double, 4,3> dX = sim::unflatten<4,3>(dphidX.row(i));
-
     // Local block
     Matrix<double,9,12> B;
-    B  << dX(0,0), 0, 0, dX(1,0), 0, 0, dX(2,0), 0, 0, dX(3,0), 0, 0,
-          0, dX(0,0), 0, 0, dX(1,0), 0, 0, dX(2,0), 0, 0, dX(3,0), 0,
-          0, 0, dX(0,0), 0, 0, dX(1,0), 0, 0, dX(2,0), 0, 0, dX(3,0),
-          dX(0,1), 0, 0, dX(1,1), 0, 0, dX(2,1), 0, 0, dX(3,1), 0, 0, 
-          0, dX(0,1), 0, 0, dX(1,1), 0, 0, dX(2,1), 0, 0, dX(3,1), 0,
-          0, 0, dX(0,1), 0, 0, dX(1,1), 0, 0, dX(2,1), 0, 0, dX(3,1),
-          dX(0,2), 0, 0, dX(1,2), 0, 0, dX(2,2), 0, 0, dX(3,2), 0, 0, 
-          0, dX(0,2), 0, 0, dX(1,2), 0, 0, dX(2,2), 0, 0, dX(3,2), 0,
-          0, 0, dX(0,2), 0, 0, dX(1,2), 0, 0, dX(2,2), 0, 0, dX(3,2);
+    Matrix<double, 4,3> dX = sim::unflatten<4,3>(dphidX.row(i));
+    local_jacobian(B, dX);
 
     // Assembly for the i-th lagrange multiplier matrix which
     // is associated with 4 vertices (for tetrahedra)
@@ -61,4 +71,20 @@ void TetrahedralObject::jacobian(SparseMatrixdRowMajor& J, const VectorXd& vols,
   }
   J.resize(9*T_.rows(), V_.size());
   J.setFromTriplets(trips.begin(),trips.end());
+}
+
+void TetrahedralObject::jacobian(std::vector<Matrix<double,9,12>> J) {
+  J.resize(T_.rows());
+
+  MatrixXd dphidX;
+  sim::linear_tetmesh_dphi_dX(dphidX, V_, T_);
+
+  for (int i = 0; i < T_.rows(); ++i) { 
+
+    // Local block
+    Matrix<double,9,12> B;
+    Matrix<double, 4,3> dX = sim::unflatten<4,3>(dphidX.row(i));
+    local_jacobian(B, dX);
+    J[i] = B;
+  }
 }

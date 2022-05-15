@@ -33,6 +33,10 @@ namespace mfem {
     virtual void jacobian(SparseMatrixdRowMajor& J,
         const Eigen::VectorXd& vols, bool weighted) = 0;
 
+    virtual void jacobian(std::vector<Eigen::Matrix<double,9,12>> J) {
+      std::cerr << "jacobian not implemented!" << std::endl;
+    }
+
     Eigen::MatrixXd vertices() {
       return V_;
     }

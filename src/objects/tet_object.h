@@ -15,10 +15,11 @@ namespace mfem {
         : SimObject(V,T,material,material_config) {
     }
 
-    void volumes(Eigen::VectorXd& vol) override;
-    void mass_matrix(Eigen::SparseMatrixd& M,
+    virtual void volumes(Eigen::VectorXd& vol) override;
+    virtual void mass_matrix(Eigen::SparseMatrixd& M,
         const Eigen::VectorXd& vols) override;
-    void jacobian(SparseMatrixdRowMajor& J, const Eigen::VectorXd& vols,
+    virtual void jacobian(SparseMatrixdRowMajor& J, const Eigen::VectorXd& vols,
         bool weighted) override;
+    virtual void jacobian(std::vector<Eigen::Matrix<double,9,12>> J) override;
   };
 }

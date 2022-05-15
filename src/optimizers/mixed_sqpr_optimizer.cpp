@@ -31,10 +31,10 @@ void MixedSQPROptimizer::step() {
     update_system();
     substep(i==0, grad_norm);
 
-    // linesearch_x(x_, dx_);
+     linesearch_x(x_, dx_);
     // linesearch_s(s_, ds_);
-    // linesearch_s_local(s_,ds_);
-    linesearch(x_, dx_, s_, ds_);
+     linesearch_s_local(s_,ds_);
+    //linesearch(x_, dx_, s_, ds_);
 
     // x_ += dx_;
     // s_ += ds_;
@@ -76,8 +76,6 @@ void MixedSQPROptimizer::build_lhs() {
 
     // Matrix6d Htmp = -vols_[i] *  Sym * Hinv_[i] * Sym;
     // H_[i] = -Htmp.inverse();
-
-
   }
 
   // std::cout << "HX: " << std::endl;
@@ -88,7 +86,7 @@ void MixedSQPROptimizer::build_lhs() {
 
   lhs_ = M_;
   lhs_ += Gx * Hs * Gx.transpose();
-  // SparseMatrixd G = Gx * Hs * Gx.transpose();
+   SparseMatrixd G = Gx * Hs * Gx.transpose();
   // saveMarket(lhs_, "lhs.mkt");
   // saveMarket(M_, "M_.mkt");
   // saveMarket(Hs, "Hs.mkt");

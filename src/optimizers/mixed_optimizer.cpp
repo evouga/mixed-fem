@@ -187,39 +187,43 @@ void MixedOptimizer::update_rotations() {
 }
 
 bool MixedOptimizer::linesearch_x(VectorXd& x, const VectorXd& dx) {
- 
+  data_.timer.start("LS_x");
   auto value = [&](const VectorXd& x)->double {
     return energy(x, s_, la_);
   };
 
   VectorXd xt = x;
   VectorXd tmp;
+  double alpha = 1.0;
   SolverExitStatus status = linesearch_backtracking_bisection(xt, dx, value,
-      tmp, config_->ls_iters, 1.0, 0.1, 0.66, E_prev_);
-  bool done = (status == MAX_ITERATIONS_REACHED ||
-              (xt-dx).norm() < config_->ls_tol);
+      tmp, alpha, config_->ls_iters, 0.1, 0.66, E_prev_);
+  bool done = status == MAX_ITERATIONS_REACHED;
+  if (done)
+    std::cout << "linesearch_x max iters" << std::endl;
   x = xt;
+  data_.timer.stop("LS_x");
   return done;
 }
 
 bool MixedOptimizer::linesearch_s(VectorXd& s, const VectorXd& ds) {
- 
+  data_.timer.start("LS_s");
   auto value = [&](const VectorXd& s)->double {
     return energy(x_, s, la_);
   };
 
   VectorXd st = s;
   VectorXd tmp;
+  double alpha = 1.0;
   SolverExitStatus status = linesearch_backtracking_bisection(st, ds, value,
-      tmp, config_->ls_iters, 1.0, 0.1, 0.5, E_prev_);
-  bool done = (status == MAX_ITERATIONS_REACHED ||
-              (st-ds).norm() < config_->ls_tol);
+      tmp, alpha, config_->ls_iters, 0.1, 0.5, E_prev_);
+  bool done = status == MAX_ITERATIONS_REACHED;
   s = st;
+  data_.timer.stop("LS_s");
   return done;
 }
 
 bool MixedOptimizer::linesearch_s_local(VectorXd& s, const VectorXd& ds) {
-
+  data_.timer.start("LS_s_local");
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
     Ref<Vector6d> la = la_.segment<6>(6*i);
@@ -231,15 +235,17 @@ bool MixedOptimizer::linesearch_s_local(VectorXd& s, const VectorXd& ds) {
 
     const Vector6d& si = s.segment<6>(6*i);
     const Vector6d& dsi = ds.segment<6>(6*i);
+    double alpha = 1.0;
     Vector6d st = si;
     Vector6d tmp;
     SolverExitStatus status = linesearch_backtracking_bisection(st, dsi, value,
-        tmp, config_->ls_iters, 1.0, 0.1, 0.5, E_prev_);
+        tmp, alpha, config_->ls_iters, 0.1, 0.5, E_prev_);
     bool done = (status == MAX_ITERATIONS_REACHED);
     s.segment<6>(6*i) = st;
     
   }
-
+  data_.timer.stop("LS_s_local");
+  return true;
 }
 
 bool MixedOptimizer::linesearch(Eigen::VectorXd& x, const Eigen::VectorXd& dx,
@@ -258,9 +264,10 @@ bool MixedOptimizer::linesearch(Eigen::VectorXd& x, const Eigen::VectorXd& dx,
   g.segment(0,x.size()) = dx;
   g.segment(x.size(),s.size()) = ds;
 
+  double alpha = 1.0;
   VectorXd tmp;
   SolverExitStatus status = linesearch_backtracking_bisection(f, g, value,
-      tmp, config_->ls_iters, 1.0, 0.1, 0.5, E_prev_);
+      tmp, alpha, config_->ls_iters, 0.1, 0.5, E_prev_);
   bool done = (status == MAX_ITERATIONS_REACHED);
   x = f.segment(0, x.size());
   s = f.segment(x.size(), s.size());
