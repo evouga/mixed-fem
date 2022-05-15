@@ -31,10 +31,10 @@ void MixedSQPROptimizer::step() {
     update_system();
     substep(i==0, grad_norm);
 
-     linesearch_x(x_, dx_);
+    //linesearch_x(x_, dx_);
     // linesearch_s(s_, ds_);
-     linesearch_s_local(s_,ds_);
-    //linesearch(x_, dx_, s_, ds_);
+    //linesearch_s_local(s_,ds_);
+    linesearch(x_, dx_, s_, ds_);
 
     // x_ += dx_;
     // s_ += ds_;
@@ -47,6 +47,7 @@ void MixedSQPROptimizer::step() {
     E_prev_ = E;
     data_.timer.stop("step");
 
+    std::cout << "grad_norm: " << grad_norm << " newton tol: " << config_->newton_tol << std::endl;
 
     ++i;
   } while (i < config_->outer_steps && grad_norm > config_->newton_tol);
@@ -229,4 +230,27 @@ void MixedSQPROptimizer::substep(bool init_guess, double& decrement) {
   data_.egrad_s_.push_back(ds_.norm());
   data_.egrad_la_.push_back(la_.norm());
 
+}
+
+bool MixedSQPROptimizer::linesearch_x(VectorXd& x, const VectorXd& dx) {
+  data_.timer.start("LS_x");
+  auto value = [&](const VectorXd& x)->double {
+    //double h = config_->h;
+    //VectorXd xdiff = x - x0_ - h*vt_ - h*h*f_ext_;
+    //return 0.5*xdiff.transpose()*M_*xdiff;
+    return energy(x,s_,la_);
+  };
+
+  VectorXd xt = x;
+  VectorXd tmp;
+  double alpha = 1.0;
+  SolverExitStatus status = linesearch_backtracking_bisection(xt, dx, value,
+      tmp, alpha, config_->ls_iters, 0.1, 0.66, E_prev_);
+  bool done = status == MAX_ITERATIONS_REACHED;
+  if (done)
+    std::cout << "linesearch_x max iters" << std::endl;
+  x = xt;
+  data_.timer.stop("LS_x");
+  std::cout << "x alpha: " << alpha << std::endl;
+  return done;
 }

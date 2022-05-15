@@ -115,4 +115,44 @@ void polar_svd3x3_sse(const Eigen::Matrix<T, 3*4, 3>& A, Eigen::Matrix<T, 3*4, 3
   }
 }
 
+template<typename T>
+void svd3x3_sse(const Eigen::VectorXx<T>& F, std::vector<Eigen::Matrix3f>& U,
+    std::vector<Eigen::Vector3f>& sigma, std::vector<Eigen::Matrix3f>& V) {
+
+  int nelem = F.size() / 9;
+  int N = (nelem / 4) + int(nelem % 4 != 0);
+  U.resize(nelem);
+  sigma.resize(nelem);
+  V.resize(nelem);
+
+  #pragma omp parallel for 
+  for (int ii = 0; ii < N; ++ii) {
+    Eigen::Matrix<float,12,3> F4,U4,V4;
+    Eigen::Matrix<float,12,1> S4;
+    // SSE implementation operates on 4 matrices at a time, so assemble
+    // 12 x 3 matrices
+    for (int jj = 0; jj < 4; ++jj) {
+      int i = ii*4 +jj;
+      if (i >= nelem)
+        break;
+      Eigen::Matrix3x<T> f4 = Eigen::Map<const Eigen::Matrix3x<T>>(
+          (F.template segment<9>(9*i)).data());
+      F4.block(3*jj, 0, 3, 3) = f4.template cast<float>();
+    }
+ 
+    // Solve rotations
+    svd3x3_sse(F4, U4, S4, V4);
+
+    // Assign rotations to per-element matrices
+    for (int jj = 0; jj < 4; jj++) {
+      int i = ii*4 +jj;
+      if (i >= nelem)
+        break;
+      U[i] = U4.block(3*jj, 0, 3, 3);
+      V[i] = V4.block(3*jj, 0, 3, 3);
+      sigma[i] = S4.segment(3*jj, 3); 
+    }
+  }
+}
+
 #pragma runtime_checks( "u", restore )

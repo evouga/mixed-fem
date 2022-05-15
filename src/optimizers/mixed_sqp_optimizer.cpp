@@ -132,10 +132,10 @@ void MixedSQPOptimizer::update_system() {
   SparseMatrixd Gtmp22 = Jw_.transpose() * C_;
   data_.timer.stop("Gx22");
 
-  SparseMatrixd Jtmp = J_;
+  SparseMatrixd Jtmp = Jw_;
   data_.timer.start("Gx3");
   update_block_diagonal(dS_, C_);
-  SparseMatrixd Gtmp3 = Jtmp.transpose() * C_ * W_;
+  SparseMatrixd Gtmp3 = Jtmp.transpose() * C_;
   data_.timer.stop("Gx3");
 
   // Assemble blocks for left and right hand side
@@ -292,44 +292,38 @@ double MixedSQPOptimizer::energy(const VectorXd& x, const VectorXd& s,
         const VectorXd& la) {
   double h = config_->h;
   double h2 = h*h;
+  data_.timer.start("1");
   VectorXd xdiff = x - x0_ - h*vt_ - h*h*f_ext_;
   
-  double Em = 0.5*xdiff.transpose()*M_*xdiff;
+  double Em = 0.5*xdiff.transpose()*Mr_*xdiff;
 
   VectorXd def_grad = J_*(P_.transpose()*x+b_);
 
   VectorXd e_L(nelem_);
   VectorXd e_Psi(nelem_);
+  data_.timer.stop("1");
+
+  svd3x3_sse(def_grad, U_, sigma_, V_);
 
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
-    Matrix3d F = Map<Matrix3d>(def_grad.segment<9>(9*i).data());
-    JacobiSVD<Matrix3d> svd(F, ComputeFullU | ComputeFullV);
-
-    Matrix3d S = svd.matrixV() * svd.singularValues().asDiagonal() 
-        * svd.matrixV().transpose();
+    Matrix3f S = V_[i] * sigma_[i].asDiagonal() * V_[i].transpose();
     Vector6d stmp; stmp << S(0,0), S(1,1), S(2,2), S(1,0), S(2,0), S(2,1);
-
     const Vector6d& si = s.segment<6>(6*i);
     Vector6d diff = Sym * (stmp - si);
-
     e_L(i) = la.segment<6>(6*i).dot(diff) * vols_[i];
     e_Psi(i) = object_->material_->energy(si) * vols_[i];
   }
-
   double Ela = e_L.sum();
   double Epsi = h2 * e_Psi.sum();
-
   double e = Em + Epsi - Ela;
-  //std::cout << "E: " <<  e << " ";
-  // std::cout << "  - (Em: " << Em << " Epsi: " << Epsi 
-  //    << " Ela: " << Ela << " )" << std::endl;
   return e;
 }
 
 void MixedSQPOptimizer::reset() {
   MixedOptimizer::reset();
  
+  Mr_ = M_;
   object_->jacobian(Jw_, vols_, true);
 
   init_block_diagonal<9,6>(C_, nelem_);

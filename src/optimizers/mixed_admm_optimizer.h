@@ -1,6 +1,6 @@
 #pragma once
 
-#include "optimizers/optimizer.h"
+#include "optimizers/mixed_optimizer.h"
 
 #if defined(SIM_USE_CHOLMOD)
 #include <Eigen/CholmodSupport>
@@ -10,10 +10,10 @@ namespace mfem {
 
   // Mixed FEM Augmented Lagrangian method with proximal point method for
   // solving the dual variables.
-  class MixedADMMOptimizer : public Optimizer {
+  class MixedADMMOptimizer : public MixedOptimizer {
   public:
     MixedADMMOptimizer(std::shared_ptr<SimObject> object,
-        std::shared_ptr<SimConfig> config) : Optimizer(object, config) {}
+        std::shared_ptr<SimConfig> config) : MixedOptimizer(object, config) {}
 
     void reset() override;
     void step() override;
@@ -22,32 +22,27 @@ namespace mfem {
 
     // Evaluated augmented lagrangian energy
     virtual double energy(const Eigen::VectorXd& x, const Eigen::VectorXd& s,
-        const Eigen::VectorXd& la);
+        const Eigen::VectorXd& la) override;
 
-    // Build system left hand side
-    // Build linear system right hand side
+    virtual void build_lhs() override;
+    virtual void build_rhs() override {
+      std::cout << "build_rhs unused" << std::endl;
+    }
 
-    virtual void hessians();
     virtual void gradient_x();
     virtual void gradient_s();
 
     // For a new set of positions, update the rotations and their
     // derivatives
-    virtual void update_rotations();
+    virtual void update_rotations() override;
 
     // Update gradients, LHS, RHS for a new configuration
-    virtual void update_system();
-
-    // Linesearch over positions
-    // x  - initial positions. Output of linesearch updates this variable
-    // dx - direction we perform linesearch on
-    virtual bool linesearch(Eigen::VectorXd& x, const Eigen::VectorXd& dx);
-    virtual bool linesearch_s(Eigen::VectorXd& s, const Eigen::VectorXd& ds);
+    virtual void update_system() override;
 
     // Simulation substep for this object
     // init_guess - whether to initialize guess with a prefactor solve
     // decrement  - newton decrement norm
-    virtual void substep(bool init_guess, double& decrement);
+    virtual void substep(bool init_guess, double& decrement) override;
 
     // Warm start the timestep with a explicit euler prediction of 
     // the positions
@@ -56,43 +51,19 @@ namespace mfem {
     // Update lagrange multipliers and kappa value
     virtual void update_constraints(double residual);
 
-    // At the end of the timestep, update position, velocity variables,
-    // and reset lambda & kappa.
-    virtual void update_configuration();
-
-    // TODO this is terrible
-    virtual Eigen::VectorXd collision_force();
-
     // Configuration vectors & body forces
-    Eigen::VectorXd xt_;        // current positions
-    Eigen::VectorXd vt_;        // current velocities
-    Eigen::VectorXd x0_;        // previous positions
-    Eigen::VectorXd dx_;        // current update
-    Eigen::VectorXd f_ext_;     // per-node external forces
-    Eigen::VectorXd la_;        // lambdas
-    Eigen::VectorXd ds_;        // deformation updates
-    Eigen::VectorXd s_;         // deformation variables
-    Eigen::VectorXd b_;         // coordinates projected out
-    Eigen::VectorXd vols_;      // per element volume
     Eigen::VectorXd gx_;
     Eigen::VectorXd gs_;
 
-    std::vector<Eigen::Matrix3d> R_;    // Per-element rotations
-    //std::vector<Eigen::Vector6d> S_;  // Per-element deformation
     std::vector<Eigen::Matrix6d> Hs_;   // Elemental hessians w.r.t dS
-    std::vector<Eigen::Vector6d> g_;    // Elemental gradients w.r.t dS
     std::vector<Eigen::Matrix9d> dRS_;           // dRS/dF
     std::vector<Eigen::Matrix<double,9,6>> dRL_; // dRL/dF
     std::vector<Eigen::Matrix<double,9,6>> dRe_; // dR(RS-F)/dF
 
-    Eigen::SparseMatrixd M_;        // mass matrix
-    Eigen::SparseMatrixd P_;        // pinning constraint (for vertices)
-    SparseMatrixdRowMajor J_;       // jacobian
     SparseMatrixdRowMajor Jw_;      // integrated (weighted) jacobian
     Eigen::SparseMatrixd J2_;
     Eigen::SparseMatrixd J_tilde_;
     SparseMatrixdRowMajor Ws_;      // integrated (weighted) jacobian
-    Eigen::SparseMatrixd W_;
     Eigen::SparseMatrixd A_;        
     Eigen::SparseMatrixd G_;
     Eigen::SparseMatrixd L_;

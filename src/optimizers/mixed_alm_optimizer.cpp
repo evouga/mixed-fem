@@ -249,8 +249,9 @@ bool MixedALMOptimizer::linesearch(VectorXd& x, const VectorXd& dx) {
 
   VectorXd xt = x;
   VectorXd tmp;
+  double alpha = 1.0;
   SolverExitStatus status = linesearch_backtracking_bisection(xt, dx, value,
-      tmp, config_->ls_iters, 1.0, 0.1, 0.5, E_prev_);
+      tmp, alpha, config_->ls_iters, 0.1, 0.5, E_prev_);
   bool done = (status == MAX_ITERATIONS_REACHED ||
               (xt-dx).norm() < config_->ls_tol);
   x = xt;

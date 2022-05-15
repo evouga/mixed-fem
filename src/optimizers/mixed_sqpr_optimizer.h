@@ -30,6 +30,9 @@ namespace mfem {
     // decrement  - newton decrement norm
     virtual void substep(bool init_guess, double& decrement) override;
 
+    virtual bool linesearch_x(Eigen::VectorXd& x,
+        const Eigen::VectorXd& dx) override;
+
     Eigen::VectorXd gl_;
     Eigen::SimplicialLDLT<Eigen::SparseMatrixd> solver_;
 

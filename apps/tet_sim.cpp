@@ -22,7 +22,6 @@
 #include "optimizers/mixed_alm_optimizer.h"
 #include "optimizers/mixed_admm_optimizer.h"
 #include "optimizers/mixed_sqp_optimizer.h"
-#include "optimizers/mixed_sqp_full_optimizer.h"
 #include "optimizers/mixed_sqpr_optimizer.h"
 #include "optimizers/newton_optimizer.h"
 using namespace Eigen;
@@ -77,9 +76,6 @@ std::shared_ptr<Optimizer> make_optimizer(std::shared_ptr<SimObject> object,
     break;
   case OPTIMIZER_SQP:
     return std::make_shared<MixedSQPOptimizer>(object,config);
-    break;
-  case OPTIMIZER_SQP_FULL:
-    return std::make_shared<MixedSQPFullOptimizer>(object,config);
     break;
   case OPTIMIZER_SQP_PD:
     return std::make_shared<MixedSQPROptimizer>(object,config);
@@ -170,25 +166,29 @@ void callback() {
   if (ImGui::TreeNode("Sim Params")) {
 
     int type = config->optimizer;
-    if (ImGui::Combo("Optimizer", &type,"ALM\0ADMM\0SQP\0SQP_FULL\0SQP_PD\0NEWTON\0\0")) {
+    if (ImGui::Combo("Optimizer", &type,"ALM\0ADMM\0SQP\0SQP_PD\0NEWTON\0\0")) {
       config->optimizer = static_cast<OptimizerType>(type);
       optimizer = make_optimizer(tet_object, config);
       optimizer->reset();
     }
 
     ImGui::InputInt("Max Newton Iters", &config->outer_steps);
-
-    ImGui::InputInt("Max LS Iters", &config->max_iterative_solver_iters);
+    ImGui::InputInt("Max Inner Iters", &config->max_iterative_solver_iters);
+    ImGui::InputInt("Max LS Iters", &config->ls_iters);
 
     //ImGui::InputInt("Inner Steps", &config->inner_steps);
     if (ImGui::InputFloat3("Body Force", config->ext, 3)) {
       sim_dirty = true;
     }
-    ImGui::InputDouble("kappa", &config->kappa,0,0,"%.5g");
-    ImGui::SameLine(); 
-    ImGui::InputDouble("max kappa", &config->max_kappa, 0,0,"%.5g");
-    ImGui::InputDouble("constraint tol",&config->constraint_tol, 0,0,"%.5g");
-    ImGui::InputDouble("lamda update tol",&config->update_zone_tol,0,0,"%.5g");
+
+    if (config->optimizer == OPTIMIZER_ALM
+        || config->optimizer == OPTIMIZER_ADMM) {
+      ImGui::InputDouble("kappa", &config->kappa,0,0,"%.5g");
+      ImGui::SameLine(); 
+      ImGui::InputDouble("max kappa", &config->max_kappa, 0,0,"%.5g");
+      ImGui::InputDouble("constraint tol",&config->constraint_tol, 0,0,"%.5g");
+      ImGui::InputDouble("lamda update tol",&config->update_zone_tol,0,0,"%.5g");
+    }
     ImGui::Checkbox("floor collision",&config->floor_collision);
     ImGui::Checkbox("warm start",&config->warm_start);
     ImGui::TreePop();

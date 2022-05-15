@@ -42,8 +42,9 @@ void NewtonOptimizer::step() {
       return energy(x);
     };
     VectorXd tmp;
+    double alpha = 1.0;
     SolverExitStatus status = linesearch_backtracking_bisection(x_, dx_, value,
-        tmp, config_->ls_iters, 1.0, 0.1, 0.5, E_prev_);
+        tmp, alpha, config_->ls_iters, 0.1, 0.5, E_prev_);
     bool done = status == MAX_ITERATIONS_REACHED;
 
     double E = energy(x_);

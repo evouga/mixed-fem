@@ -35,7 +35,7 @@ void MixedADMMOptimizer::step() {
     double t1 = duration_cast<nanoseconds>(end-start).count()/1e6;
 
     start = high_resolution_clock::now();
-    bool ls_done = linesearch(xt_, dx_);
+    bool ls_done = linesearch_x(x_, dx_);
     end = high_resolution_clock::now();
     double t2 = duration_cast<nanoseconds>(end-start).count()/1e6;
 
@@ -63,7 +63,7 @@ void MixedADMMOptimizer::step() {
     update_constraints(grad_norm);
 
     double E0 = E_prev_;
-    E_prev_ = energy(xt_, s_, la_);
+    E_prev_ = energy(x_, s_, la_);
     double relative_obj = std::abs(E_prev_ - E0) / std::abs(E_prev_ + 1.0);
     std::cout << "  - Objective Residual: " << relative_obj << std::endl;
     if (ls_done) {
@@ -78,7 +78,7 @@ void MixedADMMOptimizer::step() {
 }
 
 
-void MixedADMMOptimizer::hessians() {
+void MixedADMMOptimizer::build_lhs() {
   double h2 = config_->h * config_->h;
   double k = config_->kappa;
 
@@ -108,17 +108,17 @@ void MixedADMMOptimizer::hessians() {
 }
 
 void MixedADMMOptimizer::gradient_x() {
-  //int sz = xt_.size() + nelem_*6;
-  gx_.resize(xt_.size());
+  //int sz = x_.size() + nelem_*6;
+  gx_.resize(x_.size());
   gx_.setZero();
 
   // Positional forces 
   double h = config_->h;
   double h2 = h*h;
-  gx_.segment(0, xt_.size()) = -M_*(xt_ - x0_ - h*vt_ - h*h*f_ext_);
+  gx_.segment(0, x_.size()) = -M_*(x_ - x0_ - h*vt_ - h*h*f_ext_);
 
   VectorXd reg_x(9*nelem_);
-  VectorXd def_grad = J_*(P_.transpose()*xt_+b_);
+  VectorXd def_grad = J_*(P_.transpose()*x_+b_);
 
   // Lagrange multiplier forces
   #pragma omp parallel for
@@ -130,7 +130,7 @@ void MixedADMMOptimizer::gradient_x() {
     reg_x.segment(9*i,9) = diff;
   }
 
-  gx_.segment(0, xt_.size()) += -h2 * P_ * (Jw_.transpose() 
+  gx_.segment(0, x_.size()) += -h2 * P_ * (Jw_.transpose() 
      - Jw_.transpose() * WhatS_) * (la_ - config_->kappa*reg_x);
 }
 
@@ -142,7 +142,7 @@ void MixedADMMOptimizer::gradient_s() {
   double h = config_->h;
   double h2 = h*h;
 
-  VectorXd def_grad = J_*(P_.transpose()*xt_+b_);
+  VectorXd def_grad = J_*(P_.transpose()*x_+b_);
 
   // Lagrange multiplier forces
   #pragma omp parallel for
@@ -159,7 +159,7 @@ void MixedADMMOptimizer::gradient_s() {
 }
 
 void MixedADMMOptimizer::update_rotations() {
-  VectorXd def_grad = J_*(P_.transpose()*xt_+b_);
+  VectorXd def_grad = J_*(P_.transpose()*x_+b_);
 
   int N = (nelem_ / 4) + int(nelem_ % 4 != 0);
 
@@ -249,45 +249,11 @@ void MixedADMMOptimizer::update_system() {
 
   // Assemble blocks for left hand side
   start = high_resolution_clock::now();
-  hessians();
+  build_lhs();
   end = high_resolution_clock::now();
   double t_3 = duration_cast<nanoseconds>(end-start).count()/1e6;
   // std::cout << "  - Timing [update rotations]: " << t_1 
   //     << " [update blocks]: " << t_2 << " [LHS]: " << t_3 << std::endl;
-}
-
-
-bool MixedADMMOptimizer::linesearch(VectorXd& x, const VectorXd& dx) {
- 
-  auto value = [&](const VectorXd& x)->double {
-    return energy(x, s_, la_);
-  };
-
-  VectorXd xt = x;
-  VectorXd tmp;
-  SolverExitStatus status = linesearch_backtracking_bisection(xt, dx, value,
-      tmp, config_->ls_iters, 1.0, 0.1, 0.5, E_prev_);
-  bool done = (status == MAX_ITERATIONS_REACHED ||
-              (xt-dx).norm() < config_->ls_tol);
-  x = xt;
-  return done;
-}
-
-bool MixedADMMOptimizer::linesearch_s(VectorXd& s, const VectorXd& ds) {
- 
-  auto value = [&](const VectorXd& s)->double {
-    return energy(xt_, s, la_);
-  };
-
-  // std::cout << "Linesearch over 's'" << std::endl;
-  VectorXd st = s;
-  VectorXd tmp;
-  SolverExitStatus status = linesearch_backtracking_bisection(st, ds, value,
-      tmp, config_->ls_iters, 1.0, 0.1, 0.5, E_prev_);
-  bool done = (status == MAX_ITERATIONS_REACHED ||
-              (st-ds).norm() < config_->ls_tol);
-  s = st;
-  return done;
 }
 
 void MixedADMMOptimizer::substep(bool init_guess, double& decrement) {
@@ -300,13 +266,6 @@ void MixedADMMOptimizer::substep(bool init_guess, double& decrement) {
   t_rhs += duration_cast<nanoseconds>(end-start).count()/1e6;
   start = end;
 
-  if (config_->floor_collision) {
-    VectorXd f_coll = collision_force();
-    gx_ += f_coll;
-    end = high_resolution_clock::now();
-    double t_coll = duration_cast<nanoseconds>(end-start).count()/1e6;
-    start = end;
-  }
 
   // if (init_guess) {
   //   dx_ds_ = solver_.solve(rhs_);
@@ -351,18 +310,17 @@ void MixedADMMOptimizer::substep(bool init_guess, double& decrement) {
 void MixedADMMOptimizer::warm_start() {
   double h = config_->h;
   dx_ = h*vt_ + h*h*f_ext_;
-  xt_ += dx_;
+  x_ += dx_;
 }
 
 
 void MixedADMMOptimizer::update_constraints(double residual) {
-  VectorXd def_grad = J_*(P_.transpose()*xt_+b_);
+  VectorXd def_grad = J_*(P_.transpose()*x_+b_);
 
   // Evaluate constraint
   VectorXd dl = W_*s_ - def_grad;
 
   residual /= config_->h;
-  //residual *= config_->h; // TODO probably divide :p
   double constraint_residual = dl.lpNorm<Infinity>();
   double constraint_tol = config_->constraint_tol;
   double update_zone_tol = config_->update_zone_tol; 
@@ -387,19 +345,6 @@ void MixedADMMOptimizer::update_constraints(double residual) {
       << config_->kappa << std::endl;
 }
 
-void MixedADMMOptimizer::update_configuration() {
-
-  vt_ = (xt_ - x0_) / config_->h;
-  x0_ = xt_;
-
-  la_.setZero();
-
-  VectorXd x = P_.transpose()*xt_ + b_;
-
-  // Update mesh vertices
-  MatrixXd V = Map<MatrixXd>(x.data(), object_->V_.cols(), object_->V_.rows());
-  object_->V_ = V.transpose();
-}
 
 double MixedADMMOptimizer::energy(const VectorXd& x, const VectorXd& s,
         const VectorXd& la) {
@@ -494,13 +439,13 @@ void MixedADMMOptimizer::reset() {
   P_ = pinning_matrix(object_->V_, object_->T_, pinnedV_, false);
 
   MatrixXd tmp = object_->V_.transpose();
-  xt_ = Map<VectorXd>(tmp.data(), object_->V_.size());
+  x_ = Map<VectorXd>(tmp.data(), object_->V_.size());
 
-  b_ = xt_ - P_.transpose()*P_*xt_;
-  xt_ = P_ * xt_;
-  x0_ = xt_;
-  dx_ = 0*xt_;
-  vt_ = 0*xt_;
+  b_ = x_ - P_.transpose()*P_*x_;
+  x_ = P_ * x_;
+  x0_ = x_;
+  dx_ = 0*x_;
+  vt_ = 0*x_;
   tmp_r_ = dx_;
   tmp_z_ = dx_;
   tmp_p_ = dx_;
@@ -547,32 +492,4 @@ void MixedADMMOptimizer::reset() {
   if(solver_.info()!=Success) {
     std::cerr << " KKT prefactor failed! " << std::endl;
   }
-}
-
-
-VectorXd MixedADMMOptimizer::collision_force() {
-
-  //Vector3d N(plane(0),plane(1),plane(2));
-  Vector3d N(.05,.99,0);
-  //Vector3d N(0.,1.,0.);
-  N = N / N.norm();
-  double d = config_->plane_d;
-
-  int n = xt_.size() / 3;
-  VectorXd ret(xt_.size());
-  ret.setZero();
-
-  double k = 280; //20 for octopus ssliding
-
-  #pragma omp parallel for
-  for (int i = 0; i < n; ++i) {
-    Vector3d xi(xt_(3*i+0)+dx_(3*i),
-                xt_(3*i+1)+dx_(3*i+1),
-                xt_(3*i+2)+dx_(3*i+2));
-    double dist = xi.dot(N);
-    if (dist < config_->plane_d) {
-      ret.segment(3*i,3) = k*(config_->plane_d-dist)*N;
-    }
-  }
-  return M_*ret;
 }

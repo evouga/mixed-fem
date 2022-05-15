@@ -183,12 +183,17 @@ namespace mfem {
     Eigen::SparseMatrixd Gx_;
     Eigen::SparseMatrixd Gx0_;
     Eigen::SparseMatrixd Gs_;
+    SparseMatrixdRowMajor Mr_; // row major mass matrix
 
     // CG temp variables
     Eigen::VectorXd tmp_r_;
     Eigen::VectorXd tmp_z_;
     Eigen::VectorXd tmp_p_;
     Eigen::VectorXd tmp_Ap_;
+
+    std::vector<Eigen::Matrix3f> U_;
+    std::vector<Eigen::Matrix3f> V_;
+    std::vector<Eigen::Vector3f> sigma_;
 
     // // Solve used for preconditioner
     // #if defined(SIM_USE_CHOLMOD)

@@ -18,7 +18,6 @@ namespace mfem {
       OPTIMIZER_ALM,
       OPTIMIZER_ADMM,
       OPTIMIZER_SQP,
-      OPTIMIZER_SQP_FULL,
       OPTIMIZER_SQP_PD,
       OPTIMIZER_NEWTON,
   };
@@ -54,7 +53,7 @@ namespace mfem {
 
     double newton_tol = 1e-10;
     double ls_tol = 1e-4;
-    int ls_iters = 100;
+    int ls_iters = 20;
     OptimizerType optimizer = OPTIMIZER_SQP_PD;
     int max_iterative_solver_iters = 500;
 
