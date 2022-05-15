@@ -218,6 +218,30 @@ bool MixedOptimizer::linesearch_s(VectorXd& s, const VectorXd& ds) {
   return done;
 }
 
+bool MixedOptimizer::linesearch_s_local(VectorXd& s, const VectorXd& ds) {
+
+  #pragma omp parallel for
+  for (int i = 0; i < nelem_; ++i) {
+    Ref<Vector6d> la = la_.segment<6>(6*i);
+
+    auto value = [&](const Vector6d& s)->double {
+      return vols_[i] * (object_->material_->energy(s)
+          - la.dot(-Sym * s));
+    };
+
+    const Vector6d& si = s.segment<6>(6*i);
+    const Vector6d& dsi = ds.segment<6>(6*i);
+    Vector6d st = si;
+    Vector6d tmp;
+    SolverExitStatus status = linesearch_backtracking_bisection(st, dsi, value,
+        tmp, config_->ls_iters, 1.0, 0.1, 0.5, E_prev_);
+    bool done = (status == MAX_ITERATIONS_REACHED);
+    s.segment<6>(6*i) = st;
+    
+  }
+
+}
+
 bool MixedOptimizer::linesearch(Eigen::VectorXd& x, const Eigen::VectorXd& dx,
         Eigen::VectorXd& s, const Eigen::VectorXd& ds) {
   data_.timer.start("linesearch");

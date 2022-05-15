@@ -26,8 +26,8 @@ namespace mfem {
   protected:
 
     OptimizerData data_;
-    std::shared_ptr<SimConfig> config_;
     std::shared_ptr<SimObject> object_;
+    std::shared_ptr<SimConfig> config_;
 
     // Debug timing variables (timings in milliseconds)
     std::map<std::string, double> timings;

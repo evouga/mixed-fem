@@ -41,7 +41,6 @@ namespace mfem {
     // decrement  - newton decrement norm
     virtual void substep(bool init_guess, double& decrement) = 0;
 
-
     // For a new set of positions, update R,S and their derivatives
     virtual void update_rotations();
 
@@ -50,6 +49,8 @@ namespace mfem {
     // dx - direction we perform linesearch on
     virtual bool linesearch_x(Eigen::VectorXd& x, const Eigen::VectorXd& dx);
     virtual bool linesearch_s(Eigen::VectorXd& s, const Eigen::VectorXd& ds);
+    virtual bool linesearch_s_local(Eigen::VectorXd& s,
+        const Eigen::VectorXd& ds);
     virtual bool linesearch(Eigen::VectorXd& x, const Eigen::VectorXd& dx,
         Eigen::VectorXd& s, const Eigen::VectorXd& ds);
 

@@ -69,8 +69,6 @@ void MixedSQPOptimizer::build_lhs() {
 
   fill_block_matrix(M_, Gx_.transpose(), H_, lhs_);
 
-  saveMarket(lhs_, "output");
-
   data_.timer.stop("LHS");
 }
 

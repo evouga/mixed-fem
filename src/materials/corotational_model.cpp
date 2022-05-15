@@ -1,4 +1,5 @@
 #include "materials/corotational_model.h"
+#include "simple_psd_fix.h"
 
 using namespace Eigen;
 using namespace mfem;

@@ -17,6 +17,8 @@ namespace mfem {
   
   public:
 
+    virtual void step() override;
+
     // Build system left hand side
     virtual void build_lhs() override;
 
@@ -29,5 +31,7 @@ namespace mfem {
     virtual void substep(bool init_guess, double& decrement) override;
 
     Eigen::VectorXd gl_;
+    Eigen::SimplicialLDLT<Eigen::SparseMatrixd> solver_;
+
   };
 }

@@ -81,7 +81,7 @@ std::shared_ptr<Optimizer> make_optimizer(std::shared_ptr<SimObject> object,
   case OPTIMIZER_SQP_FULL:
     return std::make_shared<MixedSQPFullOptimizer>(object,config);
     break;
-  case OPTIMIZER_SQP_LA:
+  case OPTIMIZER_SQP_PD:
     return std::make_shared<MixedSQPROptimizer>(object,config);
     break;
   case OPTIMIZER_NEWTON:
@@ -170,7 +170,7 @@ void callback() {
   if (ImGui::TreeNode("Sim Params")) {
 
     int type = config->optimizer;
-    if (ImGui::Combo("Optimizer", &type,"ALM\0ADMM\0SQP\0SQP_FULL\0SQP_LA\0NEWTON\0\0")) {
+    if (ImGui::Combo("Optimizer", &type,"ALM\0ADMM\0SQP\0SQP_FULL\0SQP_PD\0NEWTON\0\0")) {
       config->optimizer = static_cast<OptimizerType>(type);
       optimizer = make_optimizer(tet_object, config);
       optimizer->reset();

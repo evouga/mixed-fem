@@ -1,4 +1,5 @@
 #include "svd/dsvd.h"
+#include "svd/svd_eigen.h"
 
 using namespace Eigen;
 
@@ -11,20 +12,14 @@ void dsvd(Tensor3333d &dU, Tensor333d  &dS,
   Vector3d S; 
   //get the SVD 
   F = Fin;
-  JacobiSVD<Matrix3d> svd(F, ComputeFullU | ComputeFullV);
-  U = svd.matrixU();
-  V = svd.matrixV();
-  S = svd.singularValues();
+
+  mfem::svd(F, S, U, V);
   
   //crappy hack for now
-  double tol = 1e-5;
-
+  double tol = 1e-8;
   if(std::fabs(S[0] - S[1]) < tol || std::fabs(S[1] - S[2]) < tol || std::fabs(S[0] - S[2]) < tol) {
     // F += Matrix3d::Random()*tol;
-    // JacobiSVD<Matrix3d> svd2(F, ComputeFullU | ComputeFullV);
-    // U = svd2.matrixU();
-    // V = svd2.matrixV();
-    // S = svd2.singularValues();
+    // mfem::svd(F, S, U, V);
   }
 
   double w01, w02, w12;
