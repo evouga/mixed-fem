@@ -83,7 +83,7 @@ void rodrigues(Eigen::MatrixBase<DerivedMat> &R, const Eigen::MatrixBase<Derived
 }
 
 template<typename DerivedR, typename DerivedA, typename DerivedB >
-void newton_procrustes(Eigen::MatrixBase<DerivedR> &R,  const Eigen::MatrixBase<DerivedA> &A, const Eigen::MatrixBase<DerivedB> &B, double tol = 1e-8, int max_iter = 10, bool compute_gradients = false) {
+void newton_procrustes(Eigen::MatrixBase<DerivedR> &R,  const Eigen::MatrixBase<DerivedA> &A, const Eigen::MatrixBase<DerivedB> &B, double tol = 1e-8, int max_iter = 50, bool compute_gradients = false) {
 
     using Scalar = typename DerivedR::Scalar;
 

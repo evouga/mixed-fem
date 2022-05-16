@@ -12,15 +12,23 @@ namespace mfem {
     Eigen::JacobiSVD<Eigen::Matrix3x<Scalar>> svd(F,
         Eigen::ComputeFullU | Eigen::ComputeFullV);
     sigma = svd.singularValues();
-
-    Eigen::Vector3x<Scalar> stemp;
-    stemp[0] = 1;
-    stemp[1] = 1;
-    stemp[2]  = (svd.matrixU()*svd.matrixV().transpose()).determinant();
-   
-    sigma = (svd.singularValues().array() *stemp.array()).matrix(); 
-    U = svd.matrixU() *stemp.asDiagonal();
+    U = svd.matrixU();
     V = svd.matrixV();
+
+    if (identify_flips) {
+      Eigen::Matrix3x<Scalar> J = Eigen::Matrix3x<Scalar>::Identity();
+      J(2, 2) = -1.0;
+      if (U.determinant() < 0.) {
+          U = U * J;
+          sigma[2] = -sigma[2];
+      }
+      if (V.determinant() < 0.0) {
+          Eigen::Matrix3x<Scalar> Vt = V.transpose();
+          Vt = J * Vt;
+          V = Vt.transpose();
+          sigma[2] = -sigma[2];
+      }
+    }        
             
   }
 }

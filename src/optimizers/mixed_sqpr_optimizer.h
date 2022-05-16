@@ -14,7 +14,7 @@ namespace mfem {
     
     MixedSQPROptimizer(std::shared_ptr<SimObject> object,
         std::shared_ptr<SimConfig> config) : MixedSQPOptimizer(object, config) {}
-  
+
   public:
 
     virtual void step() override;
@@ -24,6 +24,9 @@ namespace mfem {
 
     // Build linear system right hand side
     virtual void build_rhs() override;
+
+    // Update gradients, LHS, RHS for a new configuration
+    virtual void update_system() override;
 
     // Simulation substep for this object
     // init_guess - whether to initialize guess with a prefactor solve

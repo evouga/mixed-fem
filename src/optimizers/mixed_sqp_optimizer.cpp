@@ -123,22 +123,6 @@ void MixedSQPOptimizer::update_system() {
   Gx_ = -P_ * J_.transpose() * C_.eval() * W_;
   data_.timer.stop("Gx");
 
-  data_.timer.start("Gx2");
-  update_block_diagonal(dS_, C_);
-  SparseMatrixd Gtmp2 = J_.transpose() * C_ * W_;
-  data_.timer.stop("Gx2");
-
-  data_.timer.start("Gx22");
-  update_block_diagonal(dS_, C_);
-  SparseMatrixd Gtmp22 = Jw_.transpose() * C_;
-  data_.timer.stop("Gx22");
-
-  SparseMatrixd Jtmp = Jw_;
-  data_.timer.start("Gx3");
-  update_block_diagonal(dS_, C_);
-  SparseMatrixd Gtmp3 = Jtmp.transpose() * C_;
-  data_.timer.stop("Gx3");
-
   // Assemble blocks for left and right hand side
   build_lhs();
   build_rhs();
@@ -293,7 +277,7 @@ double MixedSQPOptimizer::energy(const VectorXd& x, const VectorXd& s,
         const VectorXd& la) {
   double h = config_->h;
   double h2 = h*h;
-  data_.timer.start("1");
+  // data_.timer.start("1");
   VectorXd xdiff = x - x0_ - h*vt_ - h*h*f_ext_;
   
   double Em = 0.5*xdiff.transpose()*Mr_*xdiff;
@@ -302,7 +286,7 @@ double MixedSQPOptimizer::energy(const VectorXd& x, const VectorXd& s,
 
   VectorXd e_L(nelem_);
   VectorXd e_Psi(nelem_);
-  data_.timer.stop("1");
+  // data_.timer.stop("1");
 
   //svd3x3_sse(def_grad, U_, sigma_, V_);
 
@@ -310,13 +294,9 @@ double MixedSQPOptimizer::energy(const VectorXd& x, const VectorXd& s,
   for (int i = 0; i < nelem_; ++i) {
   
   //   std::cout<<"F: \n"<<sim::unflatten<3,3>(def_grad.segment<9>(9*i))<<"\n";
-    Matrix3d R = R_[i];
-    Matrix3d F = Eigen::Map<Matrix3d>(def_grad.segment<9>(9*i).data());
-    newton_procrustes(R, Matrix3d::Identity(), F, 1e-6);
-    Matrix3d S = R.transpose()*F;
-    R_[i] = R;
-    
-    
+    newton_procrustes(R_[i], Matrix3d::Identity(), Eigen::Map<Matrix3d>(def_grad.segment<9>(9*i).data()), 1e-6);
+    Matrix3d S = R_[i].transpose()*Eigen::Map<Matrix3d>(def_grad.segment<9>(9*i).data());
+  
     //std::cout<<"R: \n"<<R_[i]<<"\n";
     //std::cout<<"S: \n"<<S<<"\n";
     //Matrix3f S = V_[i] * sigma_[i].asDiagonal() * V_[i].transpose();
@@ -337,6 +317,8 @@ void MixedSQPOptimizer::reset() {
  
   Mr_ = M_;
   object_->jacobian(Jw_, vols_, true);
+  object_->jacobian(Jloc_);
+  PJ_ = P_ * Jw_.transpose();
 
   init_block_diagonal<9,6>(C_, nelem_);
 
@@ -365,6 +347,17 @@ void MixedSQPOptimizer::reset() {
     R_[ii] = Matrix3d::Identity();
   }
 
+  // Building FEM matrix assembler
+  int curr = 0;
+  std::vector<int> free_map(pinnedV_.size(), -1);  
+  for (int i = 0; i < pinnedV_.size(); ++i) {
+    if (pinnedV_(i) == 0) {
+      free_map[i] = curr++;
+    }
+  }
+  std::cout << "assembler_ " << std::endl;
+  assembler_ = std::make_shared<Assembler<double,4,3>>(object_->T_, free_map);
+
   // Initializing gradients and LHS
   update_system();
   
@@ -376,6 +369,5 @@ void MixedSQPOptimizer::reset() {
   if(solver_.info()!=Success) {
     std::cerr << " KKT prefactor failed! " << std::endl;
   }
-
   //setup_preconditioner();
 }

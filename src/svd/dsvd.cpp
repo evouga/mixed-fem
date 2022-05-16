@@ -21,15 +21,7 @@ void dsvd(Tensor3333d &dU, Tensor333d  &dS,
     // F += Matrix3d::Random()*tol;
     // mfem::svd(F, S, U, V);
   }
-
-  Eigen::Vector3d stemp;
-    stemp[0] = 1;
-    stemp[1] = 1;
-    stemp[2]  = (U*V.transpose()).determinant();
-   
-    S = (S.array()*stemp.array()).matrix(); 
-    U = U*stemp.asDiagonal();
-
+  
   double w01, w02, w12;
   double d01, d02, d12;
   
@@ -96,15 +88,6 @@ void dsvd(Ref<const Matrix3d> Fin, Ref<const Matrix3d> Uin,
     V = svd.matrixV();
     S = svd.singularValues();
   }
-
-    Eigen::Vector3d stemp;
-    stemp[0] = 1;
-    stemp[1] = 1;
-    stemp[2]  = (U*V.transpose()).determinant();
-   
-    S = (S.array() *stemp.array()).matrix(); 
-    U = U *stemp.asDiagonal();
-    
 
   double w01, w02, w12;
   double d01, d02, d12;

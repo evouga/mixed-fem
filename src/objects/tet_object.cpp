@@ -73,8 +73,9 @@ void TetrahedralObject::jacobian(SparseMatrixdRowMajor& J, const VectorXd& vols,
   J.setFromTriplets(trips.begin(),trips.end());
 }
 
-void TetrahedralObject::jacobian(std::vector<Matrix<double,9,12>> J) {
+void TetrahedralObject::jacobian(std::vector<Matrix<double,9,12>>& J) {
   J.resize(T_.rows());
+  std::cout << "T rows : " << T_.rows() << std::endl;
 
   MatrixXd dphidX;
   sim::linear_tetmesh_dphi_dX(dphidX, V_, T_);

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "optimizers/mixed_optimizer.h"
+#include "sparse_utils.h"
 
 #if defined(SIM_USE_CHOLMOD)
 #include <Eigen/CholmodSupport>
@@ -184,6 +185,7 @@ namespace mfem {
     Eigen::SparseMatrixd Gx0_;
     Eigen::SparseMatrixd Gs_;
     SparseMatrixdRowMajor Mr_; // row major mass matrix
+    SparseMatrixdRowMajor PJ_;   // integrated (weighted) jacobian
 
     // CG temp variables
     Eigen::VectorXd tmp_r_;
@@ -194,6 +196,8 @@ namespace mfem {
     std::vector<Eigen::Matrix3f> U_;
     std::vector<Eigen::Matrix3f> V_;
     std::vector<Eigen::Vector3f> sigma_;
+    std::vector<Eigen::Matrix<double,9,12>> Jloc_;
+    std::shared_ptr<Assembler<double,4,3>> assembler_;
 
     // // Solve used for preconditioner
     // #if defined(SIM_USE_CHOLMOD)
