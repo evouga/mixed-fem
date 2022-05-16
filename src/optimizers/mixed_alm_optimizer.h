@@ -87,11 +87,11 @@ namespace mfem {
 
     Eigen::SparseMatrixd M_;        // mass matrix
     Eigen::SparseMatrixd P_;        // pinning constraint (for vertices)
-    SparseMatrixdRowMajor J_;       // jacobian
-    SparseMatrixdRowMajor Jw_;      // integrated (weighted) jacobian
+    Eigen::SparseMatrixdRowMajor J_;       // jacobian
+    Eigen::SparseMatrixdRowMajor Jw_;      // integrated (weighted) jacobian
     Eigen::SparseMatrixd J2_;
     Eigen::SparseMatrixd J_tilde_;
-    SparseMatrixdRowMajor Ws_;      // integrated (weighted) jacobian
+    Eigen::SparseMatrixdRowMajor Ws_;      // integrated (weighted) jacobian
     Eigen::SparseMatrixd W_;
     Eigen::SparseMatrixd A_;        
     Eigen::SparseMatrixd G_;

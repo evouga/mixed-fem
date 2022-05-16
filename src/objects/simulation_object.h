@@ -11,9 +11,12 @@
 #include <Eigen/CholmodSupport>
 #endif
 
-namespace mfem {
 
+namespace Eigen {
   using SparseMatrixdRowMajor = Eigen::SparseMatrix<double, Eigen::RowMajor>;
+}
+
+namespace mfem {
 
   // Class to maintain the state and perform physics updates on an object,
   // which has a particular discretization, material, and material config
@@ -30,7 +33,7 @@ namespace mfem {
     virtual void volumes(Eigen::VectorXd& vol) = 0;
     virtual void mass_matrix(Eigen::SparseMatrixd& M,
         const Eigen::VectorXd& vols) = 0;
-    virtual void jacobian(SparseMatrixdRowMajor& J,
+    virtual void jacobian(Eigen::SparseMatrixdRowMajor& J,
         const Eigen::VectorXd& vols, bool weighted) = 0;
 
     virtual void jacobian(std::vector<Eigen::Matrix<double,9,12>>& J) {

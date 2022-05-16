@@ -224,11 +224,11 @@ namespace mfem {
 
   // Builds a block symmetric matrix of the form
   // P = [A B^T; B C] where C is block diagonal
-  template <int N>
-  void fill_block_matrix(const Eigen::SparseMatrixd& A,
-      const Eigen::SparseMatrixd& B,
+  template <int N, int AOrdering, int BOrdering, int POrdering>
+  void fill_block_matrix(const Eigen::SparseMatrix<double, AOrdering>& A,
+      const Eigen::SparseMatrix<double, BOrdering>& B,
       const std::vector<Eigen::Matrix<double, N, N>>& C,
-      Eigen::SparseMatrixd& mat) {
+      Eigen::SparseMatrix<double,POrdering>& mat) {
     
     using namespace Eigen;
 
@@ -269,10 +269,10 @@ namespace mfem {
 
   // Builds a block symmetric matrix of the form
   // P = [A 0; 0 C] where C is block diagonal
-  template <int N>
-  void fill_block_matrix(const Eigen::SparseMatrixd& A,
+  template <int N, int Ordering>
+  void fill_block_matrix(const Eigen::SparseMatrix<double,Ordering>& A,
       const std::vector<Eigen::Matrix<double, N, N>>& C,
-      Eigen::SparseMatrixd& mat) {
+      Eigen::SparseMatrix<double, Ordering>& mat) {
     
     using namespace Eigen;
     int m = N * C.size();

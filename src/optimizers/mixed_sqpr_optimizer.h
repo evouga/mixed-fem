@@ -37,7 +37,7 @@ namespace mfem {
         const Eigen::VectorXd& dx) override;
 
     Eigen::VectorXd gl_;
-    Eigen::SimplicialLDLT<Eigen::SparseMatrixd> solver_;
+    Eigen::SimplicialLDLT<Eigen::SparseMatrixdRowMajor> solver_;
 
   };
 }

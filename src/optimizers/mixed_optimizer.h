@@ -7,7 +7,6 @@
 #include <Eigen/CholmodSupport>
 #endif
 
-
 namespace mfem {
 
   // Mixed FEM Optimizer Base Class
@@ -71,7 +70,7 @@ namespace mfem {
     Eigen::VectorXd b_;         // coordinates projected out
     Eigen::VectorXd vols_;      // per element volume
     Eigen::VectorXd rhs_;       // linear system right hand side
-    Eigen::SparseMatrixd lhs_;  // linear system left hand side
+    Eigen::SparseMatrixdRowMajor lhs_; // linear system left hand side
 
     std::vector<Eigen::Matrix3d> R_;  // Per-element rotations
     std::vector<Eigen::Vector6d> S_;    // Per-element deformation
@@ -80,9 +79,9 @@ namespace mfem {
     std::vector<Eigen::Vector6d> g_;    // Elemental gradients w.r.t dS
     std::vector<Eigen::Matrix<double,9,6>> dS_;
 
-    Eigen::SparseMatrixd M_;        // mass matrix
-    Eigen::SparseMatrixd P_;        // pinning constraint (for vertices)
-    SparseMatrixdRowMajor J_;       // jacobian
+    Eigen::SparseMatrixd M_;          // mass matrix
+    Eigen::SparseMatrixd P_;          // pinning constraint (for vertices)
+    Eigen::SparseMatrixdRowMajor J_;  // jacobian
     Eigen::SparseMatrixd W_;
 
     int nelem_;     // number of elements

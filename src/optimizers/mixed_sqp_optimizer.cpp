@@ -5,7 +5,7 @@
 #include "svd/dsvd.h"
 #include "svd/svd3x3_sse.h"
 #include "pcg.h"
-#include "linsolver/nasoq_lbl_eigen.h"
+// #include "linsolver/nasoq_lbl_eigen.h"
 #include "svd/svd_eigen.h"
 #include "svd/newton_procrustes.h"
 
@@ -35,8 +35,8 @@ void MixedSQPOptimizer::setup_preconditioner() {
     }
     
     SparseMatrixd P;
-    SparseMatrixd J = Jw_;
-    fill_block_matrix(M_, -J * P_.transpose(), C, P); 
+    SparseMatrixd J = -Jw_ * P_.transpose();
+    fill_block_matrix(M_, J, C, P); 
     preconditioner_ = Eigen::CorotatedPreconditioner<double>(mat_val,
         P_.rows(), nelem_, P, dS_);
 
@@ -66,7 +66,8 @@ void MixedSQPOptimizer::build_lhs() {
     // H_[i] = - ih2 * vols_[i] *  Sym * (Hinv_[i]) * Sym;
   }
 
-  fill_block_matrix(M_, Gx_.transpose(), H_, lhs_);
+  SparseMatrixd GxT = Gx_.transpose();
+  fill_block_matrix(M_, GxT, H_, lhs_);
 
   data_.timer.stop("LHS");
 }
@@ -355,7 +356,6 @@ void MixedSQPOptimizer::reset() {
       free_map[i] = curr++;
     }
   }
-  std::cout << "assembler_ " << std::endl;
   assembler_ = std::make_shared<Assembler<double,4,3>>(object_->T_, free_map);
 
   // Initializing gradients and LHS

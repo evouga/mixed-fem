@@ -60,10 +60,10 @@ namespace mfem {
     std::vector<Eigen::Matrix<double,9,6>> dRL_; // dRL/dF
     std::vector<Eigen::Matrix<double,9,6>> dRe_; // dR(RS-F)/dF
 
-    SparseMatrixdRowMajor Jw_;      // integrated (weighted) jacobian
+    Eigen::SparseMatrixdRowMajor Jw_;      // integrated (weighted) jacobian
     Eigen::SparseMatrixd J2_;
     Eigen::SparseMatrixd J_tilde_;
-    SparseMatrixdRowMajor Ws_;      // integrated (weighted) jacobian
+    Eigen::SparseMatrixdRowMajor Ws_;      // integrated (weighted) jacobian
     Eigen::SparseMatrixd A_;        
     Eigen::SparseMatrixd G_;
     Eigen::SparseMatrixd L_;

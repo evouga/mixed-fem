@@ -7,7 +7,7 @@
 #include "linesearch.h"
 #include "pinning_matrix.h"
 #include "pcg.h"
-#include "linsolver/nasoq_lbl_eigen.h"
+// #include "linsolver/nasoq_lbl_eigen.h"
 #include "svd/svd_eigen.h"
 
 #include <fstream>

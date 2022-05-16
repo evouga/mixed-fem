@@ -13,7 +13,9 @@ if (CMAKE_BINARY_DIR STREQUAL CMAKE_SOURCE_DIR)
 endif()
 
 # For nasoq
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+# set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+# add_subdirectory("deps/amgcl")
 
 ### Configure output locations
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -39,7 +41,9 @@ if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" OR "${CMAKE_CXX_COMPILER_ID}" STR
   elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
     SET(BASE_CXX_FLAGS "${BASE_CXX_FLAGS} -fmax-errors=5")
     message("Setting gcc-specific options")
-    SET(DISABLED_WARNINGS "${DISABLED_WARNINGS} -Wno-maybe-uninitialized -Wno-format-zero-length -Wno-unused-but-set-parameter -Wno-unused-but-set-variable")
+    SET(DISABLED_WARNINGS "${DISABLED_WARNINGS} -Wno-maybe-uninitialized -Wreorder \
+      -Wuninitialized -Wunused-result -Wunused-local-typedefs -Wsign-compare  \
+      -Wno-format-zero-length -Wno-unused-but-set-parameter -Wno-unused-but-set-variable")
   endif()
 
 
@@ -73,7 +77,7 @@ endif()
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 
 # Find Eigen
-# find_package(Eigen3 3.4 REQUIRED NO_MODULE)
+find_package(Eigen3 3.4.0 REQUIRED)
 find_package(OpenMP REQUIRED)
 find_package(BLAS)
 find_package(LAPACK)
@@ -94,11 +98,10 @@ add_subdirectory("deps/polyscope")
 #set(LIBIGL_WITH_OPENGL_GLFW_IMGUI OFF CACHE BOOL "Use ImGui" )
 #add_subdirectory("deps/libIGL")
 
-set(NASOQ_BLAS_BACKEND  "OpenBLAS")
-set(NASOQ_USE_CLAPACK  ON)
-set(NASOQ_WITH_EIGEN OFF)
-add_subdirectory("deps/nasoq")
-add_subdirectory("deps/amgcl")
+# set(NASOQ_BLAS_BACKEND  "OpenBLAS")
+# set(NASOQ_USE_CLAPACK  ON)
+# set(NASOQ_WITH_EIGEN OFF)
+# add_subdirectory("deps/nasoq")
 
 file(GLOB SOURCES 
     ${PROJECT_SOURCE_DIR}/src/*.cpp 
@@ -118,22 +121,21 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(finite-diff)
 
-include(FetchContent)
-FetchContent_Declare(
-  Eigen
-  GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
-  GIT_TAG master
-  GIT_SHALLOW TRUE
-  GIT_PROGRESS TRUE)
-set(EIGEN_BUILD_DOC OFF)
-# note: To disable eigen tests,
-# you should put this code in a add_subdirectory to avoid to change
-# BUILD_TESTING for your own project too since variables are directory
-# scoped
-set(BUILD_TESTING OFF)
-set(EIGEN_BUILD_PKGCONFIG OFF)
-set( OFF)
-FetchContent_MakeAvailable(Eigen)
+# include(FetchContent)
+# FetchContent_Declare(
+#   Eigen
+#   GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
+#   GIT_TAG master
+#   GIT_SHALLOW TRUE
+#   GIT_PROGRESS TRUE)
+# set(EIGEN_BUILD_DOC OFF)
+# # note: To disable eigen tests,
+# # you should put this code in a add_subdirectory to avoid to change
+# # BUILD_TESTING for your own project too since variables are directory
+# # scoped
+# set(BUILD_TESTING OFF)
+# set(EIGEN_BUILD_PKGCONFIG OFF)
+# set( OFF)
 
 include(FetchContent)
 FetchContent_Declare(
@@ -142,6 +144,13 @@ FetchContent_Declare(
   GIT_TAG        v2.x
 )
 FetchContent_MakeAvailable(Catch2)
+
+include(FetchContent)
+FetchContent_Declare(
+  amgcl
+  GIT_REPOSITORY https://github.com/ddemidov/amgcl
+)
+FetchContent_MakeAvailable(amgcl)
 
 # Add OMP library and includes
 if(OpenMP_CXX_FOUND)
@@ -196,14 +205,16 @@ target_include_directories(mixed_fem_lib PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}/src"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/libigl/include" 
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/Bartels/include" 
-  "${CMAKE_CURRENT_SOURCE_DIR}/deps/nasoq/include"
-  "${CMAKE_CURRENT_SOURCE_DIR}/deps/agmcl"
+  #"${CMAKE_CURRENT_SOURCE_DIR}/deps/nasoq/include"
+  #"${CMAKE_CURRENT_SOURCE_DIR}/deps/agmcl"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope/deps/args"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope/deps/json/include")
   
 
+set_target_properties(mixed_fem_lib PROPERTIES COMPILE_FLAGS ${DISABLED_WARNINGS})
+
 # Link settings
-target_link_libraries(mixed_fem_lib polyscope Eigen3::Eigen nasoq amgcl::amgcl)
+target_link_libraries(mixed_fem_lib polyscope Eigen3::Eigen amgcl::amgcl)
 
 # Create an executable
 add_executable(tet_sim apps/tet_sim.cpp ${SOURCES})

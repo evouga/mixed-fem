@@ -48,9 +48,9 @@ namespace mfem {
     Eigen::VectorXd rhs_;       // linear system right hand side
     Eigen::SparseMatrixd lhs_;  // linear system left hand side
 
-    Eigen::SparseMatrixd M_;        // mass matrix
-    Eigen::SparseMatrixd P_;        // pinning constraint (for vertices)
-    SparseMatrixdRowMajor J_;       // jacobian
+    Eigen::SparseMatrixd M_;          // mass matrix
+    Eigen::SparseMatrixd P_;          // pinning constraint (for vertices)
+    Eigen::SparseMatrixdRowMajor J_;  // jacobian
     Eigen::MatrixXd dphidX_;
 
     // Solve used for preconditioner

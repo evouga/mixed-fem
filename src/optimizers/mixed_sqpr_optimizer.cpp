@@ -48,8 +48,6 @@ void MixedSQPROptimizer::step() {
     E_prev_ = E;
     data_.timer.stop("step");
 
-    std::cout << "grad_norm: " << grad_norm << " newton tol: " << config_->newton_tol << std::endl;
-
     ++i;
   } while (i < config_->outer_steps && grad_norm > config_->newton_tol);
 
@@ -104,8 +102,11 @@ void MixedSQPROptimizer::build_lhs() {
   data_.timer.start("Update LHS");
   assembler_->update_matrix(Hloc);
   data_.timer.stop("Update LHS");
-  SparseMatrixd tmp = assembler_->A;
-  lhs_ += tmp;
+
+  data_.timer.start("FUCK1");
+  lhs_ += assembler_->A;
+  data_.timer.stop("FUCK1");
+
   //saveMarket(assembler_->A, "GHG2.mkt");
   //   MatrixXd lhs(lhs_);
   //   EigenSolver<MatrixXd> es(lhs);
