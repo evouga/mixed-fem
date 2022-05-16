@@ -122,19 +122,30 @@ void MixedSQPROptimizer::build_rhs() {
   double h = config_->h;
   double h2 = h*h;
 
+  VectorXd tmp(9*nelem_);
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
     const Vector6d& si = s_.segment(6*i,6);
 
     // W * c(x^k, s^k) + H^-1 * g_s
     gl_.segment<6>(6*i) = vols_[i] * H_[i] * Sym * (S_[i] - si + Hinv_[i] * g_[i]);
+    tmp.segment<9>(9*i) = dS_[i]*gl_.segment<6>(6*i);
 
   }
-  rhs_ = Gx_ * gl_ - M_*(x_ - x0_ - h*vt_ - h2*f_ext_);
+  rhs_ = -PJ_ * tmp - M_*(x_ - x0_ - h*vt_ - h2*f_ext_);
   data_.timer.stop("RHS");
 
 }
 
+void MixedSQPROptimizer::update_system() {
+
+  // Compute rotations and rotation derivatives
+  update_rotations();
+
+  // Assemble blocks for left and right hand side
+  build_lhs();
+  build_rhs();
+}
 
 void MixedSQPROptimizer::substep(bool init_guess, double& decrement) {
   int niter = 0;
@@ -153,17 +164,17 @@ void MixedSQPROptimizer::substep(bool init_guess, double& decrement) {
   } else {
     data_.timer.start("global");
 
-    SparseMatrix<double,RowMajor> lhs = lhs_;
-    BiCGSTAB<SparseMatrix<double>> cg;
-    cg.compute(lhs);
-    cg.setTolerance(1e-4);
-    cg.setMaxIterations(10);
-    dx_ = solver_.solve(rhs_);
-    dx_ = cg.solveWithGuess(rhs_, dx_);
-    std::cout << "estimated error: " << cg.error()  << " iters: " << cg.iterations() << std::endl;
+    // SparseMatrix<double,RowMajor> lhs = lhs_;
+    // BiCGSTAB<SparseMatrix<double>> cg;
+    // cg.compute(lhs);
+    // cg.setTolerance(1e-4);
+    // cg.setMaxIterations(10);
+    // dx_ = solver_.solve(rhs_);
+    // dx_ = cg.solveWithGuess(rhs_, dx_);
+    // std::cout << "estimated error: " << cg.error()  << " iters: " << cg.iterations() << std::endl;
 
-    // niter = pcg(dx_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_, 1e-8);
-    // std::cout << "  - CG iters: " << niter << std::endl;
+    niter = pcg(dx_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_, 1e-8);
+    std::cout << "  - CG iters: " << niter << std::endl;
 
     data_.timer.stop("global");
 
@@ -181,7 +192,7 @@ void MixedSQPROptimizer::substep(bool init_guess, double& decrement) {
 
   data_.timer.start("local");
 
-  VectorXd Gdx = Gx_.transpose() * dx_;
+  VectorXd Jdx = - PJ_.transpose() * dx_;
   la_ = -gl_;
 
   // Update per-element R & S matrices
@@ -189,7 +200,7 @@ void MixedSQPROptimizer::substep(bool init_guess, double& decrement) {
 
   #pragma omp parallel for 
   for (int i = 0; i < nelem_; ++i) {
-    la_.segment<6>(6*i) += H_[i] * Gdx.segment<6>(6*i);
+    la_.segment<6>(6*i) += H_[i] * (dS_[i].transpose() * Jdx.segment<9>(9*i));
     // ds_.segment<6>(6*i) = -Hinv_[i] * (Sym * la_.segment<6>(6*i)+ g_[i]);
     Vector6d si = s_.segment<6>(6*i);
     Vector6d gs = vols_[i]*(Sym * la_.segment<6>(6*i)+ g_[i]);

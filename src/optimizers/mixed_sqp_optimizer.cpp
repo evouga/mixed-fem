@@ -276,7 +276,7 @@ double MixedSQPOptimizer::energy(const VectorXd& x, const VectorXd& s,
         const VectorXd& la) {
   double h = config_->h;
   double h2 = h*h;
-  data_.timer.start("1");
+  // data_.timer.start("1");
   VectorXd xdiff = x - x0_ - h*vt_ - h*h*f_ext_;
   
   double Em = 0.5*xdiff.transpose()*Mr_*xdiff;
@@ -285,7 +285,7 @@ double MixedSQPOptimizer::energy(const VectorXd& x, const VectorXd& s,
 
   VectorXd e_L(nelem_);
   VectorXd e_Psi(nelem_);
-  data_.timer.stop("1");
+  // data_.timer.stop("1");
 
   svd3x3_sse(def_grad, U_, sigma_, V_);
 
@@ -310,6 +310,7 @@ void MixedSQPOptimizer::reset() {
   Mr_ = M_;
   object_->jacobian(Jw_, vols_, true);
   object_->jacobian(Jloc_);
+  PJ_ = P_ * Jw_.transpose();
 
   init_block_diagonal<9,6>(C_, nelem_);
 

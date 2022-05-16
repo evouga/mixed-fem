@@ -185,6 +185,7 @@ namespace mfem {
     Eigen::SparseMatrixd Gx0_;
     Eigen::SparseMatrixd Gs_;
     SparseMatrixdRowMajor Mr_; // row major mass matrix
+    SparseMatrixdRowMajor PJ_;   // integrated (weighted) jacobian
 
     // CG temp variables
     Eigen::VectorXd tmp_r_;
