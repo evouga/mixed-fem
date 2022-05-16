@@ -122,22 +122,6 @@ void MixedSQPOptimizer::update_system() {
   Gx_ = -P_ * J_.transpose() * C_.eval() * W_;
   data_.timer.stop("Gx");
 
-  data_.timer.start("Gx2");
-  update_block_diagonal(dS_, C_);
-  SparseMatrixd Gtmp2 = J_.transpose() * C_ * W_;
-  data_.timer.stop("Gx2");
-
-  data_.timer.start("Gx22");
-  update_block_diagonal(dS_, C_);
-  SparseMatrixd Gtmp22 = Jw_.transpose() * C_;
-  data_.timer.stop("Gx22");
-
-  SparseMatrixd Jtmp = Jw_;
-  data_.timer.start("Gx3");
-  update_block_diagonal(dS_, C_);
-  SparseMatrixd Gtmp3 = Jtmp.transpose() * C_;
-  data_.timer.stop("Gx3");
-
   // Assemble blocks for left and right hand side
   build_lhs();
   build_rhs();

@@ -73,7 +73,6 @@ void MixedSQPROptimizer::build_lhs() {
     Matrix6d H = h2 * object_->material_->hessian(si);
     Hinv_[i] = H.inverse();
     g_[i] = h2 * object_->material_->gradient(si);
-    // H_[i] = - ih2 * vols_[i] *  Sym * Hinv_[i] * Sym;
     H_[i] = (1.0 / vols_[i]) * (Syminv * H * Syminv);
   }
   data_.timer.stop("Hinv");
@@ -90,7 +89,7 @@ void MixedSQPROptimizer::build_lhs() {
   // saveMarket(M_, "M_.mkt");
   // saveMarket(Hs, "Hs.mkt");
   
-  data_.timer.start("Local Hessians");
+  data_.timer.start("Local H");
   std::vector<Matrix12d> Hloc(nelem_); 
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
@@ -101,16 +100,15 @@ void MixedSQPROptimizer::build_lhs() {
   //saveMarket(G, "GHG.mkt");
   //saveMarket(assembler_->A, "lhs2.mkt");
   //saveMarket(M_, "M_.mkt");
-   //TODO:
   data_.timer.start("Update LHS");
   assembler_->update_matrix(Hloc);
   data_.timer.stop("Update LHS");
   SparseMatrixd tmp = assembler_->A;
   lhs_ += tmp;
   //saveMarket(assembler_->A, "GHG2.mkt");
-//   MatrixXd lhs(lhs_);
-//   EigenSolver<MatrixXd> es(lhs);
-//   std::cout << "LHS EVALS: \n" << es.eigenvalues().real() << std::endl;
+  //   MatrixXd lhs(lhs_);
+  //   EigenSolver<MatrixXd> es(lhs);
+  //   std::cout << "LHS EVALS: \n" << es.eigenvalues().real() << std::endl;
   data_.timer.stop("LHS");
 
 }
