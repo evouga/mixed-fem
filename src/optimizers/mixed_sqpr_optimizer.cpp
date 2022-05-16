@@ -96,7 +96,7 @@ void MixedSQPROptimizer::build_lhs() {
     Hloc[i] = (Jloc_[i].transpose() * (dS_[i] * H_[i]
         * dS_[i].transpose()) * Jloc_[i]) * (vols_[i] * vols_[i]);
   }
-  data_.timer.stop("Local Hessians");
+  data_.timer.stop("Local H");
   //saveMarket(G, "GHG.mkt");
   //saveMarket(assembler_->A, "lhs2.mkt");
   //saveMarket(M_, "M_.mkt");
