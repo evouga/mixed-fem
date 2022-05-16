@@ -216,7 +216,7 @@ void MixedSQPOptimizer2::substep(bool init_guess, double& decrement) {
   //  exit(1);
   // }
   // la_ = solver_.solve(rhs_);
-  niter = pcg(la_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_, 1e-8);
+  //niter = pcg(0,0,la_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_, 1e-8);
   std::cout << "  - CG iters: " << niter << std::endl;
   //std::cout << "estimated error: " << cg.error()      << std::endl;
   double relative_error = (lhs_*la_ - rhs_).norm() / rhs_.norm(); // norm() is L2 norm

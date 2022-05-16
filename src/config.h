@@ -52,7 +52,7 @@ namespace mfem {
 
     double newton_tol = 1e-10;
     double ls_tol = 1e-4;
-    int ls_iters = 100;
+    int ls_iters = 30;
     OptimizerType optimizer = OPTIMIZER_SQP;
     int max_iterative_solver_iters = 500;
 

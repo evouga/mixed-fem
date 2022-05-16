@@ -16,6 +16,14 @@ void dsvd(Tensor3333d &dU, Tensor333d  &dS,
   V = svd.matrixV();
   S = svd.singularValues();
   
+  Vector3d stemp;
+
+  stemp[0] = 1;
+  stemp[1] = 1;
+  stemp[2] = (svd.matrixU()*svd.matrixV().transpose()).determinant();
+
+  U.col(2) = U.col(2) * stemp[2];
+  S[2] *= stemp[2];
   //crappy hack for now
   double tol = 1e-5;
 

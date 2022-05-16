@@ -8,6 +8,7 @@
 
 #include <Eigen/SVD>
 #include <Eigen/QR>
+#include <unsupported/Eigen/IterativeSolvers>
 
 //setup the preconditioner
 namespace Eigen {
@@ -42,8 +43,9 @@ namespace Eigen {
 
       inline double mat_val() { return mat_val_; }
 
+
        template<typename MatrixType>
-       explicit CorotatedPreconditioner(double mat_val, int ndofs, int ne, const MatrixType& P, std::vector<Eigen::Matrix<Scalar, 9,6>> &dS)  : dS_(&dS) {
+       explicit CorotatedPreconditioner(double mat_val, int ndofs, int ne, const MatrixType& P, std::vector<Eigen::Matrix<Scalar, 3,3>> &dS)  : dS_(&dS) {
          P_ = P;
          nd_ = ndofs;
          ne_ = ne;
@@ -70,7 +72,7 @@ namespace Eigen {
 //  (dX'*dX)^{-1} = (U*S^-2*U')
 
        template<typename Rhs>
-       inline const Rhs& solve(const Rhs& b) const { 
+       inline const Eigen::VectorXd & solve(const Rhs& b) const { 
 
             rtilde_.resize(nd_+9*ne_);
             ztilde_.resize(nd_+9*ne_);
@@ -83,46 +85,138 @@ namespace Eigen {
 
               //Eigen::MatrixXd A = (*dS_)[i].transpose();
               //Eigen::CompleteOrthogonalDecomposition<Eigen::MatrixXd> svd(A);
-              /*Eigen::Matrix<double, 6,1> svs = svd.singularValues();
-              svs[0] = (std::abs(svs[0]) > 1e-8 ? 1./(svs[0]*svs[0]) : 0);
-              svs[1] = (std::abs(svs[1]) > 1e-8 ? 1./(svs[1]*svs[1]) : 0);
-              svs[2] = (std::abs(svs[2]) > 1e-8 ? 1./(svs[2]*svs[2]) : 0);
-              svs[3] = (std::abs(svs[3]) > 1e-8 ? 1./(svs[3]*svs[3]) : 0);
-              svs[4] = (std::abs(svs[4]) > 1e-8 ? 1./(svs[4]*svs[4]) : 0);
-              svs[5] = (std::abs(svs[5]) > 1e-8 ? 1./(svs[5]*svs[5]) : 0);
-
-
-              Eigen::Matrix9d dSi = svd.matrixU()*svs.asDiagonal()*svd.matrixU().transpose();
-
-              std::cout<<"U: \n"<<svd.matrixU()<<"\n\n";
-
-              std::cout<<"dSi: \n"<<dSi<<"\n\n";*/
+            
 
               //rtilde_.template segment<9>(nd_ + 9*i) = svd.solve(b.template segment<6>(nd_ + 6*i));
 
-              rtilde_.template segment<9>(nd_ + 9*i) = (*dS_)[i]*(b.template segment<6>(nd_ + 6*i));
+              //rtilde_.template segment<9>(nd_ + 9*i) = (*dS_)[i]*(b.template segment<6>(nd_ + 6*i));
+
+              Eigen::Vector6d rl = b.template segment<6>(nd_ + 6*i);
+              Eigen::Matrix3d RL;
+              
+              RL << rl(0), 0.5*rl(3), 0.5*rl(4),
+                    0.5*rl(3), rl(1), 0.5*rl(5),
+                    0.5*rl(4),0.5*rl(5), rl(2);
+
+              RL = (*dS_)[i]*RL;
+              rtilde_.template segment<9>(nd_ + 9*i) = Eigen::Matrix<double, 9,1>(RL.data());
+
             }
 
             ztilde_ = preconditioner_->solve(rtilde_);
             z_.segment(0, nd_) = ztilde_.segment(0, nd_);
             
+            //update rotations
+            /*#pragma omp parallel for 
+            for (int i = 0; i < nelem_; ++i) {
+              JacobiSVD<Matrix3d> svd(Map<Matrix3d>(ztilde_.segment(9*i,9).data()),
+                  ComputeFullU | ComputeFullV);
+
+              Eigen::Vector3d stemp;
+
+              stemp[0] = 1;
+              stemp[1] = 1;
+              stemp[2] = (svd.matrixU()*svd.matrixV().transpose()).determinant();
+              // S(x^k)
+              Matrix3d S = svd.matrixV() * svd.singularValues().asDiagonal() 
+                  * svd.matrixV().transpose();
+              Vector6d stmp; stmp << S(0,0), S(1,1), S(2,2), S(1,0), S(2,0), S(2,1);
+              S_[i] = stmp;
+              R_[i] = svd.matrixU() * stemp.asDiagonal()*svd.matrixV().transpose();
+
+              // Compute SVD derivatives
+              Tensor3333d dU, dV;
+              Tensor333d dS;
+              dsvd(dU, dS, dV, Map<Matrix3d>(def_grad.segment<9>(9*i).data()));
+
+              // Compute dS/dF
+              S = svd.singularValues().asDiagonal();
+              Matrix3d V = svd.matrixV();
+              std::array<Matrix3d, 9> dS_dF;
+              for (int r = 0; r < 3; ++r) {
+                for (int c = 0; c < 3; ++c) {
+                  dS_dF[3*c + r] = dV[r][c]*S*V.transpose() + V*dS[r][c].asDiagonal()*V.transpose()
+                      + V*S*dV[r][c].transpose();
+                }
+              }
+
+              // Final jacobian should just be 6x9 since S is symmetric,
+              // so extract the approach entries
+              Matrix<double, 9, 9> J;
+              for (int i = 0; i < 9; ++i) {
+                J.col(i) = Vector9d(dS_dF[i].data());
+              }
+              Matrix<double, 6, 9> Js;
+              Js.row(0) = J.row(0);
+              Js.row(1) = J.row(4);
+              Js.row(2) = J.row(8);
+              Js.row(3) = J.row(1);
+              Js.row(4) = J.row(2);
+              Js.row(5) = J.row(5);
+              dS_[i] = Js.transpose() * Sym;
+            }*/
+
             #pragma omp parallel for
             for (int i = 0; i < dS_->size(); ++i) {
               
               //Eigen::MatrixXd A = (*dS_)[i];
               //Eigen::CompleteOrthogonalDecomposition<Eigen::MatrixXd> svd(A);
-              /*Eigen::Matrix<double, 6,1> svs = svd.singularValues();
-              svs[0] = (std::abs(svs[0]) > 1e-8 ? 1./(svs[0]*svs[0]) : 0);
-              svs[1] = (std::abs(svs[1]) > 1e-8 ? 1./(svs[1]*svs[1]) : 0);
-              svs[2] = (std::abs(svs[2]) > 1e-8 ? 1./(svs[2]*svs[2]) : 0);
-              svs[3] = (std::abs(svs[3]) > 1e-8 ? 1./(svs[3]*svs[3]) : 0);
-              svs[4] = (std::abs(svs[4]) > 1e-8 ? 1./(svs[4]*svs[4]) : 0);
-              svs[5] = (std::abs(svs[5]) > 1e-8 ? 1./(svs[5]*svs[5]) : 0);
+            
 
-              Eigen::Matrix6d dSi = svd.matrixV().transpose()*svs.asDiagonal()*svd.matrixV();*/
+              //z_.template segment<6>(nd_ + 6*i) = (*dS_)[i].transpose()*(ztilde_.segment<9>(nd_ + 9*i));
+              //z_.template segment<6>(nd_ + 6*i) = svd.solve(ztilde_.segment<9>(nd_ + 9*i));
 
-              z_.template segment<6>(nd_ + 6*i) = (*dS_)[i].transpose()*(ztilde_.segment<9>(nd_ + 9*i));
+              Eigen::Vector9d rl = ztilde_.segment<9>(nd_ + 9*i);
+              
+               Eigen::Matrix3d RL;
+              
+              RL << rl(0), rl(3), rl(6),
+                    rl(1), rl(4),  rl(7),
+                    rl(2), rl(5), rl(8);
+
+              RL = (*dS_)[i].transpose()*RL;
+              Eigen::Vector6d S;
+              S << RL(0,0), RL(1,1), RL(2,2), (RL(1,0)+RL(0,1)), (RL(2,0)+RL(0,2)), (RL(2,1)+RL(1,2));
+              z_.template segment<6>(nd_ + 6*i) = S;
+
             }
+
+            //VectorXd def_grad = J_*(P_.transpose()*x_+b_);
+
+            /*#pragma omp parallel for 
+            for (int i = 0; i < nelem_; ++i) {
+              JacobiSVD<Matrix3d> svd(Map<Matrix3d>(def_grad.segment(9*i,9).data()),
+                  ComputeFullU | ComputeFullV);
+
+              Eigen::Vector3d stemp;
+
+              stemp[0] = 1;
+              stemp[1] = 1;
+              stemp[2] = (svd.matrixU()*svd.matrixV().transpose()).determinant();
+              
+              R_[i] = svd.matrixU() *svd.matrixV().transpose();
+
+            }*/
+              
+            //z_ = preconditioner_->solve(b);
+             /*VectorXd def_grad = J_*(x_+ z_.segment(0, nd_));
+
+            #pragma omp parallel for 
+            for (int i = 0; i < (*dS_).size(); ++i) {
+              Vector9d thing = def_grad.segment(9*i,9) + ztilde_.segment(nd_+ 9*i, 9)/ztilde_.segment(nd_ + 9*i, 9).cwiseAbs().maxCoeff();
+              JacobiSVD<Matrix3d> svd(Map<Matrix3d>(thing.data()), ComputeFullU | ComputeFullV);
+
+              Eigen::Vector3d stemp;
+
+              stemp[0] = 1;
+              stemp[1] = 1;
+              stemp[2] = 1;
+              
+              (*dS_)[i] = svd.matrixU() *stemp.asDiagonal()*svd.matrixV().transpose();
+
+            }*/
+              
+            //z_ = preconditioner_->solve(b);
 
             return z_;
        }
@@ -136,7 +230,7 @@ namespace Eigen {
       mutable VectorXd rtilde_;
       mutable VectorXd ztilde_;
       mutable VectorXd z_;
-      std::vector<Matrix<Scalar, 9,6>> *dS_;
+      std::vector<Matrix<Scalar, 3,3>> *dS_;
       double mat_val_;
 
      }; 
@@ -249,9 +343,11 @@ namespace mfem {
     // #endif
     Eigen::SparseLU<Eigen::SparseMatrixd> solver_;
 
+    Eigen::SimplicialLDLT<Eigen::SparseMatrixd> solver_M_;
+
     Eigen::CorotatedPreconditioner<double> preconditioner_;
     //Eigen::SimplicialLDLT<Eigen::SparseMatrixd> preconditioner_;
-    //Eigen::ConjugateGradient<Eigen::SparseMatrix<double>, Eigen::Lower|Eigen::Upper, Eigen::CorotatedPreconditioner<double>> cg;
+    Eigen::BiCGSTAB<Eigen::SparseMatrix<double>, Eigen::CorotatedPreconditioner<double> > cg;
 
     int nelem_;     // number of elements
     double E_prev_; // energy from last result of linesearch

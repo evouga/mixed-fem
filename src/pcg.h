@@ -7,16 +7,16 @@
 // Utility for workin with corotational
 //preconditioned conjugate gradient
 template<typename PreconditionerSolver>
-inline int pcg(Eigen::VectorXd& x, const Eigen::SparseMatrixd &A,
+inline int pcg(unsigned int nd, unsigned int ne, Eigen::VectorXd& x, const Eigen::SparseMatrixd &A,
     const Eigen::VectorXd &b, Eigen::VectorXd &r, Eigen::VectorXd &z,
     Eigen::VectorXd &p, Eigen::VectorXd &Ap, PreconditionerSolver &pre,
     double tol = 1e-4, unsigned int num_itr = 500) {
 
   r = b - A * x;
 
-  if (r.dot(r) < tol) {
-      return 0; 
-  }
+//  if (r.dot(r) < 1e-8) {
+  //    return 0; 
+  //}
 
   z = pre.solve(r);
   p = z;
@@ -41,8 +41,11 @@ inline int pcg(Eigen::VectorXd& x, const Eigen::SparseMatrixd &A,
     zm1 = z;
     z = pre.solve(r);
     
-    rsnew = r.dot(z-zm1);
-    beta = rsnew/rsold;
+    //HS beta update
+    //rsnew = r.dot(z-zm1);
+    beta = rsnew/(alpha*(p.dot(Ap)));
+
+    //beta = rsnew/ rsold;
 
     p = z + beta * p;
     rsold = r.dot(z);
@@ -65,6 +68,9 @@ inline int corot_pcg(Eigen::VectorXd& x, const Eigen::SparseMatrixd &A,
   }
 
   z = pre.solve(r);
+
+  
+
   /*int n = x.size() - 6 * R.size();
   Eigen::VectorXd rtilde(n + 9 * R.size());
   rtilde.segment(0, n) = r.segment(0, n);
@@ -141,9 +147,9 @@ inline int pcr(Eigen::VectorXd& x, const Eigen::SparseMatrixd &A,
 
       r = b-A*x;
 
-      if (r.dot(r) < tol) {
-        return 0; 
-    }
+      //if (r.dot(r) < tol) {
+        //return 0; 
+    //}
       r = pre.solve(r);
       p = r;
       Ap = A*p;
@@ -177,6 +183,66 @@ inline int pcr(Eigen::VectorXd& x, const Eigen::SparseMatrixd &A,
       }
 
 }
+
+template<typename PreconditionerSolver>
+inline int prn(Eigen::VectorXd& x, const Eigen::SparseMatrixd &A,
+    const Eigen::VectorXd &b, Eigen::VectorXd &r, Eigen::VectorXd &z,
+    Eigen::VectorXd &p, Eigen::VectorXd &Ap,
+    PreconditionerSolver &pre, double tol = 1e-4, unsigned int num_itr = 100) {
+
+      Eigen::MatrixXd basis;
+      Eigen::VectorXd alpha;
+      Eigen::MatrixXd tmp;
+      Eigen::VectorXd d, best;
+      alpha.resize(2*num_itr);
+      basis.resize(x.rows(), 2*num_itr);    
+
+    
+      for(unsigned int i=0; i<num_itr; ++i) {
+
+        r = b - A*x;
+
+        std::cout<<"Residual: "<<(b-A*x).norm()<<"\n";
+
+        p = pre.solve(r);
+
+        basis.col(2*i) = r;
+        basis.col(2*i+1) = p;
+        
+
+        //solve for 
+        tmp = basis.leftCols(2*i+2).transpose()*A*basis.leftCols(2*i+2);
+        alpha.segment(0,2*i+2) = tmp.completeOrthogonalDecomposition().solve(basis.leftCols(2*i+2).transpose()*r);
+
+        double beta = 1.0;
+        d = basis.leftCols(2*i+2)*alpha.segment(0, 2*i+2);
+
+        //unsigned int jj = 0;
+        /*while (jj < 20) {
+
+          E1 = (x+beta*d).dot(0.5*A*(x+beta*d) - b);
+
+          if(E1 <= E0) {
+            break;
+          }
+
+          beta *= 0.6 ; 
+          jj++;
+        }*/
+//
+        //if((b - A*(x+beta*d)).norm() < r.norm()) {
+ //         best = x + beta*d;
+   //     }
+
+        x = x + beta*d;
+
+        
+      }
+
+      //x = best;
+      std::cout<<"Residual: "<<(b-A*x).norm()<<"\n";
+}
+
 #include <pcg.cpp>
 
 
