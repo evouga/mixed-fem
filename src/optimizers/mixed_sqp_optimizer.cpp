@@ -151,7 +151,7 @@ void MixedSQPOptimizer::update_system() {
 #include <amgcl/adapter/block_matrix.hpp>
 #include <amgcl/make_block_solver.hpp>
 
-void MixedSQPOptimizer::substep(bool init_guess, double& decrement) {
+void MixedSQPOptimizer::substep(int step, double& decrement) {
   //SparseMatrix<double,RowMajor> lhsr = lhs_;
 
   data_.timer.start("substep");

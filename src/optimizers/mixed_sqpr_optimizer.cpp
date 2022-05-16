@@ -30,7 +30,7 @@ void MixedSQPROptimizer::step() {
   do {
     data_.timer.start("step");
     update_system();
-    substep(i==0, grad_norm);
+    substep(i, grad_norm);
 
     //linesearch_x(x_, dx_);
     // linesearch_s(s_, ds_);
@@ -52,7 +52,7 @@ void MixedSQPROptimizer::step() {
   } while (i < config_->outer_steps && grad_norm > config_->newton_tol);
 
   data_.print_data(config_->show_timing);
-  
+
   update_configuration();
 }
 
@@ -147,10 +147,10 @@ void MixedSQPROptimizer::update_system() {
   build_rhs();
 }
 
-void MixedSQPROptimizer::substep(bool init_guess, double& decrement) {
+void MixedSQPROptimizer::substep(int step, double& decrement) {
   int niter = 0;
 
-  if (init_guess) {
+  if (step == 0 && false) {
     data_.timer.start("prefactor");
 
     solver_.compute(lhs_);
@@ -160,37 +160,42 @@ void MixedSQPROptimizer::substep(bool init_guess, double& decrement) {
     }
     dx_ = solver_.solve(rhs_);
     data_.timer.stop("prefactor");
+  // saveMarket(lhs_, "lhs0.mkt");
 
   } else {
     data_.timer.start("global");
-
-    // SparseMatrix<double,RowMajor> lhs = lhs_;
-    // BiCGSTAB<SparseMatrix<double>> cg;
-    // cg.compute(lhs);
+// // sanity check preconditioner on cg, make sure cond is good
+    //BiCGSTAB<SparseMatrix<double>,  Eigen::IncompleteLUT<double>> cg;
+    // LeastSquaresConjugateGradient<SparseMatrix<double>,  Eigen::IncompleteLUT<double>> cg;
+    // Eigen::IncompleteLUT<double>& precon = cg.preconditioner();
+    // precon.setFillfactor(10);
+    // precon.setDroptol(1e-8);
+    // cg.compute(lhs_);
     // cg.setTolerance(1e-4);
-    // cg.setMaxIterations(10);
-    // dx_ = solver_.solve(rhs_);
+    // cg.setMaxIterations(100);
+//     // // dx_ = solver_.solve(rhs_);
+    // dx_ = cg.solve(rhs_);
     // dx_ = cg.solveWithGuess(rhs_, dx_);
-    // std::cout << "estimated error: " << cg.error()  << " iters: " << cg.iterations() << std::endl;
+    // niter = cg.iterations();
 
-    niter = pcg(dx_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_, 1e-8);
-    std::cout << "  - CG iters: " << niter << std::endl;
+
+    // dx_ = solver_.solve(rhs_);
+    niter = pcr(dx_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_arap_, 1e-4);
+    std::cout << "  - CG iters: " << niter;
+    double relative_error = (lhs_*dx_ - rhs_).norm() / rhs_.norm(); 
+    std::cout << " rel error: " << relative_error << " abs error: " << (lhs_*dx_-rhs_).norm() << std::endl;
+// for (int k=0; k<lhs_.outerSize(); ++k)
+//   for (SparseMatrixdRowMajor::InnerIterator it(lhs_,k); it; ++it)
+//   {
+//     it.valueRef() = 1;
+//   } 
+  // saveMarket(lhs_, "lhs.mkt");
+// exit(1);
     data_.timer.stop("global");
 
   }
-  // std::cout << "  - CG iters: " << niter << std::endl;
-  //std::cout << "estimated error: " << cg.error()      << std::endl;
-  double relative_error = (lhs_*dx_ - rhs_).norm() / rhs_.norm(); // norm() is L2 norm
-
-  decrement = dx_.norm(); // if doing "full newton use this"
-  //decrement = rhs_.norm();
-  //std::cout << "  - # PCG iter: " << niter << std::endl;
-  // std::cout << "  - RHS Norm: " << rhs_.norm() << std::endl;
-  // std::cout << "  - Newton decrement: " << decrement  << std::endl;
-  std::cout << "  - relative_error: " << relative_error << std::endl;
 
   data_.timer.start("local");
-
   VectorXd Jdx = - PJ_.transpose() * dx_;
   la_ = -gl_;
 
@@ -271,5 +276,24 @@ bool MixedSQPROptimizer::linesearch_x(VectorXd& x, const VectorXd& dx) {
   data_.timer.stop("LS_x");
   std::cout << "x alpha: " << alpha << std::endl;
   return done;
+}
+
+void MixedSQPROptimizer::reset() {
+  MixedSQPOptimizer::reset();
+
+  SparseMatrixdRowMajor A;
+  A.resize(nelem_*9, nelem_*9);
+  std::vector<Triplet<double>> trips;
+  for (int i = 0; i < nelem_; ++i) {
+    for (int j = 0; j < 9; ++j) {
+      trips.push_back(Triplet<double>(9*i+j, 9*i+j, object_->config_->mu / vols_[i]));
+    }
+  }
+  A.setFromTriplets(trips.begin(),trips.end());
+
+  double h2 = config_->h * config_->h;
+  SparseMatrixdRowMajor L = PJ_ * A * PJ_.transpose();
+  SparseMatrixdRowMajor lhs = M_ + h2*L;
+  solver_arap_.compute(lhs);
 }
 

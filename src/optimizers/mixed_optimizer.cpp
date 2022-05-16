@@ -32,7 +32,7 @@ void MixedOptimizer::step() {
   do {
     data_.timer.start("step");
     update_system();
-    substep(i==0, grad_norm);
+    substep(i, grad_norm);
 
     // TODO:
     // convergence check with norm([dx;ds])

@@ -156,35 +156,27 @@ namespace mfem {
   
   public:
 
-    // Evaluated augmented lagrangian energy
     virtual double energy(const Eigen::VectorXd& x, const Eigen::VectorXd& s,
         const Eigen::VectorXd& la) override;
 
-    // Build system left hand side
     virtual void build_lhs() override;
 
-    // Build linear system right hand side
     virtual void build_rhs() override;
 
-    // Update gradients, LHS, RHS for a new configuration
     virtual void update_system() override;
 
-
-    // Simulation substep for this object
-    // init_guess - whether to initialize guess with a prefactor solve
-    // decrement  - newton decrement norm
-    virtual void substep(bool init_guess, double& decrement) override;
+    virtual void substep(int step, double& decrement) override;
 
     virtual void setup_preconditioner();
 
-    Eigen::SparseMatrixdRowMajor Jw_;      // integrated (weighted) jacobian
+    Eigen::SparseMatrixdRowMajor Jw_; // integrated (weighted) jacobian
     Eigen::SparseMatrixd W_;
     Eigen::SparseMatrixd G_;
     Eigen::SparseMatrixd C_;
     Eigen::SparseMatrixd Gx_;
     Eigen::SparseMatrixd Gx0_;
     Eigen::SparseMatrixd Gs_;
-    Eigen::SparseMatrixdRowMajor PJ_;   // integrated (weighted) jacobian
+    Eigen::SparseMatrixdRowMajor PJ_; // integrated (weighted) jacobian
 
     // CG temp variables
     Eigen::VectorXd tmp_r_;

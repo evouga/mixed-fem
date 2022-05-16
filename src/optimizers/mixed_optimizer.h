@@ -36,9 +36,9 @@ namespace mfem {
     virtual void update_system() = 0;
 
     // Simulation substep for this object
-    // init_guess - whether to initialize guess with a prefactor solve
-    // decrement  - newton decrement norm
-    virtual void substep(bool init_guess, double& decrement) = 0;
+    // step      - current substep
+    // decrement - newton decrement norm
+    virtual void substep(int step, double& decrement) = 0;
 
     // For a new set of positions, update R,S and their derivatives
     virtual void update_rotations();

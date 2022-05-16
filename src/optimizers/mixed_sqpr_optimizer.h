@@ -18,6 +18,7 @@ namespace mfem {
   public:
 
     virtual void step() override;
+    virtual void reset() override;
 
     // Build system left hand side
     virtual void build_lhs() override;
@@ -28,10 +29,7 @@ namespace mfem {
     // Update gradients, LHS, RHS for a new configuration
     virtual void update_system() override;
 
-    // Simulation substep for this object
-    // init_guess - whether to initialize guess with a prefactor solve
-    // decrement  - newton decrement norm
-    virtual void substep(bool init_guess, double& decrement) override;
+    virtual void substep(int step, double& decrement) override;
 
     virtual bool linesearch_x(Eigen::VectorXd& x,
         const Eigen::VectorXd& dx) override;
@@ -44,6 +42,6 @@ namespace mfem {
     #else
     Eigen::SimplicialLLT<Eigen::SparseMatrixdRowMajor> solver_;
     #endif
-
+    Eigen::CholmodSupernodalLLT<Eigen::SparseMatrixdRowMajor> solver_arap_;
   };
 }

@@ -42,7 +42,7 @@ namespace mfem {
     // Simulation substep for this object
     // init_guess - whether to initialize guess with a prefactor solve
     // decrement  - newton decrement norm
-    virtual void substep(bool init_guess, double& decrement) override;
+    virtual void substep(int step, double& decrement) override;
 
     // Warm start the timestep with a explicit euler prediction of 
     // the positions

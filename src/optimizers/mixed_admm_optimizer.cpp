@@ -30,7 +30,7 @@ void MixedADMMOptimizer::step() {
   do {
     std::cout << "* Newton step: " << i << std::endl;
     auto start = high_resolution_clock::now();
-    substep(i==0, grad_norm);
+    substep(i, grad_norm);
     auto end = high_resolution_clock::now();
     double t1 = duration_cast<nanoseconds>(end-start).count()/1e6;
 
@@ -256,7 +256,7 @@ void MixedADMMOptimizer::update_system() {
   //     << " [update blocks]: " << t_2 << " [LHS]: " << t_3 << std::endl;
 }
 
-void MixedADMMOptimizer::substep(bool init_guess, double& decrement) {
+void MixedADMMOptimizer::substep(int step, double& decrement) {
   double t_rhs = 0;
   double t_solve = 0;
   double t_SR = 0;
