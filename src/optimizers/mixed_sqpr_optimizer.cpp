@@ -66,6 +66,7 @@ void MixedSQPROptimizer::build_lhs() {
     1, 1, 1, .5, .5, .5).finished().asDiagonal();
 
 
+  data_.timer.start("Hinv");
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
     const Vector6d& si = s_.segment(6*i,6);
@@ -74,49 +75,39 @@ void MixedSQPROptimizer::build_lhs() {
     g_[i] = h2 * object_->material_->gradient(si);
     // H_[i] = - ih2 * vols_[i] *  Sym * Hinv_[i] * Sym;
     H_[i] = (1.0 / vols_[i]) * (Syminv * H * Syminv);
-
-    // Matrix6d Htmp = -vols_[i] *  Sym * Hinv_[i] * Sym;
-    // H_[i] = -Htmp.inverse();
   }
+  data_.timer.stop("Hinv");
 
   // std::cout << "HX: " << std::endl;
-  SparseMatrixd Hs;
-  SparseMatrix<double, RowMajor> Gx = Gx_;
-  init_block_diagonal<6,6>(Hs, nelem_);
-  update_block_diagonal<6,6>(H_, Hs);
+  //SparseMatrixd Hs;
+  //SparseMatrix<double, RowMajor> Gx = Gx_;
+  //init_block_diagonal<6,6>(Hs, nelem_);
+  //update_block_diagonal<6,6>(H_, Hs);
 
   lhs_ = M_;
-  lhs_ += Gx * Hs * Gx.transpose();
-   SparseMatrixd G = Gx * Hs * Gx.transpose();
+  //lhs_ += Gx * Hs * Gx.transpose();
+  // SparseMatrixd G = Gx * Hs * Gx.transpose();
   // saveMarket(M_, "M_.mkt");
   // saveMarket(Hs, "Hs.mkt");
   
-   std::vector<Matrix12d> Hloc(nelem_); 
-//#pragma omp parallel for
-  std::cout << "dS_[i] size: " << dS_.size() << " H_ size : " << H_.size() << " Jloc: " << Jloc_.size() << std::endl;
-   for (int i = 0; i < nelem_; ++i) {
-    //std::vector<Eigen::Matrix<double,9,6>> dS_;
-     std::cout << " i: " << i << std::endl;
-     Hloc[i] = (Jloc_[i].transpose() * (dS_[i] * H_[i]
-         * dS_[i].transpose()) * Jloc_[i]) * (vols_[i] * vols_[i]);
-   }
-
-
-  
-  saveMarket(G, "GHG.mkt");
-
-  std::cout << "A: " << assembler_->A.rows() << ", " << assembler_->A.cols() << " " << assembler_->A.nonZeros() << std::endl;
-  saveMarket(assembler_->A, "lhs2.mkt");
-  saveMarket(M_, "M_.mkt");
-
+  data_.timer.start("Local Hessians");
+  std::vector<Matrix12d> Hloc(nelem_); 
+  #pragma omp parallel for
+  for (int i = 0; i < nelem_; ++i) {
+    Hloc[i] = (Jloc_[i].transpose() * (dS_[i] * H_[i]
+        * dS_[i].transpose()) * Jloc_[i]) * (vols_[i] * vols_[i]);
+  }
+  data_.timer.stop("Local Hessians");
+  //saveMarket(G, "GHG.mkt");
+  //saveMarket(assembler_->A, "lhs2.mkt");
+  //saveMarket(M_, "M_.mkt");
+   //TODO:
+  data_.timer.start("Update LHS");
   assembler_->update_matrix(Hloc);
-  saveMarket(assembler_->A, "GHG2.mkt");
-
-  // lhs_.makeCompressed();
-  // std::cout << "rows: " << lhs_.rows() << " R*C: " << lhs_.size() << " nnz: " << lhs_.nonZeros() << std::endl;
-  // lhs_.makeCompressed();
-  // std::cout << "rows: " << lhs_.rows() << " R*C: " << lhs_.size() << " nnz: " << lhs_.nonZeros() << std::endl;
-
+  data_.timer.stop("Update LHS");
+  SparseMatrixd tmp = assembler_->A;
+  lhs_ += tmp;
+  //saveMarket(assembler_->A, "GHG2.mkt");
 //   MatrixXd lhs(lhs_);
 //   EigenSolver<MatrixXd> es(lhs);
 //   std::cout << "LHS EVALS: \n" << es.eigenvalues().real() << std::endl;

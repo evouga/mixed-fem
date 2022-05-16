@@ -31,7 +31,6 @@ namespace mfem {
     //template <typename Scalar, int N, int M>
     Assembler(const Eigen::MatrixXi& E, const std::vector<int> free_map) {
 
-      std::cout << "HI " << std::endl;
       element_ids.reserve(N*N*E.rows());
       global_pairs.reserve(N*N*E.rows());
       local_pairs.reserve(N*N*E.rows());
@@ -129,7 +128,7 @@ namespace mfem {
       }
 
       int m = *std::max_element(free_map.begin(), free_map.end()) + 1;
-      std::cout << "m: " << m << std::endl;
+      //std::cout << "m: " << m << std::endl;
       A.resize(M*m, M*m);
       A.setFromTriplets(trips.begin(), trips.end());
     }
@@ -138,18 +137,19 @@ namespace mfem {
     void update_matrix(std::vector<Eigen::Matrix<double,M*N,M*N>> blocks) {
 
       // Iterate over M rows at a time
+      #pragma omp parallel for
       for (int ii = 0; ii < row_offsets.size() - 1; ++ii) {
         int row_beg = row_offsets[ii];
         int row_end = row_offsets[ii+1];
 
-        std::cout << "row beg: " << row_beg << " k_start: " << A.outerIndexPtr()[3*ii] << std::endl;;
+        //std::cout << "row beg: " << row_beg << " k_start: " << A.outerIndexPtr()[3*ii] << std::endl;;
         // The index of the block for this row. 
         int block_col = 0;
 
         while (row_beg < row_end) {
           // Get number of duplicate blocks for this offset
           int n = multiplicity[row_beg];
-          std::cout << "n: " << n << " block col: " << block_col << std::endl;
+          //std::cout << "n: " << n << " block col: " << block_col << std::endl;
 
           // Get the global positioning of this block
           const std::pair<int,int>& g = global_pairs[row_beg];
