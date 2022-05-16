@@ -37,7 +37,13 @@ namespace mfem {
         const Eigen::VectorXd& dx) override;
 
     Eigen::VectorXd gl_;
-    Eigen::SimplicialLDLT<Eigen::SparseMatrixdRowMajor> solver_;
+    // Eigen::SimplicialLDLT<Eigen::SparseMatrixdRowMajor> solver_;
+    // Solve used for preconditioner
+    #if defined(SIM_USE_CHOLMOD)
+    Eigen::CholmodSupernodalLLT<Eigen::SparseMatrixdRowMajor> solver_;
+    #else
+    Eigen::SimplicialLLT<Eigen::SparseMatrixdRowMajor> solver_;
+    #endif
 
   };
 }

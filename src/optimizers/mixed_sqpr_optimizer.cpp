@@ -82,7 +82,6 @@ void MixedSQPROptimizer::build_lhs() {
   //init_block_diagonal<6,6>(Hs, nelem_);
   //update_block_diagonal<6,6>(H_, Hs);
 
-  lhs_ = M_;
   //lhs_ += Gx * Hs * Gx.transpose();
   // SparseMatrixd G = Gx * Hs * Gx.transpose();
   // saveMarket(M_, "M_.mkt");
@@ -103,9 +102,7 @@ void MixedSQPROptimizer::build_lhs() {
   assembler_->update_matrix(Hloc);
   data_.timer.stop("Update LHS");
 
-  data_.timer.start("FUCK1");
-  lhs_ += assembler_->A;
-  data_.timer.stop("FUCK1");
+  lhs_ = Mr_ + assembler_->A;
 
   //saveMarket(assembler_->A, "GHG2.mkt");
   //   MatrixXd lhs(lhs_);
