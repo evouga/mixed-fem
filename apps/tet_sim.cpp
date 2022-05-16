@@ -194,6 +194,8 @@ void callback() {
     ImGui::TreePop();
   }
 
+  ImGui::Checkbox("Output timing info",&config->show_timing);
+
   ImGui::Checkbox("simulate",&simulating);
   ImGui::SameLine();
   if(ImGui::Button("step") || simulating) {

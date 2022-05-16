@@ -22,7 +22,7 @@ void OptimizerData::write() const {
 }
 
 
-void OptimizerData::print_data() const {
+void OptimizerData::print_data(bool print_timing) const {
   int sz = energies_.size();
 
   std::cout <<
@@ -41,7 +41,10 @@ void OptimizerData::print_data() const {
   }
   std::cout <<
         "└──────┴────────────┴────────────┴────────────┴──────────────┴──────────────┴──────────────┘\n";
-  timer.print();
+  
+  if (print_timing) {
+    timer.print();
+  }
 }
 
 void Timer::start(const std::string& key) {

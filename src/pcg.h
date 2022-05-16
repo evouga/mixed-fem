@@ -46,7 +46,7 @@ inline int pcg(Eigen::VectorXx<Scalar>& x,
     t.stop("rsnew");
     
     if (rsnew < tol) {
-      t.print();
+      // t.print();
       return i; 
     }
     

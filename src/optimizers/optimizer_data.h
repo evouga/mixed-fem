@@ -46,7 +46,7 @@ namespace mfem {
 
     virtual void clear();
     virtual void write() const;
-    virtual void print_data() const;
+    virtual void print_data(bool print_timing = true) const;
 
     std::string output_filename_;
     std::vector<double> energy_residuals_;

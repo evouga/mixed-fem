@@ -41,6 +41,7 @@ namespace mfem {
     bool floor_collision = false;
     bool regularizer = false;
     bool local_global = true;
+    bool show_timing = true;
     int outer_steps = 5;
     int inner_steps = 7;
     double plane_d = 0;

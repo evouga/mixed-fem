@@ -51,7 +51,8 @@ void MixedSQPROptimizer::step() {
     ++i;
   } while (i < config_->outer_steps && grad_norm > config_->newton_tol);
 
-  data_.print_data();
+  data_.print_data(config_->show_timing);
+  
   update_configuration();
 }
 
@@ -174,7 +175,6 @@ void MixedSQPROptimizer::substep(bool init_guess, double& decrement) {
 
     niter = pcg(dx_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_, 1e-8);
     std::cout << "  - CG iters: " << niter << std::endl;
-
     data_.timer.stop("global");
 
   }
