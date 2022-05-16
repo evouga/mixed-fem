@@ -7,6 +7,7 @@
 #include "pcg.h"
 #include "linsolver/nasoq_lbl_eigen.h"
 #include "svd/svd_eigen.h"
+#include "svd/newton_procrustes.h"
 
 #include <fstream>
 #include "unsupported/Eigen/src/SparseExtra/MarketIO.h"
@@ -303,12 +304,23 @@ double MixedSQPOptimizer::energy(const VectorXd& x, const VectorXd& s,
   VectorXd e_Psi(nelem_);
   data_.timer.stop("1");
 
-  svd3x3_sse(def_grad, U_, sigma_, V_);
+  //svd3x3_sse(def_grad, U_, sigma_, V_);
 
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
-    Matrix3f S = V_[i] * sigma_[i].asDiagonal() * V_[i].transpose();
-    Vector6d stmp; stmp << S(0,0), S(1,1), S(2,2), S(1,0), S(2,0), S(2,1);
+  
+  //   std::cout<<"F: \n"<<sim::unflatten<3,3>(def_grad.segment<9>(9*i))<<"\n";
+    Matrix3d R = R_[i];
+    Matrix3d F = Eigen::Map<Matrix3d>(def_grad.segment<9>(9*i).data());
+    newton_procrustes(R, Matrix3d::Identity(), F, 1e-6);
+    Matrix3d S = R.transpose()*F;
+    R_[i] = R;
+    
+    
+    //std::cout<<"R: \n"<<R_[i]<<"\n";
+    //std::cout<<"S: \n"<<S<<"\n";
+    //Matrix3f S = V_[i] * sigma_[i].asDiagonal() * V_[i].transpose();
+    Vector6d stmp; stmp << S(0,0), S(1,1), S(2,2), 0.5*(S(1,0) + S(0,1)), 0.5*(S(2,0) + S(0,2)), 0.5*(S(2,1) + S(1,2));
     const Vector6d& si = s.segment<6>(6*i);
     Vector6d diff = Sym * (stmp - si);
     e_L(i) = la.segment<6>(6*i).dot(diff) * vols_[i];
@@ -346,6 +358,12 @@ void MixedSQPOptimizer::reset() {
     }
   }
   Gs_.setFromTriplets(trips.begin(),trips.end());
+
+  //init R
+  #pragma omp parallel for
+  for(unsigned int ii=0; ii<nelem_; ++ii) {
+    R_[ii] = Matrix3d::Identity();
+  }
 
   // Initializing gradients and LHS
   update_system();

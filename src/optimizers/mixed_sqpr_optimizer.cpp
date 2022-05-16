@@ -7,6 +7,7 @@
 #include "linesearch.h"
 #include "pinning_matrix.h"
 #include "pcg.h"
+#include "svd/newton_procrustes.h"
 
 #include <fstream>
 #include "unsupported/Eigen/src/SparseExtra/MarketIO.h"

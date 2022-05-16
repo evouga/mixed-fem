@@ -247,6 +247,8 @@ void callback() {
 }
 
 int main(int argc, char **argv) {
+
+  omp_set_num_threads(8);
   // Configure the argument parser
   args::ArgumentParser parser("Mixed FEM");
   args::Positional<std::string> inFile(parser, "mesh", "input mesh");
