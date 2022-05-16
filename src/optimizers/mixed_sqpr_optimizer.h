@@ -14,7 +14,7 @@ namespace mfem {
     
     MixedSQPROptimizer(std::shared_ptr<SimObject> object,
         std::shared_ptr<SimConfig> config) : MixedSQPOptimizer(object, config) {}
-  
+
   public:
 
     virtual void step() override;

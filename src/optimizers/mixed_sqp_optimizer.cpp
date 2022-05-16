@@ -325,6 +325,7 @@ void MixedSQPOptimizer::reset() {
  
   Mr_ = M_;
   object_->jacobian(Jw_, vols_, true);
+  object_->jacobian(Jloc_);
 
   init_block_diagonal<9,6>(C_, nelem_);
 
@@ -347,6 +348,18 @@ void MixedSQPOptimizer::reset() {
   }
   Gs_.setFromTriplets(trips.begin(),trips.end());
 
+
+  // Building FEM matrix assembler
+  int curr = 0;
+  std::vector<int> free_map(pinnedV_.size(), -1);  
+  for (int i = 0; i < pinnedV_.size(); ++i) {
+    if (pinnedV_(i) == 0) {
+      free_map[i] = curr++;
+    }
+  }
+  std::cout << "assembler_ " << std::endl;
+  assembler_ = std::make_shared<Assembler<double,4,3>>(object_->T_, free_map);
+
   // Initializing gradients and LHS
   update_system();
   
@@ -358,6 +371,5 @@ void MixedSQPOptimizer::reset() {
   if(solver_.info()!=Success) {
     std::cerr << " KKT prefactor failed! " << std::endl;
   }
-
   //setup_preconditioner();
 }

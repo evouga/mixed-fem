@@ -20,6 +20,6 @@ namespace mfem {
         const Eigen::VectorXd& vols) override;
     virtual void jacobian(SparseMatrixdRowMajor& J, const Eigen::VectorXd& vols,
         bool weighted) override;
-    virtual void jacobian(std::vector<Eigen::Matrix<double,9,12>> J) override;
+    virtual void jacobian(std::vector<Eigen::Matrix<double,9,12>>& J) override;
   };
 }

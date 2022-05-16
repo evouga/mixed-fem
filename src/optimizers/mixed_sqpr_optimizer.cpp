@@ -88,10 +88,29 @@ void MixedSQPROptimizer::build_lhs() {
   lhs_ = M_;
   lhs_ += Gx * Hs * Gx.transpose();
    SparseMatrixd G = Gx * Hs * Gx.transpose();
-  // saveMarket(lhs_, "lhs.mkt");
   // saveMarket(M_, "M_.mkt");
   // saveMarket(Hs, "Hs.mkt");
-  // saveMarket(G, "GHG.mkt");
+  
+   std::vector<Matrix12d> Hloc(nelem_); 
+//#pragma omp parallel for
+  std::cout << "dS_[i] size: " << dS_.size() << " H_ size : " << H_.size() << " Jloc: " << Jloc_.size() << std::endl;
+   for (int i = 0; i < nelem_; ++i) {
+    //std::vector<Eigen::Matrix<double,9,6>> dS_;
+     std::cout << " i: " << i << std::endl;
+     Hloc[i] = (Jloc_[i].transpose() * (dS_[i] * H_[i]
+         * dS_[i].transpose()) * Jloc_[i]) * (vols_[i] * vols_[i]);
+   }
+
+
+  
+  saveMarket(G, "GHG.mkt");
+
+  std::cout << "A: " << assembler_->A.rows() << ", " << assembler_->A.cols() << " " << assembler_->A.nonZeros() << std::endl;
+  saveMarket(assembler_->A, "lhs2.mkt");
+  saveMarket(M_, "M_.mkt");
+
+  assembler_->update_matrix(Hloc);
+  saveMarket(assembler_->A, "GHG2.mkt");
 
   // lhs_.makeCompressed();
   // std::cout << "rows: " << lhs_.rows() << " R*C: " << lhs_.size() << " nnz: " << lhs_.nonZeros() << std::endl;
@@ -254,3 +273,4 @@ bool MixedSQPROptimizer::linesearch_x(VectorXd& x, const VectorXd& dx) {
   std::cout << "x alpha: " << alpha << std::endl;
   return done;
 }
+
