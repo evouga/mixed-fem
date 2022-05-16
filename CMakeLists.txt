@@ -15,8 +15,6 @@ endif()
 # For nasoq
 # set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-# add_subdirectory("deps/amgcl")
-
 ### Configure output locations
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -82,7 +80,9 @@ find_package(OpenMP REQUIRED)
 find_package(BLAS)
 find_package(LAPACK)
 find_package(CHOLMOD)
-# find_package(SuiteSparse)
+find_package(SuiteSparse)
+
+add_subdirectory("deps/amgcl")
 
 # Add polyscope
 message("\n\n == CMAKE recursively building Polyscope\n")
@@ -109,6 +109,7 @@ file(GLOB SOURCES
     ${PROJECT_SOURCE_DIR}/src/materials/*.cpp
     ${PROJECT_SOURCE_DIR}/src/optimizers/*.cpp
     ${PROJECT_SOURCE_DIR}/src/objects/*.cpp)
+
 # message("SOURCES" ${SOURCES})
 add_library(mixed_fem_lib SHARED ${SOURCES})
 
@@ -121,22 +122,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(finite-diff)
 
-# include(FetchContent)
-# FetchContent_Declare(
-#   Eigen
-#   GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
-#   GIT_TAG master
-#   GIT_SHALLOW TRUE
-#   GIT_PROGRESS TRUE)
-# set(EIGEN_BUILD_DOC OFF)
-# # note: To disable eigen tests,
-# # you should put this code in a add_subdirectory to avoid to change
-# # BUILD_TESTING for your own project too since variables are directory
-# # scoped
-# set(BUILD_TESTING OFF)
-# set(EIGEN_BUILD_PKGCONFIG OFF)
-# set( OFF)
-
 include(FetchContent)
 FetchContent_Declare(
   Catch2
@@ -144,13 +129,6 @@ FetchContent_Declare(
   GIT_TAG        v2.x
 )
 FetchContent_MakeAvailable(Catch2)
-
-include(FetchContent)
-FetchContent_Declare(
-  amgcl
-  GIT_REPOSITORY https://github.com/ddemidov/amgcl
-)
-FetchContent_MakeAvailable(amgcl)
 
 # Add OMP library and includes
 if(OpenMP_CXX_FOUND)
@@ -182,6 +160,7 @@ if(LAPACK_FOUND)
   target_link_libraries(mixed_fem_lib ${LAPACK_LIBRARIES})
 endif()
 if(CHOLMOD_FOUND AND BLAS_FOUND AND LAPACK_FOUND)
+message(CHOL INCLUDES ${CHOLMOD_INCLUDE_DIR})
   include_directories(${CHOLMOD_INCLUDE_DIR})
   target_link_libraries(mixed_fem_lib ${CHOLMOD_LIBRARIES})
   target_compile_definitions(mixed_fem_lib PUBLIC -DSIM_USE_CHOLMOD)
@@ -201,27 +180,24 @@ elseif ()
 ENDIF()
 
 # Include settings
-target_include_directories(mixed_fem_lib PUBLIC 
+#target_include_directories(mixed_fem_lib PUBLIC 
+# "${CMAKE_CURRENT_SOURCE_DIR}/src")
+
+# Shouldn't do this but the warnings aren't be suppressed and its making me insane
+target_include_directories(mixed_fem_lib SYSTEM PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}/src"
+  "${CMAKE_CURRENT_SOURCE_DIR}/deps/agmcl"
+  "${CMAKE_CURRENT_SOURCE_DIR}/deps/Bartels/include"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/libigl/include" 
-  "${CMAKE_CURRENT_SOURCE_DIR}/deps/Bartels/include" 
-  #"${CMAKE_CURRENT_SOURCE_DIR}/deps/nasoq/include"
-  #"${CMAKE_CURRENT_SOURCE_DIR}/deps/agmcl"
+#   #"${CMAKE_CURRENT_SOURCE_DIR}/deps/nasoq/include"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope/deps/args"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope/deps/json/include")
-  
-SET(CMAKE_CXX_FLAGS "${BASE_CXX_FLAGS} ${DISABLED_WARNINGS}")
-
-
-set_target_properties(mixed_fem_lib PROPERTIES COMPILE_FLAGS ${DISABLED_WARNINGS})
 
 # Link settings
 target_link_libraries(mixed_fem_lib polyscope Eigen3::Eigen amgcl::amgcl)
 
 # Create an executable
 add_executable(tet_sim apps/tet_sim.cpp ${SOURCES})
-set_target_properties(tet_sim PROPERTIES COMPILE_FLAGS ${DISABLED_WARNINGS})
-
 target_link_libraries(tet_sim mixed_fem_lib)
 
 add_executable(cloth_sim apps/cloth_sim.cpp ${SOURCES})

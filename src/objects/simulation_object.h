@@ -31,7 +31,7 @@ namespace mfem {
     }
     
     virtual void volumes(Eigen::VectorXd& vol) = 0;
-    virtual void mass_matrix(Eigen::SparseMatrixd& M,
+    virtual void mass_matrix(Eigen::SparseMatrixdRowMajor& M,
         const Eigen::VectorXd& vols) = 0;
     virtual void jacobian(Eigen::SparseMatrixdRowMajor& J,
         const Eigen::VectorXd& vols, bool weighted) = 0;

@@ -27,7 +27,7 @@ void MixedSQPOptimizer::setup_preconditioner() {
 
     std::cout<<"Rebuilding Preconditioner\n";
     std::vector<Matrix9d> C(nelem_);  
-    #pragma parallel for
+    #pragma omp parallel for
     for (int i = 0; i < nelem_; ++i) {
       
       C[i] = Eigen::Matrix9d::Identity()*(-vols_[i] / (mat_val
@@ -281,7 +281,7 @@ double MixedSQPOptimizer::energy(const VectorXd& x, const VectorXd& s,
   // data_.timer.start("1");
   VectorXd xdiff = x - x0_ - h*vt_ - h*h*f_ext_;
   
-  double Em = 0.5*xdiff.transpose()*Mr_*xdiff;
+  double Em = 0.5*xdiff.transpose()*M_*xdiff;
 
   VectorXd def_grad = J_*(P_.transpose()*x+b_);
 
@@ -316,7 +316,6 @@ double MixedSQPOptimizer::energy(const VectorXd& x, const VectorXd& s,
 void MixedSQPOptimizer::reset() {
   MixedOptimizer::reset();
  
-  Mr_ = M_;
   object_->jacobian(Jw_, vols_, true);
   object_->jacobian(Jloc_);
   PJ_ = P_ * Jw_.transpose();
@@ -344,7 +343,7 @@ void MixedSQPOptimizer::reset() {
 
   //init R
   #pragma omp parallel for
-  for(unsigned int ii=0; ii<nelem_; ++ii) {
+  for(int ii=0; ii<nelem_; ++ii) {
     R_[ii] = Matrix3d::Identity();
   }
 

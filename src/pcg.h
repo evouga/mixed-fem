@@ -63,7 +63,7 @@ inline int pcg(Eigen::VectorXx<Scalar>& x,
     rsold = r.dot(z);
     t.stop("end");
   }
-  t.print();
+  // t.print();
   return num_itr;
 }
 

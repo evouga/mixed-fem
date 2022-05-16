@@ -102,7 +102,7 @@ void MixedSQPROptimizer::build_lhs() {
   assembler_->update_matrix(Hloc);
   data_.timer.stop("Update LHS");
 
-  lhs_ = Mr_ + assembler_->A;
+  lhs_ = M_ + assembler_->A;
 
   //saveMarket(assembler_->A, "GHG2.mkt");
   //   MatrixXd lhs(lhs_);

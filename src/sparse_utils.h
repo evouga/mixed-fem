@@ -16,7 +16,7 @@ namespace mfem {
     static void reorder(std::vector<T>& val, const std::vector<int>& indices) {
       std::vector<T> tmp(indices.size());
 
-      for (int i = 0; i < indices.size(); ++i) {
+      for (size_t i = 0; i < indices.size(); ++i) {
         tmp[i] = val[indices[i]];
         //tmp[indices[i]] = val[i];
       }
@@ -138,7 +138,7 @@ namespace mfem {
 
       // Iterate over M rows at a time
       #pragma omp parallel for
-      for (int ii = 0; ii < row_offsets.size() - 1; ++ii) {
+      for (size_t ii = 0; ii < row_offsets.size() - 1; ++ii) {
         int row_beg = row_offsets[ii];
         int row_end = row_offsets[ii+1];
 
@@ -237,7 +237,7 @@ namespace mfem {
 
     // Mass matrix terms
     for (int i = 0; i < A.outerSize(); ++i) {
-      for (SparseMatrixd::InnerIterator it(A,i); it; ++it) {
+      for (typename SparseMatrix<double,AOrdering>::InnerIterator it(A,i); it; ++it) {
         trips.push_back(Triplet<double>(it.row(),it.col(),it.value()));
       }
     }
@@ -246,7 +246,7 @@ namespace mfem {
 
     // Jacobian off-diagonal entries
     for (int i = 0; i < B.outerSize(); ++i) {
-      for (SparseMatrixd::InnerIterator it(B, i); it; ++it) {
+      for (typename SparseMatrix<double,BOrdering>::InnerIterator it(B, i); it; ++it) {
         trips.push_back(Triplet<double>(offset+it.row(),it.col(),it.value()));
         trips.push_back(Triplet<double>(it.col(),offset+it.row(),it.value()));
       }
@@ -281,7 +281,7 @@ namespace mfem {
 
     // Mass matrix terms
     for (int i = 0; i < A.outerSize(); ++i) {
-      for (SparseMatrixd::InnerIterator it(A,i); it; ++it) {
+      for (typename SparseMatrix<double,Ordering>::InnerIterator it(A,i); it; ++it) {
         trips.push_back(Triplet<double>(it.row(),it.col(),it.value()));
       }
     }

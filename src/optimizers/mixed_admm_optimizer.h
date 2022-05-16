@@ -66,7 +66,7 @@ namespace mfem {
     Eigen::SparseMatrixdRowMajor Ws_;      // integrated (weighted) jacobian
     Eigen::SparseMatrixd A_;        
     Eigen::SparseMatrixd G_;
-    Eigen::SparseMatrixd L_;
+    Eigen::SparseMatrixdRowMajor L_;
     Eigen::SparseMatrixd Hx_;
 
     // Rotation matrices assembled into sparse matrices

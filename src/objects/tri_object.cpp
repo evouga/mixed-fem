@@ -11,7 +11,8 @@ void TriObject::volumes(Eigen::VectorXd& vol) {
   vol.array() *= (config_->thickness/2);
 }
 
-void TriObject::mass_matrix(Eigen::SparseMatrixd& M, const VectorXd& vols) {
+void TriObject::mass_matrix(Eigen::SparseMatrixdRowMajor& M,
+    const VectorXd& vols) {
 std::cerr << "WRONG use volumes dummy" << std::endl;
   std::vector<Triplet<double>> trips;
   VectorXd dblA;

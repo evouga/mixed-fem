@@ -31,7 +31,7 @@ void TetrahedralObject::volumes(Eigen::VectorXd& vol) {
   vol = vol.cwiseAbs();
 }
 
-void TetrahedralObject::mass_matrix(Eigen::SparseMatrixd& M,
+void TetrahedralObject::mass_matrix(SparseMatrixdRowMajor& M,
     const VectorXd& vols) {
   VectorXd densities = VectorXd::Constant(T_.rows(), config_->density);
   sim::linear_tetmesh_mass_matrix(M, V_, T_, densities, vols);

@@ -24,7 +24,7 @@ void RodObject::volumes(VectorXd& vol) {
   }
 }
 
-void RodObject::mass_matrix(SparseMatrixd& M, const VectorXd& vols) {
+void RodObject::mass_matrix(SparseMatrixdRowMajor& M, const VectorXd& vols) {
 
   std::vector<Triplet<double>> trips;
 

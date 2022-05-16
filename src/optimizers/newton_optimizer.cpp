@@ -214,7 +214,11 @@ void NewtonOptimizer::reset() {
 
   E_prev_ = 0;
   object_->volumes(vols_);
-  object_->mass_matrix(M_, vols_);
+
+  SparseMatrixdRowMajor tmpM;
+  object_->mass_matrix(tmpM, vols_);
+  M_ = tmpM;
+  
   object_->jacobian(J_, vols_, false);
 
   // Pinning matrices

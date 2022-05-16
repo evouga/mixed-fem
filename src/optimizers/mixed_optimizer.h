@@ -79,7 +79,7 @@ namespace mfem {
     std::vector<Eigen::Vector6d> g_;    // Elemental gradients w.r.t dS
     std::vector<Eigen::Matrix<double,9,6>> dS_;
 
-    Eigen::SparseMatrixd M_;          // mass matrix
+    Eigen::SparseMatrixdRowMajor M_;  // mass matrix
     Eigen::SparseMatrixd P_;          // pinning constraint (for vertices)
     Eigen::SparseMatrixdRowMajor J_;  // jacobian
     Eigen::SparseMatrixd W_;
