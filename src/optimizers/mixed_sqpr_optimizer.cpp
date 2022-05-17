@@ -186,26 +186,32 @@ void MixedSQPROptimizer::substep(int step, double& decrement) {
   int niter = 0;
 
   data_.timer.start("global");
-  // Eigen::Matrix<double, 12, 1> dx_affine;  
-  // dx_affine = (T0_.transpose()*lhs_*T0_).lu().solve(T0_.transpose()*rhs_);
-  
-  // dx_ = T0_*dx_affine;
-  // niter = pcr(dx_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_arap_, 1e-4, config_->max_iterative_solver_iters);
-  // std::cout << "  - CG iters: " << niter;
-  // double relative_error = (lhs_*dx_ - rhs_).norm() / rhs_.norm(); 
-  // std::cout << " rel error: " << relative_error << " abs error: " << (lhs_*dx_-rhs_).norm() << std::endl;
+  Eigen::Matrix<double, 12, 1> dx_affine;  
+  // solver_.compute(lhs_);
+  // if(solver_.info()!=Success) {
+  //   std::cerr << "prefactor failed! " << std::endl;
+  //   exit(1);
+  // }
+  // dx_ = solver_.solve(rhs_);
 
-  solver_.compute(lhs_);
-  if(solver_.info()!=Success) {
-    std::cerr << "prefactor failed! " << std::endl;
-    exit(1);
-  }
-  dx_ = solver_.solve(rhs_);
+  dx_affine = (T0_.transpose()*lhs_*T0_).lu().solve(T0_.transpose()*rhs_);
+  dx_ = T0_*dx_affine;
+  niter = pcg(dx_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_zm1_, tmp_p_, tmp_Ap_, solver_arap_, config_->itr_tol, config_->max_iterative_solver_iters);
+  std::cout << "  - CG iters: " << niter;
+  double relative_error = (lhs_*dx_ - rhs_).norm() / rhs_.norm(); 
+  std::cout << " rel error: " << relative_error << " abs error: " << (lhs_*dx_-rhs_).norm() << std::endl;
+
+  // solver_.compute(lhs_);
+  // if(solver_.info()!=Success) {
+  //   std::cerr << "prefactor failed! " << std::endl;
+  //   exit(1);
+  // }
+  // dx_ = solver_.solve(rhs_);
   data_.timer.stop("global");
 
 
   data_.timer.start("local");
-  VectorXd Jdx = - PJ_.transpose() * dx_;
+  Jdx_ = - PJ_.transpose() * dx_;
   la_ = -gl_;
 
   // Update per-element R & S matrices
@@ -213,7 +219,7 @@ void MixedSQPROptimizer::substep(int step, double& decrement) {
 
   #pragma omp parallel for 
   for (int i = 0; i < nelem_; ++i) {
-    la_.segment<6>(6*i) += H_[i] * (dS_[i].transpose() * Jdx.segment<9>(9*i));
+    la_.segment<6>(6*i) += H_[i] * (dS_[i].transpose() * Jdx_.segment<9>(9*i));
     // ds_.segment<6>(6*i) = -Hinv_[i] * (Sym * la_.segment<6>(6*i)+ g_[i]);
     Vector6d si = s_.segment<6>(6*i);
     Vector6d gs = vols_[i]*(Sym * la_.segment<6>(6*i)+ g_[i]);

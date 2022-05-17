@@ -57,6 +57,7 @@ namespace mfem {
     int ls_iters = 20;
     OptimizerType optimizer = OPTIMIZER_SQP_PD;
     int max_iterative_solver_iters = 500;
+    double itr_tol = 1e-4;
 
   };
 
