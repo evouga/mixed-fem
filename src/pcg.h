@@ -11,7 +11,7 @@ template<typename PreconditionerSolver, typename Scalar, int Ordering>
 inline int pcg(Eigen::VectorXx<Scalar>& x,
     const Eigen::SparseMatrix<Scalar, Ordering> &A,
     const Eigen::VectorXx<Scalar> &b, Eigen::VectorXx<Scalar> &r,
-    Eigen::VectorXx<Scalar> &z, Eigen::VectorXx<Scalar> &p,
+    Eigen::VectorXx<Scalar> &z, Eigen::VectorXx<Scalar> &zm1, Eigen::VectorXx<Scalar> &p,
     Eigen::VectorXx<Scalar> &Ap, PreconditionerSolver &pre,
     Scalar tol = 1e-4, unsigned int num_itr = 500) {
 
@@ -25,6 +25,7 @@ inline int pcg(Eigen::VectorXx<Scalar>& x,
 
   t.start("setup");
   z = pre.solve(r);
+  zm1 = z;
   p = z;
   Scalar rsold = r.dot(z);
   Scalar rsnew = 0.;
@@ -32,7 +33,7 @@ inline int pcg(Eigen::VectorXx<Scalar>& x,
   Scalar beta = 0.;
   t.stop("setup");
 
-  Eigen::VectorXd zm1;
+  //Eigen::VectorXd zm1;
 
   for(unsigned int i=0; i<num_itr; ++i) {
     t.start("Ap");

@@ -42,7 +42,7 @@ namespace mfem {
     #else
     Eigen::SimplicialLLT<Eigen::SparseMatrixdRowMajor> solver_;
     #endif
-    Eigen::CholmodSupernodalLLT<Eigen::SparseMatrixdRowMajor> solver_arap_;
+    Eigen::SimplicialLDLT<Eigen::SparseMatrixdRowMajor> solver_arap_;
 
     Eigen::Matrix<double, 12,12> pre_affine_;
 

@@ -143,6 +143,7 @@ if(OpenMP_CXX_FOUND)
         include_directories(${BREW_OMP_PREFIX}/include)
         target_link_libraries(mixed_fem_lib OpenMP::OpenMP_CXX)
         target_compile_definitions(mixed_fem_lib PUBLIC -DSIM_USE_OPENMP)
+        set(OpenMP_CXX_FLAGS "-Xpreprocessor -fopenmp")
 
     else()
         include_directories(${OpenMP_CXX_INCLUDE_DIRS})

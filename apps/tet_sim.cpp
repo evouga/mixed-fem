@@ -251,6 +251,8 @@ void callback() {
 int main(int argc, char **argv) {
 
   omp_set_num_threads(8);
+  Eigen::initParallel();
+  
   // Configure the argument parser
   args::ArgumentParser parser("Mixed FEM");
   args::Positional<std::string> inFile(parser, "mesh", "input mesh");
@@ -365,7 +367,6 @@ int main(int argc, char **argv) {
 
   optimizer = make_optimizer(tet_object, config);
   optimizer->reset();
-
 
   // Show the gui
   polyscope::show();

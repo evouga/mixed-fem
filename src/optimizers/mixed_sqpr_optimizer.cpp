@@ -187,7 +187,7 @@ void MixedSQPROptimizer::substep(int step, double& decrement) {
     dx_affine = (T0_.transpose()*lhs_*T0_).lu().solve(T0_.transpose()*rhs_);
     
     dx_ = T0_*dx_affine;
-    niter = pcr(dx_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_arap_, 1e-4, config_->max_iterative_solver_iters);
+    niter = pcg(dx_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_zm1_, tmp_p_, tmp_Ap_, solver_arap_, 1e-4, config_->max_iterative_solver_iters);
     std::cout << "  - CG iters: " << niter;
     double relative_error = (lhs_*dx_ - rhs_).norm() / rhs_.norm(); 
     std::cout << " rel error: " << relative_error << " abs error: " << (lhs_*dx_-rhs_).norm() << std::endl;
