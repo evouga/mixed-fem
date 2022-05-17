@@ -181,6 +181,7 @@ namespace mfem {
     // CG temp variables
     Eigen::VectorXd tmp_r_;
     Eigen::VectorXd tmp_z_;
+    Eigen::VectorXd tmp_zm1_;
     Eigen::VectorXd tmp_p_;
     Eigen::VectorXd tmp_Ap_;
 
