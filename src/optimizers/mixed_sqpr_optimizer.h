@@ -58,8 +58,19 @@ namespace mfem {
 
     virtual bool linesearch_x(Eigen::VectorXd& x,
         const Eigen::VectorXd& dx) override;
+    virtual bool linesearch_s_local(Eigen::VectorXd& s,
+        const Eigen::VectorXd& ds) override;
+
+    virtual double energy(const Eigen::VectorXd& x,
+        const Eigen::VectorXd& s, const Eigen::VectorXd& la) override;
 
     Eigen::VectorXd gl_;
+    double constraint_l1_;
+    double mu_;
+    double step_;
+    Eigen::VectorXd mu_vec_;
+
+
     // Eigen::SimplicialLDLT<Eigen::SparseMatrixdRowMajor> solver_;
     // Solve used for preconditioner
     #if defined(SIM_USE_CHOLMOD)

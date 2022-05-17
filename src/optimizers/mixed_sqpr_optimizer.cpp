@@ -29,6 +29,7 @@ void MixedSQPROptimizer::step() {
   // q_.segment(0, x_.size()) = x_ - x0_;
 
   do {
+    step_ = i;
     data_.timer.start("step");
     update_system();
     substep(i, grad_norm);
@@ -38,12 +39,11 @@ void MixedSQPROptimizer::step() {
     linesearch_s_local(s_,ds_);
     // linesearch(x_, dx_, s_, ds_);
 
-    // x_ += dx_;
     // s_ += ds_;
 
     double E = energy(x_, s_, la_);
     res = std::abs((E - E_prev_) / E);
-    data_.egrad_.push_back(grad_norm);
+    data_.egrad_.push_back(grad_.norm());
     data_.energies_.push_back(E);
     data_.energy_residuals_.push_back(res);
     E_prev_ = E;
@@ -79,17 +79,6 @@ void MixedSQPROptimizer::build_lhs() {
   }
   data_.timer.stop("Hinv");
 
-  // std::cout << "HX: " << std::endl;
-  //SparseMatrixd Hs;
-  //SparseMatrix<double, RowMajor> Gx = Gx_;
-  //init_block_diagonal<6,6>(Hs, nelem_);
-  //update_block_diagonal<6,6>(H_, Hs);
-
-  //lhs_ += Gx * Hs * Gx.transpose();
-  // SparseMatrixd G = Gx * Hs * Gx.transpose();
-  // saveMarket(M_, "M_.mkt");
-  // saveMarket(Hs, "Hs.mkt");
-  
   data_.timer.start("Local H");
   std::vector<Matrix12d> Hloc(nelem_); 
   #pragma omp parallel for
@@ -106,11 +95,6 @@ void MixedSQPROptimizer::build_lhs() {
   data_.timer.stop("Update LHS");
 
   lhs_ = M_ + assembler_->A;
-
-  //saveMarket(assembler_->A, "GHG2.mkt");
-  //   MatrixXd lhs(lhs_);
-  //   EigenSolver<MatrixXd> es(lhs);
-  //   std::cout << "LHS EVALS: \n" << es.eigenvalues().real() << std::endl;
   data_.timer.stop("LHS");
 
 }
@@ -138,13 +122,27 @@ void MixedSQPROptimizer::build_rhs() {
   data_.timer.stop("RHS");
 
 
+  // grad_.resize(x_.size() + 6*nelem_);
+  // #pragma omp parallel for
+  // for (int i = 0; i < nelem_; ++i) {
+  //   tmp.segment<9>(9*i) = dS_[i]*la_.segment<6>(6*i);
+  //   grad_.segment<6>(x_.size() + 6*i) = vols_[i] * (g_[i] + Sym*la_.segment<6>(6*i));
+  // }
+  // grad_.segment(0,x_.size()) = M_*(x_ - x0_ - h*vt_ - h2*f_ext_) - PJ_ * tmp;
+
+  constraint_l1_ = 0;
   grad_.resize(x_.size() + 6*nelem_);
-  #pragma omp parallel for
+  #pragma omp parallel for reduction(+ : constraint_l1_)
   for (int i = 0; i < nelem_; ++i) {
+    // If doing nonsmooth
+    // grad_.segment<6>(x_.size() + 6*i) = vols_[i] * g_[i];
+
     tmp.segment<9>(9*i) = dS_[i]*la_.segment<6>(6*i);
     grad_.segment<6>(x_.size() + 6*i) = vols_[i] * (g_[i] + Sym*la_.segment<6>(6*i));
+    const Vector6d& si = s_.segment(6*i,6);
+    constraint_l1_ += vols_[i] * (Sym*(S_[i] - si)).lpNorm<1>();
   }
-  grad_.segment(0,x_.size()) = M_*(x_ - x0_ - h*vt_ - h2*f_ext_) - PJ_ * tmp;
+  grad_.segment(0,x_.size()) = M_*(x_ - x0_ - h*vt_ - h2*f_ext_);
 }
 
 void MixedSQPROptimizer::update_system() {
@@ -300,28 +298,79 @@ void MixedSQPROptimizer::substep(int step, double& decrement) {
 }
 
 bool MixedSQPROptimizer::linesearch_x(VectorXd& x, const VectorXd& dx) {
-  return MixedOptimizer::linesearch_x(x,dx);
   data_.timer.start("LS_x");
 
+
   auto value = [&](const VectorXd& x)->double {
-    //double h = config_->h;
-    //VectorXd xdiff = x - x0_ - h*vt_ - h*h*f_ext_;
-    //return 0.5*xdiff.transpose()*M_*xdiff;
-    return energy(x,s_,la_);
+    return energy(x, s_, la_);
   };
 
   VectorXd xt = x;
-  VectorXd tmp;
+  VectorXd gradx = grad_.segment(0,xt.size());
+  
+  x += dx;
+return true;
+
+
+  // mu_= .5 * la_.lpNorm<Infinity>();
+  mu_ = (gradx.dot(dx) + 0.5* dx.dot(M_*dx)) / (0.2 * constraint_l1_);
+  // std::cout << "mu new: " << mu_ << " old: " << 0.5*la_.lpNorm<Infinity>() << std::endl;
+  mu_vec_.resize(la_.size());
+  if (step_ == 0) {
+    mu_vec_.setZero();
+    mu_vec_ = la_;
+  }
+  //mu_vec_ = la_.cwiseMax(0.5 * (mu_vec_ + la_));
+  mu_vec_ = 0.5 * (mu_vec_ + la_);
+  constraint_l1_ = 0;
+  #pragma omp parallel for reduction(+ : constraint_l1_)
+  for (int i = 0; i < nelem_; ++i) {
+    const Vector6d& si = s_.segment(6*i,6);
+
+    constraint_l1_ += -vols_[i] * mu_vec_.segment<6>(6*i).dot(Sym*(S_[i] - si));
+  }
+
   double alpha = 1.0;
-  SolverExitStatus status = linesearch_backtracking_bisection(xt, dx, value,
-      tmp, alpha, config_->ls_iters, 0.1, 0.66, E_prev_);
+  SolverExitStatus status = linesearch_nonsmooth_merit_cubic(xt, dx, value,
+      gradx, alpha, config_->ls_iters, 1e-4, 0.5, E_prev_, constraint_l1_);  
   bool done = status == MAX_ITERATIONS_REACHED;
   if (done)
     std::cout << "linesearch_x max iters" << std::endl;
   x = xt;
   data_.timer.stop("LS_x");
-  // std::cout << "x alpha: " << alpha << std::endl;
   return done;
+}
+
+bool MixedSQPROptimizer::linesearch_s_local(VectorXd& s, const VectorXd& ds) {
+  return MixedOptimizer::linesearch_s_local(s,ds);
+  data_.timer.start("LS_s_local");
+
+  mu_= la_.lpNorm<Infinity>();
+
+  double h2 = config_->h * config_->h;
+  #pragma omp parallel for
+  for (int i = 0; i < nelem_; ++i) {
+    Ref<Vector6d> la = la_.segment<6>(6*i);
+
+    auto value = [&](const Vector6d& s)->double {
+      return vols_[i] * (h2 * object_->material_->energy(s)
+          - la.dot(-Sym * s));
+    };
+
+    const Vector6d& si = s.segment<6>(6*i);
+    const Vector6d& dsi = ds.segment<6>(6*i);
+    Vector6d gsi = grad_.segment<6>(x_.size() + 6*i);
+    double alpha = 1.0;
+    Vector6d st = si;
+    Vector6d tmp;
+    SolverExitStatus status = linesearch_nonsmooth_merit_cubic(st, dsi, value,
+        gsi, alpha, config_->ls_iters, 1e-4, 0.5, E_prev_, mu_ * constraint_l1_);  
+    bool done = (status == MAX_ITERATIONS_REACHED);
+    s.segment<6>(6*i) = st;
+    
+  }
+  data_.timer.stop("LS_s_local");
+  return true;
 }
 
 void MixedSQPROptimizer::reset() {
@@ -359,3 +408,42 @@ void MixedSQPROptimizer::reset() {
   std::cout << "SOLVE:\n" << amg_solver_ << std::endl;
 }
 
+double MixedSQPROptimizer::energy(const VectorXd& x, const VectorXd& s,
+        const VectorXd& la) {
+  double h = config_->h;
+  double h2 = h*h;
+
+  VectorXd xdiff = x - x0_ - h*vt_ - h*h*f_ext_;
+  
+  double Em = 0.5*xdiff.transpose()*M_*xdiff;
+
+  VectorXd def_grad = J_*(P_.transpose()*x+b_);
+
+  VectorXd e_L(nelem_);
+  VectorXd e_Psi(nelem_);
+
+  #pragma omp parallel for
+  for (int i = 0; i < nelem_; ++i) {
+  
+    newton_procrustes(R_[i], Matrix3d::Identity(), Eigen::Map<Matrix3d>(
+        def_grad.segment<9>(9*i).data()), 1e-6);
+    Matrix3d S = R_[i].transpose()*Eigen::Map<Matrix3d>(
+        def_grad.segment<9>(9*i).data());
+
+    Vector6d stmp; stmp << S(0,0), S(1,1), S(2,2),
+        0.5*(S(1,0) + S(0,1)),
+        0.5*(S(2,0) + S(0,2)),
+        0.5*(S(2,1) + S(1,2));
+
+    const Vector6d& si = s.segment<6>(6*i);
+    Vector6d diff = Sym * (stmp - si);
+
+    e_L(i) =  mu_vec_.segment<6>(6*i).dot(diff) * vols_[i];
+    //e_L(i) = diff.lpNorm<1>() * vols_[i];
+    e_Psi(i) = object_->material_->energy(si) * vols_[i];
+  }
+  double Ela = e_L.sum();
+  double Epsi = h2 * e_Psi.sum();
+  double e = Em + Epsi - Ela;
+  return e;
+}

@@ -149,6 +149,57 @@ namespace mfem {
         ? SolverExitStatus::MAX_ITERATIONS_REACHED 
         : SolverExitStatus::CONVERGED);
   }
+
+  template <typename DerivedX, typename Scalar, class Objective,
+            class Callback = decltype(default_linesearch_callback)>
+  SolverExitStatus linesearch_nonsmooth_merit_cubic(
+      Eigen::MatrixBase<DerivedX> &x,       // x_n
+      const Eigen::MatrixBase<DerivedX> &d, // proposed descent direction
+      const Objective &f,                   // energy function
+      Eigen::MatrixBase<DerivedX> &g,       // gradient at f(x_n)
+      Scalar& alpha,                        // initial step size
+      unsigned int max_iterations,          // maximum linesearch iters
+      Scalar c,                             // sufficient decrease factor 1e-4 
+      Scalar p,                             // factor to reduce alpha by
+      Scalar fx0,                           // dummy ignore this shit
+      Scalar penalty,                       // mu * ||c(x_k, s_k||_1
+      const Callback func = default_linesearch_callback) {
+      
+    fx0 = f(x);
+    // grad = g;
+    Scalar gTp = g.dot(d) - penalty;
+    Scalar fx_prev = fx0;
+    Scalar alpha_prev = alpha;
+
+    int iter = 0;
+    while (iter < max_iterations) {
+
+      func(x + alpha*d); // callback
+
+      Scalar fx = f(x + alpha*d);
+
+      // Armijo sufficient decrease condition
+      Scalar fxn = fx0 + (alpha * c) * gTp;
+      if (fx < fxn) {
+        break;
+      }
+
+      Scalar alpha_tmp = (iter == 0) ? (gTp / (2.0 * (fx0 + gTp - fx)))
+          : cubic(fx0, gTp, fx, alpha, fx_prev, alpha_prev);
+      fx_prev = fx;
+      alpha_prev = alpha;
+      alpha = range(alpha_tmp, 0.1*alpha, 0.5*alpha );
+      ++iter;
+    }
+
+    if(iter < max_iterations) {
+      x += alpha*d;
+    }
+      // printf("  - LS: f(x0): %.5g, f(x + a*d): %.5g, alpha: %.5g\n", fx0, f(x), alpha);
+    return (iter == max_iterations 
+        ? SolverExitStatus::MAX_ITERATIONS_REACHED 
+        : SolverExitStatus::CONVERGED);
+  }
 }
 
 
