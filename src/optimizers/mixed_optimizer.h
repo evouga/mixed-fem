@@ -83,6 +83,7 @@ namespace mfem {
     Eigen::SparseMatrixd P_;          // pinning constraint (for vertices)
     Eigen::SparseMatrixdRowMajor J_;  // jacobian
     Eigen::SparseMatrixd W_;
+    Eigen::VectorXd grad_;
 
     int nelem_;     // number of elements
     double E_prev_; // energy from last result of linesearch

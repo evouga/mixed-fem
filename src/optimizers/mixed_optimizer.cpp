@@ -193,10 +193,12 @@ bool MixedOptimizer::linesearch_x(VectorXd& x, const VectorXd& dx) {
   };
 
   VectorXd xt = x;
-  VectorXd tmp;
+  VectorXd tmp = grad_.segment(0,xt.size());
   double alpha = 1.0;
-  SolverExitStatus status = linesearch_backtracking_bisection(xt, dx, value,
-      tmp, alpha, config_->ls_iters, 0.1, 0.66, E_prev_);
+  // SolverExitStatus status = linesearch_backtracking_bisection(xt, dx, value,
+      // tmp, alpha, config_->ls_iters, 0.1, 0.66, E_prev_);
+  SolverExitStatus status = linesearch_backtracking_cubic(xt, dx, value,
+      tmp, alpha, config_->ls_iters, 1e-4, 0.5, E_prev_);  
   bool done = status == MAX_ITERATIONS_REACHED;
   if (done)
     std::cout << "linesearch_x max iters" << std::endl;
@@ -216,6 +218,7 @@ bool MixedOptimizer::linesearch_s(VectorXd& s, const VectorXd& ds) {
   double alpha = 1.0;
   SolverExitStatus status = linesearch_backtracking_bisection(st, ds, value,
       tmp, alpha, config_->ls_iters, 0.1, 0.5, E_prev_);
+
   bool done = status == MAX_ITERATIONS_REACHED;
   s = st;
   data_.timer.stop("LS_s");
@@ -224,22 +227,27 @@ bool MixedOptimizer::linesearch_s(VectorXd& s, const VectorXd& ds) {
 
 bool MixedOptimizer::linesearch_s_local(VectorXd& s, const VectorXd& ds) {
   data_.timer.start("LS_s_local");
+
+  double h2 = config_->h * config_->h;
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
     Ref<Vector6d> la = la_.segment<6>(6*i);
 
     auto value = [&](const Vector6d& s)->double {
-      return vols_[i] * (object_->material_->energy(s)
+      return vols_[i] * (h2 * object_->material_->energy(s)
           - la.dot(-Sym * s));
     };
 
     const Vector6d& si = s.segment<6>(6*i);
     const Vector6d& dsi = ds.segment<6>(6*i);
+    Vector6d gsi = grad_.segment<6>(x_.size() + 6*i);
     double alpha = 1.0;
     Vector6d st = si;
     Vector6d tmp;
-    SolverExitStatus status = linesearch_backtracking_bisection(st, dsi, value,
-        tmp, alpha, config_->ls_iters, 0.1, 0.5, E_prev_);
+    // SolverExitStatus status = linesearch_backtracking_bisection(st, dsi, value,
+    //     tmp, alpha, config_->ls_iters, 0.1, 0.5, E_prev_);
+    SolverExitStatus status = linesearch_backtracking_cubic(st, dsi, value,
+        gsi, alpha, config_->ls_iters, 1e-4, 0.5, E_prev_);  
     bool done = (status == MAX_ITERATIONS_REACHED);
     s.segment<6>(6*i) = st;
     
@@ -265,9 +273,14 @@ bool MixedOptimizer::linesearch(Eigen::VectorXd& x, const Eigen::VectorXd& dx,
   g.segment(x.size(),s.size()) = ds;
 
   double alpha = 1.0;
-  VectorXd tmp;
+  VectorXd grad;
+
+  // std::cout << "grad_ norm: " << grad_.norm() << std::endl;
   SolverExitStatus status = linesearch_backtracking_bisection(f, g, value,
-      tmp, alpha, config_->ls_iters, 0.1, 0.5, E_prev_);
+      grad, alpha, config_->ls_iters, 0.1, 0.5, E_prev_);
+  // SolverExitStatus status = linesearch_backtracking_cubic(f, g, value,
+  //     grad_, alpha, config_->ls_iters, 1e-4, 0.5, E_prev_);    
+  // std::cout << "ALPHA: " << alpha << std::endl;
   bool done = (status == MAX_ITERATIONS_REACHED);
   x = f.segment(0, x.size());
   s = f.segment(x.size(), s.size());

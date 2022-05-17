@@ -24,6 +24,7 @@ void MixedSQPROptimizer::step() {
 
   int i = 0;
   double grad_norm;
+  double res;
   // q_.setZero();
   // q_.segment(0, x_.size()) = x_ - x0_;
 
@@ -32,16 +33,16 @@ void MixedSQPROptimizer::step() {
     update_system();
     substep(i, grad_norm);
 
-    //linesearch_x(x_, dx_);
+    linesearch_x(x_, dx_);
     // linesearch_s(s_, ds_);
-    //linesearch_s_local(s_,ds_);
-    linesearch(x_, dx_, s_, ds_);
+    linesearch_s_local(s_,ds_);
+    // linesearch(x_, dx_, s_, ds_);
 
     // x_ += dx_;
     // s_ += ds_;
 
     double E = energy(x_, s_, la_);
-    double res = std::abs((E - E_prev_) / E);
+    res = std::abs((E - E_prev_) / E);
     data_.egrad_.push_back(grad_norm);
     data_.energies_.push_back(E);
     data_.energy_residuals_.push_back(res);
@@ -49,7 +50,8 @@ void MixedSQPROptimizer::step() {
     data_.timer.stop("step");
 
     ++i;
-  } while (i < config_->outer_steps && grad_norm > config_->newton_tol);
+  } while (i < config_->outer_steps && grad_norm > config_->newton_tol
+    && (res > 1e-12));
 
   data_.print_data(config_->show_timing);
 
@@ -135,6 +137,14 @@ void MixedSQPROptimizer::build_rhs() {
   rhs_ = -PJ_ * tmp - M_*(x_ - x0_ - h*vt_ - h2*f_ext_);
   data_.timer.stop("RHS");
 
+
+  grad_.resize(x_.size() + 6*nelem_);
+  #pragma omp parallel for
+  for (int i = 0; i < nelem_; ++i) {
+    tmp.segment<9>(9*i) = dS_[i]*la_.segment<6>(6*i);
+    grad_.segment<6>(x_.size() + 6*i) = vols_[i] * (g_[i] + Sym*la_.segment<6>(6*i));
+  }
+  grad_.segment(0,x_.size()) = M_*(x_ - x0_ - h*vt_ - h2*f_ext_) - PJ_ * tmp;
 }
 
 void MixedSQPROptimizer::update_system() {
@@ -150,7 +160,7 @@ void MixedSQPROptimizer::update_system() {
 void MixedSQPROptimizer::substep(int step, double& decrement) {
   int niter = 0;
 
-  if (step == 0 && false) {
+  if (step == 0 || true) {
     data_.timer.start("prefactor");
 
     solver_.compute(lhs_);
@@ -180,17 +190,51 @@ void MixedSQPROptimizer::substep(int step, double& decrement) {
 
 
     // dx_ = solver_.solve(rhs_);
-    niter = pcr(dx_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_arap_, 1e-4);
-    std::cout << "  - CG iters: " << niter;
-    double relative_error = (lhs_*dx_ - rhs_).norm() / rhs_.norm(); 
-    std::cout << " rel error: " << relative_error << " abs error: " << (lhs_*dx_-rhs_).norm() << std::endl;
-// for (int k=0; k<lhs_.outerSize(); ++k)
-//   for (SparseMatrixdRowMajor::InnerIterator it(lhs_,k); it; ++it)
-//   {
-//     it.valueRef() = 1;
-//   } 
-  // saveMarket(lhs_, "lhs.mkt");
-// exit(1);
+    // niter = pcr(dx_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_arap_, 1e-4);
+    // std::cout << "  - CG iters: " << niter;
+    // double relative_error = (lhs_*dx_ - rhs_).norm() / rhs_.norm(); 
+    // std::cout << " rel error: " << relative_error << " abs error: " << (lhs_*dx_-rhs_).norm() << std::endl;
+
+    // typedef amgcl::backend::eigen<double> Backend;
+
+    // // typedef amgcl::make_solver<
+    // //     amgcl::relaxation::as_preconditioner<Backend, amgcl::relaxation::ilu0>,
+    // //     amgcl::solver::bicgstab<Backend>
+    // // > Solver;
+    // typedef amgcl::make_solver<
+    //     amgcl::amg<
+    //         Backend,
+    //         amgcl::coarsening::smoothed_aggregation,
+    //         amgcl::relaxation::spai0
+    //         >,
+    //     amgcl::solver::bicgstab<Backend>
+    //     > Solver;
+  
+    // Solver::params prm2;
+    // // prm2.solver.verbose = 1;
+    // prm2.solver.tol = 1e-3;
+    // //prm2.precond.coarse_enough = 100;
+    // prm2.precond.npre = 1;
+    // prm2.precond.npost = 1;
+    // prm2.precond.ncycle = 5;
+    // //prm2.solver.pside = amgcl::preconditioner::side::left;
+    // prm2.solver.maxiter = 1000;
+    // // prm2.precond.tau = 1e-6;
+    // // prm2.precond.p = 10;
+    // data_.timer.start("setup");
+    // Solver solve(lhs_, prm2);
+    // std::cout << "SOLVE:\n" << solve << std::endl;
+    // data_.timer.stop("setup");
+
+    amg_solver_->precond().rebuild(lhs_);
+
+    int    iters;
+    double error;
+    dx_ = solver_arap_.solve(rhs_);
+    std::tie(iters, error) = amg_solver_->operator()(rhs_, dx_);
+    std::cout << iters << " " << error << std::endl;
+
+
     data_.timer.stop("global");
 
   }
@@ -256,7 +300,9 @@ void MixedSQPROptimizer::substep(int step, double& decrement) {
 }
 
 bool MixedSQPROptimizer::linesearch_x(VectorXd& x, const VectorXd& dx) {
+  return MixedOptimizer::linesearch_x(x,dx);
   data_.timer.start("LS_x");
+
   auto value = [&](const VectorXd& x)->double {
     //double h = config_->h;
     //VectorXd xdiff = x - x0_ - h*vt_ - h*h*f_ext_;
@@ -274,7 +320,7 @@ bool MixedSQPROptimizer::linesearch_x(VectorXd& x, const VectorXd& dx) {
     std::cout << "linesearch_x max iters" << std::endl;
   x = xt;
   data_.timer.stop("LS_x");
-  std::cout << "x alpha: " << alpha << std::endl;
+  // std::cout << "x alpha: " << alpha << std::endl;
   return done;
 }
 
@@ -295,5 +341,21 @@ void MixedSQPROptimizer::reset() {
   SparseMatrixdRowMajor L = PJ_ * A * PJ_.transpose();
   SparseMatrixdRowMajor lhs = M_ + h2*L;
   solver_arap_.compute(lhs);
+
+    Solver::params prm2;
+  // prm2.solver.verbose = 1;
+  prm2.solver.tol = 1e-3;
+  prm2.precond.coarse_enough = 100;
+  prm2.precond.npre = 1;
+  prm2.precond.npost = 1;
+  prm2.precond.ncycle = 2;
+  //prm2.solver.pside = amgcl::preconditioner::side::left;
+  prm2.solver.maxiter = 1000;
+  prm2.precond.allow_rebuild = true;
+  // prm2.precond.tau = 1e-6;
+  // prm2.precond.p = 10;
+  data_.timer.start("setup");
+  amg_solver_ = std::make_shared<Solver>(lhs_,prm2);
+  std::cout << "SOLVE:\n" << amg_solver_ << std::endl;
 }
 
