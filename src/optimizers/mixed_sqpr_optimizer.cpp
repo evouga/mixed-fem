@@ -10,6 +10,7 @@
 #include "svd/newton_procrustes.h"
 
 #include <fstream>
+#include <rigid_inertia_com.h>
 #include "unsupported/Eigen/src/SparseExtra/MarketIO.h"
 
 using namespace mfem;
@@ -42,8 +43,8 @@ void MixedSQPROptimizer::step() {
     // s_ += ds_;
 
     double E = energy(x_, s_, la_);
-    res = std::abs((E - E_prev_) / E);
-    data_.egrad_.push_back(grad_norm);
+    res = std::abs((E - E_prev_) / (E+1));
+    data_.egrad_.push_back(grad_.norm());
     data_.energies_.push_back(E);
     data_.energy_residuals_.push_back(res);
     E_prev_ = E;
@@ -160,84 +161,40 @@ void MixedSQPROptimizer::update_system() {
 void MixedSQPROptimizer::substep(int step, double& decrement) {
   int niter = 0;
 
-  if (step == 0 || true) {
-    data_.timer.start("prefactor");
-
-    solver_.compute(lhs_);
-    if(solver_.info()!=Success) {
-    std::cerr << "prefactor failed! " << std::endl;
-    exit(1);
-    }
-    dx_ = solver_.solve(rhs_);
-    data_.timer.stop("prefactor");
-  // saveMarket(lhs_, "lhs0.mkt");
-
-  } else {
-    data_.timer.start("global");
+  data_.timer.start("global");
 // // sanity check preconditioner on cg, make sure cond is good
-    //BiCGSTAB<SparseMatrix<double>,  Eigen::IncompleteLUT<double>> cg;
-    // LeastSquaresConjugateGradient<SparseMatrix<double>,  Eigen::IncompleteLUT<double>> cg;
-    // Eigen::IncompleteLUT<double>& precon = cg.preconditioner();
-    // precon.setFillfactor(10);
-    // precon.setDroptol(1e-8);
-    // cg.compute(lhs_);
-    // cg.setTolerance(1e-4);
-    // cg.setMaxIterations(100);
+  //BiCGSTAB<SparseMatrix<double>,  Eigen::IncompleteLUT<double>> cg;
+  // LeastSquaresConjugateGradient<SparseMatrix<double>,  Eigen::IncompleteLUT<double>> cg;
+  // Eigen::IncompleteLUT<double>& precon = cg.preconditioner();
+  // precon.setFillfactor(10);
+  // precon.setDroptol(1e-8);
+  // cg.compute(lhs_);
+  // cg.setTolerance(1e-4);
+  // cg.setMaxIterations(100);
 //     // // dx_ = solver_.solve(rhs_);
-    // dx_ = cg.solve(rhs_);
-    // dx_ = cg.solveWithGuess(rhs_, dx_);
-    // niter = cg.iterations();
-
-
-    // dx_ = solver_.solve(rhs_);
-    // niter = pcr(dx_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_arap_, 1e-4);
-    // std::cout << "  - CG iters: " << niter;
-    // double relative_error = (lhs_*dx_ - rhs_).norm() / rhs_.norm(); 
-    // std::cout << " rel error: " << relative_error << " abs error: " << (lhs_*dx_-rhs_).norm() << std::endl;
-
-    // typedef amgcl::backend::eigen<double> Backend;
-
-    // // typedef amgcl::make_solver<
-    // //     amgcl::relaxation::as_preconditioner<Backend, amgcl::relaxation::ilu0>,
-    // //     amgcl::solver::bicgstab<Backend>
-    // // > Solver;
-    // typedef amgcl::make_solver<
-    //     amgcl::amg<
-    //         Backend,
-    //         amgcl::coarsening::smoothed_aggregation,
-    //         amgcl::relaxation::spai0
-    //         >,
-    //     amgcl::solver::bicgstab<Backend>
-    //     > Solver;
+  // dx_ = cg.solve(rhs_);
+  // dx_ = cg.solveWithGuess(rhs_, dx_);
+  // niter = cg.iterations();
+  // dx_ = solver_.solve(rhs_);
+  Eigen::Matrix<double, 12, 1> dx_affine;
+  //
   
-    // Solver::params prm2;
-    // // prm2.solver.verbose = 1;
-    // prm2.solver.tol = 1e-3;
-    // //prm2.precond.coarse_enough = 100;
-    // prm2.precond.npre = 1;
-    // prm2.precond.npost = 1;
-    // prm2.precond.ncycle = 5;
-    // //prm2.solver.pside = amgcl::preconditioner::side::left;
-    // prm2.solver.maxiter = 1000;
-    // // prm2.precond.tau = 1e-6;
-    // // prm2.precond.p = 10;
-    // data_.timer.start("setup");
-    // Solver solve(lhs_, prm2);
-    // std::cout << "SOLVE:\n" << solve << std::endl;
-    // data_.timer.stop("setup");
+  dx_affine = (T0_.transpose()*lhs_*T0_).lu().solve(T0_.transpose()*rhs_);
+  
+  dx_ = T0_*dx_affine;
+  niter = pcr(dx_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_arap_, 1e-4, config_->max_iterative_solver_iters);
+  std::cout << "  - CG iters: " << niter;
+  double relative_error = (lhs_*dx_ - rhs_).norm() / rhs_.norm(); 
+  std::cout << " rel error: " << relative_error << " abs error: " << (lhs_*dx_-rhs_).norm() << std::endl;
 
-    amg_solver_->precond().rebuild(lhs_);
+  // solver_.compute(lhs_);
+  // if(solver_.info()!=Success) {
+  //   std::cerr << "prefactor failed! " << std::endl;
+  //   exit(1);
+  // }
+  // dx_ = solver_.solve(rhs_);
+  data_.timer.stop("global");
 
-    int    iters;
-    double error;
-    dx_ = solver_arap_.solve(rhs_);
-    std::tie(iters, error) = amg_solver_->operator()(rhs_, dx_);
-    std::cout << iters << " " << error << std::endl;
-
-
-    data_.timer.stop("global");
-
-  }
 
   data_.timer.start("local");
   VectorXd Jdx = - PJ_.transpose() * dx_;
@@ -342,20 +299,34 @@ void MixedSQPROptimizer::reset() {
   SparseMatrixdRowMajor lhs = M_ + h2*L;
   solver_arap_.compute(lhs);
 
-    Solver::params prm2;
-  // prm2.solver.verbose = 1;
-  prm2.solver.tol = 1e-3;
-  prm2.precond.coarse_enough = 100;
-  prm2.precond.npre = 1;
-  prm2.precond.npost = 1;
-  prm2.precond.ncycle = 2;
-  //prm2.solver.pside = amgcl::preconditioner::side::left;
-  prm2.solver.maxiter = 1000;
-  prm2.precond.allow_rebuild = true;
-  // prm2.precond.tau = 1e-6;
-  // prm2.precond.p = 10;
-  data_.timer.start("setup");
-  amg_solver_ = std::make_shared<Solver>(lhs_,prm2);
-  std::cout << "SOLVE:\n" << amg_solver_ << std::endl;
+  //build up reduced space
+  T0_.resize(3*object_->V0_.rows(), 12);
+
+  //compute center of mass
+  Eigen::Matrix3d I;
+  Eigen::Vector3d c;
+  double mass = 0;
+
+  //std::cout<<"HERE 1 \n";
+  sim::rigid_inertia_com(I, c, mass, object_->V0_, object_->T_, 1.0);
+
+  for(unsigned int ii=0; ii<object_->V0_.rows(); ii++ ) {
+
+    //std::cout<<"HERE 2 "<<ii<<"\n";
+    T0_.block<3,3>(3*ii, 0) = Eigen::Matrix3d::Identity()*(object_->V0_(ii,0) - c(0));
+    T0_.block<3,3>(3*ii, 3) = Eigen::Matrix3d::Identity()*(object_->V0_(ii,1) - c(1));
+    T0_.block<3,3>(3*ii, 6) = Eigen::Matrix3d::Identity()*(object_->V0_(ii,2) - c(2));
+    T0_.block<3,3>(3*ii, 9) = Eigen::Matrix3d::Identity();
+
+  }
+
+  T0_ = P_*T0_;
+  //std::cout<<"c: "<<c.transpose()<<"\n";
+  //std::cout<<"T0: \n"<<T0_<<"\n";
+
+  Matrix<double, 12,12> tmp_pre_affine = T0_.transpose()*lhs*T0_; 
+  pre_affine_ = tmp_pre_affine.inverse();
+
+
 }
 

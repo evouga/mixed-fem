@@ -16,7 +16,7 @@ void dsvd(Tensor3333d &dU, Tensor333d  &dS,
   mfem::svd(F, S, U, V);
   
   //crappy hack for now
-  double tol = 1e-8;
+  double tol = 1e-4;
   if(std::fabs(S[0] - S[1]) < tol || std::fabs(S[1] - S[2]) < tol || std::fabs(S[0] - S[2]) < tol) {
     // F += Matrix3d::Random()*tol;
     // mfem::svd(F, S, U, V);
