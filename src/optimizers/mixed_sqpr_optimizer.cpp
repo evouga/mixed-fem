@@ -197,7 +197,7 @@ void MixedSQPROptimizer::substep(int step, double& decrement) {
 
 
   data_.timer.start("local");
-  VectorXd Jdx = - PJ_.transpose() * dx_;
+  Jdx_ = - PJ_.transpose() * dx_;
   la_ = -gl_;
 
   // Update per-element R & S matrices
@@ -205,7 +205,7 @@ void MixedSQPROptimizer::substep(int step, double& decrement) {
 
   #pragma omp parallel for 
   for (int i = 0; i < nelem_; ++i) {
-    la_.segment<6>(6*i) += H_[i] * (dS_[i].transpose() * Jdx.segment<9>(9*i));
+    la_.segment<6>(6*i) += H_[i] * (dS_[i].transpose() * Jdx_.segment<9>(9*i));
     // ds_.segment<6>(6*i) = -Hinv_[i] * (Sym * la_.segment<6>(6*i)+ g_[i]);
     Vector6d si = s_.segment<6>(6*i);
     Vector6d gs = vols_[i]*(Sym * la_.segment<6>(6*i)+ g_[i]);
