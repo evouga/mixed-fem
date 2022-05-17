@@ -175,6 +175,7 @@ void callback() {
     ImGui::InputInt("Max Newton Iters", &config->outer_steps);
     ImGui::InputInt("Max Inner Iters", &config->max_iterative_solver_iters);
     ImGui::InputInt("Max LS Iters", &config->ls_iters);
+    ImGui::InputDouble("LS Tol", &config->itr_tol);
 
     //ImGui::InputInt("Inner Steps", &config->inner_steps);
     if (ImGui::InputFloat3("Body Force", config->ext, 3)) {

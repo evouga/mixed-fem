@@ -23,7 +23,7 @@ inline int pcg(Eigen::VectorXx<Scalar>& x,
   
     r = b - A * x;
 
-   if (r.norm()/b.norm() < tol) {
+   if (r.norm()/b.norm() < tol || (r.norm() < std::sqrt(std::numeric_limits<Scalar>::epsilon()))) {
           return 0;
     }
 
@@ -52,7 +52,7 @@ inline int pcg(Eigen::VectorXx<Scalar>& x,
     rsnew = r.dot(r);
     //t.stop("rsnew");
     
-    if (r.norm()/b.norm() < tol) {
+    if (r.norm()/b.norm() < tol || (r.norm() < std::numeric_limits<Scalar>::epsilon())) {
           return i;
     }
     
@@ -67,10 +67,10 @@ inline int pcg(Eigen::VectorXx<Scalar>& x,
     //HS beta
     //beta = rsnew/p.dot(z-zm1);
     //PRP
-    //beta = rsnew/rsold;
+    beta = rsnew/rsold;
 
     //FR
-    beta =  r.dot(z)/rsold;
+    //beta =  r.dot(z)/rsold;
 
     p = z + beta * p;
     rsold = r.dot(z);
