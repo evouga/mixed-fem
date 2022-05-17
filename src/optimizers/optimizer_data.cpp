@@ -25,7 +25,7 @@ void OptimizerData::write() const {
 void OptimizerData::print_data(bool print_timing) const {
   int sz = energies_.size();
 
-  std::cout <<
+  /*std::cout <<
         "┌──────┬────────────┬────────────┬────────────┬──────────────┬──────────────┬──────────────┐\n"
         "│ Iter │   Energy   │ Energy Res │   ||RHS||  │ ||grad_x E|| │ ||grad_s E|| │ ||grad_l E|| │ \n"
         "├──────┼────────────┼────────────┼────────────┼──────────────┼──────────────┼──────────────┤\n"
@@ -44,7 +44,7 @@ void OptimizerData::print_data(bool print_timing) const {
   
   if (print_timing) {
     timer.print();
-  }
+  }*/
 }
 
 void Timer::start(const std::string& key) {

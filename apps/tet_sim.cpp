@@ -199,7 +199,7 @@ void callback() {
   ImGui::Checkbox("simulate",&simulating);
   ImGui::SameLine();
   if(ImGui::Button("step") || simulating) {
-    std::cout << "Timestep: " << step << std::endl;
+    //std::cout << "Timestep: " << step << std::endl;
     simulation_step();
     ++step;
     srf->updateVertexPositions(meshV);
@@ -250,7 +250,7 @@ void callback() {
 
 int main(int argc, char **argv) {
 
-  omp_set_num_threads(8);
+  omp_set_num_threads(4);
   Eigen::initParallel();
   
   // Configure the argument parser

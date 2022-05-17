@@ -29,7 +29,7 @@ void MixedSQPROptimizer::step() {
   // q_.segment(0, x_.size()) = x_ - x0_;
 
   do {
-    data_.timer.start("step");
+    //data_.timer.start("step");
     update_system();
     substep(i, grad_norm);
 
@@ -41,13 +41,13 @@ void MixedSQPROptimizer::step() {
     // x_ += dx_;
     // s_ += ds_;
 
-    double E = energy(x_, s_, la_);
-    double res = std::abs((E - E_prev_) / E);
-    data_.egrad_.push_back(grad_norm);
-    data_.energies_.push_back(E);
-    data_.energy_residuals_.push_back(res);
-    E_prev_ = E;
-    data_.timer.stop("step");
+    //double E = energy(x_, s_, la_);
+    //double res = std::abs((E - E_prev_) / E);
+    //data_.egrad_.push_back(grad_norm);
+    //data_.energies_.push_back(E);
+    //data_.energy_residuals_.push_back(res);
+    //E_prev_ = E;
+    //data_.timer.stop("step");
 
     ++i;
   } while (i < config_->outer_steps && grad_norm > config_->newton_tol);
@@ -164,7 +164,7 @@ void MixedSQPROptimizer::substep(int step, double& decrement) {
   // saveMarket(lhs_, "lhs0.mkt");
 
   } else {*/
-    data_.timer.start("global");
+    //data_.timer.start("global");
 // // sanity check preconditioner on cg, make sure cond is good
     //BiCGSTAB<SparseMatrix<double>,  Eigen::IncompleteLUT<double>> cg;
     // LeastSquaresConjugateGradient<SparseMatrix<double>,  Eigen::IncompleteLUT<double>> cg;
@@ -198,12 +198,12 @@ void MixedSQPROptimizer::substep(int step, double& decrement) {
 //   } 
   // saveMarket(lhs_, "lhs.mkt");
 // exit(1);
-    data_.timer.stop("global");
+    //data_.timer.stop("global");
 
  // }
 
-  data_.timer.start("local");
-  VectorXd Jdx = - PJ_.transpose() * dx_;
+  //data_.timer.start("local");
+  Jdx_ = - PJ_.transpose() * dx_;
   la_ = -gl_;
 
   // Update per-element R & S matrices
@@ -211,13 +211,13 @@ void MixedSQPROptimizer::substep(int step, double& decrement) {
 
   #pragma omp parallel for 
   for (int i = 0; i < nelem_; ++i) {
-    la_.segment<6>(6*i) += H_[i] * (dS_[i].transpose() * Jdx.segment<9>(9*i));
+    la_.segment<6>(6*i) += H_[i] * (dS_[i].transpose() * Jdx_.segment<9>(9*i));
     // ds_.segment<6>(6*i) = -Hinv_[i] * (Sym * la_.segment<6>(6*i)+ g_[i]);
     Vector6d si = s_.segment<6>(6*i);
     Vector6d gs = vols_[i]*(Sym * la_.segment<6>(6*i)+ g_[i]);
     ds_.segment<6>(6*i) = (vols_[i]*config_->h*config_->h*object_->material_->hessian(si,false)).completeOrthogonalDecomposition().solve(-gs);
   }
-  data_.timer.stop("local");
+  //data_.timer.stop("local");
 
   // #pragma omp parallel for 
   // for (int i = 0; i < nelem_; ++i) {
@@ -256,9 +256,9 @@ void MixedSQPROptimizer::substep(int step, double& decrement) {
   // std::cout << "dsinf: " << ds_.lpNorm<Infinity>() << " la inf: " << la_.lpNorm<Infinity>() << std::endl;
 // exit(1);
   decrement = std::sqrt(dx_.squaredNorm() + ds_.squaredNorm());
-  data_.egrad_x_.push_back(dx_.norm());
-  data_.egrad_s_.push_back(ds_.norm());
-  data_.egrad_la_.push_back(la_.norm());
+  //data_.egrad_x_.push_back(dx_.norm());
+  //data_.egrad_s_.push_back(ds_.norm());
+  //data_.egrad_la_.push_back(la_.norm());
 
 }
 

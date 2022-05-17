@@ -6,6 +6,8 @@
 #include <Eigen/CholmodSupport>
 #endif
 
+//#include <Eigen/AccelerateSupport>
+
 namespace mfem {
 
   // Mixed FEM Sequential Quadratic Program
@@ -47,5 +49,7 @@ namespace mfem {
     Eigen::Matrix<double, 12,12> pre_affine_;
 
     Eigen::MatrixXd T0_;
+
+    Eigen::VectorXd Jdx_;
   };
 }
