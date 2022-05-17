@@ -18,6 +18,30 @@ using namespace mfem;
 using namespace Eigen;
 using namespace std::chrono;
 
+
+double MixedOptimizer::primal_energy(const VectorXd& x, const VectorXd& s, 
+    VectorXd& gx, VectorXd& gs) {
+
+  double h = config_->h;
+  VectorXd xdiff = x - x0_ - h*vt_ - h*h*f_ext_;
+  gx = M_*xdiff;
+
+  double Em = 0.5*xdiff.dot(gx);
+
+  VectorXd def_grad = J_*(P_.transpose()*x+b_);
+
+
+  gs.resize(s.size());
+  double Epsi = 0;
+  #pragma omp parallel for reduction(+ : Epsi)
+  for (int i = 0; i < nelem_; ++i) {
+    const Vector6d& si = s.segment<6>(6*i);
+    Epsi += object_->material_->energy(si) * vols_[i];
+    gs.segment<6>(6*i) = h*h*object_->material_->gradient(si) * vols_[i];
+  }
+  return Em + h*h*Epsi;
+}
+      
 void MixedOptimizer::step() {
   data_.clear();
 
@@ -109,8 +133,8 @@ void MixedOptimizer::reset() {
   //pinnedV_ = (V_.col(0).array() < pin_x 
   //    && V_.col(1).array() > pin_y).cast<int>();
   //pinnedV_.resize(V_.rows());
-  pinnedV_.setZero();
-  pinnedV_(0) = 1;
+  // pinnedV_.setZero();
+  // pinnedV_(0) = 1;
 
   P_ = pinning_matrix(object_->V_, object_->T_, pinnedV_, false);
 

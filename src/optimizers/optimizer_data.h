@@ -47,6 +47,7 @@ namespace mfem {
     virtual void clear();
     virtual void write() const;
     virtual void print_data(bool print_timing = true) const;
+    void add(const std::string& key, double value);
 
     std::string output_filename_;
     std::vector<double> energy_residuals_;
@@ -55,6 +56,8 @@ namespace mfem {
     std::vector<double> egrad_x_;
     std::vector<double> egrad_s_;
     std::vector<double> egrad_la_;
+    std::map<std::string, std::vector<double>> map_;	
+    size_t min_length_ = 11;
     Timer timer;
 
   }; 

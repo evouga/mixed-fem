@@ -24,6 +24,9 @@ namespace mfem {
     virtual double energy(const Eigen::VectorXd& x, const Eigen::VectorXd& s,
         const Eigen::VectorXd& la) override;
 
+    virtual void gradient(Eigen::VectorXd& g, const Eigen::VectorXd& x,
+        const Eigen::VectorXd& s, const Eigen::VectorXd& la) override;
+
     virtual void build_lhs() override;
     virtual void build_rhs() override {
       std::cout << "build_rhs unused" << std::endl;

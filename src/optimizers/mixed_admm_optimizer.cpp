@@ -381,6 +381,11 @@ double MixedADMMOptimizer::energy(const VectorXd& x, const VectorXd& s,
   return e;
 }
 
+void MixedADMMOptimizer::gradient(VectorXd& g, const VectorXd& x, const VectorXd& s,
+    const VectorXd& la) {
+  std::cerr << "MixedSQPOptimizer: gradient() unimplemented" << std::endl;
+}
+
 void MixedADMMOptimizer::reset() {
   // Reset variables
     // Initialize rotation matrices to identity

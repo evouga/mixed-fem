@@ -14,6 +14,7 @@ void OptimizerData::clear() {
   egrad_s_.clear();
   egrad_la_.clear();
   timer.reset();
+  map_.clear();
 }
 
 void OptimizerData::write() const {
@@ -21,27 +22,105 @@ void OptimizerData::write() const {
   MatrixXd mat(sz,3);
 }
 
+void OptimizerData::add(const std::string& key, double value) {
+  auto it = map_.find(key);
+  if (it == map_.end()) {
+    std::vector<double> new_values(1, value);
+    map_[key] = new_values;
+  } else {
+    std::vector<double>& values = it->second;
+    values.push_back(value);
+  }
+}
 
 void OptimizerData::print_data(bool print_timing) const {
   int sz = energies_.size();
 
-  std::cout <<
-        "┌──────┬────────────┬────────────┬────────────┬──────────────┬──────────────┬──────────────┐\n"
-        "│ Iter │   Energy   │ Energy Res │   ||RHS||  │ ||grad_x E|| │ ||grad_s E|| │ ||grad_l E|| │ \n"
-        "├──────┼────────────┼────────────┼────────────┼──────────────┼──────────────┼──────────────┤\n"
-        ;
-  for (int i = 0; i < sz; ++i) {
-    std::cout << "│ " << std::setw(4) << i << " │ "
-      << std::scientific << std::setprecision(4) << std::setw(5) << energies_[i] << " │ "
-      << std::scientific << std::setprecision(4) << std::setw(5) << energy_residuals_[i] << " │ "
-      << std::scientific << std::setprecision(4) << std::setw(5) << egrad_[i] << " │ "
-      << std::scientific << std::setw(12) << egrad_x_[i] << " │ "
-      << std::scientific << std::setw(12) << egrad_s_[i] << " │ "
-      << std::scientific << std::setw(12) << egrad_la_[i] << " │\n";
+  int total_len = 0;
+
+  // Header Top
+  std::cout << "┌─";
+  for (auto it = map_.begin(); it != map_.end(); ) {
+    int len = std::max(min_length_, it->first.length());
+    for (int i = 0; i < len; ++i) {
+      std::cout << "─";
+    }
+    if (++it == map_.end())
+      std::cout << "─┐\n";
+    else
+      std::cout << "─┬─";
   }
-  std::cout <<
-        "└──────┴────────────┴────────────┴────────────┴──────────────┴──────────────┴──────────────┘\n";
-  
+
+  // Labels
+  std::cout << "│ ";
+  for (auto it = map_.begin(); it != map_.end(); ) {
+    std::cout << it->first;
+    int padding = std::max(min_length_, it->first.length())
+        - it->first.length();
+    if (padding > 0) {
+      for (int i = 0; i < padding; ++i) {
+        std::cout << " ";
+      }
+    }
+
+    if (++it == map_.end())
+      std::cout << " │\n";
+    else
+      std::cout << " │ ";
+  }
+
+  // Header Bottom
+  std::cout << "├─";
+  for (auto it = map_.begin(); it != map_.end(); ) {
+    int len = std::max(min_length_, it->first.length());
+    for (int i = 0; i < len; ++i) {
+      std::cout << "─";
+    }
+    if (++it == map_.end())
+      std::cout << "─┤\n";
+    else
+      std::cout << "─┼─";
+  }
+
+
+  // Data
+  size_t max_size = 0;
+  for (auto it = map_.begin(); it != map_.end(); ++it) {
+    max_size = std::max(max_size, it->second.size());
+  }
+
+  for (size_t i = 0; i < max_size; ++i) {
+    std::cout << "│ ";
+
+    for (auto it = map_.begin(); it != map_.end(); ++it) {
+
+      if (it->first == " Iteration") {
+        std::cout << std::defaultfloat;
+      } else {
+        std::cout << std::scientific;
+      }
+      int len = std::max(min_length_, it->first.length());
+      std::cout << std::setprecision(5);
+
+      std::cout << std::setw(len) << it->second[i];
+      std::cout << " │ ";
+    }
+    std::cout << std::endl;
+  }
+
+  // Footer
+  std::cout << "└─";
+  for (auto it = map_.begin(); it != map_.end(); ) {
+    int len = std::max(min_length_, it->first.length());
+    for (int i = 0; i < len; ++i) {
+      std::cout << "─";
+    }
+    if (++it == map_.end())
+      std::cout << "─┘\n";
+    else
+      std::cout << "─┴─";
+  }
+
   if (print_timing) {
     timer.print();
   }

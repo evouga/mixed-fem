@@ -313,6 +313,14 @@ double MixedSQPOptimizer::energy(const VectorXd& x, const VectorXd& s,
   return e;
 }
 
+
+void MixedSQPOptimizer::gradient(VectorXd& g, const VectorXd& x, const VectorXd& s,
+    const VectorXd& la) {
+  std::cerr << "MixedSQPOptimizer: gradient() unimplemented" << std::endl;
+}
+
+
+
 void MixedSQPOptimizer::reset() {
   MixedOptimizer::reset();
  

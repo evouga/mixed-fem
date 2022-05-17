@@ -21,9 +21,16 @@ namespace mfem {
   
   public:
 
+    virtual double primal_energy(const Eigen::VectorXd& x, const Eigen::VectorXd& s, 
+      Eigen::VectorXd& gx, Eigen::VectorXd& gs);
+
     // Evaluated mixed energy
     virtual double energy(const Eigen::VectorXd& x, const Eigen::VectorXd& s,
         const Eigen::VectorXd& la) = 0;
+
+    // Mixed energy gradient
+    virtual void gradient(Eigen::VectorXd& g, const Eigen::VectorXd& x,
+        const Eigen::VectorXd& s, const Eigen::VectorXd& la) = 0;
 
     // Build system left hand side
     virtual void build_lhs() = 0;

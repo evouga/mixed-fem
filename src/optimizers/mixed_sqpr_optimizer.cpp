@@ -26,29 +26,37 @@ void MixedSQPROptimizer::step() {
   int i = 0;
   double grad_norm;
   double res;
-  // q_.setZero();
-  // q_.segment(0, x_.size()) = x_ - x0_;
+  double E;
+  VectorXd gx;
+  VectorXd gs;
 
   do {
-    data_.timer.start("step");
     update_system();
+
+    E = energy(x_, s_, la_);
+    res = std::abs((E - E_prev_) / (E+1));
+    E_prev_ = E;
+    double e_primal = primal_energy(x_,s_,gx,gs);
+
+    // Solve system
     substep(i, grad_norm);
 
+    // Linesearch on descent direction from substep
     linesearch_x(x_, dx_);
     // linesearch_s(s_, ds_);
     linesearch_s_local(s_,ds_);
     // linesearch(x_, dx_, s_, ds_);
-
     // x_ += dx_;
     // s_ += ds_;
 
-    double E = energy(x_, s_, la_);
-    res = std::abs((E - E_prev_) / (E+1));
-    data_.egrad_.push_back(grad_.norm());
-    data_.energies_.push_back(E);
-    data_.energy_residuals_.push_back(res);
-    E_prev_ = E;
-    data_.timer.stop("step");
+    data_.add(" Iteration", i+1);
+    data_.add("mixed E", E);
+    data_.add("mixed E res", res);
+    data_.add("mixed grad", grad_.norm());
+    data_.add("Newton dec", grad_norm);
+    data_.add("primal E", e_primal);
+    data_.add("primal ||gx||", gx.norm());
+    data_.add("primal ||gs||", gs.norm());
 
     ++i;
   } while (i < config_->outer_steps && grad_norm > config_->newton_tol
@@ -57,6 +65,22 @@ void MixedSQPROptimizer::step() {
   data_.print_data(config_->show_timing);
 
   update_configuration();
+}
+
+void MixedSQPROptimizer::gradient(VectorXd& g, const VectorXd& x, const VectorXd& s,
+    const VectorXd& la) {  
+  grad_.resize(x_.size() + 6*nelem_);
+  double h = config_->h;
+
+  VectorXd tmp(9*nelem_);
+  #pragma omp parallel for
+  for (int i = 0; i < nelem_; ++i) {
+    tmp.segment<9>(9*i) = dS_[i]*la_.segment<6>(6*i);
+    grad_.segment<6>(x_.size() + 6*i) = vols_[i] 
+        * (g_[i] + Sym*la_.segment<6>(6*i));
+  }
+  grad_.segment(0,x_.size()) = M_*(x_ - x0_ - h*vt_ - h*h*f_ext_)
+      - PJ_ * tmp;
 }
 
 void MixedSQPROptimizer::build_lhs() {
@@ -162,37 +186,21 @@ void MixedSQPROptimizer::substep(int step, double& decrement) {
   int niter = 0;
 
   data_.timer.start("global");
-// // sanity check preconditioner on cg, make sure cond is good
-  //BiCGSTAB<SparseMatrix<double>,  Eigen::IncompleteLUT<double>> cg;
-  // LeastSquaresConjugateGradient<SparseMatrix<double>,  Eigen::IncompleteLUT<double>> cg;
-  // Eigen::IncompleteLUT<double>& precon = cg.preconditioner();
-  // precon.setFillfactor(10);
-  // precon.setDroptol(1e-8);
-  // cg.compute(lhs_);
-  // cg.setTolerance(1e-4);
-  // cg.setMaxIterations(100);
-//     // // dx_ = solver_.solve(rhs_);
-  // dx_ = cg.solve(rhs_);
-  // dx_ = cg.solveWithGuess(rhs_, dx_);
-  // niter = cg.iterations();
-  // dx_ = solver_.solve(rhs_);
-  Eigen::Matrix<double, 12, 1> dx_affine;
-  //
+  // Eigen::Matrix<double, 12, 1> dx_affine;  
+  // dx_affine = (T0_.transpose()*lhs_*T0_).lu().solve(T0_.transpose()*rhs_);
   
-  dx_affine = (T0_.transpose()*lhs_*T0_).lu().solve(T0_.transpose()*rhs_);
-  
-  dx_ = T0_*dx_affine;
-  niter = pcr(dx_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_arap_, 1e-4, config_->max_iterative_solver_iters);
-  std::cout << "  - CG iters: " << niter;
-  double relative_error = (lhs_*dx_ - rhs_).norm() / rhs_.norm(); 
-  std::cout << " rel error: " << relative_error << " abs error: " << (lhs_*dx_-rhs_).norm() << std::endl;
+  // dx_ = T0_*dx_affine;
+  // niter = pcr(dx_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_p_, tmp_Ap_, solver_arap_, 1e-4, config_->max_iterative_solver_iters);
+  // std::cout << "  - CG iters: " << niter;
+  // double relative_error = (lhs_*dx_ - rhs_).norm() / rhs_.norm(); 
+  // std::cout << " rel error: " << relative_error << " abs error: " << (lhs_*dx_-rhs_).norm() << std::endl;
 
-  // solver_.compute(lhs_);
-  // if(solver_.info()!=Success) {
-  //   std::cerr << "prefactor failed! " << std::endl;
-  //   exit(1);
-  // }
-  // dx_ = solver_.solve(rhs_);
+  solver_.compute(lhs_);
+  if(solver_.info()!=Success) {
+    std::cerr << "prefactor failed! " << std::endl;
+    exit(1);
+  }
+  dx_ = solver_.solve(rhs_);
   data_.timer.stop("global");
 
 
@@ -213,47 +221,8 @@ void MixedSQPROptimizer::substep(int step, double& decrement) {
   }
   data_.timer.stop("local");
 
-  // #pragma omp parallel for 
-  // for (int i = 0; i < nelem_; ++i) {
-  //   // ds_.segment<6>(6*i) = -Hinv_[i] * (Sym * la_.segment<6>(6*i)+ g_[i]);
-  //   if (ds_.segment<6>(6*i).norm() > 100) {
-  //     Vector6d si = s_.segment<6>(6*i);
-  //     Matrix6d H = object_->material_->hessian(si);
-  //     std::cout << "si: \n " << si << std::endl;
-  //     std::cout << "H[s]: " << H << std::endl;
-  //     std::cout << "H[s]2: " << object_->material_->hessian(si,false) << std::endl;
-  //     std::cout << "evals: " << H.eigenvalues().real() << std::endl;
-  //     std::cout << "evals2: " << object_->material_->hessian(si,false).eigenvalues().real() << std::endl;
-
-  //     std::cout << "i: " << i << std::endl;
-  //     Vector6d gs = (Sym * la_.segment<6>(6*i)+ g_[i]);
-  //     std::cout << "DS tmp: \n" << (config_->h*config_->h*object_->material_->hessian(si,false)).completeOrthogonalDecomposition().solve(-gs);
-  //     std::cout << "ds i: \n" << ds_.segment<6>(6*i) << std::endl;
-  //     std::cout << "l i: \n" << la_.segment<6>(6*i) << std::endl;
-  //     //std::cout << "Hinv_ i: \n" << Hinv_[i] << std::endl;
-  //     std::cout << "g_ i: \n" << g_[i] << std::endl;
-  //     std::cout << "gs \n" << gs << std::endl;
-
-  //     SparseMatrixd Hs;
-  //     SparseMatrix<double, RowMajor> Gx = Gx_;
-  //     init_block_diagonal<6,6>(Hs, nelem_);
-  //     update_block_diagonal<6,6>(H_, Hs);
-  // SparseMatrixd G = Gx * Hs * Gx.transpose();
-  // saveMarket(lhs_, "lhs.mkt");
-  // // saveMarket(M_, "M_.mkt");
-  // saveMarket(Hs, "Hs.mkt");
-  // saveMarket(G, "GHG.mkt");
-
-  //     exit(1);
-    // }
-  // }
-  // std::cout << "dsinf: " << ds_.lpNorm<Infinity>() << " la inf: " << la_.lpNorm<Infinity>() << std::endl;
-// exit(1);
-  decrement = std::sqrt(dx_.squaredNorm() + ds_.squaredNorm());
-  data_.egrad_x_.push_back(dx_.norm());
-  data_.egrad_s_.push_back(ds_.norm());
-  data_.egrad_la_.push_back(la_.norm());
-
+  decrement = std::sqrt( dx_.squaredNorm() + ds_.squaredNorm());
+  // decrement = std::sqrt(dx_.dot(grad_.segment(0,x_.size())) + ds_.dot(grad_.segment(x_.size(),6*nelem_)));
 }
 
 bool MixedSQPROptimizer::linesearch_x(VectorXd& x, const VectorXd& dx) {
