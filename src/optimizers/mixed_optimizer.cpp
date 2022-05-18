@@ -383,8 +383,6 @@ void MixedOptimizer::update_configuration() {
     }
   }
 
-
-
   VectorXd x = P_.transpose()*x_ + b_;
   vt_ = (x - x0_) / config_->h;
   x0_ = x;
