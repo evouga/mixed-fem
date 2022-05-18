@@ -49,9 +49,11 @@ void NewtonOptimizer::step() {
 
     double E = energy(x_);
     double res = std::abs((E - E_prev_) / E);
-    data_.egrad_.push_back(rhs_.norm());
-    data_.energies_.push_back(E);
-    data_.energy_residuals_.push_back(res);
+    data_.add(" Iteration", i+1);
+    data_.add("Energy", E);
+    data_.add("Energy res", res);
+    data_.add("||H^-1 g||", grad_norm);
+    data_.add("||g||", rhs_.norm());
     E_prev_ = E;
 
     ++i;
@@ -65,11 +67,12 @@ void NewtonOptimizer::build_lhs() {
   double h = config_->h;
   double h2 = h*h;
 
+  VectorXd x = P_.transpose()*x_ + b_;
+
   auto assemble_func = [&](auto &H,  auto &e, 
       const auto &dphidX, const auto &volume) { 
     Matrix<double, 4,3> dX = sim::unflatten<4,3>(dphidX);
 
-    VectorXd x = P_.transpose()*x_ + b_;
     // Local block
     // NOTE: assuming tetmesh
     Matrix<double,9,12> B;
@@ -95,8 +98,8 @@ void NewtonOptimizer::build_lhs() {
   SparseMatrixd K;
   sim::assemble(K, object_->V_.size(), object_->V_.size(), 
       object_->T_, object_->T_, assemble_func, Htmp, dphidX_, vols_);
-  lhs_ = P_ * K * P_.transpose() ;//
-  lhs_ += M_;
+  lhs_ = P_ * K * P_.transpose();
+  lhs_ += PMP_;
 }
 
 void NewtonOptimizer::build_rhs() {
@@ -134,7 +137,7 @@ void NewtonOptimizer::build_rhs() {
       assemble_func, Htmp, dphidX_, vols_);
 
   // inertial term
-  rhs_ = -(P_*g + M_*(x_ - x0_ - h*vt_ - h2*f_ext_));
+  rhs_ = -(P_*g + PM_*(x - x0_ - h*vt_ - h2*f_ext_));
 
   double gradx = rhs_.norm();
   double grads = 0;
@@ -155,35 +158,25 @@ void NewtonOptimizer::substep(bool init_guess, double& decrement) {
   // Solve for update
   dx_ = solver_.solve(rhs_);
 
-  // SparseMatrix<double, RowMajor> A = lhs_;
-  // typedef amgcl::backend::eigen<double> Backend;
-  // typedef amgcl::make_solver<
-  //         amgcl::amg<
-  //             Backend,
-  //             amgcl::coarsening::smoothed_aggregation,
-  //             amgcl::relaxation::spai0
-  //             >,
-  //         amgcl::solver::cg<Backend>
-  //         > Solver;
-  // Solver solve(A);
-  // std::cout << solve << std::endl;
-  // int iters;
-  // double error;
-  // std::tie(iters, error) = solve(rhs_, dx_);
-  // std::cout << "Iters: " << iters << std::endl
-  //           << "Error: " << error << std::endl;
-
   double relative_error = (lhs_*dx_ - rhs_).norm() / rhs_.norm();
   decrement = dx_.norm(); // if doing "full newton use this"
 }
 
 void NewtonOptimizer::update_configuration() {
+  // Update boundary positions
+  BCs_.step_script(object_, config_->h);
+  #pragma omp parallel for
+  for (int i = 0; i < object_->V_.rows(); ++i) {
+    if (object_->is_fixed_(i)) {
+      b_.segment(3*i,3) = object_->V_.row(i).transpose();
+    }
+  }
 
-  vt_ = (x_ - x0_) / config_->h;
-  x0_ = x_;
+  VectorXd x = P_.transpose()*x_ + b_;
+  vt_ = (x - x0_) / config_->h;
+  x0_ = x;
 
   // Update mesh vertices
-  VectorXd x = P_.transpose()*x_ + b_;
   MatrixXd V = Map<MatrixXd>(x.data(), object_->V_.cols(), object_->V_.rows());
   object_->V_ = V.transpose();
 }
@@ -191,11 +184,12 @@ void NewtonOptimizer::update_configuration() {
 double NewtonOptimizer::energy(const VectorXd& x) {
   double h = config_->h;
   double h2 = h*h;
-  VectorXd xdiff = x - x0_ - h*vt_ - h*h*f_ext_;
+  VectorXd xt = P_.transpose()*x + b_;
+  VectorXd xdiff = xt - x0_ - h*vt_ - h*h*f_ext_;
   
   double Em = 0.5*xdiff.transpose()*M_*xdiff;
 
-  VectorXd def_grad = J_*(P_.transpose()*x+b_);
+  VectorXd def_grad = J_*xt;
   double Epsi = 0.0;
   #pragma omp parallel for reduction(+ : Epsi)
   for (int i = 0; i < nelem_; ++i) {
@@ -219,40 +213,23 @@ void NewtonOptimizer::reset() {
   
   object_->jacobian(J_, vols_, false);
 
-  // Pinning matrices
-  double min_x = object_->V_.col(0).minCoeff();
-  double max_x = object_->V_.col(0).maxCoeff();
-  double pin_x = min_x + (max_x-min_x)*0.2;
-  double min_y = object_->V_.col(1).minCoeff();
-  double max_y = object_->V_.col(1).maxCoeff();
-  double pin_y = max_y - (max_y-min_y)*0.1;
-  //double pin_y = min_y + (max_y-min_y)*0.1;
-  //pinnedV_ = (V_.col(0).array() < pin_x).cast<int>(); 
-  pinnedV_ = (object_->V_.col(1).array() > pin_y).cast<int>();
-  //pinnedV_ = (V_.col(0).array() < pin_x 
-  //    && V_.col(1).array() > pin_y).cast<int>();
-  //pinnedV_.resize(V_.rows());
-  pinnedV_.setZero();
-  pinnedV_(0) = 1;
-
-  P_ = pinning_matrix(object_->V_, object_->T_, pinnedV_, false);
-
   MatrixXd tmp = object_->V_.transpose();
   x_ = Map<VectorXd>(tmp.data(), object_->V_.size());
 
+  x0_ = x_;
+  vt_ = 0*x_;
   b_ = x_ - P_.transpose()*P_*x_;
   x_ = P_ * x_;
-  x0_ = x_;
   dx_ = 0*x_;
-  vt_ = 0*x_;
 
   // Project out mass matrix pinned point
-  M_ = P_ * M_ * P_.transpose();
+  PM_ = P_ * M_;
+  PMP_ = PM_ * P_.transpose();
 
   // External gravity force
   Vector3d ext = Map<Vector3f>(config_->ext).cast<double>();
-  f_ext_ = P_ * ext.replicate(object_->V_.rows(),1);
+  f_ext_ = P_.transpose()*P_*ext.replicate(object_->V_.rows(),1);
 
   // J matrix (big jacobian guy)
-  sim::linear_tetmesh_dphi_dX(dphidX_, object_->V_, object_->T_);
+  sim::linear_tetmesh_dphi_dX(dphidX_, object_->V0_, object_->T_);
 }

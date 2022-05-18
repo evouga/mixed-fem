@@ -48,8 +48,9 @@ namespace mfem {
     Eigen::VectorXd rhs_;       // linear system right hand side
     Eigen::SparseMatrixd lhs_;  // linear system left hand side
 
+    Eigen::SparseMatrixd PMP_;        // mass matrix
+    Eigen::SparseMatrixd PM_;         // mass matrix
     Eigen::SparseMatrixd M_;          // mass matrix
-    Eigen::SparseMatrixd P_;          // pinning constraint (for vertices)
     Eigen::SparseMatrixdRowMajor J_;  // jacobian
     Eigen::MatrixXd dphidX_;
 
@@ -61,7 +62,5 @@ namespace mfem {
     #endif
 
     double E_prev_; // energy from last result of linesearch
-
-    Eigen::VectorXi pinnedV_;
   };
 }
