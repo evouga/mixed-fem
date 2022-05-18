@@ -6,63 +6,63 @@
 
 static Eigen::Matrix<double, 9,9> dRdFtmp; 
 
-static Eigen::Matrix3d cpx = [] { Eigen::Matrix3d tmp;
+static const Eigen::Matrix3d cpx = [] { Eigen::Matrix3d tmp;
       tmp << 0.,0., 0., 0.,0., -1., 0.,1., 0.;
       return tmp;
 }();
 
-static Eigen::Matrix3d cpy = [] { Eigen::Matrix3d tmp;
+static const Eigen::Matrix3d cpy = [] { Eigen::Matrix3d tmp;
       tmp << 0.,0., 1.,
             0.,0., 0.,
             -1.,0., 0.;
       return tmp;
 }();
 
-static Eigen::Matrix3d cpz = [] { Eigen::Matrix3d tmp;
+static const Eigen::Matrix3d cpz = [] { Eigen::Matrix3d tmp;
       tmp << 0.,-1., 0.,
             1.,0., 0.,
             0.,0., 0.;
       return tmp;
 }();
 
-static Eigen::Matrix3d cpxx = [] { Eigen::Matrix3d tmp;
+static const Eigen::Matrix3d cpxx = [] { Eigen::Matrix3d tmp;
       
       tmp = cpx*cpx;
       return tmp;
 }();
 
-static Eigen::Matrix3d cpyy = [] { Eigen::Matrix3d tmp;
+static const Eigen::Matrix3d cpyy = [] { Eigen::Matrix3d tmp;
       
       tmp = cpy*cpy;
       return tmp;
 }();
 
-static Eigen::Matrix3d cpzz = [] { Eigen::Matrix3d tmp;
+static const Eigen::Matrix3d cpzz = [] { Eigen::Matrix3d tmp;
       
       tmp = cpz*cpz;
       return tmp;
 }();
 
-static Eigen::Matrix3d cpxy = [] { Eigen::Matrix3d tmp;
+static const Eigen::Matrix3d cpxy = [] { Eigen::Matrix3d tmp;
       
       tmp = 0.5*(cpx*cpy + cpy*cpx).array();
       return tmp;
 }();
 
-static Eigen::Matrix3d cpxz = [] { Eigen::Matrix3d tmp;
+static const Eigen::Matrix3d cpxz = [] { Eigen::Matrix3d tmp;
       
       tmp = 0.5*(cpx*cpz + cpz*cpx).array();
       return tmp;
 }();
 
-static Eigen::Matrix3d cpyz = [] { Eigen::Matrix3d tmp;
+static const Eigen::Matrix3d cpyz = [] { Eigen::Matrix3d tmp;
       
       tmp = 0.5*(cpy*cpz + cpz*cpy).array();
       return tmp;
 }();
 
 
-static Eigen::Matrix<double, 9,3> Skew_To_Full = [] {
+static const Eigen::Matrix<double, 9,3> Skew_To_Full = [] {
 
   Eigen::Matrix<double, 9,3> tmp;  
 

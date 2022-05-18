@@ -20,6 +20,23 @@ using namespace Eigen;
 using namespace std::chrono;
 
 
+static const Eigen::Matrix<double, 9,9> Id = []{
+  
+  Matrix<double, 9,9> tmp;
+  tmp.setZero();
+
+  for(unsigned int ll=0; ll<3; ++ll) {
+    for(unsigned int mm=0; mm<3; ++mm) {
+      tmp(ll + 3*mm, ll+3*mm) = 1.0;
+    }
+  }
+
+  return tmp;
+
+}();
+
+  
+
 double MixedOptimizer::primal_energy(const VectorXd& x, const VectorXd& s, 
     VectorXd& gx, VectorXd& gs) {
 
@@ -186,10 +203,7 @@ void MixedOptimizer::update_rotations() {
     
     //polar decomp code
     Eigen::Matrix<double, 9,9> dRdF;
-    Eigen::Vector6d svec = s_.segment<6>(6*i);
-    Eigen::Matrix3d Smat;
     
-    Eigen::Matrix<double, 9,9> Transpose_Mat;
     /*Transpose_Mat.setZero();
     Transpose_Mat(0,0) = 1.;
     Transpose_Mat(1,3) = 1.;
@@ -227,14 +241,6 @@ void MixedOptimizer::update_rotations() {
 
     //R_[i] = R;
 
-  Matrix<double, 9,9> Id;
-  Id.setZero();
-
-  for(unsigned int ll=0; ll<3; ++ll) {
-    for(unsigned int mm=0; mm<3; ++mm) {
-      Id(ll + 3*mm, ll+3*mm) = 1.0;
-    }
-  }
     //std::cout<<"HEERE \n: "<<Id<<"\n";
     J = sim::flatten_multiply<Eigen::Matrix3d>(R_[i].transpose())*(Id - sim::flatten_multiply_right<Eigen::Matrix3d>(Sf)*dRdF);
     //J = sim::flatten_multiply_right<Eigen::Matrix3d>(Sf)*dRdF;
@@ -361,11 +367,11 @@ bool MixedOptimizer::linesearch(Eigen::VectorXd& x, const Eigen::VectorXd& dx,
   VectorXd grad;
 
   // std::cout << "grad_ norm: " << grad_.norm() << std::endl;
-  SolverExitStatus status = linesearch_backtracking_bisection(f, g, value,
-      grad, alpha, config_->ls_iters, 0.1, 0.5, E_prev_);
-  // SolverExitStatus status = linesearch_backtracking_cubic(f, g, value,
-  //     grad_, alpha, config_->ls_iters, 1e-4, 0.5, E_prev_);    
-  // std::cout << "ALPHA: " << alpha << std::endl;
+  // SolverExitStatus status = linesearch_backtracking_bisection(f, g, value,
+  //     grad, alpha, config_->ls_iters, 0.1, 0.5, E_prev_);
+  SolverExitStatus status = linesearch_backtracking_cubic(f, g, value,
+      grad_, alpha, config_->ls_iters, 1e-4, 0.5, E_prev_);    
+  std::cout << "ALPHA: " << alpha << std::endl;
   bool done = (status == MAX_ITERATIONS_REACHED);
   x = f.segment(0, x.size());
   s = f.segment(x.size(), s.size());

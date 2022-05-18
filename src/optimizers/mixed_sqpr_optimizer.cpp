@@ -9,6 +9,7 @@
 #include "pcg.h"
 #include "svd/newton_procrustes.h"
 
+#include <iomanip>
 #include <fstream>
 #include <rigid_inertia_com.h>
 #include "unsupported/Eigen/SparseExtra"
@@ -29,10 +30,20 @@ void MixedSQPROptimizer::step() {
   double E;
   VectorXd gx;
   VectorXd gs;
+  step_x.clear();
 
   do {
+    if (config_->save_substeps) {
+      VectorXd x = P_.transpose()*x_ + b_;
+      step_x.push_back(x);
+      step_v = vt_;
+      step_x0 = x0_;
+    }
+
+    // Update gradient and hessian
     update_system();
 
+    // Record initial energies
     E = energy(x_, s_, la_);
     res = std::abs((E - E_prev_) / (E+1));
     E_prev_ = E;
@@ -42,13 +53,14 @@ void MixedSQPROptimizer::step() {
     substep(i, grad_norm);
 
     // Linesearch on descent direction from substep
-    linesearch_x(x_, dx_);
+    // linesearch_x(x_, dx_);
     // linesearch_s(s_, ds_);
-    linesearch_s_local(s_,ds_);
-    // linesearch(x_, dx_, s_, ds_);
+    // linesearch_s_local(s_,ds_);
+    linesearch(x_, dx_, s_, ds_);
     // x_ += dx_;
     // s_ += ds_;
 
+    // Record some data
     data_.add(" Iteration", i+1);
     data_.add("mixed E", E);
     data_.add("mixed E res", res);
@@ -91,11 +103,8 @@ void MixedSQPROptimizer::build_lhs() {
   double ih2 = 1. / (config_->h * config_->h);
   double h2 = (config_->h * config_->h);
 
-  static Eigen::Matrix6d Syminv = (Eigen::Vector6d() <<
-    1, 1, 1, .5, .5, .5).finished().asDiagonal();
-
-
   data_.timer.start("Hinv");
+  // VectorXd diff(nelem_);
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
     const Vector6d& si = s_.segment(6*i,6);
@@ -103,9 +112,21 @@ void MixedSQPROptimizer::build_lhs() {
     Hinv_[i] = H.inverse();
     g_[i] = h2 * object_->material_->gradient(si);
     H_[i] = (1.0 / vols_[i]) * (Syminv * H * Syminv);
+    // H_[i] = (1.0 / vols_[i]) *(Sym*Hinv_[i]*Sym).inverse();
+    // diff(i) = (H_[i] - (vols_[i]*(Sym*Hinv_[i]*Sym)).inverse()).norm() ;
   }
   data_.timer.stop("Hinv");
+  // std::cout << "diff mean: " << diff.array().mean() << " max: " << diff.lpNorm<Infinity>() << std::endl;
 
+  //   for (int i = 0; i < nelem_; ++i) {
+  //     if (diff(i)> 1e2) {
+  //       std::cout << "!! i: " << i  << std::endl;
+  //       std::cout << std::endl << H_[i] << std::endl;
+  //       std::cout << std::endl << (vols_[i]*(Sym*Hinv_[i]*Sym)).inverse() << std::endl;
+  //       std::cout << "EVALS: " << std::setprecision(10) << H_[i].eigenvalues().real() << std::endl;
+  //     }
+  //   }
+  
   // std::cout << "HX: " << std::endl;
   // SparseMatrixd Hs;
   // SparseMatrix<double, RowMajor> Gx = Gx_;
@@ -163,7 +184,10 @@ void MixedSQPROptimizer::build_rhs() {
     const Vector6d& si = s_.segment<6>(6*i);
 
     // W * c(x^k, s^k) + H^-1 * g_s
-    gl_.segment<6>(6*i) = vols_[i] * H_[i] * Sym * (S_[i] - si + Hinv_[i] * g_[i]);
+    // gl_.segment<6>(6*i) = vols_[i] * H_[i] * Sym * (S_[i] - si + Hinv_[i] * g_[i]);
+    // gl_.segment<6>(6*i) = vols_[i] * H_[i] * Sym * (S_[i] - si + (
+        // (config_->h*config_->h*object_->material_->hessian(si,true)).completeOrthogonalDecomposition().solve(g_[i])));
+    gl_.segment<6>(6*i) = vols_[i] * H_[i] * Sym * (S_[i] - si) + Syminv*g_[i]; // G_s * g
     tmp.segment<9>(9*i) = dS_[i]*gl_.segment<6>(6*i);
   }
 
@@ -185,11 +209,6 @@ void MixedSQPROptimizer::update_system() {
   // Compute rotations and rotation derivatives
   update_rotations();
 
-  // data_.timer.start("Gx");
-  // update_block_diagonal(dS_, C_);
-  // Gx_ = -P_ * J_.transpose() * C_.eval() * W_;
-  // data_.timer.stop("Gx");
-
   // Assemble blocks for left and right hand side
   build_lhs();
   build_rhs();
@@ -199,20 +218,20 @@ void MixedSQPROptimizer::substep(int step, double& decrement) {
   int niter = 0;
 
   data_.timer.start("global");
-  Eigen::Matrix<double, 12, 1> dx_affine;  
-  dx_affine = (T0_.transpose()*lhs_*T0_).lu().solve(T0_.transpose()*rhs_);
-  dx_ = T0_*dx_affine;
-  niter = pcg(dx_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_zm1_, tmp_p_, tmp_Ap_, solver_arap_, config_->itr_tol, config_->max_iterative_solver_iters);
-  std::cout << "  - CG iters: " << niter;
-  double relative_error = (lhs_*dx_ - rhs_).norm() / rhs_.norm(); 
-  std::cout << " rel error: " << relative_error << " abs error: " << (lhs_*dx_-rhs_).norm() << std::endl;
+  // Eigen::Matrix<double, 12, 1> dx_affine;  
+  // dx_affine = (T0_.transpose()*lhs_*T0_).lu().solve(T0_.transpose()*rhs_);
+  // dx_ = T0_*dx_affine;
+  // niter = pcg(dx_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_zm1_, tmp_p_, tmp_Ap_, solver_arap_, config_->itr_tol, config_->max_iterative_solver_iters);
+  // std::cout << "  - CG iters: " << niter;
+  // double relative_error = (lhs_*dx_ - rhs_).norm() / rhs_.norm(); 
+  // std::cout << " rel error: " << relative_error << " abs error: " << (lhs_*dx_-rhs_).norm() << std::endl;
 
-  //solver_.compute(lhs_);
-  //if(solver_.info()!=Success) {
-  //  std::cerr << "prefactor failed! " << std::endl;
-  //  exit(1);
-  //}
-  //dx_ = solver_.solve(rhs_);
+  solver_.compute(lhs_);
+  if(solver_.info()!=Success) {
+   std::cerr << "prefactor failed! " << std::endl;
+   exit(1);
+  }
+  dx_ = solver_.solve(rhs_);
   data_.timer.stop("global");
 
 
@@ -226,10 +245,10 @@ void MixedSQPROptimizer::substep(int step, double& decrement) {
   #pragma omp parallel for 
   for (int i = 0; i < nelem_; ++i) {
     la_.segment<6>(6*i) += H_[i] * (dS_[i].transpose() * Jdx_.segment<9>(9*i));
-    // ds_.segment<6>(6*i) = -Hinv_[i] * (Sym * la_.segment<6>(6*i)+ g_[i]);
-    Vector6d si = s_.segment<6>(6*i);
-    Vector6d gs = vols_[i]*(Sym * la_.segment<6>(6*i)+ g_[i]);
-    ds_.segment<6>(6*i) = (vols_[i]*config_->h*config_->h*object_->material_->hessian(si,false)).completeOrthogonalDecomposition().solve(-gs);
+    ds_.segment<6>(6*i) = -Hinv_[i] * (Sym * la_.segment<6>(6*i)+ g_[i]);
+    // Vector6d si = s_.segment<6>(6*i);
+    // Vector6d gs = vols_[i]*(Sym * la_.segment<6>(6*i)+ g_[i]);
+    // ds_.segment<6>(6*i) = (vols_[i]*config_->h*config_->h*object_->material_->hessian(si,false)).completeOrthogonalDecomposition().solve(-gs);
   }
   data_.timer.stop("local");
 
