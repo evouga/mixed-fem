@@ -11,7 +11,8 @@
 #include "svd/svd_eigen.h"
 
 #include <fstream>
-#include "unsupported/Eigen/src/SparseExtra/MarketIO.h"
+#include "unsupported/Eigen/SparseExtra"
+#include <svd/newton_procrustes.h>
 
 
 using namespace mfem;
@@ -147,18 +148,22 @@ void MixedOptimizer::update_rotations() {
 
   #pragma omp parallel for 
   for (int i = 0; i < nelem_; ++i) {
-    Vector3d sigma;
-    Matrix3d U,V;
-    svd(Map<Matrix3d>(def_grad.segment(9*i,9).data()), sigma, U, V);
 
-    Eigen::Vector3d stemp;
-    Matrix3d S = V * sigma.asDiagonal() * V.transpose();
-    Vector6d stmp; stmp << S(0,0), S(1,1), S(2,2), S(1,0), S(2,0), S(2,1);
-    S_[i] = stmp;
-    R_[i] = U * V.transpose();
+    Matrix<double, 9, 9> J;
+
+    // SVD CODE
+    //Vector3d sigma;
+    //Matrix3d U,V;
+    //svd(Map<Matrix3d>(def_grad.segment(9*i,9).data()), sigma, U, V);
+
+    //Eigen::Vector3d stemp;
+    //Matrix3d S = V * sigma.asDiagonal() * V.transpose();
+    //Vector6d stmp; stmp << S(0,0), S(1,1), S(2,2), S(1,0), S(2,0), S(2,1);
+    //S_[i] = stmp;
+    //R_[i] = U * V.transpose();
 
     // Compute SVD derivatives
-    Tensor3333d dU, dV;
+    /*Tensor3333d dU, dV;
     Tensor333d dS;
     dsvd(dU, dS, dV, Map<Matrix3d>(def_grad.segment<9>(9*i).data()));
 
@@ -174,18 +179,94 @@ void MixedOptimizer::update_rotations() {
 
     // Final jacobian should just be 6x9 since S is symmetric,
     // so extract the approach entries
-    Matrix<double, 9, 9> J;
+    //Matrix<double, 9, 9> J;
     for (int i = 0; i < 9; ++i) {
       J.col(i) = Vector9d(dS_dF[i].data());
+    }*/
+    
+    //polar decomp code
+    Eigen::Matrix<double, 9,9> dRdF;
+    Eigen::Vector6d svec = s_.segment<6>(6*i);
+    Eigen::Matrix3d Smat;
+    
+    Eigen::Matrix<double, 9,9> Transpose_Mat;
+    /*Transpose_Mat.setZero();
+    Transpose_Mat(0,0) = 1.;
+    Transpose_Mat(1,3) = 1.;
+    Transpose_Mat(2,6) = 1.;
+
+    Transpose_Mat(3,1) = 1.;
+    Transpose_Mat(4,4) = 1.;
+    Transpose_Mat(5,7) = 1.;
+
+    Transpose_Mat(6,2) = 1.;
+    Transpose_Mat(7,5) = 1.;
+    Transpose_Mat(8,8) = 1.;*/
+
+    //Eigen::Matrix3d R;
+    //R_[i].setIdentity();
+
+    //orthogonlity sanity check
+    if((R_[i].transpose()*R_[i] - Matrix3d::Identity()).norm() > 1e-6) {
+        Vector3d sigma;
+        Matrix3d U,V;
+        svd(R_[i], sigma, U, V);
+        R_[i] = U*V.transpose();
+        std::cout<<"in here\n";
+        exit(1);
     }
+
+
+    newton_procrustes(R_[i], Eigen::Matrix3d::Identity(), sim::unflatten<3,3>(def_grad.segment(9*i,9)), true, dRdF);
+    
+ 
+    Eigen::Matrix3d Sf = R_[i].transpose()*sim::unflatten<3,3>(def_grad.segment(9*i,9));
+    Sf = 0.5*(Sf+Sf.transpose());
+    S_[i] << Sf(0,0), Sf(1,1), Sf(2,2), Sf(1,0), Sf(2,0), Sf(2,1);
+    
+
+    //R_[i] = R;
+
+  Matrix<double, 9,9> Id;
+  Id.setZero();
+
+  for(unsigned int ll=0; ll<3; ++ll) {
+    for(unsigned int mm=0; mm<3; ++mm) {
+      Id(ll + 3*mm, ll+3*mm) = 1.0;
+    }
+  }
+    //std::cout<<"HEERE \n: "<<Id<<"\n";
+    J = sim::flatten_multiply<Eigen::Matrix3d>(R_[i].transpose())*(Id - sim::flatten_multiply_right<Eigen::Matrix3d>(Sf)*dRdF);
+    //J = sim::flatten_multiply_right<Eigen::Matrix3d>(Sf)*dRdF;
+    //std::cout<<"HEERE 2\n";
+    //check result
+    //std::cout<<"ERROR IN UPDATE ROTATIONS ******************** "<<(J-test_J).norm()<<"\n";
+    
     Matrix<double, 6, 9> Js;
-    Js.row(0) = J.row(0);
+    //Matrix<double, 6, 9> test_Js;
+    /*Js.row(0) = J.row(0);
     Js.row(1) = J.row(4);
     Js.row(2) = J.row(8);
     Js.row(3) = J.row(1);
     Js.row(4) = J.row(2);
     Js.row(5) = J.row(5);
-    dS_[i] = Js.transpose() * Sym;
+    dS_[i] = Js.transpose()*Sym;*/
+ 
+    Js.row(0) = J.row(0);
+    Js.row(1) = J.row(4);
+    Js.row(2) = J.row(8);
+    Js.row(3) = 0.5*(J.row(1) + J.row(3));
+    Js.row(4) = 0.5*(J.row(2) + J.row(6));
+    Js.row(5) = 0.5*(J.row(5) + J.row(7));
+    dS_[i] = Js.transpose()*Sym;
+
+
+    //std::cout<<"test J: \n"<<test_Js<<"\n";
+    //std::cout<<"real J: \n"<<Js<<"\n";
+
+    
+
+
   }
   data_.timer.stop("Rot Update");
 }

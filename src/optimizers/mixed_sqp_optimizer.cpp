@@ -10,7 +10,7 @@
 #include "svd/newton_procrustes.h"
 
 #include <fstream>
-#include "unsupported/Eigen/src/SparseExtra/MarketIO.h"
+#include "unsupported/Eigen/SparseExtra"
 
 using namespace mfem;
 using namespace Eigen;
@@ -296,7 +296,7 @@ double MixedSQPOptimizer::energy(const VectorXd& x, const VectorXd& s,
   for (int i = 0; i < nelem_; ++i) {
   
   //   std::cout<<"F: \n"<<sim::unflatten<3,3>(def_grad.segment<9>(9*i))<<"\n";
-    newton_procrustes(R_[i], Matrix3d::Identity(), Eigen::Map<Matrix3d>(def_grad.segment<9>(9*i).data()), 1e-6);
+    newton_procrustes(R_[i], Matrix3d::Identity(), Eigen::Map<Matrix3d>(def_grad.segment<9>(9*i).data()));
     Matrix3d S = R_[i].transpose()*Eigen::Map<Matrix3d>(def_grad.segment<9>(9*i).data());
   
     //std::cout<<"R: \n"<<R_[i]<<"\n";

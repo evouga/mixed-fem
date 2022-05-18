@@ -7,7 +7,7 @@ using namespace Test;
 
 // Tests for the symmetric constraint \sum_i^m la_i : (S(x) - s_i)
 
-TEST_CASE("Symmetric Constraint Energy Gradient - dEL/dL") {
+/*TEST_CASE("Symmetric Constraint Energy Gradient - dEL/dL") {
 
   App<MixedSQPOptimizer> app;
   std::shared_ptr<MixedSQPOptimizer> obj = app.sim;
@@ -116,4 +116,4 @@ TEST_CASE("Symmetric Constraint Energy Gradient - dEL/dx") {
   VectorXd fgrad;
   finite_gradient(obj->x_, E, fgrad, SECOND);
   CHECK(compare_gradient(grad, fgrad));
-}
+}*/

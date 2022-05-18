@@ -4,6 +4,8 @@
 //solve orthogonal procrustes problem using newton;s method 
 //find rotation such that ||R*A - B||F is minimized
 
+static Eigen::Matrix<double, 9,9> dRdFtmp; 
+
 static Eigen::Matrix3d cpx = [] { Eigen::Matrix3d tmp;
       tmp << 0.,0., 0., 0.,0., -1., 0.,1., 0.;
       return tmp;
@@ -59,6 +61,25 @@ static Eigen::Matrix3d cpyz = [] { Eigen::Matrix3d tmp;
       return tmp;
 }();
 
+
+static Eigen::Matrix<double, 9,3> Skew_To_Full = [] {
+
+  Eigen::Matrix<double, 9,3> tmp;  
+
+  tmp <<    0., 0., 0., //(0,0)
+            0., 0., 1., //(1,0)
+            0., -1., 0., //(2,0)
+            0., 0., -1., //(0,1)
+            0., 0., 0., //(1,1)
+            1., 0., 0., //(2,1)
+            0.,  1., 0., //(0,2)
+            -1., 0.,  0., //(1,2)
+            0., 0., 0.; //(2,2)
+
+   return tmp;
+
+}();
+
 template<typename DerivedMat, typename DerivedVec>
 void rodrigues(Eigen::MatrixBase<DerivedMat> &R, const Eigen::MatrixBase<DerivedVec> &omega) {
     
@@ -67,9 +88,7 @@ void rodrigues(Eigen::MatrixBase<DerivedMat> &R, const Eigen::MatrixBase<Derived
     Scalar angle = omega.norm();
     //handle the singularity ... return identity for 0 angle of rotation
     if(std::fabs(angle) < 1e-8) {
-        R << 1, 0, 0,
-             0, 1, 0,
-             0, 0, 1;
+        R.setIdentity();
         return;
     }
 
@@ -82,8 +101,8 @@ void rodrigues(Eigen::MatrixBase<DerivedMat> &R, const Eigen::MatrixBase<Derived
     R = Eigen::Matrix3d::Identity() + std::sin(angle)*K + (1-std::cos(angle))*K*K;
 }
 
-template<typename DerivedR, typename DerivedA, typename DerivedB >
-void newton_procrustes(Eigen::MatrixBase<DerivedR> &R,  const Eigen::MatrixBase<DerivedA> &A, const Eigen::MatrixBase<DerivedB> &B, double tol = 1e-8, int max_iter = 50, bool compute_gradients = false) {
+template<typename DerivedR, typename DerivedA, typename DerivedB, typename DerivedDeriv = Eigen::Matrix<double, 9,9> >
+void newton_procrustes(Eigen::MatrixBase<DerivedR> &R,  const Eigen::MatrixBase<DerivedA> &A, const Eigen::MatrixBase<DerivedB> &B, bool compute_gradients = false, Eigen::MatrixBase<DerivedDeriv> &dRdF = dRdFtmp, double tol = 1e-6, int max_iter = 50) {
 
     using Scalar = typename DerivedR::Scalar;
 
@@ -98,7 +117,7 @@ void newton_procrustes(Eigen::MatrixBase<DerivedR> &R,  const Eigen::MatrixBase<
 
     //newton loop
     unsigned int itr = 0;
-    
+
     do {
 
         //compute useful gradients here if needed
@@ -106,9 +125,8 @@ void newton_procrustes(Eigen::MatrixBase<DerivedR> &R,  const Eigen::MatrixBase<
 
         //std::cout<<"GRADIENT: "<<g<<"\n";
         if(g.norm() < tol) {
-          //  std::cout<<"Exit Here "<<itr<<"\n";
             //converged to within tolerance
-            return;
+            break;
         }
 
         H << -(cpxx*Y).trace(), -(cpxy*Y).trace(), -(cpxz*Y).trace(),
@@ -136,7 +154,28 @@ void newton_procrustes(Eigen::MatrixBase<DerivedR> &R,  const Eigen::MatrixBase<
         
     }while(itr < max_iter);
 
-    
+    if(compute_gradients) {
+
+          //compute dRdF gradient which is a  3x3x3x3 fourth order tensor
+          //stored compactly as a 3x9 matrix.
+
+          //update hessian to that at optimal point
+          H << -(cpxx*Y).trace(), -(cpxy*Y).trace(), -(cpxz*Y).trace(),
+               -(cpxy*Y).trace(), -(cpyy*Y).trace(), -(cpyz*Y).trace(),
+               -(cpxz*Y).trace(), -(cpyz*Y).trace(), -(cpzz*Y).trace();
+
+          Eigen::Matrix<Scalar,3,9> dF; //F derivatives
+          Y =  R*A;
+
+          dF.row(0) = sim::flatten(-(cpx*Y));
+          dF.row(1) = sim::flatten(-(cpy*Y));
+          dF.row(2) = sim::flatten(-(cpz*Y));
+
+          //gradients computed 
+
+          //apply rotation
+          dRdF = -sim::flatten_multiply_right<Eigen::Matrix<Scalar, 3,3>>(R)*Skew_To_Full*H.lu().solve(dF);
+    }
     
 }
 

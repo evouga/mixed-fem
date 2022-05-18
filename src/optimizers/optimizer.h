@@ -23,6 +23,8 @@ namespace mfem {
 
     virtual void reset();
     virtual void step() = 0;
+
+    Eigen::SparseMatrixd P_;          // pinning constraint (for vertices)
   
   protected:
 
@@ -35,7 +37,7 @@ namespace mfem {
 
     BoundaryConditions<3> BCs_;
 
-    Eigen::SparseMatrixd P_;          // pinning constraint (for vertices)
+    
     int nelem_;             // number of elements
     
 

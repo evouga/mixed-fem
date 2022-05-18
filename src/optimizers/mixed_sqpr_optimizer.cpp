@@ -11,7 +11,7 @@
 
 #include <fstream>
 #include <rigid_inertia_com.h>
-#include "unsupported/Eigen/src/SparseExtra/MarketIO.h"
+#include "unsupported/Eigen/SparseExtra"
 
 using namespace mfem;
 using namespace Eigen;

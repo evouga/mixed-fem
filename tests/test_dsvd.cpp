@@ -1,6 +1,7 @@
 #include "catch2/catch.hpp"
 #include "test_common.h"
 #include "svd/dsvd.h"
+#include "svd/newton_procrustes.h"
 using namespace Test;
 
 TEST_CASE("dsvd - dS/dF") {
@@ -197,4 +198,40 @@ TEST_CASE("dsvd - dWs/dq") {
   // std::cout << "frad: \n" << fgrad << std::endl;
   // std::cout << "grad: \n" << J.transpose() << std::endl;
   CHECK(compare_jacobian(J.transpose(), fgrad));
+}
+
+TEST_CASE("dRdF") {
+
+  //generate a random rotation
+  Eigen::Matrix3d F = 2.0*Eigen::Matrix3d::Random();
+  Eigen::Matrix3d S = Eigen::Matrix3d::Random();
+  Eigen::Matrix<double, 9,9> dRdF_fd;
+  Eigen::Matrix<double, 3,3>  tmpR0, tmpR1;
+  Eigen::Matrix<double, 9,9> dRdF; 
+  double alpha = 1e-6;
+
+  Eigen::Matrix3d R0 = Eigen::Matrix3d::Identity();
+  
+  Eigen::Matrix3d perturb;
+
+  //Finite Difference approximation
+  for(unsigned int ii=0; ii< 3; ++ii) {
+    for(unsigned int jj=0; jj< 3; ++jj) {
+      perturb.setZero();
+      perturb(ii,jj) = alpha;
+      tmpR0 = tmpR1 = R0;
+      newton_procrustes(tmpR0, S, F+perturb);
+      newton_procrustes(tmpR1, S, F-perturb);
+      dRdF_fd.col(ii + 3*jj) = sim::flatten(((tmpR0 - tmpR1).array()/(2.*alpha)).matrix());
+    }
+
+  }
+  
+  newton_procrustes(R0, S, F, true, dRdF);
+
+  //error 
+  double error = (dRdF_fd - dRdF).norm();
+
+  std::cout<<"************* dRdF error: "<<error<<" ************* \n";
+  CHECK(error <= alpha);
 }
