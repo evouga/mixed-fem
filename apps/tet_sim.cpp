@@ -2,9 +2,7 @@
 
 // libigl
 #include <igl/boundary_facets.h>
-#include <igl/readMESH.h>
-#include <igl/readOBJ.h>
-#include <igl/writeOBJ.h>
+#include <igl/IO>
 #include <igl/AABB.h>
 #include <igl/in_element.h>
 #include <igl/barycentric_coordinates.h>
@@ -25,6 +23,8 @@
 #include "optimizers/mixed_sqpr_optimizer.h"
 #include "optimizers/newton_optimizer.h"
 #include "boundary_conditions.h"
+#include <sstream>
+#include <fstream>
 
 using namespace Eigen;
 
@@ -121,6 +121,7 @@ void simulation_step() {
 void callback() {
 
   static bool export_sim = false;
+  static bool export_sim_substeps = false;
   static bool simulating = false;
   static bool show_pinned = false;
   static int step = 0;
@@ -132,6 +133,8 @@ void callback() {
 
 
   ImGui::Checkbox("export",&export_sim);
+  ImGui::SameLine();
+  ImGui::Checkbox("export substeps",&config->save_substeps);
 
   if (ImGui::TreeNode("Material Params")) {
 
@@ -169,6 +172,11 @@ void callback() {
   ImGui::SetNextItemOpen(true, ImGuiCond_Once);
   if (ImGui::TreeNode("Sim Params")) {
 
+    if (ImGui::InputDouble("Timestep", &config->h, 0,0,"%.5f")) {
+      config->h2 = config->h*config->h;
+      config->ih2 = 1.0/config->h/config->h;
+    }
+
     int type = config->optimizer;
     if (ImGui::Combo("Optimizer", &type,"ALM\0ADMM\0SQP\0SQP_PD\0NEWTON\0\0")) {
       config->optimizer = static_cast<OptimizerType>(type);
@@ -177,9 +185,9 @@ void callback() {
     }
 
     ImGui::InputInt("Max Newton Iters", &config->outer_steps);
-    ImGui::InputInt("Max Inner Iters", &config->max_iterative_solver_iters);
+    ImGui::InputInt("Max CG Iters", &config->max_iterative_solver_iters);
     ImGui::InputInt("Max LS Iters", &config->ls_iters);
-    ImGui::InputDouble("LS Tol", &config->itr_tol,0,0,"%.5g");
+    ImGui::InputDouble("CG Tol", &config->itr_tol,0,0,"%.5g");
     ImGui::InputDouble("Newton Tol", &config->newton_tol,0,0,"%.5g");
 
     //ImGui::InputInt("Inner Steps", &config->inner_steps);
@@ -195,8 +203,8 @@ void callback() {
       ImGui::InputDouble("constraint tol",&config->constraint_tol, 0,0,"%.5g");
       ImGui::InputDouble("lamda update tol",&config->update_zone_tol,0,0,"%.5g");
     }
-    ImGui::Checkbox("floor collision",&config->floor_collision);
-    ImGui::Checkbox("warm start",&config->warm_start);
+    // ImGui::Checkbox("floor collision",&config->floor_collision);
+    // ImGui::Checkbox("warm start",&config->warm_start);
 
 
     type = config->bc_type;
@@ -240,16 +248,38 @@ void callback() {
 
     if (export_sim) {
       char buffer [50];
-      int n = sprintf(buffer, "../data/tet_%04d.png", export_step); 
+      int n = sprintf(buffer, "../output/tet_%04d.png", export_step); 
       // buffer[n] = 0;
       // polyscope::screenshot(std::string(buffer), true);
-      n = sprintf(buffer, "../data/tet_%04d.obj", export_step++); 
+      n = sprintf(buffer, "../output/tet_%04d.obj", export_step++); 
       buffer[n] = 0;
       if (skinV.rows() > 0)
         igl::writeOBJ(std::string(buffer),skinV,skinF);
       else
         igl::writeOBJ(std::string(buffer),meshV,meshF);
     }
+
+    if (config->save_substeps) {
+      char buffer[50];
+      int n;
+      MatrixXd x(optimizer->step_x[0].size(), optimizer->step_x.size());
+      for (int i = 0; i < optimizer->step_x.size(); ++i) {
+        x.col(i) = optimizer->step_x[i];
+      }
+      // Save the file names
+      n = sprintf(buffer, "../output/sim_x_%04d.dmat", step); 
+      buffer[n] = 0;
+      igl::writeDMAT(std::string(buffer), x);
+
+      n = sprintf(buffer, "../output/sim_x0_%04d.dmat", step); 
+      buffer[n] = 0;
+      igl::writeDMAT(std::string(buffer), optimizer->step_x0);
+
+      n = sprintf(buffer, "../output/sim_v_%04d.dmat", step); 
+      buffer[n] = 0;
+      igl::writeDMAT(std::string(buffer), optimizer->step_v);
+    }
+
   }
   ImGui::SameLine();
   if(ImGui::Button("reset")) {
@@ -268,7 +298,7 @@ void callback() {
 
 int main(int argc, char **argv) {
 
-  omp_set_num_threads(8);
+  // omp_set_num_threads(8);
   // Configure the argument parser
   args::ArgumentParser parser("Mixed FEM");
   args::Positional<std::string> inFile(parser, "mesh", "input mesh");

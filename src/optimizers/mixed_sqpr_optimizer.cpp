@@ -29,10 +29,20 @@ void MixedSQPROptimizer::step() {
   double E;
   VectorXd gx;
   VectorXd gs;
+  step_x.clear();
 
   do {
+    if (config_->save_substeps) {
+      VectorXd x = P_.transpose()*x_ + b_;
+      step_x.push_back(x);
+      step_v = vt_;
+      step_x0 = x0_;
+    }
+
+    // Update gradient and hessian
     update_system();
 
+    // Record initial energies
     E = energy(x_, s_, la_);
     res = std::abs((E - E_prev_) / (E+1));
     E_prev_ = E;
@@ -42,13 +52,14 @@ void MixedSQPROptimizer::step() {
     substep(i, grad_norm);
 
     // Linesearch on descent direction from substep
-    linesearch_x(x_, dx_);
+    // linesearch_x(x_, dx_);
     // linesearch_s(s_, ds_);
-    linesearch_s_local(s_,ds_);
-    // linesearch(x_, dx_, s_, ds_);
+    // linesearch_s_local(s_,ds_);
+    linesearch(x_, dx_, s_, ds_);
     // x_ += dx_;
     // s_ += ds_;
 
+    // Record some data
     data_.add(" Iteration", i+1);
     data_.add("mixed E", E);
     data_.add("mixed E res", res);
@@ -199,20 +210,20 @@ void MixedSQPROptimizer::substep(int step, double& decrement) {
   int niter = 0;
 
   data_.timer.start("global");
-  Eigen::Matrix<double, 12, 1> dx_affine;  
-  dx_affine = (T0_.transpose()*lhs_*T0_).lu().solve(T0_.transpose()*rhs_);
-  dx_ = T0_*dx_affine;
-  niter = pcg(dx_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_zm1_, tmp_p_, tmp_Ap_, solver_arap_, config_->itr_tol, config_->max_iterative_solver_iters);
-  std::cout << "  - CG iters: " << niter;
-  double relative_error = (lhs_*dx_ - rhs_).norm() / rhs_.norm(); 
-  std::cout << " rel error: " << relative_error << " abs error: " << (lhs_*dx_-rhs_).norm() << std::endl;
+  // Eigen::Matrix<double, 12, 1> dx_affine;  
+  // dx_affine = (T0_.transpose()*lhs_*T0_).lu().solve(T0_.transpose()*rhs_);
+  // dx_ = T0_*dx_affine;
+  // niter = pcg(dx_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_zm1_, tmp_p_, tmp_Ap_, solver_arap_, config_->itr_tol, config_->max_iterative_solver_iters);
+  // std::cout << "  - CG iters: " << niter;
+  // double relative_error = (lhs_*dx_ - rhs_).norm() / rhs_.norm(); 
+  // std::cout << " rel error: " << relative_error << " abs error: " << (lhs_*dx_-rhs_).norm() << std::endl;
 
-  //solver_.compute(lhs_);
-  //if(solver_.info()!=Success) {
-  //  std::cerr << "prefactor failed! " << std::endl;
-  //  exit(1);
-  //}
-  //dx_ = solver_.solve(rhs_);
+  solver_.compute(lhs_);
+  if(solver_.info()!=Success) {
+   std::cerr << "prefactor failed! " << std::endl;
+   exit(1);
+  }
+  dx_ = solver_.solve(rhs_);
   data_.timer.stop("global");
 
 

@@ -30,6 +30,14 @@ void NewtonOptimizer::step() {
   int i = 0;
   double grad_norm;
   do {
+    
+    if (config_->save_substeps) {
+      VectorXd x = P_.transpose()*x_ + b_;
+      step_x.push_back(x);
+      step_v = vt_;
+      step_x0 = x0_;
+    }
+
     // Update gradient and hessian
     build_lhs();
     build_rhs();
@@ -54,6 +62,7 @@ void NewtonOptimizer::step() {
     data_.add("Energy res", res);
     data_.add("||H^-1 g||", grad_norm);
     data_.add("||g||", rhs_.norm());
+
     E_prev_ = E;
 
     ++i;
