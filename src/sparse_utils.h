@@ -90,8 +90,8 @@ namespace mfem {
       // Loop over pairs, counting duplicates
       // Purpose of this is so that we can easily sum over duplicate
       // entries when assembling the matrix
-      while (i < multiplicity.size()
-          && (i + multiplicity[i]) < multiplicity.size()) {
+      while (i < multiplicity.size()) {
+          //&& (i + multiplicity[i]) < multiplicity.size()) {
 
         curr_pair = global_pairs[i];
 
@@ -117,7 +117,7 @@ namespace mfem {
       std::vector<Eigen::Triplet<Scalar>> trips;
       for (int i = 0; i < num_nodes; ++i) {
         std::pair<int,int>& p = global_pairs[offsets[i]];
-        //std::cout << "i: " << i << " offset: " << offsets[i] << " pair: " << p.first << ", " << p.second << std::endl;
+        // std::cout << "i: " << i << " offset: " << offsets[i] << " pair: " << p.first << ", " << p.second << std::endl;
         for (int j = 0; j < M; ++j) {
           for (int k = 0; k < M; ++k) {
             trips.push_back(Eigen::Triplet<double>(
@@ -128,9 +128,9 @@ namespace mfem {
       }
 
       int m = *std::max_element(free_map.begin(), free_map.end()) + 1;
-      //std::cout << "m: " << m << std::endl;
       A.resize(M*m, M*m);
       A.setFromTriplets(trips.begin(), trips.end());
+      // std::cout << "A\n" << A << std::endl;
     }
 
     // Probably not the ideal way to parallelize this but fuck it
@@ -142,17 +142,20 @@ namespace mfem {
         int row_beg = row_offsets[ii];
         int row_end = row_offsets[ii+1];
 
-        //std::cout << "row beg: " << row_beg << " k_start: " << A.outerIndexPtr()[3*ii] << std::endl;;
+        // std::cout << "non zeros: " << A.nonZeros() << std::endl;
+        // std::cout << "row beg: " << row_beg << " k_start: " << A.outerIndexPtr()[3*ii] << std::endl;;
+        // std::cout << "row end: " << row_end << std::endl;
         // The index of the block for this row. 
         int block_col = 0;
 
         while (row_beg < row_end) {
           // Get number of duplicate blocks for this offset
           int n = multiplicity[row_beg];
-          //std::cout << "n: " << n << " block col: " << block_col << std::endl;
+          // std::cout << "n: " << n << " block col: " << block_col << std::endl;
 
           // Get the global positioning of this block
           const std::pair<int,int>& g = global_pairs[row_beg];
+          // std::cout << "g: " << g.first << ", " << g.second << std::endl;
 
           // Compute Local block
           Eigen::Matrix<double,M,M> local_block;
@@ -171,6 +174,7 @@ namespace mfem {
           for (int i = 0; i < M; ++i) {
             // Find the corresponding column position for this block
             int start = A.outerIndexPtr()[M*ii + i] + M*block_col;
+            // std::cout << "\t start : " << i << " start : " << start << std::endl;
             for (int j = 0; j < M; ++j) {
               // Assign the value
               int idx = start + j;

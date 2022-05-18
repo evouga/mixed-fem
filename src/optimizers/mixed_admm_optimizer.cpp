@@ -387,6 +387,8 @@ void MixedADMMOptimizer::gradient(VectorXd& g, const VectorXd& x, const VectorXd
 }
 
 void MixedADMMOptimizer::reset() {
+  Optimizer::reset();
+
   // Reset variables
     // Initialize rotation matrices to identity
   nelem_ = object_->T_.rows();

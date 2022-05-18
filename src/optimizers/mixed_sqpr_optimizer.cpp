@@ -105,17 +105,17 @@ void MixedSQPROptimizer::build_lhs() {
   data_.timer.stop("Hinv");
 
   // std::cout << "HX: " << std::endl;
-  //SparseMatrixd Hs;
-  //SparseMatrix<double, RowMajor> Gx = Gx_;
-  //init_block_diagonal<6,6>(Hs, nelem_);
-  //update_block_diagonal<6,6>(H_, Hs);
-
-  //lhs_ += Gx * Hs * Gx.transpose();
+  // SparseMatrixd Hs;
+  // SparseMatrix<double, RowMajor> Gx = Gx_;
+  // init_block_diagonal<6,6>(Hs, nelem_);
+  // update_block_diagonal<6,6>(H_, Hs);
+  // SparseMatrix<double, RowMajor> lhs0 =  Gx * Hs * Gx.transpose();
   // SparseMatrixd G = Gx * Hs * Gx.transpose();
   // saveMarket(M_, "M_.mkt");
   // saveMarket(Hs, "Hs.mkt");
   
   data_.timer.start("Local H");
+  std::cout << "NELEM: " << nelem_ << std::endl;
   std::vector<Matrix12d> Hloc(nelem_); 
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
@@ -123,7 +123,7 @@ void MixedSQPROptimizer::build_lhs() {
         * dS_[i].transpose()) * Jloc_[i]) * (vols_[i] * vols_[i]);
   }
   data_.timer.stop("Local H");
-  //saveMarket(G, "GHG.mkt");
+  // saveMarket(G, "GHG.mkt");
   //saveMarket(assembler_->A, "lhs2.mkt");
   //saveMarket(M_, "M_.mkt");
   data_.timer.start("Update LHS");
@@ -131,8 +131,12 @@ void MixedSQPROptimizer::build_lhs() {
   data_.timer.stop("Update LHS");
 
   lhs_ = M_ + assembler_->A;
-
-  //saveMarket(assembler_->A, "GHG2.mkt");
+  // std::cout << "B\n" << lhs0 << std::endl;
+  // std::cout << "lhs0: " << lhs0.rows() << " " << lhs0.cols();
+  // std::cout << "lhs0: " << assembler_->A.rows() << " " << assembler_->A.cols();
+  // std::cout << "A:\n" << assembler_->A;
+  // saveMarket(assembler_->A, "GHG2.mkt");
+  // std::cout << "DIFF: " << (assembler_->A - lhs0).norm() << std::endl;
   //   MatrixXd lhs(lhs_);
   //   EigenSolver<MatrixXd> es(lhs);
   //   std::cout << "LHS EVALS: \n" << es.eigenvalues().real() << std::endl;
@@ -177,6 +181,11 @@ void MixedSQPROptimizer::update_system() {
   // Compute rotations and rotation derivatives
   update_rotations();
 
+  // data_.timer.start("Gx");
+  // update_block_diagonal(dS_, C_);
+  // Gx_ = -P_ * J_.transpose() * C_.eval() * W_;
+  // data_.timer.stop("Gx");
+
   // Assemble blocks for left and right hand side
   build_lhs();
   build_rhs();
@@ -187,26 +196,19 @@ void MixedSQPROptimizer::substep(int step, double& decrement) {
 
   data_.timer.start("global");
   Eigen::Matrix<double, 12, 1> dx_affine;  
-  // solver_.compute(lhs_);
-  // if(solver_.info()!=Success) {
-  //   std::cerr << "prefactor failed! " << std::endl;
-  //   exit(1);
-  // }
-  // dx_ = solver_.solve(rhs_);
+  // dx_affine = (T0_.transpose()*lhs_*T0_).lu().solve(T0_.transpose()*rhs_);
+  // dx_ = T0_*dx_affine;
+  // niter = pcg(dx_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_zm1_, tmp_p_, tmp_Ap_, solver_arap_, config_->itr_tol, config_->max_iterative_solver_iters);
+  // std::cout << "  - CG iters: " << niter;
+  // double relative_error = (lhs_*dx_ - rhs_).norm() / rhs_.norm(); 
+  // std::cout << " rel error: " << relative_error << " abs error: " << (lhs_*dx_-rhs_).norm() << std::endl;
 
-  dx_affine = (T0_.transpose()*lhs_*T0_).lu().solve(T0_.transpose()*rhs_);
-  dx_ = T0_*dx_affine;
-  niter = pcg(dx_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_zm1_, tmp_p_, tmp_Ap_, solver_arap_, config_->itr_tol, config_->max_iterative_solver_iters);
-  std::cout << "  - CG iters: " << niter;
-  double relative_error = (lhs_*dx_ - rhs_).norm() / rhs_.norm(); 
-  std::cout << " rel error: " << relative_error << " abs error: " << (lhs_*dx_-rhs_).norm() << std::endl;
-
-  // solver_.compute(lhs_);
-  // if(solver_.info()!=Success) {
-  //   std::cerr << "prefactor failed! " << std::endl;
-  //   exit(1);
-  // }
-  // dx_ = solver_.solve(rhs_);
+  solver_.compute(lhs_);
+  if(solver_.info()!=Success) {
+    std::cerr << "prefactor failed! " << std::endl;
+    exit(1);
+  }
+  dx_ = solver_.solve(rhs_);
   data_.timer.stop("global");
 
 

@@ -86,9 +86,8 @@ void MixedOptimizer::step() {
 }
 
 void MixedOptimizer::reset() {
+  Optimizer::reset();
   // Reset variables
-    // Initialize rotation matrices to identity
-  nelem_ = object_->T_.rows();
   R_.resize(nelem_);
   S_.resize(nelem_);
   H_.resize(nelem_);
@@ -108,8 +107,6 @@ void MixedOptimizer::reset() {
     S_[i] = I_vec;
     s_.segment<6>(6*i) = I_vec;
   }
-
-  object_->V_ = object_->V0_;
 
   // Initialize lambdas
   la_.resize(6 * nelem_);
@@ -133,7 +130,7 @@ void MixedOptimizer::reset() {
   //pinnedV_ = (V_.col(0).array() < pin_x 
   //    && V_.col(1).array() > pin_y).cast<int>();
   //pinnedV_.resize(V_.rows());
-  // pinnedV_.setZero();
+  pinnedV_.setZero();
   // pinnedV_(0) = 1;
 
   P_ = pinning_matrix(object_->V_, object_->T_, pinnedV_, false);

@@ -60,7 +60,6 @@ namespace mfem {
     Eigen::SimplicialLLT<Eigen::SparseMatrixd> solver_;
     #endif
 
-    int nelem_;     // number of elements
     double E_prev_; // energy from last result of linesearch
 
     Eigen::VectorXi pinnedV_;

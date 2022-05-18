@@ -203,18 +203,18 @@ void callback() {
     const char* combo_preview_value = bc_list[type].c_str(); 
     if (ImGui::BeginCombo("Boundary Condition", combo_preview_value)) {
       for (int n = 0; n < bc_list.size(); ++n) {
-          const bool is_selected = (type == n);
-          if (ImGui::Selectable(bc_list[n].c_str(), is_selected)) {
-            type = n;
-            config->bc_type = static_cast<BCScriptType>(type);
-            std::cout << "n: " << n << std::endl;
-          }
+        const bool is_selected = (type == n);
+        if (ImGui::Selectable(bc_list[n].c_str(), is_selected)) {
+          type = n;
+          config->bc_type = static_cast<BCScriptType>(type);
+          std::cout << "n: " << n << std::endl;
+        }
 
-          // Set the initial focus when opening the combo
-          // (scrolling + keyboard navigation focus)
-          if (is_selected)
-            ImGui::SetItemDefaultFocus();
-      }
+        // Set the initial focus when opening the combo
+        // (scrolling + keyboard navigation focus)
+        if (is_selected)
+          ImGui::SetItemDefaultFocus();
+    }
       ImGui::EndCombo();
     }
 

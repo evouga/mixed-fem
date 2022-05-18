@@ -5,6 +5,7 @@
 #include "objects/simulation_object.h"
 #include "config.h"
 #include "optimizer_data.h"
+#include "boundary_conditions.h"
 
 namespace mfem {
 
@@ -20,7 +21,7 @@ namespace mfem {
           std::shared_ptr<SimConfig> config)
           : object_(object), config_(config) {}
 
-    virtual void reset() = 0;
+    virtual void reset();
     virtual void step() = 0;
   
   protected:
@@ -31,6 +32,13 @@ namespace mfem {
 
     // Debug timing variables (timings in milliseconds)
     std::map<std::string, double> timings;
+
+    BoundaryConditions<3> BCs_;
+
+    Eigen::SparseMatrixd P_;          // pinning constraint (for vertices)
+    int nelem_;             // number of elements
+    
+
   };        
   
 }

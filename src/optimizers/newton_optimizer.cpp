@@ -208,9 +208,7 @@ double NewtonOptimizer::energy(const VectorXd& x) {
 
 void NewtonOptimizer::reset() {
   // Reset variables
-  nelem_ = object_->T_.rows();
-
-  object_->V_ = object_->V0_;
+  Optimizer::reset();
 
   E_prev_ = 0;
   object_->volumes(vols_);
