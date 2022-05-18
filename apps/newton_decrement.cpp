@@ -45,11 +45,12 @@ int main(int argc, char **argv) {
   args::ArgumentParser parser("Mixed FEM", "Example: ./bin/decrement -r ../models/coarse_bunny.mesh \
       -x ../output/sim_x_0017.dmat \
       --x0 ../output/sim_x0_0017.dmat \
-       -v ../output/sim_v_0017.dmat ");
+       -v ../output/sim_v_0017.dmat --ym 1e5");
   args::ValueFlag<std::string> rest_arg(parser, "<file_name>.mesh", "Rest state mesh", {'r', "rest"});
   args::ValueFlag<std::string> x_arg(parser, "sim_x_<step>.dmat", "x values for step", {'x'});
   args::ValueFlag<std::string> x0_arg(parser, "sim_x0_<step>.dmat", "x0 value for step", {"x0"});
   args::ValueFlag<std::string> v_arg(parser, "sim_v_<step>.dmat", "v value for step", {'v'});
+  args::ValueFlag<double> ym_arg(parser,"double", "Youngs modulus", {"ym"});
 
   // Parse args
   try {
@@ -67,6 +68,7 @@ int main(int argc, char **argv) {
   std::string x_fn = args::get(x_arg);
   std::string x0_fn = args::get(x0_arg);
   std::string v_fn = args::get(v_arg);
+  double ym = args::get(ym_arg);
   std::cout << "Rest mesh: " << rest_fn << std::endl;
 
   // Read the mesh
@@ -97,7 +99,7 @@ int main(int argc, char **argv) {
   config->bc_type = BC_ONEPOINT;
 
   material_config = std::make_shared<MaterialConfig>();
-  Enu_to_lame(3e4, material_config->pr,
+  Enu_to_lame(ym, material_config->pr,
       material_config->la, material_config->mu);
   material = std::make_shared<StableNeohookean>(material_config);
   tet_object = std::make_shared<TetrahedralObject>(meshV, meshT,
