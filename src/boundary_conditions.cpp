@@ -502,7 +502,7 @@ int BoundaryConditions<dim>::step_script(std::shared_ptr<SimObject> &mesh, doubl
   }
 
   double stepSize = 1.0;
-#pragma omp parallel for
+  #pragma omp parallel for
   for (int vI = 0; vI < mesh->V_.rows(); ++vI)
   {
     mesh->V_.row(vI) += stepSize * searchDir.segment<dim>(vI * dim).transpose();

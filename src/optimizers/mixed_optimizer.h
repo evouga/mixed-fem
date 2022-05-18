@@ -86,7 +86,8 @@ namespace mfem {
     std::vector<Eigen::Vector6d> g_;    // Elemental gradients w.r.t dS
     std::vector<Eigen::Matrix<double,9,6>> dS_;
 
-    Eigen::SparseMatrixdRowMajor M_;  // mass matrix
+    Eigen::SparseMatrixdRowMajor M_;     // projected mass matrix
+    Eigen::SparseMatrixdRowMajor Mfull_; // mass matrix
     Eigen::SparseMatrixdRowMajor J_;  // jacobian
     Eigen::SparseMatrixd W_;
     Eigen::VectorXd grad_;

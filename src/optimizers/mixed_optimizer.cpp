@@ -23,8 +23,9 @@ double MixedOptimizer::primal_energy(const VectorXd& x, const VectorXd& s,
     VectorXd& gx, VectorXd& gs) {
 
   double h = config_->h;
-  VectorXd xdiff = x - x0_ - h*vt_ - h*h*f_ext_;
-  gx = M_*xdiff;
+  VectorXd xt = P_.transpose()*x + b_;
+  VectorXd xdiff = xt - x0_ - h*vt_ - h*h*f_ext_;
+  gx = Mfull_*xdiff;
 
   double Em = 0.5*xdiff.dot(gx);
 
@@ -51,7 +52,7 @@ void MixedOptimizer::step() {
   int i = 0;
   double grad_norm;
   q_.setZero();
-  q_.segment(0, x_.size()) = x_ - x0_;
+  q_.segment(0, x_.size()) = x_ - P_*x0_;
 
   do {
     data_.timer.start("step");
@@ -114,26 +115,27 @@ void MixedOptimizer::reset() {
   E_prev_ = 0;
   
   object_->volumes(vols_);
-  object_->mass_matrix(M_, vols_);
+  object_->mass_matrix(Mfull_, vols_);
   object_->jacobian(J_, vols_, false);
 
   MatrixXd tmp = object_->V_.transpose();
   x_ = Map<VectorXd>(tmp.data(), object_->V_.size());
 
+  x0_ = x_;
+  vt_ = 0*x_;
+
   b_ = x_ - P_.transpose()*P_*x_;
   x_ = P_ * x_;
-  x0_ = x_;
   dx_ = 0*x_;
-  vt_ = 0*x_;
   q_.resize(x_.size() + 6 * nelem_);
   q_.setZero();
 
   // Project out mass matrix pinned point
-  M_ = P_ * M_ * P_.transpose();
+  M_ = P_ * Mfull_ * P_.transpose();
 
   // External gravity force
   Vector3d ext = Map<Vector3f>(config_->ext).cast<double>();
-  f_ext_ = P_ * ext.replicate(object_->V_.rows(),1);
+  f_ext_ = P_.transpose()*P_*ext.replicate(object_->V_.rows(),1);
 }
 
 void MixedOptimizer::update_rotations() {
@@ -291,13 +293,23 @@ bool MixedOptimizer::linesearch(Eigen::VectorXd& x, const Eigen::VectorXd& dx,
 }
 
 void MixedOptimizer::update_configuration() {
+  // Update boundary positions
+  BCs_.step_script(object_, config_->h);
+  #pragma omp parallel for
+  for (int i = 0; i < object_->V_.rows(); ++i) {
+    if (object_->is_fixed_(i)) {
+      b_.segment(3*i,3) = object_->V_.row(i).transpose();
+    }
+  }
 
-  vt_ = (x_ - x0_) / config_->h;
-  x0_ = x_;
+
+
+  VectorXd x = P_.transpose()*x_ + b_;
+  vt_ = (x - x0_) / config_->h;
+  x0_ = x;
   la_.setZero();
 
   // Update mesh vertices
-  VectorXd x = P_.transpose()*x_ + b_;
   MatrixXd V = Map<MatrixXd>(x.data(), object_->V_.cols(), object_->V_.rows());
   object_->V_ = V.transpose();
 }

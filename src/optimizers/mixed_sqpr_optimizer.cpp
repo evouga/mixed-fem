@@ -69,18 +69,20 @@ void MixedSQPROptimizer::step() {
 
 void MixedSQPROptimizer::gradient(VectorXd& g, const VectorXd& x, const VectorXd& s,
     const VectorXd& la) {  
-  grad_.resize(x_.size() + 6*nelem_);
+  VectorXd xt = P_.transpose()*x + b_;
+  grad_.resize(xt.size() + 6*nelem_);
   double h = config_->h;
 
   VectorXd tmp(9*nelem_);
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
-    tmp.segment<9>(9*i) = dS_[i]*la_.segment<6>(6*i);
+    tmp.segment<9>(9*i) = dS_[i]*la.segment<6>(6*i);
     grad_.segment<6>(x_.size() + 6*i) = vols_[i] 
-        * (g_[i] + Sym*la_.segment<6>(6*i));
+        * (g_[i] + Sym*la.segment<6>(6*i));
   }
-  grad_.segment(0,x_.size()) = M_*(x_ - x0_ - h*vt_ - h*h*f_ext_)
-      - PJ_ * tmp;
+
+  grad_.segment(0,xt.size()) = Mfull_*(xt - x0_ - h*vt_ - h*h*f_ext_)
+      - Jw_.transpose() * tmp;
 }
 
 void MixedSQPROptimizer::build_lhs() {
@@ -152,17 +154,20 @@ void MixedSQPROptimizer::build_rhs() {
   double h = config_->h;
   double h2 = h*h;
 
+  VectorXd xt = P_.transpose()*x_ + b_;
+
+
   VectorXd tmp(9*nelem_);
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
-    const Vector6d& si = s_.segment(6*i,6);
+    const Vector6d& si = s_.segment<6>(6*i);
 
     // W * c(x^k, s^k) + H^-1 * g_s
     gl_.segment<6>(6*i) = vols_[i] * H_[i] * Sym * (S_[i] - si + Hinv_[i] * g_[i]);
     tmp.segment<9>(9*i) = dS_[i]*gl_.segment<6>(6*i);
-
   }
-  rhs_ = -PJ_ * tmp - M_*(x_ - x0_ - h*vt_ - h2*f_ext_);
+
+  rhs_ = -PJ_ * tmp - PM_*(xt - x0_ - h*vt_ - h2*f_ext_);
   data_.timer.stop("RHS");
 
 
@@ -172,7 +177,7 @@ void MixedSQPROptimizer::build_rhs() {
     tmp.segment<9>(9*i) = dS_[i]*la_.segment<6>(6*i);
     grad_.segment<6>(x_.size() + 6*i) = vols_[i] * (g_[i] + Sym*la_.segment<6>(6*i));
   }
-  grad_.segment(0,x_.size()) = M_*(x_ - x0_ - h*vt_ - h2*f_ext_) - PJ_ * tmp;
+  grad_.segment(0,x_.size()) = PM_*(xt - x0_ - h*vt_ - h2*f_ext_) - PJ_ * tmp;
 }
 
 void MixedSQPROptimizer::update_system() {
@@ -230,31 +235,6 @@ void MixedSQPROptimizer::substep(int step, double& decrement) {
 
   decrement = std::sqrt( dx_.squaredNorm() + ds_.squaredNorm());
   // decrement = std::sqrt(dx_.dot(grad_.segment(0,x_.size())) + ds_.dot(grad_.segment(x_.size(),6*nelem_)));
-}
-
-bool MixedSQPROptimizer::linesearch_x(VectorXd& x, const VectorXd& dx) {
-  return MixedOptimizer::linesearch_x(x,dx);
-  data_.timer.start("LS_x");
-
-  auto value = [&](const VectorXd& x)->double {
-    //double h = config_->h;
-    //VectorXd xdiff = x - x0_ - h*vt_ - h*h*f_ext_;
-    //return 0.5*xdiff.transpose()*M_*xdiff;
-    return energy(x,s_,la_);
-  };
-
-  VectorXd xt = x;
-  VectorXd tmp;
-  double alpha = 1.0;
-  SolverExitStatus status = linesearch_backtracking_bisection(xt, dx, value,
-      tmp, alpha, config_->ls_iters, 0.1, 0.66, E_prev_);
-  bool done = status == MAX_ITERATIONS_REACHED;
-  if (done)
-    std::cout << "linesearch_x max iters" << std::endl;
-  x = xt;
-  data_.timer.stop("LS_x");
-  // std::cout << "x alpha: " << alpha << std::endl;
-  return done;
 }
 
 void MixedSQPROptimizer::reset() {

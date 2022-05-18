@@ -83,7 +83,8 @@ void MixedSQPOptimizer::build_rhs() {
   double h2 = h*h;
 
   // -g_x
-  rhs_.segment(0, n) = -M_*(x_ - x0_ - h*vt_ - h2*f_ext_);
+  VectorXd xt = P_.transpose()*x_ + b_;
+  rhs_.segment(0, n) = -P_ * Mfull_*(xt - x0_ - h*vt_ - h2*f_ext_);
 
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
@@ -279,11 +280,11 @@ double MixedSQPOptimizer::energy(const VectorXd& x, const VectorXd& s,
   double h = config_->h;
   double h2 = h*h;
   // data_.timer.start("1");
-  VectorXd xdiff = x - x0_ - h*vt_ - h*h*f_ext_;
-  
+  VectorXd xt = P_.transpose()*x + b_;
+  VectorXd xdiff = P_ * (xt - x0_ - h*vt_ - h*h*f_ext_);
   double Em = 0.5*xdiff.transpose()*M_*xdiff;
 
-  VectorXd def_grad = J_*(P_.transpose()*x+b_);
+  VectorXd def_grad = J_*xt;
 
   VectorXd e_L(nelem_);
   VectorXd e_Psi(nelem_);
@@ -319,14 +320,13 @@ void MixedSQPOptimizer::gradient(VectorXd& g, const VectorXd& x, const VectorXd&
   std::cerr << "MixedSQPOptimizer: gradient() unimplemented" << std::endl;
 }
 
-
-
 void MixedSQPOptimizer::reset() {
   MixedOptimizer::reset();
  
   object_->jacobian(Jw_, vols_, true);
   object_->jacobian(Jloc_);
   PJ_ = P_ * Jw_.transpose();
+  PM_ = P_ * Mfull_;
 
   init_block_diagonal<9,6>(C_, nelem_);
 

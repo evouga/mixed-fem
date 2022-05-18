@@ -34,9 +34,6 @@ namespace mfem {
 
     virtual void substep(int step, double& decrement) override;
 
-    virtual bool linesearch_x(Eigen::VectorXd& x,
-        const Eigen::VectorXd& dx) override;
-
     Eigen::VectorXd gl_;
     // Eigen::SimplicialLDLT<Eigen::SparseMatrixdRowMajor> solver_;
     // Solve used for preconditioner
