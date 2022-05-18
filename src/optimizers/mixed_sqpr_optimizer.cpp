@@ -9,6 +9,7 @@
 #include "pcg.h"
 #include "svd/newton_procrustes.h"
 
+#include <iomanip>
 #include <fstream>
 #include <rigid_inertia_com.h>
 #include "unsupported/Eigen/src/SparseExtra/MarketIO.h"
@@ -102,11 +103,8 @@ void MixedSQPROptimizer::build_lhs() {
   double ih2 = 1. / (config_->h * config_->h);
   double h2 = (config_->h * config_->h);
 
-  static Eigen::Matrix6d Syminv = (Eigen::Vector6d() <<
-    1, 1, 1, .5, .5, .5).finished().asDiagonal();
-
-
   data_.timer.start("Hinv");
+  // VectorXd diff(nelem_);
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
     const Vector6d& si = s_.segment(6*i,6);
@@ -114,9 +112,21 @@ void MixedSQPROptimizer::build_lhs() {
     Hinv_[i] = H.inverse();
     g_[i] = h2 * object_->material_->gradient(si);
     H_[i] = (1.0 / vols_[i]) * (Syminv * H * Syminv);
+    // H_[i] = (1.0 / vols_[i]) *(Sym*Hinv_[i]*Sym).inverse();
+    // diff(i) = (H_[i] - (vols_[i]*(Sym*Hinv_[i]*Sym)).inverse()).norm() ;
   }
   data_.timer.stop("Hinv");
+  // std::cout << "diff mean: " << diff.array().mean() << " max: " << diff.lpNorm<Infinity>() << std::endl;
 
+  //   for (int i = 0; i < nelem_; ++i) {
+  //     if (diff(i)> 1e2) {
+  //       std::cout << "!! i: " << i  << std::endl;
+  //       std::cout << std::endl << H_[i] << std::endl;
+  //       std::cout << std::endl << (vols_[i]*(Sym*Hinv_[i]*Sym)).inverse() << std::endl;
+  //       std::cout << "EVALS: " << std::setprecision(10) << H_[i].eigenvalues().real() << std::endl;
+  //     }
+  //   }
+  
   // std::cout << "HX: " << std::endl;
   // SparseMatrixd Hs;
   // SparseMatrix<double, RowMajor> Gx = Gx_;
@@ -174,7 +184,10 @@ void MixedSQPROptimizer::build_rhs() {
     const Vector6d& si = s_.segment<6>(6*i);
 
     // W * c(x^k, s^k) + H^-1 * g_s
-    gl_.segment<6>(6*i) = vols_[i] * H_[i] * Sym * (S_[i] - si + Hinv_[i] * g_[i]);
+    // gl_.segment<6>(6*i) = vols_[i] * H_[i] * Sym * (S_[i] - si + Hinv_[i] * g_[i]);
+    // gl_.segment<6>(6*i) = vols_[i] * H_[i] * Sym * (S_[i] - si + (
+        // (config_->h*config_->h*object_->material_->hessian(si,true)).completeOrthogonalDecomposition().solve(g_[i])));
+    gl_.segment<6>(6*i) = vols_[i] * H_[i] * Sym * (S_[i] - si) + Syminv*g_[i]; // G_s * g
     tmp.segment<9>(9*i) = dS_[i]*gl_.segment<6>(6*i);
   }
 
@@ -195,11 +208,6 @@ void MixedSQPROptimizer::update_system() {
 
   // Compute rotations and rotation derivatives
   update_rotations();
-
-  // data_.timer.start("Gx");
-  // update_block_diagonal(dS_, C_);
-  // Gx_ = -P_ * J_.transpose() * C_.eval() * W_;
-  // data_.timer.stop("Gx");
 
   // Assemble blocks for left and right hand side
   build_lhs();
@@ -237,10 +245,10 @@ void MixedSQPROptimizer::substep(int step, double& decrement) {
   #pragma omp parallel for 
   for (int i = 0; i < nelem_; ++i) {
     la_.segment<6>(6*i) += H_[i] * (dS_[i].transpose() * Jdx_.segment<9>(9*i));
-    // ds_.segment<6>(6*i) = -Hinv_[i] * (Sym * la_.segment<6>(6*i)+ g_[i]);
-    Vector6d si = s_.segment<6>(6*i);
-    Vector6d gs = vols_[i]*(Sym * la_.segment<6>(6*i)+ g_[i]);
-    ds_.segment<6>(6*i) = (vols_[i]*config_->h*config_->h*object_->material_->hessian(si,false)).completeOrthogonalDecomposition().solve(-gs);
+    ds_.segment<6>(6*i) = -Hinv_[i] * (Sym * la_.segment<6>(6*i)+ g_[i]);
+    // Vector6d si = s_.segment<6>(6*i);
+    // Vector6d gs = vols_[i]*(Sym * la_.segment<6>(6*i)+ g_[i]);
+    // ds_.segment<6>(6*i) = (vols_[i]*config_->h*config_->h*object_->material_->hessian(si,false)).completeOrthogonalDecomposition().solve(-gs);
   }
   data_.timer.stop("local");
 

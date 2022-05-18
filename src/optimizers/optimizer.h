@@ -15,6 +15,9 @@ namespace mfem {
   static Eigen::Matrix6d Sym = (Eigen::Vector6d() <<
       1, 1, 1, 2, 2, 2).finished().asDiagonal();
 
+  static Eigen::Matrix6d Syminv = (Eigen::Vector6d() <<
+    1, 1, 1, .5, .5, .5).finished().asDiagonal();
+    
   class Optimizer {
   public:
     Optimizer(std::shared_ptr<SimObject> object,
