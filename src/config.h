@@ -14,6 +14,8 @@ namespace mfem {
     lambda = (E*nu)/((1.0+nu)*(1.0-2.0*nu));
   }
 
+  // TODO shouldn't list everything here, use a factory or whatever the fuck
+  // that OOP design is called
   enum OptimizerType {
       OPTIMIZER_ALM,
       OPTIMIZER_ADMM,
@@ -27,6 +29,24 @@ namespace mfem {
       MATERIAL_NH,    // neohookean
       MATERIAL_FCR,   // fixed corotated
       MATERIAL_ARAP   // as-rigid-as possible
+  };
+
+  enum BCScriptType {
+      BC_NULL,
+      BC_SCALEF,
+      BC_HANG,
+      BC_STRETCH,
+      BC_SQUASH,
+      BC_STRETCHNSQUASH,
+      BC_BEND,
+      BC_TWIST,
+      BC_TWISTNSTRETCH,
+      BC_TWISTNSNS,
+      BC_TWISTNSNS_OLD,
+      BC_RUBBERBANDPULL,
+      BC_ONEPOINT,
+      BC_RANDOM,
+      BC_FALL,
   };
   
   // Global parameters for the simulation
@@ -58,6 +78,7 @@ namespace mfem {
     OptimizerType optimizer = OPTIMIZER_SQP_PD;
     int max_iterative_solver_iters = 500;
     double itr_tol = 1e-4;
+    BCScriptType bc_type = BC_NULL;
 
   };
 

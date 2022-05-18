@@ -17,6 +17,7 @@ namespace Eigen {
 }
 
 namespace mfem {
+  // TODO just call this a mesh moron
 
   // Class to maintain the state and perform physics updates on an object,
   // which has a particular discretization, material, and material config
@@ -25,10 +26,7 @@ namespace mfem {
 
     SimObject(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
         std::shared_ptr<MaterialModel> material,
-        std::shared_ptr<MaterialConfig> material_config)
-        : V_(V), V0_(V), T_(T), material_(material),
-          config_(material_config) {
-    }
+        std::shared_ptr<MaterialConfig> material_config);
     
     virtual void volumes(Eigen::VectorXd& vol) = 0;
     virtual void mass_matrix(Eigen::SparseMatrixdRowMajor& M,
@@ -44,7 +42,35 @@ namespace mfem {
       return V_;
     }
 
+    void clear_fixed_vertices() {
+      fixed_vertices_.clear();
+      is_fixed_.setZero();
+    }
+
+    void free_vertex(int id) {
+      fixed_vertices_.erase(fixed_vertices_.begin() + id);
+      is_fixed_(id) = 0;
+    }
+
+    void set_fixed(int id) {
+      is_fixed_(id) = 1;
+      fixed_vertices_.push_back(id);
+    }
+
+    void set_fixed(const std::vector<int>& ids) {
+      for (size_t i = 0; i < ids.size(); ++i) {
+        is_fixed_(ids[i]) = 1;
+      }
+      fixed_vertices_.insert(fixed_vertices_.end(), ids.begin(), ids.end());
+    }
+
   public:
+
+    std::vector<std::vector<int>> bc_groups_;
+    std::vector<int> fixed_vertices_;
+    Eigen::VectorXi is_fixed_;
+    Eigen::Matrix23x<double> bbox;
+
   
     Eigen::MatrixXd V_;
     Eigen::MatrixXd V0_;

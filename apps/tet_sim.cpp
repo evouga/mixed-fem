@@ -24,6 +24,8 @@
 #include "optimizers/mixed_sqp_optimizer.h"
 #include "optimizers/mixed_sqpr_optimizer.h"
 #include "optimizers/newton_optimizer.h"
+#include "boundary_conditions.h"
+
 using namespace Eigen;
 
 // The mesh, Eigen representation
@@ -43,6 +45,8 @@ std::shared_ptr<MaterialModel> material;
 std::shared_ptr<MaterialConfig> material_config;
 std::shared_ptr<SimObject> tet_object;
 std::shared_ptr<Optimizer> optimizer;
+
+std::vector<std::string> bc_list;
 
 // ------------------------------------ //
 std::shared_ptr<MaterialModel> make_material_model(
@@ -175,8 +179,8 @@ void callback() {
     ImGui::InputInt("Max Newton Iters", &config->outer_steps);
     ImGui::InputInt("Max Inner Iters", &config->max_iterative_solver_iters);
     ImGui::InputInt("Max LS Iters", &config->ls_iters);
-    ImGui::InputDouble("LS Tol", &config->itr_tol);
-    ImGui::InputDouble("Newton Tol", &config->newton_tol);
+    ImGui::InputDouble("LS Tol", &config->itr_tol,0,0,"%.5g");
+    ImGui::InputDouble("Newton Tol", &config->newton_tol,0,0,"%.5g");
 
     //ImGui::InputInt("Inner Steps", &config->inner_steps);
     if (ImGui::InputFloat3("Body Force", config->ext, 3)) {
@@ -193,6 +197,28 @@ void callback() {
     }
     ImGui::Checkbox("floor collision",&config->floor_collision);
     ImGui::Checkbox("warm start",&config->warm_start);
+
+
+    type = config->bc_type;
+    const char* combo_preview_value = bc_list[type].c_str(); 
+    if (ImGui::BeginCombo("Boundary Condition", combo_preview_value)) {
+      for (int n = 0; n < bc_list.size(); ++n) {
+          const bool is_selected = (type == n);
+          if (ImGui::Selectable(bc_list[n].c_str(), is_selected)) {
+            type = n;
+            config->bc_type = static_cast<BCScriptType>(type);
+            std::cout << "n: " << n << std::endl;
+          }
+
+          // Set the initial focus when opening the combo
+          // (scrolling + keyboard navigation focus)
+          if (is_selected)
+            ImGui::SetItemDefaultFocus();
+      }
+      ImGui::EndCombo();
+    }
+
+
     ImGui::TreePop();
   }
 
@@ -224,16 +250,6 @@ void callback() {
       else
         igl::writeOBJ(std::string(buffer),meshV,meshF);
     }
-
-    // std::cout << "STEP: " << step << std::endl;
-    // std::cout << "[Avg Time ms] " 
-    //   << " collision: " << t_coll / outer_steps / step
-    //   << " rhs: " << t_rhs / outer_steps / step
-    //   << " preconditioner: " << t_precond / outer_steps / step
-    //   << " KKT assembly: " << t_asm / outer_steps / step
-    //   << " cg.solve(): " << t_solve / outer_steps / step
-    //   << " update S & R: " << t_SR / outer_steps / step
-    //   << std::endl;
   }
   ImGui::SameLine();
   if(ImGui::Button("reset")) {
@@ -368,6 +384,8 @@ int main(int argc, char **argv) {
   optimizer = make_optimizer(tet_object, config);
   optimizer->reset();
 
+  // std::vector<std::string> names;
+  BoundaryConditions<3>::get_script_names(bc_list);
 
   // Show the gui
   polyscope::show();
