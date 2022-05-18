@@ -355,24 +355,13 @@ void MixedSQPOptimizer::reset() {
     R_[ii] = Matrix3d::Identity();
   }
 
-  // Building FEM matrix assembler
   int curr = 0;
-  std::vector<int> free_map(pinnedV_.size(), -1);  
-  for (int i = 0; i < pinnedV_.size(); ++i) {
-    if (pinnedV_(i) == 0) {
+  std::vector<int> free_map(object_->is_fixed_.size(), -1);  
+  for (int i = 0; i < object_->is_fixed_.size(); ++i) {
+    if (object_->is_fixed_(i) == 0) {
       free_map[i] = curr++;
     }
   }
-
-  std::cout << "pinnedV: " << pinnedV_ <<std::endl;
-  std::cout << "freemap: " << object_->is_fixed_ << std::endl;
-  //   int curr = 0;
-  // std::vector<int> free_map(object_->is_fixed_.size(), -1);  
-  // for (int i = 0; i < object_->is_fixed_.size(); ++i) {
-  //   if (object_->is_fixed_(i) == 0) {
-  //     free_map[i] = curr++;
-  //   }
-  // }
   assembler_ = std::make_shared<Assembler<double,4,3>>(object_->T_, free_map);
 
   // Initializing gradients and LHS

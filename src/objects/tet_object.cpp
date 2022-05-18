@@ -27,21 +27,21 @@ namespace {
 }
 
 void TetrahedralObject::volumes(Eigen::VectorXd& vol) {
-  igl::volume(V_, T_, vol);
+  igl::volume(V0_, T_, vol);
   vol = vol.cwiseAbs();
 }
 
 void TetrahedralObject::mass_matrix(SparseMatrixdRowMajor& M,
     const VectorXd& vols) {
   VectorXd densities = VectorXd::Constant(T_.rows(), config_->density);
-  sim::linear_tetmesh_mass_matrix(M, V_, T_, densities, vols);
+  sim::linear_tetmesh_mass_matrix(M, V0_, T_, densities, vols);
 }
 
 void TetrahedralObject::jacobian(SparseMatrixdRowMajor& J, const VectorXd& vols,
       bool weighted) {
   // J matrix (big jacobian guy)
   MatrixXd dphidX;
-  sim::linear_tetmesh_dphi_dX(dphidX, V_, T_);
+  sim::linear_tetmesh_dphi_dX(dphidX, V0_, T_);
 
   std::vector<Triplet<double>> trips;
   for (int i = 0; i < T_.rows(); ++i) { 
@@ -78,7 +78,7 @@ void TetrahedralObject::jacobian(std::vector<Matrix<double,9,12>>& J) {
   std::cout << "T rows : " << T_.rows() << std::endl;
 
   MatrixXd dphidX;
-  sim::linear_tetmesh_dphi_dX(dphidX, V_, T_);
+  sim::linear_tetmesh_dphi_dX(dphidX, V0_, T_);
 
   for (int i = 0; i < T_.rows(); ++i) { 
 

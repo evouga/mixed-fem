@@ -117,24 +117,6 @@ void MixedOptimizer::reset() {
   object_->mass_matrix(M_, vols_);
   object_->jacobian(J_, vols_, false);
 
-  // Pinning matrices
-  double min_x = object_->V_.col(0).minCoeff();
-  double max_x = object_->V_.col(0).maxCoeff();
-  double pin_x = min_x + (max_x-min_x)*0.2;
-  double min_y = object_->V_.col(1).minCoeff();
-  double max_y = object_->V_.col(1).maxCoeff();
-  double pin_y = max_y - (max_y-min_y)*0.1;
-  //double pin_y = min_y + (max_y-min_y)*0.1;
-  //pinnedV_ = (V_.col(0).array() < pin_x).cast<int>(); 
-  pinnedV_ = (object_->V_.col(1).array() > pin_y).cast<int>();
-  //pinnedV_ = (V_.col(0).array() < pin_x 
-  //    && V_.col(1).array() > pin_y).cast<int>();
-  //pinnedV_.resize(V_.rows());
-  pinnedV_.setZero();
-  // pinnedV_(0) = 1;
-
-  P_ = pinning_matrix(object_->V_, object_->T_, pinnedV_, false);
-
   MatrixXd tmp = object_->V_.transpose();
   x_ = Map<VectorXd>(tmp.data(), object_->V_.size());
 
@@ -145,7 +127,6 @@ void MixedOptimizer::reset() {
   vt_ = 0*x_;
   q_.resize(x_.size() + 6 * nelem_);
   q_.setZero();
-
 
   // Project out mass matrix pinned point
   M_ = P_ * M_ * P_.transpose();

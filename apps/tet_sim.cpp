@@ -207,7 +207,7 @@ void callback() {
         if (ImGui::Selectable(bc_list[n].c_str(), is_selected)) {
           type = n;
           config->bc_type = static_cast<BCScriptType>(type);
-          std::cout << "n: " << n << std::endl;
+          optimizer->reset();
         }
 
         // Set the initial focus when opening the combo

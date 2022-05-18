@@ -92,7 +92,5 @@ namespace mfem {
     Eigen::VectorXd grad_;
 
     double E_prev_; // energy from last result of linesearch
-    
-    Eigen::VectorXi pinnedV_;
   };
 }

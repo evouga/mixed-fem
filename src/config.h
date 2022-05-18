@@ -78,7 +78,7 @@ namespace mfem {
     OptimizerType optimizer = OPTIMIZER_SQP_PD;
     int max_iterative_solver_iters = 500;
     double itr_tol = 1e-4;
-    BCScriptType bc_type = BC_NULL;
+    BCScriptType bc_type = BC_ONEPOINT;
 
   };
 

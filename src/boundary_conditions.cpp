@@ -293,13 +293,17 @@ void BoundaryConditions<dim>::init_script(std::shared_ptr<SimObject> &mesh)
     break;
   }
 
+  // case BC_ONEPOINT:
+  // {
+  //   const RowVector3d center = mesh->bbox.colwise().mean();
+  //   mesh->V_.rowwise() = center.leftCols(dim);
+  //   mesh->V_.col(1).array() += (mesh->bbox(1, 1) - mesh->bbox(0, 1)) / 2.0;
+  //   break;
+  // }
   case BC_ONEPOINT:
-  {
-    const RowVector3d center = mesh->bbox.colwise().mean();
-    mesh->V_.rowwise() = center.leftCols(dim);
-    mesh->V_.col(1).array() += (mesh->bbox(1, 1) - mesh->bbox(0, 1)) / 2.0;
+    mesh->clear_fixed_vertices();
+    mesh->set_fixed(0);
     break;
-  }
 
   case BC_RANDOM:
   {

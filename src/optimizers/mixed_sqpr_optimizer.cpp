@@ -115,7 +115,6 @@ void MixedSQPROptimizer::build_lhs() {
   // saveMarket(Hs, "Hs.mkt");
   
   data_.timer.start("Local H");
-  std::cout << "NELEM: " << nelem_ << std::endl;
   std::vector<Matrix12d> Hloc(nelem_); 
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
