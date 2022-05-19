@@ -171,6 +171,25 @@ void NewtonOptimizer::substep(bool init_guess, double& decrement) {
   decrement = dx_.norm(); // if doing "full newton use this"
 }
 
+void NewtonOptimizer::update_vertices(const Eigen::MatrixXd& V) {
+  MatrixXd tmp = V.transpose();
+  VectorXd x = Map<VectorXd>(tmp.data(), V.size());
+  x0_ = x;
+  vt_ = 0*x;
+  b_ = x - P_.transpose()*P_*x;
+  x_ = P_ * x;
+}
+
+void NewtonOptimizer::set_state(const Eigen::VectorXd& x,
+    const Eigen::VectorXd& v) {
+  MatrixXd V = Map<const MatrixXd>(x.data(), object_->V_.cols(), object_->V_.rows());
+  object_->V_ = V.transpose();
+  x0_ = x;
+  vt_ = v;
+  b_ = x - P_.transpose()*P_*x;
+  x_ = P_ * x;
+}
+
 void NewtonOptimizer::update_configuration() {
   // Update boundary positions
   BCs_.step_script(object_, config_->h);

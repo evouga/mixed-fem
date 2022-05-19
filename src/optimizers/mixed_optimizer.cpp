@@ -104,6 +104,46 @@ void MixedOptimizer::step() {
   update_configuration();
 }
 
+void MixedOptimizer::update_vertices(const Eigen::MatrixXd& V) {
+  MatrixXd tmp = V.transpose();
+  VectorXd x = Map<VectorXd>(tmp.data(), V.size());
+  x0_ = x;
+  vt_ = 0*x;
+  b_ = x - P_.transpose()*P_*x;
+  x_ = P_ * x;
+  update_rotations();
+  
+  for (int i = 0; i < nelem_; ++i) {
+    s_.segment<6>(6*i) = S_[i];
+  }
+}
+
+void MixedOptimizer::set_state(const Eigen::VectorXd& x,
+    const Eigen::VectorXd& v) {
+
+  MatrixXd V = Map<const MatrixXd>(x.data(), object_->V_.cols(), object_->V_.rows());
+  object_->V_ = V.transpose();
+
+  x0_ = x;
+  vt_ = v;
+  b_ = x - P_.transpose()*P_*x;
+  x_ = P_ * x;
+  
+  VectorXd def_grad = J_*(P_.transpose()*x_+b_);
+  for (int i = 0; i < nelem_; ++i) {
+    Vector3d sigma;
+    Matrix3d U,V;
+    svd(Map<Matrix3d>(def_grad.segment(9*i,9).data()), sigma, U, V);
+    Eigen::Vector3d stemp;
+    Matrix3d S = V * sigma.asDiagonal() * V.transpose();
+    Vector6d stmp; stmp << S(0,0), S(1,1), S(2,2), S(1,0), S(2,0), S(2,1);
+    S_[i] = stmp;
+    R_[i] = U * V.transpose();
+    s_.segment<6>(6*i) = S_[i];
+  }
+  update_rotations();
+}
+
 void MixedOptimizer::reset() {
   Optimizer::reset();
   // Reset variables

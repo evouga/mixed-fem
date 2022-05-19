@@ -218,20 +218,20 @@ void MixedSQPROptimizer::substep(int step, double& decrement) {
   int niter = 0;
 
   data_.timer.start("global");
-  Eigen::Matrix<double, 12, 1> dx_affine;  
-  dx_affine = (T0_.transpose()*lhs_*T0_).lu().solve(T0_.transpose()*rhs_);
-  dx_ = T0_*dx_affine;
-  niter = pcg(dx_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_zm1_, tmp_p_, tmp_Ap_, solver_arap_, config_->itr_tol, config_->max_iterative_solver_iters);
-  std::cout << "  - CG iters: " << niter;
-  double relative_error = (lhs_*dx_ - rhs_).norm() / rhs_.norm(); 
-  std::cout << " rel error: " << relative_error << " abs error: " << (lhs_*dx_-rhs_).norm() << std::endl;
+  // Eigen::Matrix<double, 12, 1> dx_affine;  
+  // dx_affine = (T0_.transpose()*lhs_*T0_).lu().solve(T0_.transpose()*rhs_);
+  // dx_ = T0_*dx_affine;
+  // niter = pcg(dx_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_zm1_, tmp_p_, tmp_Ap_, solver_arap_, config_->itr_tol, config_->max_iterative_solver_iters);
+  // std::cout << "  - CG iters: " << niter;
+  // double relative_error = (lhs_*dx_ - rhs_).norm() / rhs_.norm(); 
+  // std::cout << " rel error: " << relative_error << " abs error: " << (lhs_*dx_-rhs_).norm() << std::endl;
 
-  /*solver_.compute(lhs_);
+  solver_.compute(lhs_);
   if(solver_.info()!=Success) {
    std::cerr << "prefactor failed! " << std::endl;
    exit(1);
   }
-  dx_ = solver_.solve(rhs_);*/
+  dx_ = solver_.solve(rhs_);
   data_.timer.stop("global");
 
 
@@ -253,7 +253,7 @@ void MixedSQPROptimizer::substep(int step, double& decrement) {
   data_.timer.stop("local");
 
   decrement = std::sqrt( dx_.squaredNorm() + ds_.squaredNorm());
-  // decrement = std::sqrt(dx_.dot(grad_.segment(0,x_.size())) + ds_.dot(grad_.segment(x_.size(),6*nelem_)));
+  //decrement = std::sqrt(dx_.dot(P_*grad_.segment(0,x0_.size())) + ds_.dot(grad_.segment(x0_.size(),6*nelem_)));
 }
 
 void MixedSQPROptimizer::reset() {

@@ -96,7 +96,7 @@ int main(int argc, char **argv) {
   // Initial simulation setup
   // TODO! need to have to code to serialize/deserial config
   config = std::make_shared<SimConfig>();
-  config->bc_type = BC_ONEPOINT;
+  config->bc_type = BC_NULL;
 
   material_config = std::make_shared<MaterialConfig>();
   Enu_to_lame(ym, material_config->pr,
