@@ -17,7 +17,8 @@ namespace mfem {
 
     void reset() override;
     void step() override;
-  
+    virtual void update_vertices(const Eigen::MatrixXd& V) override;
+
   public:
 
     virtual double energy(const Eigen::VectorXd& x);

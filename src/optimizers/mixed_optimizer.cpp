@@ -104,6 +104,20 @@ void MixedOptimizer::step() {
   update_configuration();
 }
 
+void MixedOptimizer::update_vertices(const Eigen::MatrixXd& V) {
+  MatrixXd tmp = V.transpose();
+  VectorXd x = Map<VectorXd>(tmp.data(), V.size());
+  x0_ = x;
+  vt_ = 0*x;
+  b_ = x - P_.transpose()*P_*x;
+  x_ = P_ * x;
+  update_rotations();
+  
+  for (int i = 0; i < nelem_; ++i) {
+    s_.segment<6>(6*i) = S_[i];
+  }
+}
+
 void MixedOptimizer::reset() {
   Optimizer::reset();
   // Reset variables

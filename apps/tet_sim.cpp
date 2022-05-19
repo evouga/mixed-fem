@@ -29,7 +29,7 @@
 using namespace Eigen;
 
 // The mesh, Eigen representation
-MatrixXd meshV, meshV0, skinV;
+MatrixXd meshV, meshV0, skinV, initMeshV;
 MatrixXi meshF, skinF;
 MatrixXi meshT; // tetrahedra
 SparseMatrixd lbs; // linear blend skinning matrix
@@ -120,7 +120,8 @@ void simulation_step() {
 
 void callback() {
 
-  static bool export_sim = false;
+  static bool export_obj = false;
+  static bool export_mesh = false;
   static bool export_sim_substeps = false;
   static bool simulating = false;
   static bool show_pinned = false;
@@ -132,9 +133,11 @@ void callback() {
   ImGui::PushItemWidth(100);
 
 
-  ImGui::Checkbox("export",&export_sim);
+  ImGui::Checkbox("export obj",&export_obj);
   ImGui::SameLine();
   ImGui::Checkbox("export substeps",&config->save_substeps);
+  ImGui::SameLine();
+  ImGui::Checkbox("export mesh",&export_mesh);
 
   if (ImGui::TreeNode("Material Params")) {
 
@@ -246,17 +249,23 @@ void callback() {
       skin_mesh->updateVertexPositions(skinV);
     }
 
-    if (export_sim) {
+    if (export_obj) {
       char buffer [50];
-      int n = sprintf(buffer, "../output/tet_%04d.png", export_step); 
-      // buffer[n] = 0;
-      // polyscope::screenshot(std::string(buffer), true);
-      n = sprintf(buffer, "../output/tet_%04d.obj", export_step++); 
+      int n = sprintf(buffer, "../output/obj/tet_%04d.obj", export_step++); 
       buffer[n] = 0;
       if (skinV.rows() > 0)
         igl::writeOBJ(std::string(buffer),skinV,skinF);
       else
         igl::writeOBJ(std::string(buffer),meshV,meshF);
+    }
+    if (export_mesh) {
+      char buffer [50];
+      int n = sprintf(buffer, "../output/mesh/tet_%04d.mesh", step); 
+      buffer[n] = 0;
+      igl::writeMESH(std::string(buffer),meshV, meshT, meshF);
+      std::ofstream outfile;
+      outfile.open(std::string(buffer), std::ios_base::app); 
+      outfile << "End"; 
     }
 
     if (config->save_substeps) {
@@ -284,7 +293,11 @@ void callback() {
   ImGui::SameLine();
   if(ImGui::Button("reset")) {
     optimizer->reset();
-    srf->updateVertexPositions(meshV0);
+
+    if (initMeshV.size() != 0) {
+      optimizer->update_vertices(initMeshV);
+      srf->updateVertexPositions(initMeshV);
+    }
     export_step = 0;
     step = 0;
   }
@@ -301,8 +314,9 @@ int main(int argc, char **argv) {
   // omp_set_num_threads(8);
   // Configure the argument parser
   args::ArgumentParser parser("Mixed FEM");
-  args::Positional<std::string> inFile(parser, "mesh", "input mesh");
+  args::Positional<std::string> inFile(parser, "<rest>.mesh", "est mesh");
   args::Positional<std::string> inSurf(parser, "hires mesh", "hires surface");
+  args::ValueFlag<std::string> init_mesh(parser, "sim_v_<step>.dmat", "initial mesh", {'r'});
 
   // Parse args
   try {
@@ -416,6 +430,21 @@ int main(int argc, char **argv) {
 
   // std::vector<std::string> names;
   BoundaryConditions<3>::get_script_names(bc_list);
+
+  // Check if initial mesh provided
+  if (init_mesh) {
+    std::string filename = args::get(init_mesh);
+    std::cout << "loading initial mesh: " << filename << std::endl;
+
+    // Read the mesh
+    MatrixXi tmpT, tmpF;
+    igl::readMESH(filename, initMeshV, tmpT, tmpF);
+    initMeshV.array();
+    optimizer->update_vertices(initMeshV);
+    srf->updateVertexPositions(initMeshV);
+  }
+
+
 
   // Show the gui
   polyscope::show();
