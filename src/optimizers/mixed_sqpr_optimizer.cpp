@@ -253,7 +253,7 @@ void MixedSQPROptimizer::substep(int step, double& decrement) {
   data_.timer.stop("local");
 
   decrement = std::sqrt( dx_.squaredNorm() + ds_.squaredNorm());
-  // decrement = std::sqrt(dx_.dot(grad_.segment(0,x_.size())) + ds_.dot(grad_.segment(x_.size(),6*nelem_)));
+  //decrement = std::sqrt(dx_.dot(P_*grad_.segment(0,x0_.size())) + ds_.dot(grad_.segment(x0_.size(),6*nelem_)));
 }
 
 void MixedSQPROptimizer::reset() {

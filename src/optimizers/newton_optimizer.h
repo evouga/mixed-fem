@@ -18,6 +18,8 @@ namespace mfem {
     void reset() override;
     void step() override;
     virtual void update_vertices(const Eigen::MatrixXd& V) override;
+    virtual void set_state(const Eigen::VectorXd& x,
+        const Eigen::VectorXd& v) override;
 
   public:
 

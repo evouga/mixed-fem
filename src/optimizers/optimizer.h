@@ -30,6 +30,10 @@ namespace mfem {
     virtual void update_vertices(const Eigen::MatrixXd& V) {
       std::cerr << "Update vertices not implemented!" << std::endl;
     }
+    virtual void set_state(const Eigen::VectorXd& x,
+        const Eigen::VectorXd& v) {
+      std::cerr << "Update state not implemented!" << std::endl;
+    }
     
     // Temporary. Should be a part of a callback function instead.
     // Used to save per substep vertices;

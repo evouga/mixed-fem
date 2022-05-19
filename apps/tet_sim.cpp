@@ -34,6 +34,7 @@ MatrixXi meshF, skinF;
 MatrixXi meshT; // tetrahedra
 SparseMatrixd lbs; // linear blend skinning matrix
 VectorXi pinnedV;
+VectorXd x0, v;
 
 double t_coll=0, t_asm = 0, t_precond=0, t_rhs = 0, t_solve = 0, t_SR = 0; 
 
@@ -298,6 +299,13 @@ void callback() {
       optimizer->update_vertices(initMeshV);
       srf->updateVertexPositions(initMeshV);
     }
+
+    if (x0.size() != 0) {
+      optimizer->set_state(x0, v);
+      srf->updateVertexPositions(tet_object->V_);
+    } else {
+      srf->updateVertexPositions(tet_object->V0_);
+    }
     export_step = 0;
     step = 0;
   }
@@ -317,6 +325,8 @@ int main(int argc, char **argv) {
   args::Positional<std::string> inFile(parser, "<rest>.mesh", "est mesh");
   args::Positional<std::string> inSurf(parser, "hires mesh", "hires surface");
   args::ValueFlag<std::string> init_mesh(parser, "sim_v_<step>.dmat", "initial mesh", {'r'});
+  args::ValueFlag<std::string> x0_arg(parser, "sim_x0_<step>.dmat", "x0 value for step", {"x0"});
+  args::ValueFlag<std::string> v_arg(parser, "sim_v_<step>.dmat", "v value for step", {'v'});
 
   // Parse args
   try {
@@ -444,6 +454,14 @@ int main(int argc, char **argv) {
     srf->updateVertexPositions(initMeshV);
   }
 
+  if (x0_arg && v_arg) {
+    std::string x0_fn = args::get(x0_arg);
+    std::string v_fn = args::get(v_arg);
+    igl::readDMAT(x0_fn, x0);
+    igl::readDMAT(v_fn, v);
+    optimizer->set_state(x0, v);
+    srf->updateVertexPositions(tet_object->V_);
+  }
 
 
   // Show the gui
