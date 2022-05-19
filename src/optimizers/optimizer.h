@@ -42,6 +42,8 @@ namespace mfem {
     Eigen::VectorXd step_v;
     Eigen::SparseMatrixd P_;          // pinning constraint (for vertices)
 
+    double wx_, wx0_, wx1_, wx2_, wdt_;
+    
   protected:
 
     OptimizerData data_;

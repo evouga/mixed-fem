@@ -125,6 +125,7 @@ void callback() {
   static bool export_mesh = false;
   static bool export_sim_substeps = false;
   static bool simulating = false;
+  static bool BDF2 = false;
   static bool show_pinned = false;
   static int step = 0;
   static int export_step = 0;
@@ -308,6 +309,14 @@ void callback() {
     }
     export_step = 0;
     step = 0;
+  }
+  ImGui::SameLine();
+  ImGui::Checkbox("BDF2", &BDF2); 
+  
+  if(BDF2) {
+    optimizer->wx_ = 1.; optimizer->wx0_ = -7./3.; optimizer->wx1_ = 5./3.; optimizer->wx2_ = -1./3; optimizer->wdt_ = 2./3.;
+  } else {
+    optimizer->wx_ = 1.0; optimizer->wx0_ = -2.0; optimizer->wx1_ = 1.; optimizer->wx2_ = 0.0; optimizer->wdt_ = 1.0;
   }
 
   if (step >= max_steps) {

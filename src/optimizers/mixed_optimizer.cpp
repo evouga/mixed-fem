@@ -372,7 +372,7 @@ bool MixedOptimizer::linesearch_s(VectorXd& s, const VectorXd& ds) {
 bool MixedOptimizer::linesearch_s_local(VectorXd& s, const VectorXd& ds) {
   data_.timer.start("LS_s_local");
 
-  double h2 = config_->h * config_->h;
+  double h2 = wdt_*wdt_*config_->h * config_->h;
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
     Ref<Vector6d> la = la_.segment<6>(6*i);

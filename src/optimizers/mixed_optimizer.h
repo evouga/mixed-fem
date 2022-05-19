@@ -99,7 +99,7 @@ namespace mfem {
     double E_prev_; // energy from last result of linesearch
 
     //weights for bdf1 or bdf2
-    double wx_, wx0_, wx1_, wx2_, wdt_;
+   
 
   };
 }
