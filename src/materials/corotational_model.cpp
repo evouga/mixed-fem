@@ -14,8 +14,7 @@ double CorotationalModel::energy(const Vector6d& S) {
   double S4 = S(3);
   double S5 = S(4);
   double S6 = S(5);
-  return (la*pow(S1+S2+S3-3.0,2.0))/2.0+mu*(pow(S1-1.0,2.0)+pow(S2-1.0,2.0)
-      +pow(S3-1.0,2.0)+(S4*S4)*2.0+(S5*S5)*2.0+(S6*S6)*2.0);
+  return 0.5*la*(S1+S2+S3-3.0)*(S1+S2+S3-3.0)+mu*((S1-1.0)*(S1-1.0)+(S2-1.0)*(S2-1.0)+(S3-1.0)*(S3-1.0)+(S4*S4)*2.0+(S5*S5)*2.0+(S6*S6)*2.0);
 }
 
 Vector6d CorotationalModel::gradient(const Vector6d& S) {
@@ -29,9 +28,9 @@ Vector6d CorotationalModel::gradient(const Vector6d& S) {
   double S5 = S(4);
   double S6 = S(5);
   Vector6d g;
-  g(0) = (la*(S1*2.0+S2*2.0+S3*2.0-6.0))/2.0+mu*(S1*2.0-2.0);
-  g(1) = (la*(S1*2.0+S2*2.0+S3*2.0-6.0))/2.0+mu*(S2*2.0-2.0);
-  g(2) = (la*(S1*2.0+S2*2.0+S3*2.0-6.0))/2.0+mu*(S3*2.0-2.0);
+  g(0) = (la*(S1+S2+S3-3.0))+mu*(S1*2.0-2.0);
+  g(1) = (la*(S1+S2+S3-3.0))+mu*(S2*2.0-2.0);
+  g(2) = (la*(S1+S2+S3-3.0))+mu*(S3*2.0-2.0);
   g(3) = S4*mu*4.0;
   g(4) = S5*mu*4.0;
   g(5) = S6*mu*4.0;
@@ -41,6 +40,7 @@ Vector6d CorotationalModel::gradient(const Vector6d& S) {
 
 Matrix6d CorotationalModel::hessian_inv(const Vector6d& S) {
   
+  exit(1);
   double mu = config_->mu;
   double la = config_->la;
   double S1 = S(0);
@@ -68,6 +68,7 @@ Matrix6d CorotationalModel::hessian_inv(const Vector6d& S) {
 
 Matrix6d CorotationalModel::hessian(const Vector6d& S, bool psd_fix) {
   Matrix6d H;
+  H.setZero();
   double mu = config_->mu;
   double la = config_->la;
   H(0,0) = la+mu*2.0;
