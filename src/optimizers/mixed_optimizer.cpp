@@ -231,7 +231,7 @@ void MixedOptimizer::update_rotations() {
     }
 
 
-    newton_procrustes(R_[i], Eigen::Matrix3d::Identity(), sim::unflatten<3,3>(def_grad.segment(9*i,9)), true, dRdF);
+    newton_procrustes(R_[i], Eigen::Matrix3d::Identity(), sim::unflatten<3,3>(def_grad.segment(9*i,9)), true, dRdF, 1e-8, 100);
     
  
     Eigen::Matrix3d Sf = R_[i].transpose()*sim::unflatten<3,3>(def_grad.segment(9*i,9));

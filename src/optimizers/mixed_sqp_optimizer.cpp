@@ -296,8 +296,9 @@ double MixedSQPOptimizer::energy(const VectorXd& x, const VectorXd& s,
   for (int i = 0; i < nelem_; ++i) {
   
   //   std::cout<<"F: \n"<<sim::unflatten<3,3>(def_grad.segment<9>(9*i))<<"\n";
-    newton_procrustes(R_[i], Matrix3d::Identity(), Eigen::Map<Matrix3d>(def_grad.segment<9>(9*i).data()));
-    Matrix3d S = R_[i].transpose()*Eigen::Map<Matrix3d>(def_grad.segment<9>(9*i).data());
+    Matrix3d R = R_[i];
+    newton_procrustes(R, Matrix3d::Identity(), Eigen::Map<Matrix3d>(def_grad.segment<9>(9*i).data()));
+    Matrix3d S = R.transpose()*Eigen::Map<Matrix3d>(def_grad.segment<9>(9*i).data());
   
     //std::cout<<"R: \n"<<R_[i]<<"\n";
     //std::cout<<"S: \n"<<S<<"\n";

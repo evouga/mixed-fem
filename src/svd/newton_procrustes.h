@@ -1,6 +1,8 @@
 #pragma once
 
 #include <Eigen/Dense>
+#include <Eigen/QR>
+
 //solve orthogonal procrustes problem using newton;s method 
 //find rotation such that ||R*A - B||F is minimized
 
@@ -102,7 +104,7 @@ void rodrigues(Eigen::MatrixBase<DerivedMat> &R, const Eigen::MatrixBase<Derived
 }
 
 template<typename DerivedR, typename DerivedA, typename DerivedB, typename DerivedDeriv = Eigen::Matrix<double, 9,9> >
-void newton_procrustes(Eigen::MatrixBase<DerivedR> &R,  const Eigen::MatrixBase<DerivedA> &A, const Eigen::MatrixBase<DerivedB> &B, bool compute_gradients = false, Eigen::MatrixBase<DerivedDeriv> &dRdF = dRdFtmp, double tol = 1e-6, int max_iter = 50) {
+void newton_procrustes(Eigen::MatrixBase<DerivedR> &R,  const Eigen::MatrixBase<DerivedA> &A, const Eigen::MatrixBase<DerivedB> &B, bool compute_gradients = false, Eigen::MatrixBase<DerivedDeriv> &dRdF = dRdFtmp, double tol = 1e-6, int max_iter = 100) {
 
     using Scalar = typename DerivedR::Scalar;
 
@@ -134,7 +136,7 @@ void newton_procrustes(Eigen::MatrixBase<DerivedR> &R,  const Eigen::MatrixBase<
               -(cpxz*Y).trace(), -(cpyz*Y).trace(), -(cpzz*Y).trace();
 
 
-        omega = -H.inverse()*g;
+        omega = -H.colPivHouseholderQr().solve(g);
         E0 = -(R*Y).trace();
         E1 = E0 + 1.0;
 
@@ -164,6 +166,11 @@ void newton_procrustes(Eigen::MatrixBase<DerivedR> &R,  const Eigen::MatrixBase<
                -(cpxy*Y).trace(), -(cpyy*Y).trace(), -(cpyz*Y).trace(),
                -(cpxz*Y).trace(), -(cpyz*Y).trace(), -(cpzz*Y).trace();
 
+          if(H.norm() < 1e-6) {
+                std::cout<<"H FAILURE\n";
+                exit(1);
+          }
+
           Eigen::Matrix<Scalar,3,9> dF; //F derivatives
           Y =  R*A;
 
@@ -174,7 +181,7 @@ void newton_procrustes(Eigen::MatrixBase<DerivedR> &R,  const Eigen::MatrixBase<
           //gradients computed 
 
           //apply rotation
-          dRdF = -sim::flatten_multiply_right<Eigen::Matrix<Scalar, 3,3>>(R)*Skew_To_Full*H.lu().solve(dF);
+          dRdF = -sim::flatten_multiply_right<Eigen::Matrix<Scalar, 3,3>>(R)*Skew_To_Full*H.colPivHouseholderQr().solve(dF);
     }
     
 }
