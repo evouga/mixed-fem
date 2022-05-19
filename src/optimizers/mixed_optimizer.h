@@ -71,6 +71,8 @@ namespace mfem {
     Eigen::VectorXd x_;        // current positions
     Eigen::VectorXd vt_;        // current velocities
     Eigen::VectorXd x0_;        // previous positions
+    Eigen::VectorXd x1_;        // previous previous positions positions
+    Eigen::VectorXd x2_;        // previous previous positions positions
     Eigen::VectorXd dx_;        // current update
     Eigen::VectorXd f_ext_;     // per-node external forces
     Eigen::VectorXd la_;        // lambdas
@@ -95,5 +97,9 @@ namespace mfem {
     Eigen::VectorXd grad_;
 
     double E_prev_; // energy from last result of linesearch
+
+    //weights for bdf1 or bdf2
+    double wx_, wx0_, wx1_, wx2_, wdt_;
+
   };
 }

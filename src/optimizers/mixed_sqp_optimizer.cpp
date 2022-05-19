@@ -79,12 +79,12 @@ void MixedSQPOptimizer::build_rhs() {
   size_t m = 6*nelem_;
   rhs_.resize(n + m);
   rhs_.setZero();
-  double h = config_->h;
+  double h = wdt_*config_->h;
   double h2 = h*h;
 
   // -g_x
   VectorXd xt = P_.transpose()*x_ + b_;
-  rhs_.segment(0, n) = -P_ * Mfull_*(xt - x0_ - h*vt_ - h2*f_ext_);
+  rhs_.segment(0, n) = -P_ * Mfull_*(wx_*xt + wx0_*x0_ + wx1_*x1_ + wx2_*x2_ - h2*f_ext_);
 
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
@@ -277,11 +277,11 @@ void MixedSQPOptimizer::substep(int step, double& decrement) {
 
 double MixedSQPOptimizer::energy(const VectorXd& x, const VectorXd& s,
         const VectorXd& la) {
-  double h = config_->h;
+  double h = wdt_*config_->h;
   double h2 = h*h;
   // data_.timer.start("1");
   VectorXd xt = P_.transpose()*x + b_;
-  VectorXd xdiff = P_ * (xt - x0_ - h*vt_ - h*h*f_ext_);
+  VectorXd xdiff = P_ * (wx_*xt + wx0_*x0_ + wx1_*x1_ + wx2_*x2_ - h*h*f_ext_);
   double Em = 0.5*xdiff.transpose()*M_*xdiff;
 
   VectorXd def_grad = J_*xt;

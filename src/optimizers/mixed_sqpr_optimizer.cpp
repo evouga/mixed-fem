@@ -83,7 +83,7 @@ void MixedSQPROptimizer::gradient(VectorXd& g, const VectorXd& x, const VectorXd
     const VectorXd& la) {  
   VectorXd xt = P_.transpose()*x + b_;
   grad_.resize(xt.size() + 6*nelem_);
-  double h = config_->h;
+  double h = wdt_*config_->h;
 
   VectorXd tmp(9*nelem_);
   #pragma omp parallel for
@@ -93,7 +93,7 @@ void MixedSQPROptimizer::gradient(VectorXd& g, const VectorXd& x, const VectorXd
         * (g_[i] + Sym*la.segment<6>(6*i));
   }
 
-  grad_.segment(0,xt.size()) = Mfull_*(xt - x0_ - h*vt_ - h*h*f_ext_)
+  grad_.segment(0,xt.size()) = Mfull_*(wx_*xt + wx0_*x0_ + wx1_*x1_  + wx1_*x2_ - h*h*f_ext_)
       - Jw_.transpose() * tmp;
 }
 
@@ -172,7 +172,7 @@ void MixedSQPROptimizer::build_rhs() {
   rhs_.resize(x_.size());
   rhs_.setZero();
   gl_.resize(6*nelem_);
-  double h = config_->h;
+  double h = wdt_*config_->h;
   double h2 = h*h;
 
   VectorXd xt = P_.transpose()*x_ + b_;
@@ -191,7 +191,7 @@ void MixedSQPROptimizer::build_rhs() {
     tmp.segment<9>(9*i) = dS_[i]*gl_.segment<6>(6*i);
   }
 
-  rhs_ = -PJ_ * tmp - PM_*(xt - x0_ - h*vt_ - h2*f_ext_);
+  rhs_ = -PJ_ * tmp - PM_*(wx_*xt + wx0_*x0_ + wx1_*x1_ + wx2_*x2_ - h2*f_ext_);
   data_.timer.stop("RHS");
 
 
@@ -201,7 +201,7 @@ void MixedSQPROptimizer::build_rhs() {
     tmp.segment<9>(9*i) = dS_[i]*la_.segment<6>(6*i);
     grad_.segment<6>(x_.size() + 6*i) = vols_[i] * (g_[i] + Sym*la_.segment<6>(6*i));
   }
-  grad_.segment(0,x_.size()) = PM_*(xt - x0_ - h*vt_ - h2*f_ext_) - PJ_ * tmp;
+  grad_.segment(0,x_.size()) = PM_*(wx_*xt + wx0_*x0_ + wx1_*x1_ + wx2_*x2_ - h2*f_ext_) - PJ_ * tmp;
 }
 
 void MixedSQPROptimizer::update_system() {
@@ -218,20 +218,20 @@ void MixedSQPROptimizer::substep(int step, double& decrement) {
   int niter = 0;
 
   data_.timer.start("global");
-  // Eigen::Matrix<double, 12, 1> dx_affine;  
-  // dx_affine = (T0_.transpose()*lhs_*T0_).lu().solve(T0_.transpose()*rhs_);
-  // dx_ = T0_*dx_affine;
-  // niter = pcg(dx_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_zm1_, tmp_p_, tmp_Ap_, solver_arap_, config_->itr_tol, config_->max_iterative_solver_iters);
-  // std::cout << "  - CG iters: " << niter;
-  // double relative_error = (lhs_*dx_ - rhs_).norm() / rhs_.norm(); 
-  // std::cout << " rel error: " << relative_error << " abs error: " << (lhs_*dx_-rhs_).norm() << std::endl;
+  Eigen::Matrix<double, 12, 1> dx_affine;  
+  dx_affine = (T0_.transpose()*lhs_*T0_).lu().solve(T0_.transpose()*rhs_);
+  dx_ = T0_*dx_affine;
+  niter = pcg(dx_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_zm1_, tmp_p_, tmp_Ap_, solver_arap_, config_->itr_tol, config_->max_iterative_solver_iters);
+  std::cout << "  - CG iters: " << niter;
+  double relative_error = (lhs_*dx_ - rhs_).norm() / rhs_.norm(); 
+  std::cout << " rel error: " << relative_error << " abs error: " << (lhs_*dx_-rhs_).norm() << std::endl;
 
-  solver_.compute(lhs_);
+  /*solver_.compute(lhs_);
   if(solver_.info()!=Success) {
    std::cerr << "prefactor failed! " << std::endl;
    exit(1);
   }
-  dx_ = solver_.solve(rhs_);
+  dx_ = solver_.solve(rhs_);*/
   data_.timer.stop("global");
 
 

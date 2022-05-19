@@ -40,9 +40,9 @@ static const Eigen::Matrix<double, 9,9> Id = []{
 double MixedOptimizer::primal_energy(const VectorXd& x, const VectorXd& s, 
     VectorXd& gx, VectorXd& gs) {
 
-  double h = config_->h;
+  double h = wdt_*config_->h;
   VectorXd xt = P_.transpose()*x + b_;
-  VectorXd xdiff = xt - x0_ - h*vt_ - h*h*f_ext_;
+  VectorXd xdiff = wx_*xt + wx0_*x0_ + wx1_*x1_ + wx2_*x2_  - h*h*f_ext_;
   gx = Mfull_*xdiff;
 
   double Em = 0.5*xdiff.dot(gx);
@@ -107,6 +107,8 @@ void MixedOptimizer::step() {
 void MixedOptimizer::update_vertices(const Eigen::MatrixXd& V) {
   MatrixXd tmp = V.transpose();
   VectorXd x = Map<VectorXd>(tmp.data(), V.size());
+  x2_ = x1_;
+  x1_ = x0_;
   x0_ = x;
   vt_ = 0*x;
   b_ = x - P_.transpose()*P_*x;
@@ -123,7 +125,8 @@ void MixedOptimizer::set_state(const Eigen::VectorXd& x,
 
   MatrixXd V = Map<const MatrixXd>(x.data(), object_->V_.cols(), object_->V_.rows());
   object_->V_ = V.transpose();
-
+  x2_ = x1_;
+  x1_ = x0_;
   x0_ = x;
   vt_ = v;
   b_ = x - P_.transpose()*P_*x;
@@ -146,6 +149,14 @@ void MixedOptimizer::set_state(const Eigen::VectorXd& x,
 
 void MixedOptimizer::reset() {
   Optimizer::reset();
+
+  //integrator variables
+  //BDF
+  wx_ = 1.0; wx0_ = -2.0; wx1_ = 1.; wx2_ = 0.0; wdt_ = 1.0;
+
+  //BDF2
+  //wx_ = 1.; wx0_ = -7./3.; wx1_ = 5./3.; wx2_ = -1./3; wdt_ = 2./3.;
+
   // Reset variables
   R_.resize(nelem_);
   S_.resize(nelem_);
@@ -180,6 +191,8 @@ void MixedOptimizer::reset() {
   x_ = Map<VectorXd>(tmp.data(), object_->V_.size());
 
   x0_ = x_;
+  x1_ = x_;
+  x2_ = x_;
   vt_ = 0*x_;
 
   b_ = x_ - P_.transpose()*P_*x_;
@@ -431,6 +444,8 @@ void MixedOptimizer::update_configuration() {
 
   VectorXd x = P_.transpose()*x_ + b_;
   vt_ = (x - x0_) / config_->h;
+  x2_ = x1_;
+  x1_ = x0_;
   x0_ = x;
   la_.setZero();
 
