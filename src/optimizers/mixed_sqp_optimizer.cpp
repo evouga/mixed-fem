@@ -31,7 +31,7 @@ void MixedSQPOptimizer::setup_preconditioner() {
     for (int i = 0; i < nelem_; ++i) {
       
       C[i] = Eigen::Matrix9d::Identity()*(-vols_[i] / (mat_val
-          * config_->h * config_->h));
+          * wdt_*wdt_*config_->h * config_->h));
     }
     
     SparseMatrixd P;
@@ -52,7 +52,7 @@ void MixedSQPOptimizer::setup_preconditioner() {
 void MixedSQPOptimizer::build_lhs() {
   data_.timer.start("LHS");
 
-  double ih2 = 1. / (config_->h * config_->h);
+  double ih2 = 1. / (wdt_*wdt_*config_->h * config_->h);
 
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
@@ -263,7 +263,7 @@ void MixedSQPOptimizer::substep(int step, double& decrement) {
   dx_ = q_.segment(0, x_.size());
   la_ = q_.segment(x_.size(), 6*nelem_);
 
-  double ih2 = 1. / (config_->h * config_->h);
+  double ih2 = 1. / (wdt_*wdt_*config_->h * config_->h);
 
   #pragma omp parallel for 
   for (int i = 0; i < nelem_; ++i) {

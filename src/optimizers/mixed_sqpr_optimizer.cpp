@@ -100,8 +100,8 @@ void MixedSQPROptimizer::gradient(VectorXd& g, const VectorXd& x, const VectorXd
 void MixedSQPROptimizer::build_lhs() {
   data_.timer.start("LHS");
 
-  double ih2 = 1. / (config_->h * config_->h);
-  double h2 = (config_->h * config_->h);
+  double ih2 = 1. / (wdt_*wdt_*config_->h * config_->h);
+  double h2 = (wdt_*wdt_*config_->h * config_->h);
 
   data_.timer.start("Hinv");
   // VectorXd diff(nelem_);
