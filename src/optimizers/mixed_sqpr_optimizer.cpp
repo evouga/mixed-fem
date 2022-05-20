@@ -269,7 +269,7 @@ void MixedSQPROptimizer::reset() {
   }
   A.setFromTriplets(trips.begin(),trips.end());
 
-  double h2 = config_->h * config_->h;
+  double h2 = wdt_*wdt_*config_->h * config_->h;
   SparseMatrixdRowMajor L = PJ_ * A * PJ_.transpose();
   SparseMatrixdRowMajor lhs = M_ + h2*L;
   solver_arap_.compute(lhs);
