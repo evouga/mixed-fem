@@ -31,7 +31,6 @@ void MixedSQPROptimizer::step() {
   VectorXd gx;
   VectorXd gs;
   step_x.clear();
-
   do {
     if (config_->save_substeps) {
       VectorXd x = P_.transpose()*x_ + b_;
@@ -253,6 +252,7 @@ void MixedSQPROptimizer::substep(int step, double& decrement) {
   data_.timer.stop("local");
 
   decrement = std::sqrt( dx_.squaredNorm() + ds_.squaredNorm());
+  decrement = std::max(dx_.lpNorm<Infinity>(), ds_.lpNorm<Infinity>());
   //decrement = std::sqrt(dx_.dot(P_*grad_.segment(0,x0_.size())) + ds_.dot(grad_.segment(x0_.size(),6*nelem_)));
 }
 

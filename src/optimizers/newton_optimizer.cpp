@@ -169,6 +169,7 @@ void NewtonOptimizer::substep(bool init_guess, double& decrement) {
 
   double relative_error = (lhs_*dx_ - rhs_).norm() / rhs_.norm();
   decrement = dx_.norm(); // if doing "full newton use this"
+  decrement = dx_.dot(rhs_);
 }
 
 void NewtonOptimizer::update_vertices(const Eigen::MatrixXd& V) {
@@ -188,6 +189,7 @@ void NewtonOptimizer::set_state(const Eigen::VectorXd& x,
   vt_ = v;
   b_ = x - P_.transpose()*P_*x;
   x_ = P_ * x;
+  std::cout << "set_state: " << vt_.norm() << std::endl;
 }
 
 void NewtonOptimizer::update_configuration() {

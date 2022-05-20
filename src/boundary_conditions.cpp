@@ -29,7 +29,7 @@ void BoundaryConditions<dim>::init_boundary_groups(const Eigen::MatrixXd &V,
 
 template <int dim>
 const std::vector<std::string> BoundaryConditions<dim>::script_type_strings = {
-    "null", "scaleF", "hang", "stretch", "squash", "stretchnsquash",
+    "null", "scaleF", "hang", "hangends","stretch", "squash", "stretchnsquash",
     "bend", "twist", "twistnstretch", "twistnsns", "twistnsns_old",
     "rubberBandPull", "onepoint", "random", "fall"};
 
@@ -69,7 +69,20 @@ void BoundaryConditions<dim>::init_script(std::shared_ptr<SimObject> &mesh)
       mesh->set_fixed(borderI.back());
     }
     break;
-
+  case BC_HANGENDS:
+  {
+    mesh->clear_fixed_vertices();
+    bc_groups_.resize(0);
+    int bI = 0;
+    for (const auto borderI : mesh->bc_groups_)
+    {
+      mesh->set_fixed(borderI);
+      bc_groups_.emplace_back(borderI);
+      bI++;
+      break;
+    }
+    break;
+  }
   case BC_STRETCH:
   {
     mesh->clear_fixed_vertices();
@@ -344,7 +357,8 @@ int BoundaryConditions<dim>::step_script(std::shared_ptr<SimObject> &mesh, doubl
 
   case BC_HANG:
     break;
-
+  case BC_HANGENDS:
+    break;
   case BC_STRETCH:
   case BC_SQUASH:
     for (const auto &movingVerts : group_velocity_)

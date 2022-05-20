@@ -96,7 +96,7 @@ int main(int argc, char **argv) {
   // Initial simulation setup
   // TODO! need to have to code to serialize/deserial config
   config = std::make_shared<SimConfig>();
-  config->bc_type = BC_NULL;
+  config->bc_type = BC_HANGENDS;
 
   material_config = std::make_shared<MaterialConfig>();
   Enu_to_lame(ym, material_config->pr,
@@ -119,7 +119,7 @@ int main(int argc, char **argv) {
       // Compute search direction
       double decrement;
       optimizer->substep(i, decrement);
-      std::cout << "i: " << i << " dec: " << decrement << std::endl;
+      std::cout << decrement << std::endl;
     }
 
   return 0;

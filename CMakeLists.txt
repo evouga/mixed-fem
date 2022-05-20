@@ -23,7 +23,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 ### Compiler options
 set( CMAKE_EXPORT_COMPILE_COMMANDS 1 ) # Emit a compile flags file to support completion engines 
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 
 if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
   # using Clang (linux or apple) or GCC
@@ -208,5 +208,8 @@ target_link_libraries(rod_sim mixed_fem_lib)
 
 add_executable(decrement apps/newton_decrement.cpp ${SOURCES})
 target_link_libraries(decrement mixed_fem_lib)
+
+add_executable(energy apps/energy.cpp ${SOURCES})
+target_link_libraries(energy mixed_fem_lib)
 
 add_subdirectory(tests)

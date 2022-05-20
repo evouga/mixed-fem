@@ -35,6 +35,7 @@ MatrixXi meshT; // tetrahedra
 SparseMatrixd lbs; // linear blend skinning matrix
 VectorXi pinnedV;
 VectorXd x0, v;
+bool has_state = false;
 
 double t_coll=0, t_asm = 0, t_precond=0, t_rhs = 0, t_solve = 0, t_SR = 0; 
 
@@ -220,6 +221,13 @@ void callback() {
           type = n;
           config->bc_type = static_cast<BCScriptType>(type);
           optimizer->reset();
+
+          std::cout << "begin fixed" << std::endl;
+          for (int i = 0; i < tet_object->fixed_vertices_.size();++i) {
+            std::cout << tet_object->fixed_vertices_[i] << std::endl;
+          }
+          std::cout << "end fixed" << std::endl;
+
         }
 
         // Set the initial focus when opening the combo
@@ -277,9 +285,9 @@ void callback() {
         x.col(i) = optimizer->step_x[i];
       }
       // Save the file names
-      n = sprintf(buffer, "../output/sim_x_%04d.dmat", step); 
-      buffer[n] = 0;
-      igl::writeDMAT(std::string(buffer), x);
+      // n = sprintf(buffer, "../output/sim_x_%04d.dmat", step); 
+      // buffer[n] = 0;
+      // igl::writeDMAT(std::string(buffer), x);
 
       n = sprintf(buffer, "../output/sim_x0_%04d.dmat", step); 
       buffer[n] = 0;
@@ -461,6 +469,8 @@ int main(int argc, char **argv) {
     igl::readDMAT(v_fn, v);
     optimizer->set_state(x0, v);
     srf->updateVertexPositions(tet_object->V_);
+    has_state  = true;
+    std::cout << "vin: " << v.norm() << std::endl;
   }
 
 
