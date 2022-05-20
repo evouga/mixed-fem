@@ -62,6 +62,9 @@ std::shared_ptr<MaterialModel> make_material_model(
   case MATERIAL_FCR:
     return std::make_shared<CorotationalModel>(config);
     break;
+  case MATERIAL_FUNG:
+    return std::make_shared<Fung>(config);
+    break;
   case MATERIAL_ARAP:
     return std::make_shared<ArapModel>(config);
     break;
@@ -144,7 +147,7 @@ void callback() {
   if (ImGui::TreeNode("Material Params")) {
 
     int type = material_config->material_model;
-    if (ImGui::Combo("Material Model", &type,"SNH\0NH\0FCR\0ARAP\0\0")) {
+    if (ImGui::Combo("Material Model", &type,"SNH\0NH\0FCR\0FUNG\0ARAP\0\0")) {
       material_config->material_model = 
           static_cast<MaterialModelType>(type);
       material = make_material_model(material_config);

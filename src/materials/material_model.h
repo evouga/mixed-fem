@@ -88,3 +88,4 @@ namespace mfem {
 #include "materials/corotational_model.h"
 #include "materials/arap_model.h"
 #include "materials/stable_nh_model.h"
+#include "materials/fung.h"
