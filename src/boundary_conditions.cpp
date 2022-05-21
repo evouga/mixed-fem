@@ -14,13 +14,25 @@ void BoundaryConditions<dim>::init_boundary_groups(const Eigen::MatrixXd &V,
   Eigen::RowVectorXd range = topRight - bottomLeft;
 
   bc_groups.resize(2);
-  for (int vI = 0; vI < V.rows(); vI++)
+  // for (int vI = 0; vI < V.rows(); vI++)
+  // {
+  //   if (V(vI, 0) < bottomLeft[0] + range[0] * ratio)
+  //   {
+  //     bc_groups[0].emplace_back(vI);
+  //   }
+  //   else if (V(vI, 0) > topRight[0] - range[0] * ratio)
+  //   {
+  //     bc_groups[1].emplace_back(vI);
+  //   }
+  // }
+
+    for (int vI = 0; vI < V.rows(); vI++)
   {
-    if (V(vI, 0) < bottomLeft[0] + range[0] * ratio)
+    if (V(vI, 0) < bottomLeft[1] + range[1] * ratio)
     {
       bc_groups[0].emplace_back(vI);
     }
-    else if (V(vI, 0) > topRight[0] - range[0] * ratio)
+    else if (V(vI, 0) > topRight[1] - range[1] * ratio)
     {
       bc_groups[1].emplace_back(vI);
     }

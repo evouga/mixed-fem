@@ -218,6 +218,26 @@ void MixedSQPROptimizer::substep(int step, double& decrement) {
   int niter = 0;
 
   data_.timer.start("global");
+
+  // Hacky begin
+  SparseMatrixdRowMajor coll_H;
+  coll_H.resize(lhs_.rows(), lhs_.cols());
+  VectorXd coll_f(rhs_.size());
+  coll_f.setZero();
+  double k = config_->h*config_->h*config_->collision_stiffness; //20 for octopus ssliding
+  std::vector<Triplet<double>> trips;
+  for (int i = 0; i < x_.size() / 3; ++i) {
+    if (x_(3*i+1) < 0) {
+      coll_f(3*i+1) = k*x_(3*i+1);
+      trips.push_back(Triplet<double>(3*i+1,3*i+1,k*Mlump_[i]*1));
+    }
+  }
+  coll_H.setFromTriplets(trips.begin(), trips.end());
+  rhs_ -= M_*coll_f;
+  lhs_ += coll_H;
+  //////////// hacky end
+
+
   Eigen::Matrix<double, 12, 1> dx_affine;  
   dx_affine = (T0_.transpose()*lhs_*T0_).lu().solve(T0_.transpose()*rhs_);
   dx_ = T0_*dx_affine;
@@ -226,12 +246,12 @@ void MixedSQPROptimizer::substep(int step, double& decrement) {
   double relative_error = (lhs_*dx_ - rhs_).norm() / rhs_.norm(); 
   std::cout << " rel error: " << relative_error << " abs error: " << (lhs_*dx_-rhs_).norm() << std::endl;
 
-  /*solver_.compute(lhs_);
-  if(solver_.info()!=Success) {
-   std::cerr << "prefactor failed! " << std::endl;
-   exit(1);
-  }
-  dx_ = solver_.solve(rhs_);*/
+  // solver_.compute(lhs_);
+  // if(solver_.info()!=Success) {
+  //  std::cerr << "prefactor failed! " << std::endl;
+  //  exit(1);
+  // }
+  // dx_ = solver_.solve(rhs_);
   data_.timer.stop("global");
 
 
@@ -301,6 +321,8 @@ void MixedSQPROptimizer::reset() {
 
   Matrix<double, 12,12> tmp_pre_affine = T0_.transpose()*lhs*T0_; 
   pre_affine_ = tmp_pre_affine.inverse();
+
+  Mlump_ = M_ * VectorXd::Ones(M_.cols());
 
 
 }

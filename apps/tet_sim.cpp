@@ -128,7 +128,7 @@ void callback() {
   static bool export_mesh = false;
   static bool export_sim_substeps = false;
   static bool simulating = false;
-  static bool BDF2 = false;
+  static bool BDF2 = true;
   static bool show_pinned = false;
   static int step = 0;
   static int export_step = 0;
@@ -197,6 +197,7 @@ void callback() {
     ImGui::InputInt("Max LS Iters", &config->ls_iters);
     ImGui::InputDouble("CG Tol", &config->itr_tol,0,0,"%.5g");
     ImGui::InputDouble("Newton Tol", &config->newton_tol,0,0,"%.5g");
+    ImGui::InputDouble("Collision stiffness", &config->collision_stiffness,0,0,"%.5g");
 
     //ImGui::InputInt("Inner Steps", &config->inner_steps);
     if (ImGui::InputFloat3("Body Force", config->ext, 3)) {
@@ -281,9 +282,9 @@ void callback() {
         x.col(i) = optimizer->step_x[i];
       }
       // Save the file names
-      n = sprintf(buffer, "../output/sim_x_%04d.dmat", step); 
-      buffer[n] = 0;
-      igl::writeDMAT(std::string(buffer), x);
+      // n = sprintf(buffer, "../output/sim_x_%04d.dmat", step); 
+      // buffer[n] = 0;
+      // igl::writeDMAT(std::string(buffer), x);
 
       n = sprintf(buffer, "../output/sim_x0_%04d.dmat", step); 
       buffer[n] = 0;
@@ -429,8 +430,8 @@ int main(int argc, char **argv) {
   polyscope::options::automaticallyComputeSceneExtents = false;
   polyscope::state::lengthScale = 1.;
   polyscope::state::boundingBox = std::tuple<glm::vec3, glm::vec3>{
-    {a(0),a(1),a(2)},{b(0),b(1),b(2)}};
-  polyscope::options::groundPlaneMode = polyscope::GroundPlaneMode::None;
+    {a(0),0,a(2)},{b(0),b(1),b(2)}};
+  //polyscope::options::groundPlaneMode = polyscope::GroundPlaneMode::None;
 
   std::cout << "V : " << meshV.rows() << " T: " << meshT.rows() << std::endl;
   meshV0 = meshV;

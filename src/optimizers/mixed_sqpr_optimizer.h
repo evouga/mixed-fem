@@ -33,7 +33,6 @@ namespace mfem {
     virtual void update_system() override;
 
     virtual void substep(int step, double& decrement) override;
-
     Eigen::VectorXd gl_;
     // Eigen::SimplicialLDLT<Eigen::SparseMatrixdRowMajor> solver_;
     // Solve used for preconditioner
@@ -48,5 +47,6 @@ namespace mfem {
 
     Eigen::MatrixXd T0_;
     Eigen::VectorXd Jdx_;
+    Eigen::VectorXd Mlump_;
   };
 }

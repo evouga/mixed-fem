@@ -281,7 +281,22 @@ double MixedSQPOptimizer::energy(const VectorXd& x, const VectorXd& s,
   double h2 = h*h;
   // data_.timer.start("1");
   VectorXd xt = P_.transpose()*x + b_;
-  VectorXd xdiff = P_ * (wx_*xt + wx0_*x0_ + wx1_*x1_ + wx2_*x2_ - h*h*f_ext_);
+
+
+
+  double k = config_->h*config_->h*config_->collision_stiffness; //20 for octopus ssliding
+  VectorXd fcoll(x_.size());
+  fcoll.setZero();
+  #pragma omp parallel for 
+  for (int i = 0; i < x_.size() / 3; ++i) {
+    if (x_(3*i+1) < 0) {
+      // e_coll += 0.5*k*x_(3*i+1) *x_(3*i+1) ;
+      fcoll(3*i+1) = - k * x_(3*i+1);
+    }
+  }
+  VectorXd xdiff = P_ * (wx_*xt + wx0_*x0_ + wx1_*x1_ + wx2_*x2_ - h*h*f_ext_) - fcoll;
+
+
   double Em = 0.5*xdiff.transpose()*M_*xdiff;
 
   VectorXd def_grad = J_*xt;
@@ -312,6 +327,7 @@ double MixedSQPOptimizer::energy(const VectorXd& x, const VectorXd& s,
   double Ela = e_L.sum();
   double Epsi = h2 * e_Psi.sum();
   double e = Em + Epsi - Ela;
+
   return e;
 }
 

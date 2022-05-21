@@ -64,12 +64,13 @@ namespace mfem {
     bool local_global = true;
     bool show_timing = true;
     bool save_substeps = false;
-    int outer_steps = 5;
+    int outer_steps = 1;
     int inner_steps = 7;
     double plane_d = 0;
     double kappa = 1000.0;
     double max_kappa = 1e6;
     double constraint_tol = 1e-2;
+    double collision_stiffness = 1e4;
     
     // update kappa and lambda if residual below this tolerance
     double update_zone_tol = 1e-1; 
@@ -78,9 +79,9 @@ namespace mfem {
     double ls_tol = 1e-4;
     int ls_iters = 20;
     OptimizerType optimizer = OPTIMIZER_SQP_PD;
-    int max_iterative_solver_iters = 500;
+    int max_iterative_solver_iters = 50;
     double itr_tol = 1e-4;
-    BCScriptType bc_type = BC_ONEPOINT;
+    BCScriptType bc_type = BC_FALL;
 
   };
 
