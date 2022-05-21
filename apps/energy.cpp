@@ -18,6 +18,10 @@
 #include "boundary_conditions.h"
 #include <sstream>
 #include <fstream>
+#include <iostream>
+#include <filesystem>
+namespace fs = std::filesystem;
+
 
 using namespace Eigen;
 
@@ -40,16 +44,14 @@ void simulation_step() {
   meshV = tet_object->vertices();
 }
 
+// ./bin/energy -p /media/ty/ECB0AB91B0AB60B6/blendering/Gecko_1e8/fem_data -n 100 -r ../models/gecko.mesh
 int main(int argc, char **argv) {
   // Configure the argument parser
-  args::ArgumentParser parser("Mixed FEM", "Example: ./bin/decrement -r ../models/coarse_bunny.mesh \
-      -x ../output/sim_x_0017.dmat \
-      --x0 ../output/sim_x0_0017.dmat \
-       -v ../output/sim_v_0017.dmat --ym 1e5");
+  args::ArgumentParser parser("Mixed FEM", "Example: ./bin/energy -r ../models/coarse_bunny.mesh  \
+      --path ../output/ -n 100 -ym 1e5");
   args::ValueFlag<std::string> rest_arg(parser, "<file_name>.mesh", "Rest state mesh", {'r', "rest"});
-  args::ValueFlag<std::string> x_arg(parser, "sim_x_<step>.dmat", "x values for step", {'x'});
-  args::ValueFlag<std::string> x0_arg(parser, "sim_x0_<step>.dmat", "x0 value for step", {"x0"});
-  args::ValueFlag<std::string> v_arg(parser, "sim_v_<step>.dmat", "v value for step", {'v'});
+  args::ValueFlag<std::string> path_arg(parser, "/path/to/ <sim_x0_step> files", "Path to x0 and v data", {'p', "path"});
+  args::ValueFlag<int> n_arg(parser, "integer", "number of steps", {'n'});
   args::ValueFlag<double> ym_arg(parser,"double", "Youngs modulus", {"ym"});
 
   // Parse args
@@ -63,15 +65,16 @@ int main(int argc, char **argv) {
     std::cerr << parser;
     return 1;
   }
-  // x_, x0_, v_b_(?) for now dont and just assume pinning constraint that is same
   std::string rest_fn = args::get(rest_arg);
-  std::string x_fn = args::get(x_arg);
-  std::string x0_fn = args::get(x0_arg);
-  std::string v_fn = args::get(v_arg);
+  std::string path_fn = args::get(path_arg);
   double ym = args::get(ym_arg);
-  std::cout << "Rest mesh: " << rest_fn << std::endl;
+  int n = args::get(n_arg);
+  std::cout << "Path: " << path_fn << std::endl;
+  std::cout << "n: " << n << std::endl;
+  std::cout << "YM: " << ym << std::endl;
+  fs::path dir(path_fn);
 
-  // Read the mesh
+    // Read the mesh
   igl::readMESH(rest_fn, meshV, meshT, meshF);
   double fac = meshV.maxCoeff();
   meshV.array() /= fac;
@@ -80,23 +83,10 @@ int main(int argc, char **argv) {
     igl::boundary_facets(meshT, meshF);
   }
   std::cout << "V : " << meshV.rows() << " T: " << meshT.rows() << std::endl;
-  meshV0 = meshV;
-
-  MatrixXd x;
-  VectorXd x0, v;
-  igl::readDMAT(x_fn, x);
-  igl::readDMAT(x0_fn, x0);
-  igl::readDMAT(v_fn, v);
-
-  std::cout  << "x: " << x.rows() << " " << x.cols() << std::endl;
-  std::cout << "x0: " << x0.rows() << " " << x0.cols() << std::endl;
-  std::cout << "v: " << v.rows() << " " << v.cols() << std::endl;
-
 
   // Initial simulation setup
-  // TODO! need to have to code to serialize/deserial config
   config = std::make_shared<SimConfig>();
-  config->bc_type = BC_HANGENDS;
+  config->bc_type = BC_NULL;
 
   material_config = std::make_shared<MaterialConfig>();
   Enu_to_lame(ym, material_config->pr,
@@ -107,20 +97,45 @@ int main(int argc, char **argv) {
   optimizer = std::make_shared<NewtonOptimizer>(tet_object,config);
   optimizer->reset();
 
-  optimizer->x0_ = x0;
-  optimizer->vt_ = v;
-  int nsteps = x.cols();
-  for (int i = 0; i < nsteps; ++i) {
-      optimizer->x_ = optimizer->P_ * x.col(i);
-      optimizer->b_ = x.col(i) - optimizer->P_ .transpose()*optimizer->P_*x.col(i);
-      optimizer->build_lhs();
-      optimizer->build_rhs();
 
-      // Compute search direction
-      double decrement;
-      optimizer->substep(i, decrement);
-      std::cout << decrement << std::endl;
-    }
+  for (int i = 1; i <= n; ++i) {
+    char buffer[50];
+    int n = sprintf(buffer, "sim_v_%04d.dmat", i); 
+    buffer[n] = 0;
+    std::string v_fn(buffer);
+
+    n = sprintf(buffer, "sim_x0_%04d.dmat", i); 
+    buffer[n] = 0;
+    std::string x_fn(buffer);
+    //     fs::path dir ("/tmp");
+    fs::path v_file(v_fn);
+    fs::path x_file(x_fn);
+    fs::path x_full_path = dir / x_file;
+    fs::path v_full_path = dir / v_file;
+
+    // std::cout << "x_full_path" << x_full_path << std::endl;
+
+    VectorXd v;
+    igl::readDMAT(std::string(x_full_path), v);
+    // std::cout << x_full_path << std::endl;
+    double KE = v.transpose() * optimizer->M_ * v;
+    std::cout << KE << std::endl;
+  }
+
+  // optimizer->x0_ = x0;
+  // optimizer->vt_ = v;
+  // int nsteps = x.cols();
+  // for (int i = 0; i < nsteps; ++i) {
+  //   optimizer->x_ = optimizer->P_ * x.col(i);
+  //   optimizer->b_ = x.col(i) - optimizer->P_ .transpose()*optimizer->P_*x.col(i);
+  //   optimizer->build_lhs();
+  //   optimizer->build_rhs();
+
+  //   // Compute search direction
+  //   double decrement;
+  //   optimizer->substep(i, decrement);
+  //   std::cout << decrement << std::endl;
+  // }
 
   return 0;
 }

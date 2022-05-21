@@ -36,6 +36,7 @@ namespace mfem {
       BC_NULL,
       BC_SCALEF,
       BC_HANG,
+      BC_HANGENDS,
       BC_STRETCH,
       BC_SQUASH,
       BC_STRETCHNSQUASH,
