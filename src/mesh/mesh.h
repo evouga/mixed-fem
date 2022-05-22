@@ -21,10 +21,10 @@ namespace mfem {
 
   // Class to maintain the state and perform physics updates on an object,
   // which has a particular discretization, material, and material config
-  class SimObject {
+  class Mesh {
   public:
 
-    SimObject(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
+    Mesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
         std::shared_ptr<MaterialModel> material,
         std::shared_ptr<MaterialConfig> material_config);
     
@@ -78,12 +78,10 @@ namespace mfem {
 
     std::shared_ptr<MaterialModel> material_;
     std::shared_ptr<MaterialConfig> config_;
-
-
   };
 }
 
 // Add discretizations
-#include "objects/tet_object.h"
-#include "objects/tri_object.h"
-#include "objects/rod_object.h"
+#include "mesh/tet_mesh.h"
+#include "mesh/tri_mesh.h"
+#include "mesh/rod_mesh.h"

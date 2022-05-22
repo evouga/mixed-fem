@@ -1,4 +1,4 @@
-#include "tri_object.h"
+#include "tri_mesh.h"
 #include <igl/doublearea.h>
 #include "linear_tri3dmesh_dphi_dX.h"
 #include "svd/svd3x3_sse.h"
@@ -6,12 +6,12 @@
 using namespace Eigen;
 using namespace mfem;
 
-void TriObject::volumes(Eigen::VectorXd& vol) {
+void TriMesh::volumes(Eigen::VectorXd& vol) {
   igl::doublearea(V_, T_, vol);
   vol.array() *= (config_->thickness/2);
 }
 
-void TriObject::mass_matrix(Eigen::SparseMatrixdRowMajor& M,
+void TriMesh::mass_matrix(Eigen::SparseMatrixdRowMajor& M,
     const VectorXd& vols) {
 std::cerr << "WRONG use volumes dummy" << std::endl;
   std::vector<Triplet<double>> trips;
@@ -42,7 +42,7 @@ std::cerr << "WRONG use volumes dummy" << std::endl;
   M = M * config_->density * config_->thickness; 
 }
 
-void TriObject::jacobian(SparseMatrixdRowMajor& J, const VectorXd& vols,
+void TriMesh::jacobian(SparseMatrixdRowMajor& J, const VectorXd& vols,
       bool weighted) {
 
   MatrixXd dphidX;
@@ -89,7 +89,7 @@ void TriObject::jacobian(SparseMatrixdRowMajor& J, const VectorXd& vols,
   J.setFromTriplets(trips.begin(),trips.end());
 }
 
-// VectorXd TriObject::collision_force() {
+// VectorXd TriMesh::collision_force() {
 
 //   Vector3d N(.4,.2,.8);
 //   N = N / N.norm();

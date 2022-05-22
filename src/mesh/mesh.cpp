@@ -1,11 +1,11 @@
-#include "simulation_object.h"
+#include "mesh.h"
 #include "boundary_conditions.h"
 
 using namespace mfem;
 using namespace Eigen;
 
 
-SimObject::SimObject(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
+Mesh::Mesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
     std::shared_ptr<MaterialModel> material,
     std::shared_ptr<MaterialConfig> material_config)
     : V_(V), V0_(V), T_(T), material_(material),
@@ -26,6 +26,5 @@ SimObject::SimObject(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
       }
     }
   }
-
   BoundaryConditions<3>::init_boundary_groups(V0_, bc_groups_, 0.1);
 }

@@ -12,7 +12,7 @@ namespace mfem {
   class MixedSQPROptimizer : public MixedSQPOptimizer {
   public:
     
-    MixedSQPROptimizer(std::shared_ptr<SimObject> object,
+    MixedSQPROptimizer(std::shared_ptr<Mesh> object,
         std::shared_ptr<SimConfig> config) : MixedSQPOptimizer(object, config) {}
 
   public:

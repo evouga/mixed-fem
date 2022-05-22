@@ -2,7 +2,7 @@
 
 #include <EigenTypes.h>
 #include <memory>
-#include "objects/simulation_object.h"
+#include "mesh/mesh.h"
 #include "config.h"
 #include "optimizer_data.h"
 #include "boundary_conditions.h"
@@ -20,7 +20,7 @@ namespace mfem {
     
   class Optimizer {
   public:
-    Optimizer(std::shared_ptr<SimObject> object,
+    Optimizer(std::shared_ptr<Mesh> object,
           std::shared_ptr<SimConfig> config)
           : object_(object), config_(config) {}
 
@@ -47,7 +47,7 @@ namespace mfem {
   protected:
 
     OptimizerData data_;
-    std::shared_ptr<SimObject> object_;
+    std::shared_ptr<Mesh> object_;
     std::shared_ptr<SimConfig> config_;
 
     // Debug timing variables (timings in milliseconds)

@@ -1,4 +1,4 @@
-#include "rod_object.h"
+#include "rod_mesh.h"
 #include "svd/svd3x3_sse.h"
 
 using namespace Eigen;
@@ -17,14 +17,14 @@ namespace {
   }
 }
 
-void RodObject::volumes(VectorXd& vol) {
+void RodMesh::volumes(VectorXd& vol) {
   vol.resize(T_.rows());
   for (int i = 0; i < T_.rows(); ++i) {
     vol(i) = (V_.row(T_(i,0)) - V_.row(T_(i,1))).norm() * config_->thickness;
   }
 }
 
-void RodObject::mass_matrix(SparseMatrixdRowMajor& M, const VectorXd& vols) {
+void RodMesh::mass_matrix(SparseMatrixdRowMajor& M, const VectorXd& vols) {
 
   std::vector<Triplet<double>> trips;
 
@@ -51,7 +51,7 @@ void RodObject::mass_matrix(SparseMatrixdRowMajor& M, const VectorXd& vols) {
   M = M * config_->density; 
 }
 
-void RodObject::jacobian(SparseMatrixdRowMajor& J, const VectorXd& vols,
+void RodMesh::jacobian(SparseMatrixdRowMajor& J, const VectorXd& vols,
       bool weighted) {
 
   std::vector<Triplet<double>> trips;

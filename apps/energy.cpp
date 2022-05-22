@@ -8,7 +8,7 @@
 #include "args/args.hxx"
 #include "json/json.hpp"
 
-#include "objects/simulation_object.h"
+#include "mesh/mesh.h"
 #include "materials/material_model.h"
 #include "optimizers/mixed_alm_optimizer.h"
 #include "optimizers/mixed_admm_optimizer.h"
@@ -34,7 +34,7 @@ using namespace mfem;
 std::shared_ptr<SimConfig> config;
 std::shared_ptr<MaterialModel> material;
 std::shared_ptr<MaterialConfig> material_config;
-std::shared_ptr<SimObject> tet_object;
+std::shared_ptr<Mesh> tet_object;
 std::shared_ptr<NewtonOptimizer> optimizer;
 
 std::vector<std::string> bc_list;
@@ -92,7 +92,7 @@ int main(int argc, char **argv) {
   Enu_to_lame(ym, material_config->pr,
       material_config->la, material_config->mu);
   material = std::make_shared<StableNeohookean>(material_config);
-  tet_object = std::make_shared<TetrahedralObject>(meshV, meshT,
+  tet_object = std::make_shared<TetrahedralMesh>(meshV, meshT,
       material, material_config);
   optimizer = std::make_shared<NewtonOptimizer>(tet_object,config);
   optimizer->reset();

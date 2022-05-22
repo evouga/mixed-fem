@@ -1,22 +1,25 @@
 #pragma once
 
-#include "objects/simulation_object.h"
+#include "mesh/mesh.h"
 #include "config.h"
 
 namespace mfem {
 
-  // Simulation Object for triangle mesh
-  class TriObject : public SimObject {
+  // Simulation Mesh for triangle mesh
+  class RodMesh : public Mesh {
   public:
 
-    TriObject(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
-        const Eigen::MatrixXd& N,
+    RodMesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
+        const Eigen::MatrixXd& N, const Eigen::MatrixXd& BN,
         std::shared_ptr<MaterialModel> material,
         std::shared_ptr<MaterialConfig> material_config)
-        : SimObject(V,T,material,material_config) {
+        : Mesh(V,T,material,material_config) {
+      
       NN_.resize(T_.rows());
+      BN_.resize(T_.rows());
       for (int i = 0; i < T_.rows(); ++i) {
         NN_[i] = N.row(i).transpose() * N.row(i);
+        BN_[i] = BN.row(i).transpose() * BN.row(i);
       }
     }
 
@@ -26,7 +29,7 @@ namespace mfem {
     void jacobian(Eigen::SparseMatrixdRowMajor& J, const Eigen::VectorXd& vols,
         bool weighted) override;
 
-  private:
     std::vector<Eigen::Matrix3d> NN_; // N * N^T (normal outer product)
+    std::vector<Eigen::Matrix3d> BN_; // BN * BN^T (binormal outer product)
   };
 }

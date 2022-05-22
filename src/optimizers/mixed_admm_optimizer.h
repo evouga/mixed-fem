@@ -12,7 +12,7 @@ namespace mfem {
   // solving the dual variables.
   class MixedADMMOptimizer : public MixedOptimizer {
   public:
-    MixedADMMOptimizer(std::shared_ptr<SimObject> object,
+    MixedADMMOptimizer(std::shared_ptr<Mesh> object,
         std::shared_ptr<SimConfig> config) : MixedOptimizer(object, config) {}
 
     void reset() override;

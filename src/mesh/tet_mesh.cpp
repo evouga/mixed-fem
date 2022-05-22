@@ -1,4 +1,4 @@
-#include "tet_object.h"
+#include "tet_mesh.h"
 #include <igl/volume.h>
 #include "linear_tetmesh_mass_matrix.h"
 #include "linear_tet_mass_matrix.h"
@@ -26,18 +26,18 @@ namespace {
 
 }
 
-void TetrahedralObject::volumes(Eigen::VectorXd& vol) {
+void TetrahedralMesh::volumes(Eigen::VectorXd& vol) {
   igl::volume(V0_, T_, vol);
   vol = vol.cwiseAbs();
 }
 
-void TetrahedralObject::mass_matrix(SparseMatrixdRowMajor& M,
+void TetrahedralMesh::mass_matrix(SparseMatrixdRowMajor& M,
     const VectorXd& vols) {
   VectorXd densities = VectorXd::Constant(T_.rows(), config_->density);
   sim::linear_tetmesh_mass_matrix(M, V0_, T_, densities, vols);
 }
 
-void TetrahedralObject::jacobian(SparseMatrixdRowMajor& J, const VectorXd& vols,
+void TetrahedralMesh::jacobian(SparseMatrixdRowMajor& J, const VectorXd& vols,
       bool weighted) {
   // J matrix (big jacobian guy)
   MatrixXd dphidX;
@@ -73,7 +73,7 @@ void TetrahedralObject::jacobian(SparseMatrixdRowMajor& J, const VectorXd& vols,
   J.setFromTriplets(trips.begin(),trips.end());
 }
 
-void TetrahedralObject::jacobian(std::vector<Matrix<double,9,12>>& J) {
+void TetrahedralMesh::jacobian(std::vector<Matrix<double,9,12>>& J) {
   J.resize(T_.rows());
   std::cout << "T rows : " << T_.rows() << std::endl;
 

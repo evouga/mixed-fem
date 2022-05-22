@@ -1,18 +1,18 @@
 #pragma once
 
-#include "objects/simulation_object.h"
+#include "mesh.h"
 #include "config.h"
 
 namespace mfem {
 
-  // Simulation Object for tetrahedral mesh
-  class TetrahedralObject : public SimObject {
+  // Simulation Mesh for tetrahedral mesh
+  class TetrahedralMesh : public Mesh {
   public:
 
-    TetrahedralObject(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
+    TetrahedralMesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
         std::shared_ptr<MaterialModel> material,
         std::shared_ptr<MaterialConfig> material_config)
-        : SimObject(V,T,material,material_config) {
+        : Mesh(V,T,material,material_config) {
     }
 
     virtual void volumes(Eigen::VectorXd& vol) override;

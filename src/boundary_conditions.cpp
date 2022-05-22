@@ -39,7 +39,7 @@ BoundaryConditions<dim>::BoundaryConditions(BCScriptType script_type) : script_t
 }
 
 template <int dim>
-void BoundaryConditions<dim>::init_script(std::shared_ptr<SimObject> &mesh)
+void BoundaryConditions<dim>::init_script(std::shared_ptr<Mesh> &mesh)
 {
 
   switch (script_type_)
@@ -345,7 +345,7 @@ void BoundaryConditions<dim>::init_script(std::shared_ptr<SimObject> &mesh)
 }
 
 template <int dim>
-int BoundaryConditions<dim>::step_script(std::shared_ptr<SimObject> &mesh, double dt)
+int BoundaryConditions<dim>::step_script(std::shared_ptr<Mesh> &mesh, double dt)
 {
   VectorXd searchDir(mesh->V_.rows() * dim);
   searchDir.setZero();

@@ -13,7 +13,7 @@ namespace mfem {
   class MixedALMOptimizer : public Optimizer {
   public:
     
-    MixedALMOptimizer(std::shared_ptr<SimObject> object,
+    MixedALMOptimizer(std::shared_ptr<Mesh> object,
         std::shared_ptr<SimConfig> config) : Optimizer(object, config) {}
 
     void reset() override;

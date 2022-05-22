@@ -4,7 +4,7 @@
 #include <EigenTypes.h>
 #include <memory>
 #include "config.h"
-#include "objects/simulation_object.h"
+#include "mesh/mesh.h"
 
 namespace mfem
 {
@@ -33,8 +33,8 @@ namespace mfem
     static void init_boundary_groups(const Eigen::MatrixXd &V,
       std::vector<std::vector<int>> &bc_groups, double ratio);
 
-    void init_script(std::shared_ptr<SimObject> &mesh);
-    int step_script(std::shared_ptr<SimObject> &mesh, double dt);
+    void init_script(std::shared_ptr<Mesh> &mesh);
+    int step_script(std::shared_ptr<Mesh> &mesh, double dt);
     void set_script(BCScriptType script_type);
 
     const std::vector<std::vector<int>> &get_bc_groups(void) const;

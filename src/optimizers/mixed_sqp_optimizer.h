@@ -149,7 +149,7 @@ namespace mfem {
   class MixedSQPOptimizer : public MixedOptimizer {
   public:
     
-    MixedSQPOptimizer(std::shared_ptr<SimObject> object,
+    MixedSQPOptimizer(std::shared_ptr<Mesh> object,
         std::shared_ptr<SimConfig> config) : MixedOptimizer(object, config) {}
 
     void reset() override;

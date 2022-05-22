@@ -15,7 +15,7 @@
 #include "args/args.hxx"
 #include "json/json.hpp"
 
-#include "objects/simulation_object.h"
+#include "mesh/mesh.h"
 #include "materials/material_model.h"
 #include "optimizers/mixed_alm_optimizer.h"
 #include "optimizers/mixed_admm_optimizer.h"
@@ -45,7 +45,7 @@ using namespace mfem;
 std::shared_ptr<SimConfig> config;
 std::shared_ptr<MaterialModel> material;
 std::shared_ptr<MaterialConfig> material_config;
-std::shared_ptr<SimObject> tet_object;
+std::shared_ptr<Mesh> mesh;
 std::shared_ptr<Optimizer> optimizer;
 
 std::vector<std::string> bc_list;
@@ -73,7 +73,7 @@ std::shared_ptr<MaterialModel> make_material_model(
   return std::make_shared<ArapModel>(config);
 }
 
-std::shared_ptr<Optimizer> make_optimizer(std::shared_ptr<SimObject> object,
+std::shared_ptr<Optimizer> make_optimizer(std::shared_ptr<Mesh> object,
     std::shared_ptr<SimConfig> config) {
 
   switch (config->optimizer) {
@@ -113,7 +113,7 @@ static void HelpMarker(const char* desc)
 void simulation_step() {
 
   optimizer->step();
-  meshV = tet_object->vertices();
+  meshV = mesh->vertices();
 
   // if skin enabled too
   if (skinV.rows() > 0) {
@@ -152,7 +152,7 @@ void callback() {
       material_config->material_model = 
           static_cast<MaterialModelType>(type);
       material = make_material_model(material_config);
-      tet_object->material_ = material;
+      mesh->material_ = material;
     }
 
     double lo=0.1,hi=0.5;
@@ -189,7 +189,7 @@ void callback() {
     int type = config->optimizer;
     if (ImGui::Combo("Optimizer", &type,"ALM\0ADMM\0SQP\0SQP_PD\0NEWTON\0\0")) {
       config->optimizer = static_cast<OptimizerType>(type);
-      optimizer = make_optimizer(tet_object, config);
+      optimizer = make_optimizer(mesh, config);
       optimizer->reset();
     }
 
@@ -227,8 +227,8 @@ void callback() {
           optimizer->reset();
 
           std::cout << "begin fixed" << std::endl;
-          for (int i = 0; i < tet_object->fixed_vertices_.size();++i) {
-            std::cout << tet_object->fixed_vertices_[i] << std::endl;
+          for (int i = 0; i < mesh->fixed_vertices_.size();++i) {
+            std::cout << mesh->fixed_vertices_[i] << std::endl;
           }
           std::cout << "end fixed" << std::endl;
 
@@ -314,9 +314,9 @@ void callback() {
 
     if (x0.size() != 0) {
       optimizer->set_state(x0, v);
-      srf->updateVertexPositions(tet_object->V_);
+      srf->updateVertexPositions(mesh->V_);
     } else {
-      srf->updateVertexPositions(tet_object->V0_);
+      srf->updateVertexPositions(mesh->V0_);
     }
     export_step = 0;
     step = 0;
@@ -452,10 +452,10 @@ int main(int argc, char **argv) {
   material = make_material_model(material_config);
   config->kappa = material_config->mu;
 
-  tet_object = std::make_shared<TetrahedralObject>(meshV, meshT,
+  mesh = std::make_shared<TetrahedralMesh>(meshV, meshT,
       material, material_config);
 
-  optimizer = make_optimizer(tet_object, config);
+  optimizer = make_optimizer(mesh, config);
   optimizer->reset();
 
   // std::vector<std::string> names;
@@ -480,7 +480,7 @@ int main(int argc, char **argv) {
     igl::readDMAT(x0_fn, x0);
     igl::readDMAT(v_fn, v);
     optimizer->set_state(x0, v);
-    srf->updateVertexPositions(tet_object->V_);
+    srf->updateVertexPositions(mesh->V_);
     has_state  = true;
     std::cout << "vin: " << v.norm() << std::endl;
   }
