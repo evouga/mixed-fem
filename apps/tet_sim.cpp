@@ -50,30 +50,12 @@ std::shared_ptr<MaterialConfig> material_config;
 std::shared_ptr<Mesh> mesh;
 std::shared_ptr<Optimizer> optimizer;
 
+MaterialModelFactory material_factory;
+
+
 std::vector<std::string> bc_list;
 
 // ------------------------------------ //
-std::shared_ptr<MaterialModel> make_material_model(
-    std::shared_ptr<MaterialConfig> config) {
-  switch (config->material_model) {
-  case MATERIAL_SNH:
-    return std::make_shared<StableNeohookean>(config);
-    break;
-  case MATERIAL_NH:
-    return std::make_shared<Neohookean>(config);
-    break;
-  case MATERIAL_FCR:
-    return std::make_shared<CorotationalModel>(config);
-    break;
-  case MATERIAL_FUNG:
-    return std::make_shared<Fung>(config);
-    break;
-  case MATERIAL_ARAP:
-    return std::make_shared<ArapModel>(config);
-    break;
-  } 
-  return std::make_shared<ArapModel>(config);
-}
 
 std::shared_ptr<Optimizer> make_optimizer(std::shared_ptr<Mesh> object,
     std::shared_ptr<SimConfig> config) {
@@ -153,7 +135,8 @@ void callback() {
     if (ImGui::Combo("Material Model", &type,"SNH\0NH\0FCR\0FUNG\0ARAP\0\0")) {
       material_config->material_model = 
           static_cast<MaterialModelType>(type);
-      material = make_material_model(material_config);
+      material = material_factory.create(material_config);
+
       mesh->material_ = material;
     }
 
@@ -451,7 +434,10 @@ int main(int argc, char **argv) {
   config->inner_steps=1;
 
   material_config = std::make_shared<MaterialConfig>();
-  material = make_material_model(material_config);
+  //material = make_material_model(material_config);
+
+  material = material_factory.create(material_config);
+
   config->kappa = material_config->mu;
 
   mesh = std::make_shared<TetrahedralMesh>(meshV, meshT,

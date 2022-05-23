@@ -35,7 +35,7 @@ MaterialModelFactory::MaterialModelFactory() {
       {return std::make_unique<Neohookean>(config);});   
 
   // Stable Neohookean
-  register_type(MaterialModelType::MATERIAL_NH, StableNeohookean::name(),
+  register_type(MaterialModelType::MATERIAL_SNH, StableNeohookean::name(),
       [](const std::shared_ptr<MaterialConfig>& config)
       ->std::unique_ptr<MaterialModel>
       {return std::make_unique<StableNeohookean>(config);});   
@@ -43,11 +43,13 @@ MaterialModelFactory::MaterialModelFactory() {
 }
 
 std::unique_ptr<MaterialModel> MaterialModelFactory::create(
-    MaterialModelType type, const std::shared_ptr<MaterialConfig>& config) {
+    const std::shared_ptr<MaterialConfig>& config) {
 
-  if (auto it = type_creators_.find(type); it !=  type_creators_.end()) {
+  if (auto it = type_creators_.find(config->material_model);
+      it !=  type_creators_.end()) {
     return it->second(config);
   }
+  std::cout << "MaterialModelFactory create: type not found" << std::endl;
   return nullptr;
 }
 

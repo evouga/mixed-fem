@@ -4,6 +4,7 @@
 #include <map>
 
 namespace mfem {
+
   // Factory object to create material models by typename or string
   class MaterialModelFactory {
   public:
@@ -17,7 +18,7 @@ namespace mfem {
     MaterialModelFactory();
 
     // Find and return material model by enumeration type
-    std::unique_ptr<MaterialModel> create(MaterialModelType type,
+    std::unique_ptr<MaterialModel> create(
         const std::shared_ptr<MaterialConfig>& config);
 
     // Find and return material model by string type
