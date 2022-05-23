@@ -8,8 +8,12 @@ namespace mfem {
   class Fung : public MaterialModel {
   public:
     
+    static std::string name() {
+      return "Fung";
+    }
+
     Fung(const std::shared_ptr<MaterialConfig>& config)
-        : MaterialModel("Fung", config) {}
+        : MaterialModel(config) {}
 
     double energy(const Eigen::Vector6d& S) override; 
     Eigen::Vector6d gradient(const Eigen::Vector6d& S) override; 

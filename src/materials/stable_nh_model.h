@@ -8,8 +8,12 @@ namespace mfem {
   class StableNeohookean : public MaterialModel {
   public:
     
+    static std::string name() {
+      return "Stable-Neohookean";
+    }
+
     StableNeohookean(const std::shared_ptr<MaterialConfig>& config)
-        : MaterialModel("Stable Neohookean", config) {}
+        : MaterialModel(config) {}
 
     double energy(const Eigen::Vector6d& S) override; 
     Eigen::Vector6d gradient(const Eigen::Vector6d& S) override; 

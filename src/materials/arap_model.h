@@ -8,8 +8,12 @@ namespace mfem {
   class ArapModel : public MaterialModel {
   public:
     
+    static std::string name() {
+      return "ARAP";
+    }
+
     ArapModel(const std::shared_ptr<MaterialConfig>& config)
-        : MaterialModel("ARAP", config) {}
+        : MaterialModel(config) {}
 
     double energy(const Eigen::Vector6d& S) override; 
 

@@ -17,7 +17,6 @@ namespace Eigen {
 }
 
 namespace mfem {
-  // TODO just call this a mesh moron
 
   // Class to maintain the state and perform physics updates on an object,
   // which has a particular discretization, material, and material config
@@ -28,12 +27,26 @@ namespace mfem {
         std::shared_ptr<MaterialModel> material,
         std::shared_ptr<MaterialConfig> material_config);
     
+    // Compute per-element volumes. Size of "vol" is reset
+    // vol - nelem x 1 per-element volumes
     virtual void volumes(Eigen::VectorXd& vol) = 0;
+
+    // Compute mass matrix
+    // M    - sparse matrix
+    // vol  - nelem x 1 per-element volumes
     virtual void mass_matrix(Eigen::SparseMatrixdRowMajor& M,
         const Eigen::VectorXd& vols) = 0;
+
+    // Computes dF/dq jacobian matrix where F is the vectorized deformation
+    // gradient, and q is the vector of position configuration
+    // M        - sparse matrix
+    // vol      - nelem x 1 per-element volumes
+    // weighted - boolean on whether to apply volume weights to jacobian
     virtual void jacobian(Eigen::SparseMatrixdRowMajor& J,
         const Eigen::VectorXd& vols, bool weighted) = 0;
 
+    // Computes per-element dF/dq jacobian matrix
+    // J  - per-element jacobian matrix
     virtual void jacobian(std::vector<Eigen::Matrix<double,9,12>>& J) {
       std::cerr << "jacobian not implemented!" << std::endl;
     }

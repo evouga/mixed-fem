@@ -25,9 +25,12 @@ namespace mfem {
   class MaterialModel {
   public:
     
-    MaterialModel(const std::string& name,
-        const std::shared_ptr<MaterialConfig>& config) 
-        : name_(name), config_(config) {}
+    static std::string name() {
+      return "base";
+    }
+
+    MaterialModel(const std::shared_ptr<MaterialConfig>& config) 
+        : config_(config) {}
 
     // Computes psi, the strain energy density value.
     // S - 6x1 symmetric deformation
@@ -42,7 +45,7 @@ namespace mfem {
     virtual Eigen::Matrix6d hessian(const Eigen::Vector6d& S,
         bool psd_fix = true) = 0;
 
-    // Optional energy,gradient, and hessian for non-mixed systems
+    // Optional energy for non-mixed systems
     // Computes psi, the strain energy density value.
     // F - 9x1 deformation gradient flattened (column-major)
     virtual double energy(const Eigen::Vector9d& F) {
@@ -50,7 +53,7 @@ namespace mfem {
       return 0;
     }
 
-    // Gradient with respect to deformation gradient
+    // Non-mixed gradient with respect to deformation gradient
     // F - 9x1 deformation gradient flattened (column-major)
     virtual Eigen::Vector9d gradient(const Eigen::Vector9d& F) {
       Eigen::Vector9d g;
@@ -58,7 +61,7 @@ namespace mfem {
       return g;
     }
 
-    // Hessian energy
+    // Non-mixed hessian 
     // F - 9x1 deformation gradient flattened (column-major)
     virtual Eigen::Matrix9d hessian(const Eigen::Vector9d& F) {
       std::cerr << "gradient unimplemented for 9x1 input" << std::endl;
@@ -66,18 +69,8 @@ namespace mfem {
       return H;
     }
 
-    std::string name() {
-      return name_;
-    }
-
   protected:
 
-    // Writes the local 9x9 elemental compliance entries to the global
-    // compliance block.
-    static void fill_compliance_block(int offset, int row, double vol,
-        double tol, const Eigen::Matrix9d& WHiW, Eigen::SparseMatrixd& mat);
-
-    std::string name_;
     std::shared_ptr<MaterialConfig> config_;     
 
   };
@@ -89,3 +82,4 @@ namespace mfem {
 #include "materials/arap_model.h"
 #include "materials/stable_nh_model.h"
 #include "materials/fung.h"
+

@@ -28,8 +28,8 @@ namespace mfem {
       MATERIAL_SNH,   // Stable neohookean
       MATERIAL_NH,    // neohookean
       MATERIAL_FCR,   // fixed corotated
-      MATERIAL_ARAP,   // as-rigid-as possible
-      MATERIAL_FUNG  // exponential
+      MATERIAL_ARAP,  // as-rigid-as possible
+      MATERIAL_FUNG   // exponential
   };
 
   enum BCScriptType {

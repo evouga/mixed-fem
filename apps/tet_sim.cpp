@@ -26,6 +26,8 @@
 #include <sstream>
 #include <fstream>
 
+#include "materials/material_model_factory.h"
+
 using namespace Eigen;
 
 // The mesh, Eigen representation
