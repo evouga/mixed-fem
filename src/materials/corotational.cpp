@@ -1,10 +1,10 @@
-#include "materials/corotational_model.h"
+#include "materials/corotational.h"
 #include "simple_psd_fix.h"
 
 using namespace Eigen;
 using namespace mfem;
 
-double CorotationalModel::energy(const Vector6d& S) {
+double Corotational::energy(const Vector6d& S) {
     
   double mu = config_->mu;
   double la = config_->la;
@@ -17,7 +17,7 @@ double CorotationalModel::energy(const Vector6d& S) {
   return 0.5*la*(S1+S2+S3-3.0)*(S1+S2+S3-3.0)+mu*((S1-1.0)*(S1-1.0)+(S2-1.0)*(S2-1.0)+(S3-1.0)*(S3-1.0)+(S4*S4)*2.0+(S5*S5)*2.0+(S6*S6)*2.0);
 }
 
-Vector6d CorotationalModel::gradient(const Vector6d& S) {
+Vector6d Corotational::gradient(const Vector6d& S) {
   
   double mu = config_->mu;
   double la = config_->la;
@@ -38,7 +38,7 @@ Vector6d CorotationalModel::gradient(const Vector6d& S) {
 
 }
 
-Matrix6d CorotationalModel::hessian_inv(const Vector6d& S) {
+Matrix6d Corotational::hessian_inv(const Vector6d& S) {
   
   exit(1);
   double mu = config_->mu;
@@ -66,7 +66,7 @@ Matrix6d CorotationalModel::hessian_inv(const Vector6d& S) {
   return Hinv;
 }
 
-Matrix6d CorotationalModel::hessian(const Vector6d& S, bool psd_fix) {
+Matrix6d Corotational::hessian(const Vector6d& S, bool psd_fix) {
   Matrix6d H;
   H.setZero();
   double mu = config_->mu;

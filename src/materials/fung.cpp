@@ -105,5 +105,9 @@ Matrix6d Fung::hessian(const Vector6d& S, bool psd_fix) {
 }
 
 double Fung::energy(const Eigen::Vector9d& F)  { return 0.; }
-Eigen::Vector9d Fung::gradient(const Eigen::Vector9d& F) { return Eigen::Vector9d::Zero(); };
-Eigen::Matrix9d Fung::hessian(const Eigen::Vector9d& F) { return Eigen::Matrix9d::Identity(); };
+Eigen::Vector9d Fung::gradient(const Eigen::Vector9d& F) {
+  return Eigen::Vector9d::Zero();
+}
+Eigen::Matrix9d Fung::hessian(const Eigen::Vector9d& F) {
+  return Eigen::Matrix9d::Identity();
+}

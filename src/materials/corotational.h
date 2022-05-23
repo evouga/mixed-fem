@@ -5,14 +5,14 @@
 namespace mfem {
 
   // corotational material model
-  class CorotationalModel : public MaterialModel {
+  class Corotational : public MaterialModel {
   public:
 
     static std::string name() {
-      return "FCR";
+      return "COROT";
     }
     
-    CorotationalModel(const std::shared_ptr<MaterialConfig>& config)
+    Corotational(const std::shared_ptr<MaterialConfig>& config)
         : MaterialModel(config) {}
 
     double energy(const Eigen::Vector6d& S) override; 

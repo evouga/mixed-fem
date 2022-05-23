@@ -27,7 +27,7 @@ namespace mfem {
   enum MaterialModelType {
       MATERIAL_SNH,   // Stable neohookean
       MATERIAL_NH,    // neohookean
-      MATERIAL_FCR,   // fixed corotated
+      MATERIAL_COROT, // corotational
       MATERIAL_ARAP,  // as-rigid-as possible
       MATERIAL_FUNG   // exponential
   };

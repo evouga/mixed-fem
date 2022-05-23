@@ -1,4 +1,4 @@
-#include "materials/neohookean_model.h"
+#include "materials/neohookean.h"
 #include "simple_psd_fix.h"
 
 using namespace Eigen;

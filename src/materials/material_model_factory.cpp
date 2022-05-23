@@ -1,7 +1,7 @@
-#include "materials/neohookean_model.h"
-#include "materials/corotational_model.h"
-#include "materials/arap_model.h"
-#include "materials/stable_nh_model.h"
+#include "materials/neohookean.h"
+#include "materials/corotational.h"
+#include "materials/arap.h"
+#include "materials/stable_neohookean.h"
 #include "materials/fung.h"
 #include "materials/material_model_factory.h"
 
@@ -16,10 +16,10 @@ MaterialModelFactory::MaterialModelFactory() {
       {return std::make_unique<ArapModel>(config);});
 
   // Fixed Corotated Elasticity
-  register_type(MaterialModelType::MATERIAL_FCR, CorotationalModel::name(),
+  register_type(MaterialModelType::MATERIAL_COROT, Corotational::name(),
       [](const std::shared_ptr<MaterialConfig>& config)
       ->std::unique_ptr<MaterialModel>
-      {return std::make_unique<CorotationalModel>(config);});
+      {return std::make_unique<Corotational>(config);});
 
   // Fung
   register_type(MaterialModelType::MATERIAL_FUNG, Fung::name(),
