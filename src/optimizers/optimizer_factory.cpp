@@ -1,7 +1,7 @@
 #include "optimizers/mixed_alm_optimizer.h"
 #include "optimizers/mixed_admm_optimizer.h"
 #include "optimizers/mixed_sqp_optimizer.h"
-#include "optimizers/mixed_sqpr_optimizer.h"
+#include "optimizers/mixed_sqp_pd_optimizer.h"
 #include "optimizers/newton_optimizer.h"
 #include "optimizers/optimizer_factory.h"
 

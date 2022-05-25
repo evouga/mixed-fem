@@ -1,4 +1,4 @@
-#include "mixed_sqpr_optimizer.h"
+#include "mixed_sqp_pd_optimizer.h"
 
 #include <chrono>
 #include "sparse_utils.h"

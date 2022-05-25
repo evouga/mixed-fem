@@ -173,7 +173,7 @@ int main(int argc, char **argv) {
     app.srf->updateVertexPositions(app.mesh->V_);
   }
 
-    // Check if skinning mesh is provided
+  // Check if skinning mesh is provided
   if (inSurf) {
     std::string hires_fn = args::get(inSurf);
     std::cout << "Reading in skinning mesh: " << hires_fn << std::endl;
