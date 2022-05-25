@@ -12,8 +12,12 @@ namespace mfem {
   // solving the dual variables.
   class MixedADMMOptimizer : public MixedOptimizer {
   public:
-    MixedADMMOptimizer(std::shared_ptr<Mesh> object,
-        std::shared_ptr<SimConfig> config) : MixedOptimizer(object, config) {}
+    MixedADMMOptimizer(std::shared_ptr<Mesh> mesh,
+        std::shared_ptr<SimConfig> config) : MixedOptimizer(mesh, config) {}
+
+    static std::string name() {
+      return "ADMM";
+    }
 
     void reset() override;
     void step() override;
@@ -42,7 +46,7 @@ namespace mfem {
     // Update gradients, LHS, RHS for a new configuration
     virtual void update_system() override;
 
-    // Simulation substep for this object
+    // Simulation substep
     // init_guess - whether to initialize guess with a prefactor solve
     // decrement  - newton decrement norm
     virtual void substep(int step, double& decrement) override;

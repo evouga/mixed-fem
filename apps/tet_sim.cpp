@@ -26,6 +26,7 @@
 #include <sstream>
 #include <fstream>
 
+#include "optimizers/optimizer_factory.h"
 #include "materials/material_model_factory.h"
 
 using namespace Eigen;
@@ -50,35 +51,13 @@ std::shared_ptr<MaterialConfig> material_config;
 std::shared_ptr<Mesh> mesh;
 std::shared_ptr<Optimizer> optimizer;
 
+OptimizerFactory optimizer_factory;
 MaterialModelFactory material_factory;
 
 
 std::vector<std::string> bc_list;
 
 // ------------------------------------ //
-
-std::shared_ptr<Optimizer> make_optimizer(std::shared_ptr<Mesh> object,
-    std::shared_ptr<SimConfig> config) {
-
-  switch (config->optimizer) {
-  case OPTIMIZER_ALM:
-    return std::make_shared<MixedALMOptimizer>(object,config);
-    break;
-  case OPTIMIZER_ADMM:
-    return std::make_shared<MixedADMMOptimizer>(object,config);
-    break;
-  case OPTIMIZER_SQP:
-    return std::make_shared<MixedSQPOptimizer>(object,config);
-    break;
-  case OPTIMIZER_SQP_PD:
-    return std::make_shared<MixedSQPROptimizer>(object,config);
-    break;
-  case OPTIMIZER_NEWTON:
-    return std::make_shared<NewtonOptimizer>(object,config);
-    break;
-  } 
-  return std::make_shared<MixedALMOptimizer>(object,config);
-}
 
 // Helper to display a little (?) mark which shows a tooltip when hovered.
 static void HelpMarker(const char* desc)
@@ -114,10 +93,8 @@ void callback() {
   static bool export_sim_substeps = false;
   static bool simulating = false;
   static bool BDF2 = false;
-  static bool show_pinned = false;
   static int step = 0;
   static int export_step = 0;
-  static bool sim_dirty = false;
   static int max_steps = 300;
 
   ImGui::PushItemWidth(100);
@@ -149,7 +126,6 @@ void callback() {
       std::cout << "MU: " << material_config->mu;
       std::cout << " LA: " << material_config->la << std::endl;
       config->kappa = material_config->mu;
-      sim_dirty = true;    
     }
     // ImGui::SameLine(); 
     // HelpMarker("Young's Modulus");
@@ -158,7 +134,6 @@ void callback() {
       
       Enu_to_lame(material_config->ym, material_config->pr,
           material_config->la, material_config->mu);
-      sim_dirty = true;    
     }
     ImGui::TreePop();
   }
@@ -174,7 +149,8 @@ void callback() {
     int type = config->optimizer;
     if (ImGui::Combo("Optimizer", &type,"ALM\0ADMM\0SQP\0SQP_PD\0NEWTON\0\0")) {
       config->optimizer = static_cast<OptimizerType>(type);
-      optimizer = make_optimizer(mesh, config);
+      optimizer = optimizer_factory.create(mesh, config);
+
       optimizer->reset();
     }
 
@@ -184,9 +160,7 @@ void callback() {
     ImGui::InputDouble("CG Tol", &config->itr_tol,0,0,"%.5g");
     ImGui::InputDouble("Newton Tol", &config->newton_tol,0,0,"%.5g");
 
-    //ImGui::InputInt("Inner Steps", &config->inner_steps);
     if (ImGui::InputFloat3("Body Force", config->ext, 3)) {
-      sim_dirty = true;
     }
 
     if (config->optimizer == OPTIMIZER_ALM
@@ -434,7 +408,6 @@ int main(int argc, char **argv) {
   config->inner_steps=1;
 
   material_config = std::make_shared<MaterialConfig>();
-  //material = make_material_model(material_config);
 
   material = material_factory.create(material_config);
 
@@ -443,7 +416,7 @@ int main(int argc, char **argv) {
   mesh = std::make_shared<TetrahedralMesh>(meshV, meshT,
       material, material_config);
 
-  optimizer = make_optimizer(mesh, config);
+  optimizer = optimizer_factory.create(mesh, config);
   optimizer->reset();
 
   // std::vector<std::string> names;

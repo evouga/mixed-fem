@@ -23,6 +23,10 @@ namespace mfem {
     Optimizer(std::shared_ptr<Mesh> object,
           std::shared_ptr<SimConfig> config)
           : object_(object), config_(config) {}
+          
+    static std::string name() {
+      return "base";
+    }
 
     virtual void reset();
     virtual void step() = 0;

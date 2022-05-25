@@ -13,8 +13,12 @@ namespace mfem {
   class MixedALMOptimizer : public Optimizer {
   public:
     
-    MixedALMOptimizer(std::shared_ptr<Mesh> object,
-        std::shared_ptr<SimConfig> config) : Optimizer(object, config) {}
+    MixedALMOptimizer(std::shared_ptr<Mesh> mesh,
+        std::shared_ptr<SimConfig> config) : Optimizer(mesh, config) {}
+
+    static std::string name() {
+      return "ALM";
+    }
 
     void reset() override;
     void step() override;
@@ -43,7 +47,7 @@ namespace mfem {
     // dx - direction we perform linesearch on
     virtual bool linesearch(Eigen::VectorXd& x, const Eigen::VectorXd& dx);
 
-    // Simulation substep for this object
+    // Simulation substep
     // init_guess - whether to initialize guess with a prefactor solve
     // decrement  - newton decrement norm
     virtual void substep(bool init_guess, double& decrement);

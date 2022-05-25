@@ -12,8 +12,12 @@ namespace mfem {
   class NewtonOptimizer : public Optimizer {
   public:
     
-    NewtonOptimizer(std::shared_ptr<Mesh> object,
-        std::shared_ptr<SimConfig> config) : Optimizer(object, config) {}
+    NewtonOptimizer(std::shared_ptr<Mesh> mesh,
+        std::shared_ptr<SimConfig> config) : Optimizer(mesh, config) {}
+
+    static std::string name() {
+      return "Newton";
+    }
 
     void reset() override;
     void step() override;

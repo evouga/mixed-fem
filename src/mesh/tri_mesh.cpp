@@ -88,29 +88,3 @@ void TriMesh::jacobian(SparseMatrixdRowMajor& J, const VectorXd& vols,
   J.resize(9*T_.rows(), V_.size());
   J.setFromTriplets(trips.begin(),trips.end());
 }
-
-// VectorXd TriMesh::collision_force() {
-
-//   Vector3d N(.4,.2,.8);
-//   N = N / N.norm();
-//   double d = config_->plane_d;
-
-//   int n = qt_.size() / 3;
-//   VectorXd ret(qt_.size());
-//   ret.setZero();
-
-//   double k = -3e2;
-  
-//   double min_y = V_.col(1).minCoeff();
-//   double max_y = V_.col(1).maxCoeff();
-//   double pin_y = min_y + (max_y-min_y)*0.05;
-//   VectorXi toforce = (V_.col(1).array() < pin_y).cast<int>(); 
-//   #pragma omp parallel for
-//   for (int i = 0; i < n; ++i) {
-//     if (toforce(i)) {
-//       ret.segment(3*i,3) = k*N;
-//     }
-//   }
-
-//   return M_*ret;
-// }

@@ -13,8 +13,12 @@ namespace mfem {
   class MixedOptimizer : public Optimizer {
   public:
     
-    MixedOptimizer(std::shared_ptr<Mesh> object,
-        std::shared_ptr<SimConfig> config) : Optimizer(object, config) {}
+    MixedOptimizer(std::shared_ptr<Mesh> mesh,
+        std::shared_ptr<SimConfig> config) : Optimizer(mesh, config) {}
+
+    static std::string name() {
+      return "mixed base";
+    }
 
     void reset() override;
     void step() override;
@@ -44,7 +48,7 @@ namespace mfem {
     // Update gradients, LHS, RHS for a new configuration
     virtual void update_system() = 0;
 
-    // Simulation substep for this object
+    // Simulation substep
     // step      - current substep
     // decrement - newton decrement norm
     virtual void substep(int step, double& decrement) = 0;
