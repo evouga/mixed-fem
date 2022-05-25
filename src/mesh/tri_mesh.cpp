@@ -6,8 +6,28 @@
 using namespace Eigen;
 using namespace mfem;
 
+
+namespace {
+
+  // From dphi/dX, form jacobian dphi/dq where
+  // q is an elements local set of vertices
+  template <typename Scalar>
+  void local_jacobian(Matrix<Scalar,9,9>& B, const Matrix<Scalar,3,3>& dX) {
+    B  << dX(0,0), 0, 0, dX(1,0), 0, 0, dX(2,0), 0, 0,
+          0, dX(0,0), 0, 0, dX(1,0), 0, 0, dX(2,0), 0,
+          0, 0, dX(0,0), 0, 0, dX(1,0), 0, 0, dX(2,0),
+          dX(0,1), 0, 0, dX(1,1), 0, 0, dX(2,1), 0, 0, 
+          0, dX(0,1), 0, 0, dX(1,1), 0, 0, dX(2,1), 0,
+          0, 0, dX(0,1), 0, 0, dX(1,1), 0, 0, dX(2,1),
+          dX(0,2), 0, 0, dX(1,2), 0, 0, dX(2,2), 0, 0,
+          0, dX(0,2), 0, 0, dX(1,2), 0, 0, dX(2,2), 0,
+          0, 0, dX(0,2), 0, 0, dX(1,2), 0, 0, dX(2,2);
+  }
+
+}
+
 void TriMesh::volumes(Eigen::VectorXd& vol) {
-  igl::doublearea(V_, T_, vol);
+  igl::doublearea(V0_, T_, vol);
   vol.array() *= (config_->thickness/2);
 }
 
@@ -16,7 +36,7 @@ void TriMesh::mass_matrix(Eigen::SparseMatrixdRowMajor& M,
 std::cerr << "WRONG use volumes dummy" << std::endl;
   std::vector<Triplet<double>> trips;
   VectorXd dblA;
-  igl::doublearea(V_, T_, dblA);
+  igl::doublearea(V0_, T_, dblA);
 
   // 1. Mass matrix terms
   for (int i = 0; i < T_.rows(); ++i) {
@@ -46,26 +66,15 @@ void TriMesh::jacobian(SparseMatrixdRowMajor& J, const VectorXd& vols,
       bool weighted) {
 
   MatrixXd dphidX;
-  sim::linear_tri3dmesh_dphi_dX(dphidX, V_, T_);
+  sim::linear_tri3dmesh_dphi_dX(dphidX, V0_, T_);
 
-  std::cerr << "WRONG" << std::endl;
   std::vector<Triplet<double>> trips;
   for (int i = 0; i < T_.rows(); ++i) { 
 
-    Matrix3d dX = sim::unflatten<3,3>(dphidX.row(i));
-
     // Local block
     Matrix9d B;
-    B  << 
-      dX(0,0), 0      , 0      , dX(1,0), 0      , 0      , dX(2,0), 0      , 0, 
-      dX(0,1), 0      , 0      , dX(1,1), 0      , 0      , dX(2,1), 0      , 0, 
-      dX(0,2), 0      , 0      , dX(1,2), 0      , 0      , dX(2,2), 0      , 0,
-      0      , dX(0,0), 0      , 0      , dX(1,0), 0      , 0      , dX(2,0), 0,
-      0      , dX(0,1), 0      , 0      , dX(1,1), 0      , 0      , dX(2,1), 0,
-      0      , dX(0,2), 0      , 0      , dX(1,2), 0      , 0      , dX(2,2), 0,
-      0      , 0      , dX(0,0), 0      , 0      , dX(1,0), 0      , 0      , dX(2,0),
-      0      , 0      , dX(0,1), 0      , 0      , dX(1,1), 0      , 0      , dX(2,1),
-      0      , 0      , dX(0,2), 0      , 0      , dX(1,2), 0      , 0      , dX(2,2);
+    Matrix3d dX = sim::unflatten<3,3>(dphidX.row(i));
+    local_jacobian(B, dX);
 
     // Assembly for the i-th lagrange multiplier matrix which
     // is associated with 3 vertices (for tetrahedra)
@@ -87,4 +96,20 @@ void TriMesh::jacobian(SparseMatrixdRowMajor& J, const VectorXd& vols,
   }
   J.resize(9*T_.rows(), V_.size());
   J.setFromTriplets(trips.begin(),trips.end());
+}
+
+void TriMesh::jacobian(std::vector<MatrixXd>& J) {
+  J.resize(T_.rows());
+
+  MatrixXd dphidX;
+  sim::linear_tri3dmesh_dphi_dX(dphidX, V0_, T_);
+
+  #pragma omp parallel for
+  for (int i = 0; i < T_.rows(); ++i) { 
+    // Local block
+    Matrix9d B;
+    Matrix3d dX = sim::unflatten<3,3>(dphidX.row(i));
+    local_jacobian(B, dX);
+    J[i] = B;
+  }
 }

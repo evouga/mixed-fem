@@ -47,7 +47,7 @@ namespace mfem {
 
     // Computes per-element dF/dq jacobian matrix
     // J  - per-element jacobian matrix
-    virtual void jacobian(std::vector<Eigen::Matrix<double,9,12>>& J) {
+    virtual void jacobian(std::vector<Eigen::MatrixXd>& J) {
       std::cerr << "jacobian not implemented!" << std::endl;
     }
 

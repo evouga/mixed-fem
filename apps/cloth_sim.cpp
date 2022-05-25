@@ -1,183 +1,119 @@
-// #include "polyscope/polyscope.h"
+#include "polyscope_app.h"
 
-// // libigl
-// #include <igl/read_triangle_mesh.h>
-// #include <igl/remove_unreferenced.h>
-// #include <igl/readOBJ.h>
-// #include <igl/writeOBJ.h>
-// #include <igl/per_face_normals.h>
+// libigl
+#include <igl/IO>
+#include <igl/remove_unreferenced.h>
+#include <igl/per_face_normals.h>
 
-// // Polyscope
-// #include "polyscope/messages.h"
-// #include "polyscope/point_cloud.h"
-// #include "polyscope/surface_mesh.h"
-// #include "args/args.hxx"
-// #include "json/json.hpp"
+#include "boundary_conditions.h"
+#include <sstream>
+#include <fstream>
+#include <functional>
+#include <string>
 
-// #include "simulator.h"
-// #include "objects/simulation_object.h"
-// #include "materials/material_model.h"
+using namespace Eigen;
+using namespace mfem;
 
-// using namespace Eigen;
+struct PolyscopeTriApp : public PolyscopeApp {
 
-// // The mesh, Eigen representation
-// MatrixXd meshV; // verts
-// MatrixXi meshF; // faces
-// MatrixXd meshN; // normals 
+  void init(const std::string& filename) {
+    // Read tetmesh
+    igl::read_triangle_mesh(filename,meshV,meshF);
+    Eigen::MatrixXd NV;
+    Eigen::MatrixXi NF;
+    VectorXi VI,VJ;
+    igl::remove_unreferenced(meshV,meshF,NV,NF,VI,VJ);
+    meshV = NV;
+    meshF = NF;
+    meshV.array() /= meshV.maxCoeff();
 
-// VectorXd pinnedV;
+    igl::per_face_normals(meshV,meshF,meshN);
 
-// // UI switches
-// bool enable_slide = false;
-// bool enable_ext = true;
-// bool warm_start = true;
-// bool floor_collision = false;
-// bool export_sim = false;
+    // Register the mesh with Polyscope
+    polyscope::options::autocenterStructures = false;
+    polyscope::registerSurfaceMesh("input mesh", meshV, meshF);
 
+    meshN = -meshN;
+    polyscope::getSurfaceMesh("input mesh")->
+    addFaceVectorQuantity("normals", meshN);
 
-// double t_coll=0, t_asm = 0, t_precond=0, t_rhs = 0, t_solve = 0, t_SR = 0; 
+    srf = polyscope::registerSurfaceMesh("input mesh", meshV, meshF);
+    VectorXi pinnedV;
+    pinnedV.resize(meshV.rows());
+    pinnedV.setZero();
+    srf->addVertexScalarQuantity("pinned", pinnedV);
 
-// using namespace mfem;
-// std::shared_ptr<SimConfig> config;
-// std::shared_ptr<MaterialModel> material;
-// std::shared_ptr<MaterialConfig> material_config;
-// std::shared_ptr<SimObject> object;
+    // Adjust ground plane
+    VectorXd a = meshV.colwise().minCoeff();
+    VectorXd b = meshV.colwise().maxCoeff();
+    a(1) -= (b(1)-a(1))*0.5;
+    polyscope::options::automaticallyComputeSceneExtents = false;
+    polyscope::state::lengthScale = 1.;
+    polyscope::state::boundingBox = std::tuple<glm::vec3, glm::vec3>{
+      {a(0),a(1),a(2)},{b(0),b(1),b(2)}};
+    polyscope::options::groundPlaneMode = polyscope::GroundPlaneMode::None;
 
-// // ------------------------------------ //
+    meshV0 = meshV;
 
-// void simulation_step() {
-//   Simulator sim(object, config);
-//   sim.step();
-//   meshV = object->vertices();
-// }
+    // Initial simulation setup
+    config = std::make_shared<SimConfig>();
+    config->plane_d = a(1);
+    config->inner_steps=1;
 
-// void callback() {
+    material_config = std::make_shared<MaterialConfig>();
+    material = material_factory.create(material_config);
+    config->kappa = material_config->mu;
 
-//   static bool simulating = false;
-//   static bool show_pinned = false;
+    mesh = std::make_shared<TriMesh>(meshV, meshF, meshN,
+        material, material_config);
 
-//   ImGui::PushItemWidth(100);
+    optimizer = optimizer_factory.create(mesh, config);
+    optimizer->reset();
 
-//   //ImGui::Checkbox("floor collision",&floor_collision);
-//   ImGui::Checkbox("force",&floor_collision);
-//   ImGui::Checkbox("warm start",&warm_start);
-//   ImGui::Checkbox("external forces",&enable_ext);
-//   ImGui::Checkbox("slide mesh",&enable_slide);
-//   ImGui::Checkbox("simulate",&simulating);
-//   ImGui::Checkbox("export",&export_sim);
-//   //if(ImGui::Button("show pinned")) {
-//   //} 
-//   static int step = 0;
-//   static int export_step = 0;
+    // std::vector<std::string> names;
+    BoundaryConditions<3>::get_script_names(bc_list);
+  }
 
-//   if(ImGui::Button("sim step") || simulating) {
-//     simulation_step();
-//     ++step;
-//     polyscope::getSurfaceMesh("input mesh")
-//       ->updateVertexPositions(meshV);
+  MatrixXd meshN;
 
-//     if (export_sim) {
-//       char buffer [50];
-//       int n = sprintf(buffer, "../data/cloth/sheet_soft2/%04d.png", export_step); 
-//       buffer[n] = 0;
-//       polyscope::screenshot(std::string(buffer), true);
-//       n = sprintf(buffer, "../data/cloth/sheet_soft2/%04d.obj", export_step++); 
-//       buffer[n] = 0;
-//       igl::writeOBJ(std::string(buffer),meshV,meshF);
-//     }
+} app;
 
-//     // std::cout << "STEP: " << step << std::endl;
-//     // std::cout << "[Avg Time ms] " 
-//     //   << " collision: " << t_coll / solver_steps / step
-//     //   << " rhs: " << t_rhs / solver_steps / step
-//     //   << " preconditioner: " << t_precond / solver_steps / step
-//     //   << " KKT assembly: " << t_asm / solver_steps / step
-//     //   << " cg.solve(): " << t_solve / solver_steps / step
-//     //   << " update S & R: " << t_SR / solver_steps / step
-//     //   << std::endl;
-
-//   }
-//   ImGui::PopItemWidth();
-// }
-
-// int main(int argc, char **argv) {
-//   // Configure the argument parser
-//   args::ArgumentParser parser("Mixed FEM");
-//   args::Positional<std::string> inFile(parser, "mesh", "input mesh");
-
-//   // Parse args
-//   try {
-//     parser.ParseCLI(argc, argv);
-//   } catch (args::Help) {
-//     std::cout << parser;
-//     return 0;
-//   } catch (args::ParseError e) {
-//     std::cerr << e.what() << std::endl;
-
-//     std::cerr << parser;
-//     return 1;
-//   }
-
-//   // Options
-//   polyscope::options::autocenterStructures = true;
-//   polyscope::view::windowWidth = 1024;
-//   polyscope::view::windowHeight = 1024;
-
-//   // Initialize polyscope
-//   polyscope::init();
-
-//   std::string filename = args::get(inFile);
-//   std::cout << "loading: " << filename << std::endl;
-
-//   // Read the mesh
-//   //igl::readOBJ(filename, meshV, meshF);
-
-//   // Read tetmesh
-//   igl::read_triangle_mesh(filename,meshV,meshF);
-//   Eigen::MatrixXd NV;
-//   Eigen::MatrixXi NF;
-//   VectorXi VI,VJ;
-//   igl::remove_unreferenced(meshV,meshF,NV,NF,VI,VJ);
-//   meshV = NV;
-//   meshF = NF;
-
-//   meshV.array() /= meshV.maxCoeff();
-
-//   igl::per_face_normals(meshV,meshF,meshN);
-
-//   // Register the mesh with Polyscope
-//   polyscope::options::autocenterStructures = false;
-//   polyscope::registerSurfaceMesh("input mesh", meshV, meshF);
-
-//   meshN = -meshN;
-//   polyscope::getSurfaceMesh("input mesh")->
-//     addFaceVectorQuantity("normals", meshN);
-
-//   pinnedV.resize(meshV.rows());
-//   pinnedV.setZero();
-//   polyscope::getSurfaceMesh("input mesh")
-//     ->addVertexScalarQuantity("pinned", pinnedV);
-
-//   // Add the callback
-//   polyscope::state::userCallback = callback;
-
-//   // Initial simulation setup
-//   config = std::make_shared<SimConfig>();
-//   config->inner_steps=2;
-//   config->density = 1000.0;
-//   config->thickness = 1e-3;
-//   material_config = std::make_shared<MaterialConfig>();
-//   material = std::make_shared<StableNeohookean>(material_config);
-//   object = std::make_shared<TriObject>(meshV, meshF, meshN,
-//       config, material, material_config);
-//   object->init();
-
-//   // Show the gui
-//   polyscope::show();
-
-//   return 0;
-// }
 
 int main(int argc, char **argv) {
-   return 1;
+  // Configure the argument parser
+  args::ArgumentParser parser("Mixed FEM");
+  args::Positional<std::string> inFile(parser, "mesh", "input mesh");
+
+  // Parse args
+  try {
+    parser.ParseCLI(argc, argv);
+  } catch (args::Help) {
+    std::cout << parser;
+    return 0;
+  } catch (args::ParseError e) {
+    std::cerr << e.what() << std::endl;
+
+    std::cerr << parser;
+    return 1;
+  }
+
+  // Options
+  polyscope::options::autocenterStructures = true;
+  polyscope::view::windowWidth = 1024;
+  polyscope::view::windowHeight = 1024;
+
+  // Initialize polyscope
+  polyscope::init();
+
+  std::string filename = args::get(inFile);
+  std::cout << "loading: " << filename << std::endl;
+  app.init(filename);
+
+  // Add the callback
+  polyscope::state::userCallback = std::bind(&PolyscopeApp::callback, app);
+
+  // Show the gui
+  polyscope::show();
+
+  return 0;
 }

@@ -105,7 +105,6 @@ void MixedSQPROptimizer::build_lhs() {
   double h2 = (wdt_*wdt_*config_->h * config_->h);
 
   data_.timer.start("Hinv");
-  // VectorXd diff(nelem_);
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
     const Vector6d& si = s_.segment(6*i,6);
@@ -113,33 +112,11 @@ void MixedSQPROptimizer::build_lhs() {
     Hinv_[i] = H.inverse();
     g_[i] = h2 * object_->material_->gradient(si);
     H_[i] = (1.0 / vols_[i]) * (Syminv * H * Syminv);
-    // H_[i] = (1.0 / vols_[i]) *(Sym*Hinv_[i]*Sym).inverse();
-    // diff(i) = (H_[i] - (vols_[i]*(Sym*Hinv_[i]*Sym)).inverse()).norm() ;
   }
   data_.timer.stop("Hinv");
-  // std::cout << "diff mean: " << diff.array().mean() << " max: " << diff.lpNorm<Infinity>() << std::endl;
-
-  //   for (int i = 0; i < nelem_; ++i) {
-  //     if (diff(i)> 1e2) {
-  //       std::cout << "!! i: " << i  << std::endl;
-  //       std::cout << std::endl << H_[i] << std::endl;
-  //       std::cout << std::endl << (vols_[i]*(Sym*Hinv_[i]*Sym)).inverse() << std::endl;
-  //       std::cout << "EVALS: " << std::setprecision(10) << H_[i].eigenvalues().real() << std::endl;
-  //     }
-  //   }
-  
-  // std::cout << "HX: " << std::endl;
-  // SparseMatrixd Hs;
-  // SparseMatrix<double, RowMajor> Gx = Gx_;
-  // init_block_diagonal<6,6>(Hs, nelem_);
-  // update_block_diagonal<6,6>(H_, Hs);
-  // SparseMatrix<double, RowMajor> lhs0 =  Gx * Hs * Gx.transpose();
-  // SparseMatrixd G = Gx * Hs * Gx.transpose();
-  // saveMarket(M_, "M_.mkt");
-  // saveMarket(Hs, "Hs.mkt");
   
   data_.timer.start("Local H");
-  std::vector<Matrix12d> Hloc(nelem_); 
+  std::vector<MatrixXd> Hloc(nelem_); 
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
     Hloc[i] = (Jloc_[i].transpose() * (dS_[i] * H_[i]
@@ -285,6 +262,7 @@ void MixedSQPROptimizer::reset() {
   double mass = 0;
 
   //std::cout<<"HERE 1 \n";
+  // TODO wrong? should be F_ not T_ for tetrahedra
   sim::rigid_inertia_com(I, c, mass, object_->V0_, object_->T_, 1.0);
 
   for(unsigned int ii=0; ii<object_->V0_.rows(); ii++ ) {

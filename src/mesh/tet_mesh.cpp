@@ -73,15 +73,14 @@ void TetrahedralMesh::jacobian(SparseMatrixdRowMajor& J, const VectorXd& vols,
   J.setFromTriplets(trips.begin(),trips.end());
 }
 
-void TetrahedralMesh::jacobian(std::vector<Matrix<double,9,12>>& J) {
+void TetrahedralMesh::jacobian(std::vector<MatrixXd>& J) {
   J.resize(T_.rows());
-  std::cout << "T rows : " << T_.rows() << std::endl;
 
   MatrixXd dphidX;
   sim::linear_tetmesh_dphi_dX(dphidX, V0_, T_);
 
+  #pragma omp parallel for
   for (int i = 0; i < T_.rows(); ++i) { 
-
     // Local block
     Matrix<double,9,12> B;
     Matrix<double, 4,3> dX = sim::unflatten<4,3>(dphidX.row(i));

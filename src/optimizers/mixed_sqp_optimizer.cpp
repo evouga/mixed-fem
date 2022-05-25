@@ -363,7 +363,7 @@ void MixedSQPOptimizer::reset() {
       free_map[i] = curr++;
     }
   }
-  assembler_ = std::make_shared<Assembler<double,4,3>>(object_->T_, free_map);
+  assembler_ = std::make_shared<Assembler<double,3>>(object_->T_, free_map);
 
   // Initializing gradients and LHS
   update_system();

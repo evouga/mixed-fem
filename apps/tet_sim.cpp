@@ -1,4 +1,3 @@
-#include "polyscope/polyscope.h"
 #include "polyscope_app.h"
 
 // libigl
@@ -7,14 +6,6 @@
 #include <igl/AABB.h>
 #include <igl/in_element.h>
 #include <igl/barycentric_coordinates.h>
-
-// Polyscope
-#include "polyscope/messages.h"
-#include "polyscope/point_cloud.h"
-#include "polyscope/volume_mesh.h"
-#include "polyscope/surface_mesh.h"
-#include "args/args.hxx"
-#include "json/json.hpp"
 
 #include "boundary_conditions.h"
 #include <sstream>
