@@ -88,3 +88,8 @@ void TetrahedralMesh::jacobian(std::vector<MatrixXd>& J) {
     J[i] = B;
   }
 }
+
+bool TetrahedralMesh::update_jacobian(std::vector<Eigen::MatrixXd>& J) {
+  return false;
+}
+

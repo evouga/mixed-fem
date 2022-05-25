@@ -51,6 +51,11 @@ namespace mfem {
       std::cerr << "jacobian not implemented!" << std::endl;
     }
 
+    // Updates per-element jacobian
+    // J  - per-element jacobian matrix
+    // returns boolean indiciating whether jacobian was updated
+    virtual bool update_jacobian(std::vector<Eigen::MatrixXd>& J) = 0;
+
     Eigen::MatrixXd vertices() {
       return V_;
     }

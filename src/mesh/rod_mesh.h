@@ -29,6 +29,11 @@ namespace mfem {
     void jacobian(Eigen::SparseMatrixdRowMajor& J, const Eigen::VectorXd& vols,
         bool weighted) override;
 
+    bool update_jacobian(std::vector<Eigen::MatrixXd>& J) override {
+      std::cout << "rod jacobian update not implemented!" << std::endl;
+      return false;
+    }
+
     std::vector<Eigen::Matrix3d> NN_; // N * N^T (normal outer product)
     std::vector<Eigen::Matrix3d> BN_; // BN * BN^T (binormal outer product)
   };

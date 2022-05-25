@@ -113,3 +113,49 @@ void TriMesh::jacobian(std::vector<MatrixXd>& J) {
     J[i] = B;
   }
 }
+
+bool TriMesh::update_jacobian(std::vector<Eigen::MatrixXd>& J) {
+  J.resize(T_.rows());
+
+  auto cross_product_mat = [](const RowVector3d& v)-> Matrix3d {
+    Matrix3d mat;
+    mat <<     0, -v(2),  v(1),
+            v(2),     0, -v(0),
+           -v(1),  v(0),     0;
+    return mat;
+  };
+
+  // Compute per-face normals
+  #pragma omp parallel for
+  for(int i = 0; i < T_.rows(); ++i) {
+    Matrix<double, 9, 3> N;
+    N << N_(i,0), 0, 0,
+         0, N_(i,0), 0,
+         0, 0, N_(i,0),
+         N_(i,1), 0, 0,
+         0, N_(i,1), 0,
+         0, 0, N_(i,1),
+         N_(i,2), 0, 0,
+         0, N_(i,2), 0,
+         0, 0, N_(i,2);
+    const RowVector3d v1 = V_.row(T_(i,1)) - V_.row(T_(i,0));
+    const RowVector3d v2 = V_.row(T_(i,2)) - V_.row(T_(i,0));
+    RowVector3d n = v1.cross(v2);
+    double l = n.norm();
+    n /= l;
+    Matrix3d I = Matrix3d::Identity();
+
+    Matrix3d dx1 = cross_product_mat(v1);
+    Matrix3d dx2 = cross_product_mat(v2);
+
+    Matrix<double, 3, 9> dn_dq;
+    dn_dq.setZero();
+    dn_dq.block<3,3>(0,0) = dx2 - dx1;
+    dn_dq.block<3,3>(0,3) = -dx2;
+    dn_dq.block<3,3>(0,6) = dx1;
+    J[i] = N * (Matrix3d::Identity() - n.transpose()*n) * dn_dq / l;
+  }
+
+  return true;
+}
+

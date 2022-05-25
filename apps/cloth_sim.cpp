@@ -28,12 +28,12 @@ struct PolyscopeTriApp : public PolyscopeApp {
     meshV.array() /= meshV.maxCoeff();
 
     igl::per_face_normals(meshV,meshF,meshN);
+    meshN = -meshN;
 
     // Register the mesh with Polyscope
     polyscope::options::autocenterStructures = false;
     polyscope::registerSurfaceMesh("input mesh", meshV, meshF);
 
-    meshN = -meshN;
     polyscope::getSurfaceMesh("input mesh")->
     addFaceVectorQuantity("normals", meshN);
 

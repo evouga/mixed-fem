@@ -35,13 +35,6 @@ namespace mfem {
 
       optimizer->step();
       meshV = mesh->vertices();
-
-      // if skin enabled too
-      if (skinV.rows() > 0) {
-        skinV.col(0) = lbs * meshV.col(0);
-        skinV.col(1) = lbs * meshV.col(1);
-        skinV.col(2) = lbs * meshV.col(2);
-      }
     }
 
     virtual void callback() {
@@ -175,10 +168,8 @@ namespace mfem {
         ++step;
         srf->updateVertexPositions(meshV);
 
-        polyscope::SurfaceMesh* skin_mesh;
-        if ((skin_mesh = polyscope::getSurfaceMesh("skin mesh")) &&
-            skin_mesh->isEnabled()) {
-          skin_mesh->updateVertexPositions(skinV);
+        if (srf_skin && srf_skin->isEnabled()) {
+          srf_skin->updateVertexPositions(skinV);
         }
 
         if (export_obj) {
@@ -258,6 +249,7 @@ namespace mfem {
     }
 
     polyscope::SurfaceMesh* srf = nullptr;
+    polyscope::SurfaceMesh* srf_skin = nullptr;
 
     // The mesh, Eigen representation
     Eigen::MatrixXd meshV, meshV0, skinV, initMeshV;

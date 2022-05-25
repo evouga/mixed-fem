@@ -424,7 +424,6 @@ bool MixedOptimizer::linesearch(Eigen::VectorXd& x, const Eigen::VectorXd& dx,
   //     grad, alpha, config_->ls_iters, 0.1, 0.5, E_prev_);
   SolverExitStatus status = linesearch_backtracking_cubic(f, g, value,
       grad_, alpha, config_->ls_iters, 1e-4, 0.5, E_prev_);    
-  std::cout << "ALPHA: " << alpha << std::endl;
   bool done = (status == MAX_ITERATIONS_REACHED);
   x = f.segment(0, x.size());
   s = f.segment(x.size(), s.size());

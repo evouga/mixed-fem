@@ -18,6 +18,17 @@ using namespace mfem;
 
 struct PolyscopeTetApp : public PolyscopeApp {
   
+  virtual void simulation_step() override {
+    PolyscopeApp::simulation_step();
+
+    // if skin enabled too
+    if (skinV.rows() > 0) {
+      skinV.col(0) = lbs * meshV.col(0);
+      skinV.col(1) = lbs * meshV.col(1);
+      skinV.col(2) = lbs * meshV.col(2);
+    }
+  }
+
   void init_skin(const std::string& filename) {
     igl::readOBJ(filename, skinV, skinF);
     double fac = skinV.maxCoeff();
@@ -47,6 +58,8 @@ struct PolyscopeTetApp : public PolyscopeApp {
     }
     lbs.resize(skinV.rows(),meshV.rows());
     lbs.setFromTriplets(trips.begin(),trips.end());
+    srf_skin = polyscope::registerSurfaceMesh("skin mesh",skinV,skinF);
+    srf_skin->setEnabled(false);
   }
 
 
@@ -170,9 +183,7 @@ int main(int argc, char **argv) {
     std::cout << "Reading in skinning mesh: " << hires_fn << std::endl;
     app.init_skin(hires_fn);
   }
-  polyscope::SurfaceMesh* skin_mesh;
-  skin_mesh = polyscope::registerSurfaceMesh("skin mesh",app.skinV,app.skinF);
-  skin_mesh->setEnabled(false);
+
 
   // Add the callback
   polyscope::state::userCallback = std::bind(&PolyscopeApp::callback, app);

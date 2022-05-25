@@ -13,22 +13,23 @@ namespace mfem {
         const Eigen::MatrixXd& N,
         std::shared_ptr<MaterialModel> material,
         std::shared_ptr<MaterialConfig> material_config)
-        : Mesh(V,T,material,material_config) {
+        : Mesh(V,T,material,material_config), N_(N) {
       NN_.resize(T_.rows());
       for (int i = 0; i < T_.rows(); ++i) {
         NN_[i] = N.row(i).transpose() * N.row(i);
       }
     }
 
-    void volumes(Eigen::VectorXd& vol) override;
-    void mass_matrix(Eigen::SparseMatrixdRowMajor& M,
+    virtual void volumes(Eigen::VectorXd& vol) override;
+    virtual void mass_matrix(Eigen::SparseMatrixdRowMajor& M,
         const Eigen::VectorXd& vols) override;
-    void jacobian(Eigen::SparseMatrixdRowMajor& J, const Eigen::VectorXd& vols,
-        bool weighted) override;
-    void jacobian(std::vector<Eigen::MatrixXd>& J) override;
-
+    virtual void jacobian(Eigen::SparseMatrixdRowMajor& J,
+        const Eigen::VectorXd& vols, bool weighted) override;
+    virtual void jacobian(std::vector<Eigen::MatrixXd>& J) override;
+    virtual bool update_jacobian(std::vector<Eigen::MatrixXd>& J) override;
 
   private:
+    Eigen::MatrixXd N_;
     std::vector<Eigen::Matrix3d> NN_; // N * N^T (normal outer product)
   };
 }
