@@ -64,6 +64,7 @@ namespace mfem {
     bool regularizer = false;
     bool local_global = true;
     bool show_timing = true;
+    bool show_data = true;
     bool save_substeps = false;
     int outer_steps = 5;
     int inner_steps = 7;

@@ -73,7 +73,9 @@ void MixedSQPROptimizer::step() {
   } while (i < config_->outer_steps && grad_norm > config_->newton_tol
     && (res > 1e-12));
 
-  data_.print_data(config_->show_timing);
+  if (config_->show_data) {
+    data_.print_data(config_->show_timing);
+  }
 
   update_configuration();
 }

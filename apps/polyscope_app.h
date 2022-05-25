@@ -3,6 +3,7 @@
 #include <igl/IO>
 
 // Polyscope
+#include "polyscope/polyscope.h"
 #include "polyscope/messages.h"
 #include "polyscope/point_cloud.h"
 #include "polyscope/volume_mesh.h"
@@ -18,7 +19,19 @@ namespace mfem {
 
   struct PolyscopeApp {
     
-    void simulation_step() {
+    // Helper to display a little (?) mark which shows a tooltip when hovered.
+    static void HelpMarker(const char* desc) {
+      ImGui::TextDisabled("(?)");
+      if (ImGui::IsItemHovered()) {
+        ImGui::BeginTooltip();
+        ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
+        ImGui::TextUnformatted(desc);
+        ImGui::PopTextWrapPos();
+        ImGui::EndTooltip();
+      }
+    }
+
+    virtual void simulation_step() {
 
       optimizer->step();
       meshV = mesh->vertices();
@@ -31,7 +44,7 @@ namespace mfem {
       }
     }
 
-    void callback() {
+    virtual void callback() {
 
       static bool export_obj = false;
       static bool export_mesh = false;
@@ -150,6 +163,8 @@ namespace mfem {
         ImGui::TreePop();
       }
 
+      ImGui::Checkbox("Output optimizer data",&config->show_data);
+      ImGui::SameLine();
       ImGui::Checkbox("Output timing info",&config->show_timing);
 
       ImGui::Checkbox("simulate",&simulating);
