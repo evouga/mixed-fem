@@ -27,9 +27,11 @@ namespace mfem {
         const Eigen::VectorXd& vols, bool weighted) override;
     virtual void jacobian(std::vector<Eigen::MatrixXd>& J) override;
     virtual bool update_jacobian(std::vector<Eigen::MatrixXd>& J) override;
+    virtual bool update_jacobian(Eigen::SparseMatrixdRowMajor& J) override;
+
+    Eigen::MatrixXd N_;
 
   private:
-    Eigen::MatrixXd N_;
     std::vector<Eigen::Matrix3d> NN_; // N * N^T (normal outer product)
   };
 }

@@ -138,6 +138,7 @@ bool TriMesh::update_jacobian(std::vector<Eigen::MatrixXd>& J) {
          N_(i,2), 0, 0,
          0, N_(i,2), 0,
          0, 0, N_(i,2);
+    // TODO update V_
     const RowVector3d v1 = V_.row(T_(i,1)) - V_.row(T_(i,0));
     const RowVector3d v2 = V_.row(T_(i,2)) - V_.row(T_(i,0));
     RowVector3d n = v1.cross(v2);
@@ -156,6 +157,33 @@ bool TriMesh::update_jacobian(std::vector<Eigen::MatrixXd>& J) {
     J[i] = N * (Matrix3d::Identity() - n.transpose()*n) * dn_dq / l;
   }
 
+  return true;
+}
+
+bool TriMesh::update_jacobian(Eigen::SparseMatrixdRowMajor& J) { 
+  std::vector<Eigen::MatrixXd> Jloc;
+  update_jacobian(Jloc);
+
+  std::vector<Triplet<double>> trips;
+  for (int i = 0; i < T_.rows(); ++i) { 
+    // Assembly for the i-th lagrange multiplier matrix which
+    // is associated with 3 vertices (for tetrahedra)
+    for (int j = 0; j < 9; ++j) {
+
+      // k-th vertex of the tetrahedra
+      for (int k = 0; k < 3; ++k) {
+        int vid = T_(i,k); // vertex index
+
+        // x,y,z index for the k-th vertex
+        for (int l = 0; l < 3; ++l) {
+          double val = Jloc[i](j,3*k+l);
+          trips.push_back(Triplet<double>(9*i+j, 3*vid+l, val));
+        }
+      }
+    }
+  }
+  J.resize(9*T_.rows(), V_.size());
+  J.setFromTriplets(trips.begin(),trips.end());
   return true;
 }
 

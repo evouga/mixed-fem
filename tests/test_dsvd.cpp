@@ -4,6 +4,7 @@
 #include "svd/newton_procrustes.h"
 using namespace Test;
 
+/*
 TEST_CASE("dsvd - dS/dF") {
 
   Matrix3d F;
@@ -68,7 +69,7 @@ TEST_CASE("dsvd - dS/dF") {
   std::cout << "fgrad: \n" << fgrad << std::endl;
   std::cout << "grad: \n" << Js << std::endl;
   CHECK(compare_jacobian(Js, fgrad));
-}
+}*/
 
 TEST_CASE("dsvd - dR/dF") {
 
@@ -208,7 +209,7 @@ TEST_CASE("dRdF") {
   Eigen::Matrix<double, 9,9> dRdF_fd;
   Eigen::Matrix<double, 3,3>  tmpR0, tmpR1;
   Eigen::Matrix<double, 9,9> dRdF; 
-  double alpha = 1e-6;
+  double alpha = 1e-5;
 
   Eigen::Matrix3d R0 = Eigen::Matrix3d::Identity();
   
@@ -227,7 +228,7 @@ TEST_CASE("dRdF") {
 
   }
   
-  newton_procrustes(R0, S, F, true, dRdF);
+  newton_procrustes(R0, S, F, true, dRdF, 1e-8, 200);
 
   //error 
   double error = (dRdF_fd - dRdF).norm();

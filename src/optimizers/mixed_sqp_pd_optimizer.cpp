@@ -69,6 +69,10 @@ void MixedSQPROptimizer::step() {
     data_.add("primal ||gx||", gx.norm());
     data_.add("primal ||gs||", gs.norm());
 
+    VectorXd xt = P_.transpose()*x_ + b_;
+    MatrixXd V = Map<MatrixXd>(xt.data(), object_->V_.cols(), object_->V_.rows());
+    object_->V_ = V.transpose();
+
     ++i;
   } while (i < config_->outer_steps && grad_norm > config_->newton_tol
     && (res > 1e-12));
@@ -122,6 +126,14 @@ void MixedSQPROptimizer::build_lhs() {
     Hloc[i] = (Jloc_[i].transpose() * (dS_[i] * H_[i]
         * dS_[i].transpose()) * Jloc_[i]) * (vols_[i] * vols_[i]);
   }
+
+  std::vector<MatrixXd> updateJ;
+  object_->update_jacobian(updateJ);
+  #pragma omp parallel for
+  for (int i = 0; i < nelem_; ++i) {
+    Hloc[i] += (updateJ[i].transpose() * (dS_[i] * H_[i]
+        * dS_[i].transpose()) * updateJ[i]) * (vols_[i] * vols_[i]);
+  }
   data_.timer.stop("Local H");
   // saveMarket(G, "GHG.mkt");
   //saveMarket(assembler_->A, "lhs2.mkt");
@@ -172,6 +184,19 @@ void MixedSQPROptimizer::build_rhs() {
   rhs_ = -PJ_ * tmp - PM_*(wx_*xt + wx0_*x0_ + wx1_*x1_ + wx2_*x2_ - h2*f_ext_);
   data_.timer.stop("RHS");
 
+  SparseMatrixdRowMajor J;
+  object_->update_jacobian(J);
+  SparseMatrixdRowMajor A;
+  A.resize(nelem_*9, nelem_*9);
+  std::vector<Triplet<double>> trips;
+  for (int i = 0; i < nelem_; ++i) {
+    for (int j = 0; j < 9; ++j) {
+      trips.push_back(Triplet<double>(9*i+j, 9*i+j, vols_[i]));
+    }
+  }
+  A.setFromTriplets(trips.begin(),trips.end());
+  rhs_ -= P_ * (J.transpose() * A * tmp);
+
 
   grad_.resize(x_.size() + 6*nelem_);
   #pragma omp parallel for
@@ -180,6 +205,7 @@ void MixedSQPROptimizer::build_rhs() {
     grad_.segment<6>(x_.size() + 6*i) = vols_[i] * (g_[i] + Sym*la_.segment<6>(6*i));
   }
   grad_.segment(0,x_.size()) = PM_*(wx_*xt + wx0_*x0_ + wx1_*x1_ + wx2_*x2_ - h2*f_ext_) - PJ_ * tmp;
+  grad_.segment(0,x_.size())  -= P_ * (J.transpose() * A * tmp);
 }
 
 void MixedSQPROptimizer::update_system() {
@@ -214,6 +240,20 @@ void MixedSQPROptimizer::substep(int step, double& decrement) {
 
   data_.timer.start("local");
   Jdx_ = - PJ_.transpose() * dx_;
+
+  SparseMatrixdRowMajor J;
+  object_->update_jacobian(J);
+  SparseMatrixdRowMajor A;
+  A.resize(nelem_*9, nelem_*9);
+  std::vector<Triplet<double>> trips;
+  for (int i = 0; i < nelem_; ++i) {
+    for (int j = 0; j < 9; ++j) {
+      trips.push_back(Triplet<double>(9*i+j, 9*i+j, vols_[i]));
+    }
+  }
+  A.setFromTriplets(trips.begin(),trips.end());
+  Jdx_ -= A * (J * P_.transpose() * dx_);
+
   la_ = -gl_;
 
   // Update per-element R & S matrices

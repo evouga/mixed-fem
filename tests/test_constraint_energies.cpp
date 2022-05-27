@@ -4,32 +4,6 @@
 #include "svd/dsvd.h"
 using namespace Test;
 
-
-TEST_CASE("Jacobian - dF/dx") {
-
-
-  App<> app;
-  std::shared_ptr<MixedALMOptimizer> obj = app.sim;
-  int n = obj->J_.cols();
-  MatrixXd Jk = obj->J_.block(0,0,9,n);
-
-  Vector9d vecF = Jk * (obj->P_.transpose() * obj->xt_ + obj->b_);
-  Matrix3d F = Matrix3d(vecF.data());
-  
-  // function for finite differences
-  auto E = [&](const VectorXd& x)-> VectorXd {
-    Vector9d vecF = Jk * (obj->P_.transpose() * x + obj->b_);
-    return vecF;
-  };
-
-  // Finite difference gradient
-  MatrixXd fgrad;
-  MatrixXd grad = obj->P_ * Jk.transpose();
-  VectorXd qt = obj->xt_;
-  finite_jacobian(qt, E, fgrad, SECOND);
-  CHECK(compare_jacobian(grad.transpose(), fgrad));
-}
-
 TEST_CASE("Constraint Energy Gradient - dEL/dL") {
 
   App<> app;

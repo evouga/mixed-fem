@@ -55,6 +55,7 @@ namespace mfem {
     // J  - per-element jacobian matrix
     // returns boolean indiciating whether jacobian was updated
     virtual bool update_jacobian(std::vector<Eigen::MatrixXd>& J) = 0;
+    virtual bool update_jacobian(Eigen::SparseMatrixdRowMajor& J) { return false; }
 
     Eigen::MatrixXd vertices() {
       return V_;

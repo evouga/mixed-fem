@@ -211,68 +211,39 @@ void MixedOptimizer::reset() {
 
 void MixedOptimizer::update_rotations() {
   data_.timer.start("Rot Update");
-
   dS_.resize(nelem_);
 
   VectorXd def_grad = J_*(P_.transpose()*x_+b_);
 
+  if (TriMesh* tm = dynamic_cast<TriMesh*>(object_.get())) {
+    #pragma omp parallel for 
+    for (int i = 0; i < nelem_; ++i) {
+        Matrix<double, 9, 3> N;
+        N << tm->N_(i,0), 0, 0,
+            0, tm->N_(i,0), 0,
+            0, 0, tm->N_(i,0),
+            tm->N_(i,1), 0, 0,
+            0, tm->N_(i,1), 0,
+            0, 0, tm->N_(i,1),
+            tm->N_(i,2), 0, 0,
+            0, tm->N_(i,2), 0,
+            0, 0, tm->N_(i,2);
+        const RowVector3d v1 = tm->V_.row(tm->T_(i,1)) - tm->V_.row(tm->T_(i,0));
+        const RowVector3d v2 = tm->V_.row(tm->T_(i,2)) - tm->V_.row(tm->T_(i,0));
+        RowVector3d n = v1.cross(v2);
+        double l = n.norm();
+        n /= l;
+        def_grad.segment<9>(9*i) += N*n.transpose();
+    }
+  }
   #pragma omp parallel for 
   for (int i = 0; i < nelem_; ++i) {
 
     Matrix<double, 9, 9> J;
-
-    // SVD CODE
-    //Vector3d sigma;
-    //Matrix3d U,V;
-    //svd(Map<Matrix3d>(def_grad.segment(9*i,9).data()), sigma, U, V);
-
-    //Eigen::Vector3d stemp;
-    //Matrix3d S = V * sigma.asDiagonal() * V.transpose();
-    //Vector6d stmp; stmp << S(0,0), S(1,1), S(2,2), S(1,0), S(2,0), S(2,1);
-    //S_[i] = stmp;
-    //R_[i] = U * V.transpose();
-
-    // Compute SVD derivatives
-    /*Tensor3333d dU, dV;
-    Tensor333d dS;
-    dsvd(dU, dS, dV, Map<Matrix3d>(def_grad.segment<9>(9*i).data()));
-
-    // Compute dS/dF
-    S = sigma.asDiagonal();
-    std::array<Matrix3d, 9> dS_dF;
-    for (int r = 0; r < 3; ++r) {
-      for (int c = 0; c < 3; ++c) {
-        dS_dF[3*c + r] = dV[r][c]*S*V.transpose() + V*dS[r][c].asDiagonal()*V.transpose()
-            + V*S*dV[r][c].transpose();
-      }
-    }
-
-    // Final jacobian should just be 6x9 since S is symmetric,
-    // so extract the approach entries
-    //Matrix<double, 9, 9> J;
-    for (int i = 0; i < 9; ++i) {
-      J.col(i) = Vector9d(dS_dF[i].data());
-    }*/
     
     //polar decomp code
     Eigen::Matrix<double, 9,9> dRdF;
     
-    /*Transpose_Mat.setZero();
-    Transpose_Mat(0,0) = 1.;
-    Transpose_Mat(1,3) = 1.;
-    Transpose_Mat(2,6) = 1.;
-
-    Transpose_Mat(3,1) = 1.;
-    Transpose_Mat(4,4) = 1.;
-    Transpose_Mat(5,7) = 1.;
-
-    Transpose_Mat(6,2) = 1.;
-    Transpose_Mat(7,5) = 1.;
-    Transpose_Mat(8,8) = 1.;*/
-
-    //Eigen::Matrix3d R;
-    //R_[i].setIdentity();
-
     //orthogonlity sanity check
     if((R_[i].transpose()*R_[i] - Matrix3d::Identity()).norm() > 1e-6) {
         Vector3d sigma;
@@ -284,10 +255,13 @@ void MixedOptimizer::update_rotations() {
     }
 
 
-    newton_procrustes(R_[i], Eigen::Matrix3d::Identity(), sim::unflatten<3,3>(def_grad.segment(9*i,9)), true, dRdF, 1e-6, 100);
+    newton_procrustes(R_[i], Eigen::Matrix3d::Identity(), 
+        sim::unflatten<3,3>(def_grad.segment(9*i,9)), true, dRdF, 1e-6, 100);
     
  
-    Eigen::Matrix3d Sf = R_[i].transpose()*sim::unflatten<3,3>(def_grad.segment(9*i,9));
+    Eigen::Matrix3d Sf = R_[i].transpose()
+        * sim::unflatten<3,3>(def_grad.segment(9*i,9));
+
     Sf = 0.5*(Sf+Sf.transpose());
     S_[i] << Sf(0,0), Sf(1,1), Sf(2,2), Sf(1,0), Sf(2,0), Sf(2,1);
     
@@ -295,22 +269,14 @@ void MixedOptimizer::update_rotations() {
     //R_[i] = R;
 
     //std::cout<<"HEERE \n: "<<Id<<"\n";
-    J = sim::flatten_multiply<Eigen::Matrix3d>(R_[i].transpose())*(Id - sim::flatten_multiply_right<Eigen::Matrix3d>(Sf)*dRdF);
+    J = sim::flatten_multiply<Eigen::Matrix3d>(R_[i].transpose())
+        * (Id - sim::flatten_multiply_right<Eigen::Matrix3d>(Sf)*dRdF);
     //J = sim::flatten_multiply_right<Eigen::Matrix3d>(Sf)*dRdF;
     //std::cout<<"HEERE 2\n";
     //check result
     //std::cout<<"ERROR IN UPDATE ROTATIONS ******************** "<<(J-test_J).norm()<<"\n";
     
     Matrix<double, 6, 9> Js;
-    //Matrix<double, 6, 9> test_Js;
-    /*Js.row(0) = J.row(0);
-    Js.row(1) = J.row(4);
-    Js.row(2) = J.row(8);
-    Js.row(3) = J.row(1);
-    Js.row(4) = J.row(2);
-    Js.row(5) = J.row(5);
-    dS_[i] = Js.transpose()*Sym;*/
- 
     Js.row(0) = J.row(0);
     Js.row(1) = J.row(4);
     Js.row(2) = J.row(8);
@@ -318,14 +284,6 @@ void MixedOptimizer::update_rotations() {
     Js.row(4) = 0.5*(J.row(2) + J.row(6));
     Js.row(5) = 0.5*(J.row(5) + J.row(7));
     dS_[i] = Js.transpose()*Sym;
-
-
-    //std::cout<<"test J: \n"<<test_Js<<"\n";
-    //std::cout<<"real J: \n"<<Js<<"\n";
-
-    
-
-
   }
   data_.timer.stop("Rot Update");
 }
@@ -424,6 +382,7 @@ bool MixedOptimizer::linesearch(Eigen::VectorXd& x, const Eigen::VectorXd& dx,
   //     grad, alpha, config_->ls_iters, 0.1, 0.5, E_prev_);
   SolverExitStatus status = linesearch_backtracking_cubic(f, g, value,
       grad_, alpha, config_->ls_iters, 1e-4, 0.5, E_prev_);    
+  // std::cout << "ALPHA: " << alpha << std::endl;
   bool done = (status == MAX_ITERATIONS_REACHED);
   x = f.segment(0, x.size());
   s = f.segment(x.size(), s.size());

@@ -286,6 +286,34 @@ double MixedSQPOptimizer::energy(const VectorXd& x, const VectorXd& s,
 
   VectorXd def_grad = J_*xt;
 
+  // std::cout << "def grad: \n " << def_grad << std::endl;
+
+  if (TriMesh* tm = dynamic_cast<TriMesh*>(object_.get())) {
+    // Update mesh vertices
+    MatrixXd V = Map<const MatrixXd>(xt.data(), object_->V_.cols(), object_->V_.rows());
+    tm->V_ = V.transpose();
+    #pragma omp parallel for 
+    for (int i = 0; i < nelem_; ++i) {
+        Matrix<double, 9, 3> N;
+        N << tm->N_(i,0), 0, 0,
+            0, tm->N_(i,0), 0,
+            0, 0, tm->N_(i,0),
+            tm->N_(i,1), 0, 0,
+            0, tm->N_(i,1), 0,
+            0, 0, tm->N_(i,1),
+            tm->N_(i,2), 0, 0,
+            0, tm->N_(i,2), 0,
+            0, 0, tm->N_(i,2);
+        const RowVector3d v1 = tm->V_.row(tm->T_(i,1)) - tm->V_.row(tm->T_(i,0));
+        const RowVector3d v2 = tm->V_.row(tm->T_(i,2)) - tm->V_.row(tm->T_(i,0));
+        RowVector3d n = v1.cross(v2);
+        double l = n.norm();
+        n /= l;
+        def_grad.segment<9>(9*i) += N*n.transpose();
+    }
+  }
+
+
   VectorXd e_L(nelem_);
   VectorXd e_Psi(nelem_);
   // data_.timer.stop("1");

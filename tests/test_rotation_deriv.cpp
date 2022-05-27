@@ -84,10 +84,10 @@ TEST_CASE("dsvd2") {
     }
   }
 
-  std::cout << "dhdR \n" << dhdR << std::endl;
-  std::cout << "dhdF \n" << dhdF << std::endl;
-  std::cout << "TEST: \n" << -dhdR.inverse() * dhdF << std::endl;
-  std::cout << "J:\n" << J << std::endl;
+  // std::cout << "dhdR \n" << dhdR << std::endl;
+  // std::cout << "dhdF \n" << dhdF << std::endl;
+  // std::cout << "TEST: \n" << -dhdR.inverse() * dhdF << std::endl;
+  // std::cout << "J:\n" << J << std::endl;
   //std::cout << "R*: " << U*V.transpose() << std::endl;
   //std::cout << "h(R) = S(R-F): " << S * (R*S - F) << std::endl;
 
@@ -107,5 +107,5 @@ TEST_CASE("dsvd2") {
   // VectorXd vecF = Vector9d(F.data());
   // finite_jacobian(vecF, E, fgrad, SECOND);
   // CHECK(compare_jacobian(J, fgrad));
-  std::cout << "!!!!!!!!!!!!!!" << std::endl;
+  // std::cout << "!!!!!!!!!!!!!!" << std::endl;
 }
