@@ -26,6 +26,14 @@ namespace {
 
 }
 
+TriMesh::TriMesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
+    const Eigen::MatrixXd& N,
+    std::shared_ptr<MaterialModel> material,
+    std::shared_ptr<MaterialConfig> material_config)
+    : Mesh(V,T,material,material_config), N_(N) {
+  sim::linear_tri3dmesh_dphi_dX(dphidX_, V0_, T_);
+}
+
 void TriMesh::volumes(Eigen::VectorXd& vol) {
   igl::doublearea(V0_, T_, vol);
   vol.array() *= (config_->thickness/2);
@@ -65,15 +73,12 @@ std::cerr << "WRONG use volumes dummy" << std::endl;
 void TriMesh::jacobian(SparseMatrixdRowMajor& J, const VectorXd& vols,
       bool weighted) {
 
-  MatrixXd dphidX;
-  sim::linear_tri3dmesh_dphi_dX(dphidX, V0_, T_);
-
   std::vector<Triplet<double>> trips;
   for (int i = 0; i < T_.rows(); ++i) { 
 
     // Local block
     Matrix9d B;
-    Matrix3d dX = sim::unflatten<3,3>(dphidX.row(i));
+    Matrix3d dX = sim::unflatten<3,3>(dphidX_.row(i));
     local_jacobian(B, dX);
 
     // Assembly for the i-th lagrange multiplier matrix which
@@ -101,15 +106,48 @@ void TriMesh::jacobian(SparseMatrixdRowMajor& J, const VectorXd& vols,
 void TriMesh::jacobian(std::vector<MatrixXd>& J) {
   J.resize(T_.rows());
 
-  MatrixXd dphidX;
-  sim::linear_tri3dmesh_dphi_dX(dphidX, V0_, T_);
+  auto cross_product_mat = [](const RowVector3d& v)-> Matrix3d {
+    Matrix3d mat;
+    mat <<     0, -v(2),  v(1),
+            v(2),     0, -v(0),
+           -v(1),  v(0),     0;
+    return mat;
+  };
 
   #pragma omp parallel for
   for (int i = 0; i < T_.rows(); ++i) { 
     // Local block
     Matrix9d B;
-    Matrix3d dX = sim::unflatten<3,3>(dphidX.row(i));
+    Matrix3d dX = sim::unflatten<3,3>(dphidX_.row(i));
     local_jacobian(B, dX);
+
+    //Matrix<double, 9, 3> N;
+    //N << N_(i,0), 0, 0,
+    //     0, N_(i,0), 0,
+    //     0, 0, N_(i,0),
+    //     N_(i,1), 0, 0,
+    //     0, N_(i,1), 0,
+    //     0, 0, N_(i,1),
+    //     N_(i,2), 0, 0,
+    //     0, N_(i,2), 0,
+    //     0, 0, N_(i,2);
+    //// TODO update V_
+    //const RowVector3d v1 = V_.row(T_(i,1)) - V_.row(T_(i,0));
+    //const RowVector3d v2 = V_.row(T_(i,2)) - V_.row(T_(i,0));
+    //RowVector3d n = v1.cross(v2);
+    //double l = n.norm();
+    //n /= l;
+    //Matrix3d I = Matrix3d::Identity();
+
+    //Matrix3d dx1 = cross_product_mat(v1);
+    //Matrix3d dx2 = cross_product_mat(v2);
+
+    //Matrix<double, 3, 9> dn_dq;
+    //dn_dq.setZero();
+    //dn_dq.block<3,3>(0,0) = dx2 - dx1;
+    //dn_dq.block<3,3>(0,3) = -dx2;
+    //dn_dq.block<3,3>(0,6) = dx1;
+    //J[i] = B + N * (Matrix3d::Identity() - n.transpose()*n) * dn_dq / l;
     J[i] = B;
   }
 }

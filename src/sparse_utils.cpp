@@ -165,9 +165,51 @@ void Assembler<Scalar,DIM>::update_matrix(std::vector<MatrixXx<Scalar>> blocks)
     }
 
   }
+}
 
+template <typename Scalar, int DIM>
+void Assembler<Scalar,DIM>::assemble(std::vector<Matrix<Scalar,Dynamic,1>> vecs,
+    VectorXd& a) {
+  a.resize(A.rows());
+  a.setZero();
+
+  // Iterate over M rows at a time
+  #pragma omp parallel for
+  for (size_t ii = 0; ii < row_offsets.size() - 1; ++ii) {
+    int row_beg = row_offsets[ii];
+    int row_end = row_offsets[ii+1];
+
+    // The index of the block for this row. 
+    int block_col = 0;
+
+    while (row_beg < row_end) {
+      // Get number of duplicate blocks for this offset
+      int n = multiplicity[row_beg];
+
+      // Compute Local block
+      Matrix<Scalar,DIM,1> local_vec;
+      local_vec.setZero();
+
+      for (int i = 0; i < n; ++i) {
+        int e = element_ids[row_beg + i];
+
+        // Local coordinates within element's block
+        const std::pair<int,int>& l = local_pairs[row_beg + i];
+        const std::pair<int,int>& g = global_pairs[row_beg + i];
+        if (l.first == l.second && g.first == ii)
+          local_vec += vecs[e].template segment<DIM>(DIM*l.first);
+      }
+
+      a.segment<DIM>(DIM*ii) = local_vec;
+      
+      // Move to next sequence of duplicate blocks
+      row_beg += n;
+      ++block_col;
+    }
+
+  }
 }
 
 // Explicit template instantiation
-template class Assembler<double, 3>;
-template class Assembler<double, 2>;
+template class mfem::Assembler<double, 3>;
+template class mfem::Assembler<double, 2>;

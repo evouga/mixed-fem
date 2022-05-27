@@ -184,6 +184,24 @@ void MixedSQPROptimizer::build_rhs() {
   rhs_ = -PJ_ * tmp - PM_*(wx_*xt + wx0_*x0_ + wx1_*x1_ + wx2_*x2_ - h2*f_ext_);
   data_.timer.stop("RHS");
 
+  data_.timer.start("TMP1");
+  VectorXd tmp1 = -PJ_ * tmp;
+  data_.timer.stop("TMP1");
+
+  std::vector<VectorXd> Jtmp(nelem_);
+  data_.timer.start("TMP2");
+  #pragma omp parallel for
+  for (int i = 0; i < nelem_; ++i) {
+    Jtmp[i] = vols_[i] * Jloc_[i].transpose() * tmp.segment<9>(9*i);
+  }
+  data_.timer.stop("TMP2");
+
+  data_.timer.start("TMP3");
+  VectorXd tmp3;
+  assembler_->assemble(Jtmp,tmp3);
+  data_.timer.stop("TMP3");
+  std::cout << "DIFF : " << (tmp1+tmp3).norm() << std::endl;
+
   SparseMatrixdRowMajor J;
   object_->update_jacobian(J);
   SparseMatrixdRowMajor A;

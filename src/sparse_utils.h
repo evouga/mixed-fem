@@ -31,8 +31,13 @@ namespace mfem {
     Assembler(const Eigen::MatrixXi& E, const std::vector<int>& free_map);
 
     // Update entries of matrix using per-element blocks
-    // blocks   - |nelem| N*M x N*M blocks to update assembly matrix
+    // blocks   - |nelem| N*DIM x N*DIM blocks to update assembly matrix
     void update_matrix(std::vector<Eigen::MatrixXx<Scalar>> blocks);
+
+    // Assemble local products into vector
+    // vecs   - |nnodes|xN*M x 1
+    void assemble(std::vector<Eigen::Matrix<Scalar,Eigen::Dynamic,1>> vecs,
+        Eigen::VectorXd& a);
 
     // Element IDs, global, and local coordinates. Each of these vectors
     // is of the same size.

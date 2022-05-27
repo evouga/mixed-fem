@@ -12,13 +12,7 @@ namespace mfem {
     TriMesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
         const Eigen::MatrixXd& N,
         std::shared_ptr<MaterialModel> material,
-        std::shared_ptr<MaterialConfig> material_config)
-        : Mesh(V,T,material,material_config), N_(N) {
-      NN_.resize(T_.rows());
-      for (int i = 0; i < T_.rows(); ++i) {
-        NN_[i] = N.row(i).transpose() * N.row(i);
-      }
-    }
+        std::shared_ptr<MaterialConfig> material_config);
 
     virtual void volumes(Eigen::VectorXd& vol) override;
     virtual void mass_matrix(Eigen::SparseMatrixdRowMajor& M,
@@ -29,9 +23,13 @@ namespace mfem {
     virtual bool update_jacobian(std::vector<Eigen::MatrixXd>& J) override;
     virtual bool update_jacobian(Eigen::SparseMatrixdRowMajor& J) override;
 
+    virtual bool fixed_jacobian() override { 
+      return false;
+    }
+
     Eigen::MatrixXd N_;
 
   private:
-    std::vector<Eigen::Matrix3d> NN_; // N * N^T (normal outer product)
+    Eigen::MatrixXd dphidX_;
   };
 }
