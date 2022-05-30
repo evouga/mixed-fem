@@ -1,3 +1,4 @@
+#include "materials/material_model.h"
 #include "materials/neohookean.h"
 #include "materials/corotational.h"
 #include "materials/arap.h"

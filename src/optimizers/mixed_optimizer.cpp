@@ -9,6 +9,8 @@
 #include "pcg.h"
 // #include "linsolver/nasoq_lbl_eigen.h"
 #include "svd/svd_eigen.h"
+#include "materials/material_model.h"
+#include "mesh/mesh.h"
 
 #include <fstream>
 #include "unsupported/Eigen/SparseExtra"

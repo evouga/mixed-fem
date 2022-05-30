@@ -1,5 +1,6 @@
 #include "optimizer.h"
 #include "pinning_matrix.h"
+#include "mesh/mesh.h"
 
 using namespace mfem;
 using namespace Eigen;

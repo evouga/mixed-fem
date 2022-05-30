@@ -13,8 +13,10 @@
 
 #include "mesh/mesh.h"
 #include "materials/material_model_factory.h"
-#include "optimizers/optimizer_factory.h"
+#include "materials/material_model.h"
 
+#include "optimizers/optimizer_factory.h"
+#include "optimizers/optimizer.h"
 namespace mfem {
 
   struct PolyscopeApp {

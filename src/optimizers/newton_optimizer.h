@@ -58,7 +58,7 @@ namespace mfem {
     Eigen::SparseMatrixd PMP_;        // mass matrix
     Eigen::SparseMatrixd PM_;         // mass matrix
     Eigen::SparseMatrixd M_;          // mass matrix
-    Eigen::SparseMatrixdRowMajor J_;  // jacobian
+    Eigen::SparseMatrix<double, Eigen::RowMajor> J_;  // jacobian
     Eigen::MatrixXd dphidX_;
 
     // Solve used for preconditioner

@@ -1,5 +1,7 @@
 #include "mesh.h"
 #include "boundary_conditions.h"
+#include "materials/material_model.h"
+#include "config.h"
 
 using namespace mfem;
 using namespace Eigen;

@@ -2,12 +2,13 @@
 
 #include <EigenTypes.h>
 #include <memory>
-#include "mesh/mesh.h"
-#include "config.h"
 #include "optimizer_data.h"
 #include "boundary_conditions.h"
 
 namespace mfem {
+
+  class Mesh;
+  class SimConfig;
 
   static Eigen::Vector6d I_vec = (Eigen::Vector6d() <<
       1, 1, 1, 0, 0, 0).finished();

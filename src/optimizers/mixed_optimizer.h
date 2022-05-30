@@ -85,7 +85,6 @@ namespace mfem {
     Eigen::VectorXd b_;         // coordinates projected out
     Eigen::VectorXd vols_;      // per element volume
     Eigen::VectorXd rhs_;       // linear system right hand side
-    Eigen::SparseMatrixdRowMajor lhs_; // linear system left hand side
 
     std::vector<Eigen::Matrix3d> R_;  // Per-element rotations
     std::vector<Eigen::Vector6d> S_;    // Per-element deformation
@@ -93,10 +92,11 @@ namespace mfem {
     std::vector<Eigen::Matrix6d> Hinv_; // Elemental hessians w.r.t dS
     std::vector<Eigen::Vector6d> g_;    // Elemental gradients w.r.t dS
     std::vector<Eigen::Matrix<double,9,6>> dS_;
-
-    Eigen::SparseMatrixdRowMajor M_;     // projected mass matrix
-    Eigen::SparseMatrixdRowMajor Mfull_; // mass matrix
-    Eigen::SparseMatrixdRowMajor J_;  // jacobian
+    
+    Eigen::SparseMatrix<double, Eigen::RowMajor> lhs_; // linear system left hand side
+    Eigen::SparseMatrix<double, Eigen::RowMajor> M_;     // projected mass matrix
+    Eigen::SparseMatrix<double, Eigen::RowMajor> Mfull_; // mass matrix
+    Eigen::SparseMatrix<double, Eigen::RowMajor> J_;     // jacobian
     Eigen::SparseMatrixd W_;
     Eigen::VectorXd grad_;
 

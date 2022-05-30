@@ -1,9 +1,10 @@
-#include "materials/material_model.h"
 #include "config.h"
 #include <memory>
 #include <map>
 
 namespace mfem {
+
+  class MaterialModel;
 
   // Factory object to create material models by typename or string
   class MaterialModelFactory {

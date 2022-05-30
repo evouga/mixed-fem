@@ -4,9 +4,9 @@
 #include <string>
 #include <memory>
 
-#include "config.h"
-
 namespace mfem {
+
+  class MaterialConfig;
 
   inline void Wmat(const Eigen::Matrix3d& R, Eigen::Matrix<double,9,6>& W) {
     W <<

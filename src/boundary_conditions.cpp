@@ -1,5 +1,6 @@
 #include "boundary_conditions.h"
 #include <omp.h>
+#include "mesh/mesh.h"
 
 using namespace mfem;
 using namespace Eigen;

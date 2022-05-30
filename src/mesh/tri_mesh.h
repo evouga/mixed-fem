@@ -1,7 +1,6 @@
 #pragma once
 
 #include "mesh/mesh.h"
-#include "config.h"
 
 namespace mfem {
 

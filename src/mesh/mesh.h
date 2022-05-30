@@ -4,9 +4,6 @@
 #include <EigenTypes.h>
 #include <memory>
 
-#include "materials/material_model.h"
-#include "config.h"
-
 #if defined(SIM_USE_CHOLMOD)
 #include <Eigen/CholmodSupport>
 #endif
@@ -17,6 +14,9 @@ namespace Eigen {
 }
 
 namespace mfem {
+
+  class MaterialConfig;
+  class MaterialModel;
 
   // Class to maintain the state and perform physics updates on an object,
   // which has a particular discretization, material, and material config
@@ -69,7 +69,7 @@ namespace mfem {
     void set_fixed(int id);
 
     void set_fixed(const std::vector<int>& ids);
-    
+
     void update_free_map();
 
   public:
@@ -91,6 +91,7 @@ namespace mfem {
 }
 
 // Add discretizations
+// TODO move to factory
 #include "mesh/tet_mesh.h"
 #include "mesh/tri_mesh.h"
 #include "mesh/rod_mesh.h"

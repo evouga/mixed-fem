@@ -1,9 +1,10 @@
-#include "optimizers/optimizer.h"
 #include "config.h"
 #include <memory>
 #include <map>
 
 namespace mfem {
+
+  class Optimizer;
 
   // Factory to create optimizer by typename or string
   class OptimizerFactory {

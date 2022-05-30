@@ -41,11 +41,11 @@ namespace mfem {
     Eigen::VectorXd gl_;
 
     #if defined(SIM_USE_CHOLMOD)
-    Eigen::CholmodSupernodalLLT<Eigen::SparseMatrixdRowMajor> solver_;
+    Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<double, Eigen::RowMajor>> solver_;
     #else
-    Eigen::SimplicialLLT<Eigen::SparseMatrixdRowMajor> solver_;
+    Eigen::SimplicialLLT<Eigen::SparseMatrix<double, Eigen::RowMajor>> solver_;
     #endif
-    Eigen::SimplicialLDLT<Eigen::SparseMatrixdRowMajor> solver_arap_;
+    Eigen::SimplicialLDLT<Eigen::SparseMatrix<double, Eigen::RowMajor>> solver_arap_;
 
     Eigen::Matrix<double, 12,12> pre_affine_;
 

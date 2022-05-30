@@ -1,3 +1,4 @@
+#include "optimizers/optimizer.h"
 #include "optimizers/mixed_alm_optimizer.h"
 #include "optimizers/mixed_admm_optimizer.h"
 #include "optimizers/mixed_sqp_optimizer.h"

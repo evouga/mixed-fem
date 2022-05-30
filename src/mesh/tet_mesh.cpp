@@ -3,6 +3,7 @@
 #include "linear_tetmesh_mass_matrix.h"
 #include "linear_tet_mass_matrix.h"
 #include "linear_tetmesh_dphi_dX.h"
+#include "config.h"
 
 using namespace Eigen;
 using namespace mfem;

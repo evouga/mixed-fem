@@ -6,6 +6,8 @@
 #include "svd/svd3x3_sse.h"
 #include "linesearch.h"
 #include "pinning_matrix.h"
+#include "materials/material_model.h"
+#include "mesh/mesh.h"
 
 using namespace mfem;
 using namespace Eigen;

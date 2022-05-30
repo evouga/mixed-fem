@@ -1,5 +1,6 @@
 #include "rod_mesh.h"
 #include "svd/svd3x3_sse.h"
+#include "config.h"
 
 using namespace Eigen;
 using namespace mfem;

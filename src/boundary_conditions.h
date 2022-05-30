@@ -4,10 +4,12 @@
 #include <EigenTypes.h>
 #include <memory>
 #include "config.h"
-#include "mesh/mesh.h"
 
 namespace mfem
 {
+
+  class Mesh;
+
   template <int dim>
   class BoundaryConditions
   {

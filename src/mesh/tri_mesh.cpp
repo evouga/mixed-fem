@@ -2,6 +2,7 @@
 #include <igl/doublearea.h>
 #include "linear_tri3dmesh_dphi_dX.h"
 #include "svd/svd3x3_sse.h"
+#include "config.h"
 
 using namespace Eigen;
 using namespace mfem;

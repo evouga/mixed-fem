@@ -1,4 +1,5 @@
 #include "materials/arap.h"
+#include "config.h"
 
 using namespace Eigen;
 using namespace mfem;

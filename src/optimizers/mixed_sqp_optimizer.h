@@ -33,7 +33,7 @@ namespace Eigen {
         mat_val_ = cr.mat_val_;
         P_ = cr.P_;
         // TODO memory leak?
-        preconditioner_ = new Eigen::SimplicialLDLT<SparseMatrixdRowMajor>();
+        preconditioner_ = new Eigen::SimplicialLDLT<Eigen::SparseMatrix<double, Eigen::RowMajor>>();
         preconditioner_->compute(P_);
         rtilde_ = cr.rtilde_;
         ztilde_ = cr.ztilde_;
@@ -49,7 +49,7 @@ namespace Eigen {
          nd_ = ndofs;
          ne_ = ne;
          mat_val_ = mat_val;
-         preconditioner_ = new Eigen::SimplicialLDLT<SparseMatrixdRowMajor>();
+         preconditioner_ = new Eigen::SimplicialLDLT<Eigen::SparseMatrix<double, Eigen::RowMajor>>();
          preconditioner_->compute(P_);
        }
     
@@ -132,8 +132,8 @@ namespace Eigen {
     
     protected:
       unsigned int nd_, ne_;
-      SimplicialLDLT<SparseMatrixdRowMajor> *preconditioner_;
-      SparseMatrixdRowMajor P_;
+      SimplicialLDLT<Eigen::SparseMatrix<double, Eigen::RowMajor>> *preconditioner_;
+      Eigen::SparseMatrix<double, Eigen::RowMajor> P_;
       mutable VectorXd rtilde_;
       mutable VectorXd ztilde_;
       mutable VectorXd z_;
@@ -176,15 +176,15 @@ namespace mfem {
 
     virtual void setup_preconditioner();
 
-    Eigen::SparseMatrixdRowMajor Jw_; // integrated (weighted) jacobian
     Eigen::SparseMatrixd W_;
     Eigen::SparseMatrixd G_;
     Eigen::SparseMatrixd C_;
     Eigen::SparseMatrixd Gx_;
     Eigen::SparseMatrixd Gx0_;
     Eigen::SparseMatrixd Gs_;
-    Eigen::SparseMatrixdRowMajor PJ_; // integrated (weighted) jacobian
-    Eigen::SparseMatrixdRowMajor PM_;
+    Eigen::SparseMatrix<double, Eigen::RowMajor> PJ_; // integrated (weighted) jacobian
+    Eigen::SparseMatrix<double, Eigen::RowMajor> PM_;
+    Eigen::SparseMatrix<double, Eigen::RowMajor> Jw_; // integrated (weighted) jacobian
 
     // CG temp variables
     Eigen::VectorXd tmp_r_;
@@ -206,7 +206,7 @@ namespace mfem {
     // #else
     // Eigen::SimplicialLLT<Eigen::SparseMatrixd> solver_;
     // #endif
-    Eigen::SparseLU<Eigen::SparseMatrixdRowMajor> solver_;
+    Eigen::SparseLU<Eigen::SparseMatrix<double, Eigen::RowMajor>> solver_;
 
     Eigen::CorotatedPreconditioner<double> preconditioner_;
     //Eigen::SimplicialLDLT<Eigen::SparseMatrixd> preconditioner_;
