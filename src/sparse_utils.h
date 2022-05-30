@@ -34,11 +34,6 @@ namespace mfem {
     // blocks   - |nelem| N*DIM x N*DIM blocks to update assembly matrix
     void update_matrix(std::vector<Eigen::MatrixXx<Scalar>> blocks);
 
-    // Assemble local products into vector
-    // vecs   - |nnodes|xN*M x 1
-    void assemble(std::vector<Eigen::Matrix<Scalar,Eigen::Dynamic,1>> vecs,
-        Eigen::VectorXd& a);
-
     // Element IDs, global, and local coordinates. Each of these vectors
     // is of the same size.
     std::vector<int> element_ids;
@@ -52,6 +47,38 @@ namespace mfem {
     std::vector<int> offsets;
     Eigen::SparseMatrix<Scalar, Eigen::RowMajor> A;
 
+  };
+
+  // Class for parallel assembly of FEM vectors
+  template <typename Scalar, int DIM>
+  class VecAssembler {
+  public:
+
+    // Initialize assembler / analyze sparsity of system
+    // None of this wonderfully optimized since we only have to do it once
+    // E        - elements nelem x 4 for tetrahedra
+    // free_map - |nnodes| maps node to its position in unpinned vector
+    //            equals -1 if node is pinned
+    VecAssembler(const Eigen::MatrixXi& E,
+        const std::vector<int>& free_map);
+
+    // Assemble local products into vector
+    // vecs   - |nnodes|xN*M x 1
+    void assemble(std::vector<Eigen::Matrix<Scalar,Eigen::Dynamic,1>> vecs,
+        Eigen::VectorXd& a);
+
+    // Element IDs, global, and local coordinates. Each of these vectors
+    // is of the same size.
+    std::vector<int> element_ids;
+    std::vector<int> global_vids;
+    std::vector<int> local_vids;
+
+    int N_;        // number of points per element (block)
+    int num_nodes; // number of unique pairs / blocks in matrix
+    int size_;     // size of the assembled vector
+    std::vector<int> multiplicity; // number of pairs to sum over for a node
+    std::vector<int> row_offsets;
+    std::vector<int> offsets;
   };
 
 

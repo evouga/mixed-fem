@@ -392,7 +392,9 @@ void MixedSQPOptimizer::reset() {
     }
   }
   assembler_ = std::make_shared<Assembler<double,3>>(object_->T_, free_map);
-
+  vec_assembler_ = std::make_shared<VecAssembler<double,3>>(object_->T_,
+      free_map);
+      
   // Initializing gradients and LHS
   update_system();
   

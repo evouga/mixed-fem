@@ -172,12 +172,7 @@ void MixedSQPROptimizer::build_rhs() {
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
     const Vector6d& si = s_.segment<6>(6*i);
-
-    // W * c(x^k, s^k) + H^-1 * g_s
-    // gl_.segment<6>(6*i) = vols_[i] * H_[i] * Sym * (S_[i] - si + Hinv_[i] * g_[i]);
-    // gl_.segment<6>(6*i) = vols_[i] * H_[i] * Sym * (S_[i] - si + (
-        // (config_->h*config_->h*object_->material_->hessian(si,true)).completeOrthogonalDecomposition().solve(g_[i])));
-    gl_.segment<6>(6*i) = vols_[i] * H_[i] * Sym * (S_[i] - si) + Syminv*g_[i]; // G_s * g
+    gl_.segment<6>(6*i) = vols_[i] * H_[i] * Sym * (S_[i] - si) + Syminv*g_[i];
     tmp.segment<9>(9*i) = dS_[i]*gl_.segment<6>(6*i);
   }
 
@@ -196,9 +191,11 @@ void MixedSQPROptimizer::build_rhs() {
   }
   data_.timer.stop("TMP2");
 
+  VectorXd tmp3(tmp1.size());
+
   data_.timer.start("TMP3");
-  VectorXd tmp3;
-  assembler_->assemble(Jtmp,tmp3);
+
+  vec_assembler_->assemble(Jtmp,tmp3);
   data_.timer.stop("TMP3");
   std::cout << "DIFF : " << (tmp1+tmp3).norm() << std::endl;
 

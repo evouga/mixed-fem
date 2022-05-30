@@ -62,33 +62,22 @@ namespace mfem {
       return V_;
     }
 
-    void clear_fixed_vertices() {
-      fixed_vertices_.clear();
-      is_fixed_.setZero();
-    }
+    void clear_fixed_vertices();
 
-    void free_vertex(int id) {
-      fixed_vertices_.erase(fixed_vertices_.begin() + id);
-      is_fixed_(id) = 0;
-    }
+    void free_vertex(int id);
 
-    void set_fixed(int id) {
-      is_fixed_(id) = 1;
-      fixed_vertices_.push_back(id);
-    }
+    void set_fixed(int id);
 
-    void set_fixed(const std::vector<int>& ids) {
-      for (size_t i = 0; i < ids.size(); ++i) {
-        is_fixed_(ids[i]) = 1;
-      }
-      fixed_vertices_.insert(fixed_vertices_.end(), ids.begin(), ids.end());
-    }
+    void set_fixed(const std::vector<int>& ids);
+    
+    void update_free_map();
 
   public:
 
     std::vector<std::vector<int>> bc_groups_;
     std::vector<int> fixed_vertices_;
     Eigen::VectorXi is_fixed_;
+    Eigen::VectorXi free_map_;
     Eigen::Matrix23x<double> bbox;
 
   
