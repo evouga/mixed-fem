@@ -14,12 +14,16 @@ namespace mfem {
         : Mesh(V,T,material,material_config) {
     }
 
-    virtual void volumes(Eigen::VectorXd& vol) override;
-    virtual void mass_matrix(Eigen::SparseMatrixdRowMajor& M,
+    void volumes(Eigen::VectorXd& vol) override;
+    void mass_matrix(Eigen::SparseMatrixdRowMajor& M,
         const Eigen::VectorXd& vols) override;
-    virtual void jacobian(Eigen::SparseMatrixdRowMajor& J,
+    void jacobian(Eigen::SparseMatrixdRowMajor& J,
         const Eigen::VectorXd& vols, bool weighted) override;
-    virtual void jacobian(std::vector<Eigen::MatrixXd>& J) override;
-    virtual bool update_jacobian(std::vector<Eigen::MatrixXd>& J) override;
+    void jacobian(std::vector<Eigen::MatrixXd>& J) override;
+    bool update_jacobian(std::vector<Eigen::MatrixXd>& J) override;
+    void deformation_gradient(const Eigen::VectorXd& x,
+        Eigen::VectorXd& F) override;
+    void init_jacobian() override;
+
   };
 }

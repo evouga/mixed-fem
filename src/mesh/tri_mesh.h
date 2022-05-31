@@ -22,9 +22,10 @@ namespace mfem {
     virtual bool update_jacobian(std::vector<Eigen::MatrixXd>& J) override;
     virtual bool update_jacobian(Eigen::SparseMatrixdRowMajor& J) override;
 
-    const Eigen::SparseMatrixdRowMajor& J() {
-      return J_;
-    }
+    void deformation_gradient(const Eigen::VectorXd& x,
+        Eigen::VectorXd& F) override;
+    void update_jacobian(const Eigen::VectorXd& x) override;
+    void init_jacobian() override;
 
     virtual bool fixed_jacobian() override { 
       return false;
@@ -35,11 +36,9 @@ namespace mfem {
   private:
     Eigen::MatrixXd dphidX_;
 
-    // Weighted jacobian matrix with dirichlet BCs projected out
-    Eigen::SparseMatrixdRowMajor PJW_;
-    Eigen::SparseMatrixdRowMajor J_;
-    std::vector<Eigen::MatrixXd> Jloc_;
-
+    // Constant components of the jacobian
+    Eigen::SparseMatrixdRowMajor J0_;
+    std::vector<Eigen::MatrixXd> Jloc0_;
 
   };
 }

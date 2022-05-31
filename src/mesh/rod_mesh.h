@@ -33,6 +33,13 @@ namespace mfem {
       return false;
     }
 
+    void deformation_gradient(const Eigen::VectorXd& x,
+        Eigen::VectorXd& F) override {
+          
+      std::cout << "rod jacobian update not implemented!" << std::endl;
+    }
+
+
     std::vector<Eigen::Matrix3d> NN_; // N * N^T (normal outer product)
     std::vector<Eigen::Matrix3d> BN_; // BN * BN^T (binormal outer product)
   };

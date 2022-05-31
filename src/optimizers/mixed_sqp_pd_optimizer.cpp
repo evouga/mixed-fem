@@ -5,7 +5,6 @@
 #include "svd/dsvd.h"
 #include "svd/svd3x3_sse.h"
 #include "linesearch.h"
-#include "pinning_matrix.h"
 #include "pcg.h"
 #include "svd/newton_procrustes.h"
 #include "materials/material_model.h"
@@ -122,38 +121,53 @@ void MixedSQPROptimizer::build_lhs() {
   data_.timer.stop("Hinv");
   
   data_.timer.start("Local H");
-  std::vector<MatrixXd> Hloc(nelem_); 
-  #pragma omp parallel for
-  for (int i = 0; i < nelem_; ++i) {
-    Hloc[i] = (Jloc_[i].transpose() * (dS_[i] * H_[i]
-        * dS_[i].transpose()) * Jloc_[i]) * (vols_[i] * vols_[i]);
-  }
 
-  std::vector<MatrixXd> updateJ;
-  object_->update_jacobian(updateJ);
+  const std::vector<MatrixXd>& Jloc = object_->local_jacobians();
+  std::vector<MatrixXd> Hloc(nelem_); 
+  // #pragma omp parallel for
+  // for (int i = 0; i < nelem_; ++i) {
+  //   Hloc[i] = (Jloc_[i].transpose() * (dS_[i] * H_[i]
+  //       * dS_[i].transpose()) * Jloc_[i]) * (vols_[i] * vols_[i]);
+  // }
+
+  // std::vector<MatrixXd> updateJ;
+  // object_->update_jacobian(updateJ);
+  // // #pragma omp parallel for
+  // for (int i = 0; i < nelem_; ++i) {
+  //   Hloc[i] += (updateJ[i].transpose() * (dS_[i] * H_[i]
+  //       * dS_[i].transpose()) * updateJ[i]) * (vols_[i] * vols_[i]);
+
+  //   MatrixXd tmp1 = Jloc_[i] + updateJ[i];
+  //   MatrixXd tmp2 = Jloc[i];
+  //   double diff = (tmp1-tmp2).norm();
+  //   if (diff > 1e-12)
+  //   std::cout << " diff: " << (tmp1-tmp2).norm() << std::endl;
+
+  //   MatrixXd tmp3 = Hloc[i];
+  //   MatrixXd tmp4 = (Jloc[i].transpose() * (dS_[i] * H_[i]
+  //       * dS_[i].transpose()) * Jloc[i]) * (vols_[i] * vols_[i]);
+  //   diff = (tmp3-tmp4).norm();
+  //   if (diff > 1e-12) {
+  //     std::cout << " diffhloc: " << (tmp1-tmp2).norm() << std::endl;
+  //     std::cout << " diffhloc: " << diff << std::endl;
+  //     std::cout << "tmp1: \n" << tmp1 << std::endl;
+  //     std::cout << "tmp1: \n" << tmp2 << std::endl;
+  //     exit(1);
+  //   }
+  // }
+
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
-    Hloc[i] += (updateJ[i].transpose() * (dS_[i] * H_[i]
-        * dS_[i].transpose()) * updateJ[i]) * (vols_[i] * vols_[i]);
+    Hloc[i] = (Jloc[i].transpose() * (dS_[i] * H_[i]
+        * dS_[i].transpose()) * Jloc[i]) * (vols_[i] * vols_[i]);
   }
   data_.timer.stop("Local H");
-  // saveMarket(G, "GHG.mkt");
   //saveMarket(assembler_->A, "lhs2.mkt");
-  //saveMarket(M_, "M_.mkt");
   data_.timer.start("Update LHS");
   assembler_->update_matrix(Hloc);
   data_.timer.stop("Update LHS");
 
   lhs_ = M_ + assembler_->A;
-  // std::cout << "B\n" << lhs0 << std::endl;
-  // std::cout << "lhs0: " << lhs0.rows() << " " << lhs0.cols();
-  // std::cout << "lhs0: " << assembler_->A.rows() << " " << assembler_->A.cols();
-  // std::cout << "A:\n" << assembler_->A;
-  // saveMarket(assembler_->A, "GHG2.mkt");
-  // std::cout << "DIFF: " << (assembler_->A - lhs0).norm() << std::endl;
-  //   MatrixXd lhs(lhs_);
-  //   EigenSolver<MatrixXd> es(lhs);
-  //   std::cout << "LHS EVALS: \n" << es.eigenvalues().real() << std::endl;
   data_.timer.stop("LHS");
 
 }
@@ -178,41 +192,22 @@ void MixedSQPROptimizer::build_rhs() {
     tmp.segment<9>(9*i) = dS_[i]*gl_.segment<6>(6*i);
   }
 
-  rhs_ = -PJ_ * tmp - PM_*(wx_*xt + wx0_*x0_ + wx1_*x1_ + wx2_*x2_ - h2*f_ext_);
+  rhs_ = -object_->jacobian() * tmp - PM_*(wx_*xt + wx0_*x0_
+      + wx1_*x1_ + wx2_*x2_ - h2*f_ext_);
   data_.timer.stop("RHS");
 
-  data_.timer.start("TMP1");
-  VectorXd tmp1 = -PJ_ * tmp;
-  data_.timer.stop("TMP1");
-
-  std::vector<VectorXd> Jtmp(nelem_);
-  data_.timer.start("TMP2");
-  #pragma omp parallel for
-  for (int i = 0; i < nelem_; ++i) {
-    Jtmp[i] = vols_[i] * Jloc_[i].transpose() * tmp.segment<9>(9*i);
-  }
-  data_.timer.stop("TMP2");
-
-  VectorXd tmp3(tmp1.size());
-
-  data_.timer.start("TMP3");
-
-  vec_assembler_->assemble(Jtmp,tmp3);
-  data_.timer.stop("TMP3");
-  std::cout << "DIFF : " << (tmp1+tmp3).norm() << std::endl;
-
-  SparseMatrixdRowMajor J;
-  object_->update_jacobian(J);
-  SparseMatrixdRowMajor A;
-  A.resize(nelem_*9, nelem_*9);
-  std::vector<Triplet<double>> trips;
-  for (int i = 0; i < nelem_; ++i) {
-    for (int j = 0; j < 9; ++j) {
-      trips.push_back(Triplet<double>(9*i+j, 9*i+j, vols_[i]));
-    }
-  }
-  A.setFromTriplets(trips.begin(),trips.end());
-  rhs_ -= P_ * (J.transpose() * A * tmp);
+  // SparseMatrixdRowMajor J;
+  // object_->update_jacobian(J);
+  // SparseMatrixdRowMajor A;
+  // A.resize(nelem_*9, nelem_*9);
+  // std::vector<Triplet<double>> trips;
+  // for (int i = 0; i < nelem_; ++i) {
+  //   for (int j = 0; j < 9; ++j) {
+  //     trips.push_back(Triplet<double>(9*i+j, 9*i+j, vols_[i]));
+  //   }
+  // }
+  // A.setFromTriplets(trips.begin(),trips.end());
+  // rhs_ -= P_ * (J.transpose() * A * tmp);
 
 
   grad_.resize(x_.size() + 6*nelem_);
@@ -221,11 +216,17 @@ void MixedSQPROptimizer::build_rhs() {
     tmp.segment<9>(9*i) = dS_[i]*la_.segment<6>(6*i);
     grad_.segment<6>(x_.size() + 6*i) = vols_[i] * (g_[i] + Sym*la_.segment<6>(6*i));
   }
-  grad_.segment(0,x_.size()) = PM_*(wx_*xt + wx0_*x0_ + wx1_*x1_ + wx2_*x2_ - h2*f_ext_) - PJ_ * tmp;
-  grad_.segment(0,x_.size())  -= P_ * (J.transpose() * A * tmp);
+  grad_.segment(0,x_.size()) = PM_*(wx_*xt + wx0_*x0_ + wx1_*x1_ + wx2_*x2_
+      - h2*f_ext_) - object_->jacobian()  * tmp;
+  // grad_.segment(0,x_.size())  -= P_ * (J.transpose() * A * tmp);
 }
 
 void MixedSQPROptimizer::update_system() {
+
+  if (!object_->fixed_jacobian()) {
+    VectorXd x = P_.transpose()*x_ + b_;
+    object_->update_jacobian(x);
+  }
 
   // Compute rotations and rotation derivatives
   update_rotations();
@@ -256,21 +257,7 @@ void MixedSQPROptimizer::substep(int step, double& decrement) {
 
 
   data_.timer.start("local");
-  Jdx_ = - PJ_.transpose() * dx_;
-
-  SparseMatrixdRowMajor J;
-  object_->update_jacobian(J);
-  SparseMatrixdRowMajor A;
-  A.resize(nelem_*9, nelem_*9);
-  std::vector<Triplet<double>> trips;
-  for (int i = 0; i < nelem_; ++i) {
-    for (int j = 0; j < 9; ++j) {
-      trips.push_back(Triplet<double>(9*i+j, 9*i+j, vols_[i]));
-    }
-  }
-  A.setFromTriplets(trips.begin(),trips.end());
-  Jdx_ -= A * (J * P_.transpose() * dx_);
-
+  Jdx_ = -object_->jacobian().transpose() * dx_;
   la_ = -gl_;
 
   // Update per-element R & S matrices
@@ -307,7 +294,6 @@ void MixedSQPROptimizer::reset() {
   double h2 = wdt_*wdt_*config_->h * config_->h;
   SparseMatrixdRowMajor L = PJ_ * A * PJ_.transpose();
   SparseMatrixdRowMajor lhs = M_ + h2*L;
-  solver_arap_.compute(lhs);
 
   //build up reduced space
   T0_.resize(3*object_->V0_.rows(), 12);

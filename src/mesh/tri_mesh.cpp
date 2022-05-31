@@ -42,10 +42,8 @@ void TriMesh::volumes(Eigen::VectorXd& vol) {
 
 void TriMesh::mass_matrix(Eigen::SparseMatrixdRowMajor& M,
     const VectorXd& vols) {
-std::cerr << "WRONG use volumes dummy" << std::endl;
+std::cerr << "use volumes dummy" << std::endl;
   std::vector<Triplet<double>> trips;
-  VectorXd dblA;
-  igl::doublearea(V0_, T_, dblA);
 
   // 1. Mass matrix terms
   for (int i = 0; i < T_.rows(); ++i) {
@@ -53,11 +51,11 @@ std::cerr << "WRONG use volumes dummy" << std::endl;
       int id1 = T_(i,j);
       for (int k = 0; k < 3; ++k) {
         int id2 = T_(i,k);
-        double val = dblA(i);
+        double val = vols(i);
         if (j == k)
-          val /= 12;
+          val /= 6;
         else
-          val /= 24;
+          val /= 12;
         trips.push_back(Triplet<double>(3*id1+0,3*id2,val));
         trips.push_back(Triplet<double>(3*id1+1,3*id2+1,val));
         trips.push_back(Triplet<double>(3*id1+2,3*id2+2,val));
@@ -67,9 +65,43 @@ std::cerr << "WRONG use volumes dummy" << std::endl;
   M.resize(V_.size(),V_.size());
   M.setFromTriplets(trips.begin(),trips.end());
 
-  // note: assuming uniform density and thickness
-  M = M * config_->density * config_->thickness; 
+  // note: assuming uniform density 
+  M = M * config_->density ; 
 }
+
+void TriMesh::init_jacobian() {
+  Jloc_.resize(T_.rows());
+
+  std::vector<Triplet<double>> trips;
+  for (int i = 0; i < T_.rows(); ++i) { 
+
+    // Local block
+    Matrix9d B;
+    Matrix3d dX = sim::unflatten<3,3>(dphidX_.row(i));
+    local_jacobian(B, dX);
+
+    Jloc_[i] = B;
+
+    for (int j = 0; j < 9; ++j) {
+
+      // k-th vertex of the tetrahedra
+      for (int k = 0; k < 3; ++k) {
+        int vid = T_(i,k); // vertex index
+
+        // x,y,z index for the k-th vertex
+        for (int l = 0; l < 3; ++l) {
+          double val = B(j,3*k+l);
+          trips.push_back(Triplet<double>(9*i+j, 3*vid+l, val));
+        }
+      }
+    }
+  }
+  J_.resize(9*T_.rows(), V_.size());
+  J_.setFromTriplets(trips.begin(),trips.end());  
+  J0_ = J_;
+  Jloc0_ = Jloc_;
+}
+
 
 void TriMesh::jacobian(SparseMatrixdRowMajor& J, const VectorXd& vols,
       bool weighted) {
@@ -226,3 +258,90 @@ bool TriMesh::update_jacobian(Eigen::SparseMatrixdRowMajor& J) {
   return true;
 }
 
+void TriMesh::deformation_gradient(const VectorXd& x, VectorXd& F) {
+  assert(x.size() == J_.cols());
+  F = J0_ * x;
+
+  #pragma omp parallel for 
+  for (int i = 0; i < T_.rows(); ++i) {
+      Matrix<double, 9, 3> N;
+      N << N_(i,0), 0, 0,
+           0, N_(i,0), 0,
+           0, 0, N_(i,0),
+           N_(i,1), 0, 0,
+           0, N_(i,1), 0,
+           0, 0, N_(i,1),
+           N_(i,2), 0, 0,
+           0, N_(i,2), 0,
+           0, 0, N_(i,2);
+      Vector3d v1 = x.segment<3>(3*T_(i,1)) - x.segment<3>(3*T_(i,0));
+      Vector3d v2 = x.segment<3>(3*T_(i,2)) - x.segment<3>(3*T_(i,0));
+      Vector3d n = v1.cross(v2);
+      n.normalize();
+      F.segment<9>(9*i) += N*n;
+  }
+}
+
+void TriMesh::update_jacobian(const VectorXd& x) {
+  assert(x.size() == J_.cols());
+
+  Jloc_.resize(T_.rows());
+
+  auto cross_product_mat = [](const RowVector3d& v)-> Matrix3d {
+    Matrix3d mat;
+    mat <<     0, -v(2),  v(1),
+            v(2),     0, -v(0),
+           -v(1),  v(0),     0;
+    return mat;
+  };
+
+  std::vector<Triplet<double>> trips;
+
+  // #pragma omp parallel for
+  for(int i = 0; i < T_.rows(); ++i) {
+    Matrix<double, 9, 3> N;
+    N << N_(i,0), 0, 0,
+         0, N_(i,0), 0,
+         0, 0, N_(i,0),
+         N_(i,1), 0, 0,
+         0, N_(i,1), 0,
+         0, 0, N_(i,1),
+         N_(i,2), 0, 0,
+         0, N_(i,2), 0,
+         0, 0, N_(i,2);
+    Vector3d v1 = x.segment<3>(3*T_(i,1)) - x.segment<3>(3*T_(i,0));
+    Vector3d v2 = x.segment<3>(3*T_(i,2)) - x.segment<3>(3*T_(i,0));
+    Vector3d n = v1.cross(v2);
+    double l = n.norm();
+    n /= l;
+
+    Matrix3d dx1 = cross_product_mat(v1);
+    Matrix3d dx2 = cross_product_mat(v2);
+
+    Matrix<double, 3, 9> dn_dq;
+    dn_dq.setZero();
+    dn_dq.block<3,3>(0,0) = dx2 - dx1;
+    dn_dq.block<3,3>(0,3) = -dx2;
+    dn_dq.block<3,3>(0,6) = dx1;
+    Jloc_[i] = Jloc0_[i]
+        + N * (Matrix3d::Identity() - n*n.transpose()) * dn_dq / l;
+
+    
+    for (int j = 0; j < 9; ++j) {
+
+      // k-th vertex of the tetrahedra
+      for (int k = 0; k < 3; ++k) {
+        int vid = T_(i,k); // vertex index
+
+        // x,y,z index for the k-th vertex
+        for (int l = 0; l < 3; ++l) {
+          double val = Jloc_[i](j,3*k+l);
+          trips.push_back(Triplet<double>(9*i+j, 3*vid+l, val));
+        }
+      }
+    }     
+  }
+  J_.resize(9*T_.rows(), V_.size());
+  J_.setFromTriplets(trips.begin(),trips.end());
+  PJW_ = P_ * J_.transpose() * W_;
+}

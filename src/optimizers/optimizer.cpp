@@ -18,4 +18,5 @@ void Optimizer::reset() {
   BCs_.init_script(object_);
   P_ = pinning_matrix(object_->V_, object_->T_, object_->is_fixed_, false);
   object_->update_free_map();
+  object_->init();
 }

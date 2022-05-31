@@ -94,3 +94,42 @@ bool TetrahedralMesh::update_jacobian(std::vector<Eigen::MatrixXd>& J) {
   return false;
 }
 
+
+void TetrahedralMesh::init_jacobian() {
+  Jloc_.resize(T_.rows());
+
+  MatrixXd dphidX;
+  sim::linear_tetmesh_dphi_dX(dphidX, V0_, T_);
+  std::vector<Triplet<double>> trips;
+
+  // #pragma omp parallel for
+  for (int i = 0; i < T_.rows(); ++i) { 
+    // Local block
+    Matrix<double,9,12> B;
+    Matrix<double, 4,3> dX = sim::unflatten<4,3>(dphidX.row(i));
+    local_jacobian(B, dX);
+    Jloc_[i] = B;
+
+    // Inserting triplets
+    for (int j = 0; j < 9; ++j) {
+
+      // k-th vertex of the tetrahedra
+      for (int k = 0; k < 4; ++k) {
+        int vid = T_(i,k); // vertex index
+
+        // x,y,z index for the k-th vertex
+        for (int l = 0; l < 3; ++l) {
+          double val = B(j,3*k+l);
+          trips.push_back(Triplet<double>(9*i+j, 3*vid+l, val));
+        }
+      }
+    }
+  }
+  J_.resize(9*T_.rows(), V_.size());
+  J_.setFromTriplets(trips.begin(),trips.end());
+}
+
+void TetrahedralMesh::deformation_gradient(const VectorXd& x, VectorXd& F) {
+  assert(x.size() == J_.cols());
+  F = J_ * x;
+}

@@ -45,7 +45,6 @@ namespace mfem {
     #else
     Eigen::SimplicialLLT<Eigen::SparseMatrix<double, Eigen::RowMajor>> solver_;
     #endif
-    Eigen::SimplicialLDLT<Eigen::SparseMatrix<double, Eigen::RowMajor>> solver_arap_;
 
     Eigen::Matrix<double, 12,12> pre_affine_;
 

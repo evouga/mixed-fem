@@ -27,6 +27,8 @@ namespace mfem {
         std::shared_ptr<MaterialModel> material,
         std::shared_ptr<MaterialConfig> material_config);
     
+    virtual void init();
+
     // Compute per-element volumes. Size of "vol" is reset
     // vol - nelem x 1 per-element volumes
     virtual void volumes(Eigen::VectorXd& vol) = 0;
@@ -58,6 +60,23 @@ namespace mfem {
     virtual bool update_jacobian(Eigen::SparseMatrixdRowMajor& J) { return false; }
     virtual bool fixed_jacobian() { return true; }
 
+    // Defo gradients
+    // init_jacobian
+    // update_jacobian
+    // jacobian
+    // deformation_gradient
+    virtual void deformation_gradient(const Eigen::VectorXd& x, Eigen::VectorXd& F) = 0;
+    virtual void init_jacobian() {};
+    virtual void update_jacobian(const Eigen::VectorXd& x) {}
+    virtual const Eigen::SparseMatrixdRowMajor& jacobian() {
+      return PJW_;
+    }
+
+    virtual const std::vector<Eigen::MatrixXd>& local_jacobians() {
+      return Jloc_;
+    }
+
+
     Eigen::MatrixXd vertices() {
       return V_;
     }
@@ -87,6 +106,16 @@ namespace mfem {
 
     std::shared_ptr<MaterialModel> material_;
     std::shared_ptr<MaterialConfig> config_;
+
+  protected:
+    // Weighted jacobian matrix with dirichlet BCs projected out
+    Eigen::SparseMatrixdRowMajor PJW_;
+    Eigen::SparseMatrixdRowMajor J_;
+    Eigen::SparseMatrixd P_;          // pinning constraint (for vertices)
+    Eigen::SparseMatrixd W_; // weight matrix
+    Eigen::VectorXd vols_;
+    std::vector<Eigen::MatrixXd> Jloc_;
+
   };
 }
 

@@ -49,8 +49,8 @@ double MixedOptimizer::primal_energy(const VectorXd& x, const VectorXd& s,
 
   double Em = 0.5*xdiff.dot(gx);
 
-  VectorXd def_grad = J_*(P_.transpose()*x+b_);
-
+  VectorXd def_grad;
+  object_->deformation_gradient(xt, def_grad);
 
   gs.resize(s.size());
   double Epsi = 0;
@@ -134,7 +134,9 @@ void MixedOptimizer::set_state(const Eigen::VectorXd& x,
   b_ = x - P_.transpose()*P_*x;
   x_ = P_ * x;
   
-  VectorXd def_grad = J_*(P_.transpose()*x_+b_);
+  VectorXd def_grad;
+  object_->deformation_gradient(P_.transpose()*x_+b_, def_grad);
+
   for (int i = 0; i < nelem_; ++i) {
     Vector3d sigma;
     Matrix3d U,V;
@@ -215,29 +217,9 @@ void MixedOptimizer::update_rotations() {
   data_.timer.start("Rot Update");
   dS_.resize(nelem_);
 
-  VectorXd def_grad = J_*(P_.transpose()*x_+b_);
+  VectorXd def_grad;
+  object_->deformation_gradient(P_.transpose()*x_+b_, def_grad);
 
-  if (TriMesh* tm = dynamic_cast<TriMesh*>(object_.get())) {
-    #pragma omp parallel for 
-    for (int i = 0; i < nelem_; ++i) {
-        Matrix<double, 9, 3> N;
-        N << tm->N_(i,0), 0, 0,
-            0, tm->N_(i,0), 0,
-            0, 0, tm->N_(i,0),
-            tm->N_(i,1), 0, 0,
-            0, tm->N_(i,1), 0,
-            0, 0, tm->N_(i,1),
-            tm->N_(i,2), 0, 0,
-            0, tm->N_(i,2), 0,
-            0, 0, tm->N_(i,2);
-        const RowVector3d v1 = tm->V_.row(tm->T_(i,1)) - tm->V_.row(tm->T_(i,0));
-        const RowVector3d v2 = tm->V_.row(tm->T_(i,2)) - tm->V_.row(tm->T_(i,0));
-        RowVector3d n = v1.cross(v2);
-        double l = n.norm();
-        n /= l;
-        def_grad.segment<9>(9*i) += N*n.transpose();
-    }
-  }
   #pragma omp parallel for 
   for (int i = 0; i < nelem_; ++i) {
 

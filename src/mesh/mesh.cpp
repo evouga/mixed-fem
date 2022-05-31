@@ -2,6 +2,7 @@
 #include "boundary_conditions.h"
 #include "materials/material_model.h"
 #include "config.h"
+#include "pinning_matrix.h"
 
 using namespace mfem;
 using namespace Eigen;
@@ -29,6 +30,24 @@ Mesh::Mesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
     }
   }
   BoundaryConditions<3>::init_boundary_groups(V0_, bc_groups_, 0.1);
+  P_ = pinning_matrix(V_, T_, is_fixed_);
+}
+
+void Mesh::init() {
+  volumes(vols_);
+
+  // Initialize volume sparse matrix
+  W_.resize(T_.rows()*9, T_.rows()*9);
+  std::vector<Triplet<double>> trips;
+  for (int i = 0; i < T_.rows(); ++i) {
+    for (int j = 0; j < 9; ++j) {
+      trips.push_back(Triplet<double>(9*i+j, 9*i+j,vols_[i]));
+    }
+  }
+  W_.setFromTriplets(trips.begin(),trips.end());
+
+  init_jacobian();
+  PJW_ = P_ * J_.transpose() * W_;
 }
 
 void Mesh::clear_fixed_vertices() {
@@ -63,4 +82,6 @@ void Mesh::update_free_map() {
       free_map_(i) = -1;
     }
   }
+  P_ = pinning_matrix(V_, T_, is_fixed_);
+
 }
