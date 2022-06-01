@@ -53,18 +53,9 @@ namespace mfem {
       std::cerr << "jacobian not implemented!" << std::endl;
     }
 
-    // Updates per-element jacobian
-    // J  - per-element jacobian matrix
-    // returns boolean indiciating whether jacobian was updated
-    virtual bool update_jacobian(std::vector<Eigen::MatrixXd>& J) = 0;
-    virtual bool update_jacobian(Eigen::SparseMatrixdRowMajor& J) { return false; }
     virtual bool fixed_jacobian() { return true; }
 
     // Defo gradients
-    // init_jacobian
-    // update_jacobian
-    // jacobian
-    // deformation_gradient
     virtual void deformation_gradient(const Eigen::VectorXd& x, Eigen::VectorXd& F) = 0;
     virtual void init_jacobian() {};
     virtual void update_jacobian(const Eigen::VectorXd& x) {}
@@ -75,7 +66,6 @@ namespace mfem {
     virtual const std::vector<Eigen::MatrixXd>& local_jacobians() {
       return Jloc_;
     }
-
 
     Eigen::MatrixXd vertices() {
       return V_;

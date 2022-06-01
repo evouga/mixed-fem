@@ -20,7 +20,6 @@ namespace mfem {
     void jacobian(Eigen::SparseMatrixdRowMajor& J,
         const Eigen::VectorXd& vols, bool weighted) override;
     void jacobian(std::vector<Eigen::MatrixXd>& J) override;
-    bool update_jacobian(std::vector<Eigen::MatrixXd>& J) override;
     void deformation_gradient(const Eigen::VectorXd& x,
         Eigen::VectorXd& F) override;
     void init_jacobian() override;

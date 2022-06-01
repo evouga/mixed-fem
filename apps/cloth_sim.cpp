@@ -28,7 +28,7 @@ struct PolyscopeTriApp : public PolyscopeApp {
     meshV.array() /= meshV.maxCoeff();
 
     igl::per_face_normals(meshV,meshF,meshN);
-    std::cout << "MESHN\n" << meshN << std::endl;
+    //std::cout << "MESHN\n" << meshN << std::endl;
     // meshN = -meshN;
 
     // Register the mesh with Polyscope

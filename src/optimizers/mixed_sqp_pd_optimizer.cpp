@@ -124,38 +124,6 @@ void MixedSQPROptimizer::build_lhs() {
 
   const std::vector<MatrixXd>& Jloc = object_->local_jacobians();
   std::vector<MatrixXd> Hloc(nelem_); 
-  // #pragma omp parallel for
-  // for (int i = 0; i < nelem_; ++i) {
-  //   Hloc[i] = (Jloc_[i].transpose() * (dS_[i] * H_[i]
-  //       * dS_[i].transpose()) * Jloc_[i]) * (vols_[i] * vols_[i]);
-  // }
-
-  // std::vector<MatrixXd> updateJ;
-  // object_->update_jacobian(updateJ);
-  // // #pragma omp parallel for
-  // for (int i = 0; i < nelem_; ++i) {
-  //   Hloc[i] += (updateJ[i].transpose() * (dS_[i] * H_[i]
-  //       * dS_[i].transpose()) * updateJ[i]) * (vols_[i] * vols_[i]);
-
-  //   MatrixXd tmp1 = Jloc_[i] + updateJ[i];
-  //   MatrixXd tmp2 = Jloc[i];
-  //   double diff = (tmp1-tmp2).norm();
-  //   if (diff > 1e-12)
-  //   std::cout << " diff: " << (tmp1-tmp2).norm() << std::endl;
-
-  //   MatrixXd tmp3 = Hloc[i];
-  //   MatrixXd tmp4 = (Jloc[i].transpose() * (dS_[i] * H_[i]
-  //       * dS_[i].transpose()) * Jloc[i]) * (vols_[i] * vols_[i]);
-  //   diff = (tmp3-tmp4).norm();
-  //   if (diff > 1e-12) {
-  //     std::cout << " diffhloc: " << (tmp1-tmp2).norm() << std::endl;
-  //     std::cout << " diffhloc: " << diff << std::endl;
-  //     std::cout << "tmp1: \n" << tmp1 << std::endl;
-  //     std::cout << "tmp1: \n" << tmp2 << std::endl;
-  //     exit(1);
-  //   }
-  // }
-
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
     Hloc[i] = (Jloc[i].transpose() * (dS_[i] * H_[i]
@@ -196,20 +164,6 @@ void MixedSQPROptimizer::build_rhs() {
       + wx1_*x1_ + wx2_*x2_ - h2*f_ext_);
   data_.timer.stop("RHS");
 
-  // SparseMatrixdRowMajor J;
-  // object_->update_jacobian(J);
-  // SparseMatrixdRowMajor A;
-  // A.resize(nelem_*9, nelem_*9);
-  // std::vector<Triplet<double>> trips;
-  // for (int i = 0; i < nelem_; ++i) {
-  //   for (int j = 0; j < 9; ++j) {
-  //     trips.push_back(Triplet<double>(9*i+j, 9*i+j, vols_[i]));
-  //   }
-  // }
-  // A.setFromTriplets(trips.begin(),trips.end());
-  // rhs_ -= P_ * (J.transpose() * A * tmp);
-
-
   grad_.resize(x_.size() + 6*nelem_);
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
@@ -218,7 +172,6 @@ void MixedSQPROptimizer::build_rhs() {
   }
   grad_.segment(0,x_.size()) = PM_*(wx_*xt + wx0_*x0_ + wx1_*x1_ + wx2_*x2_
       - h2*f_ext_) - object_->jacobian()  * tmp;
-  // grad_.segment(0,x_.size())  -= P_ * (J.transpose() * A * tmp);
 }
 
 void MixedSQPROptimizer::update_system() {

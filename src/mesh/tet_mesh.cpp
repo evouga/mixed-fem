@@ -90,11 +90,6 @@ void TetrahedralMesh::jacobian(std::vector<MatrixXd>& J) {
   }
 }
 
-bool TetrahedralMesh::update_jacobian(std::vector<Eigen::MatrixXd>& J) {
-  return false;
-}
-
-
 void TetrahedralMesh::init_jacobian() {
   Jloc_.resize(T_.rows());
 
