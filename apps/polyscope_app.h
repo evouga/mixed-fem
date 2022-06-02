@@ -100,7 +100,7 @@ namespace mfem {
         }
 
         int type = config->optimizer;
-        if (ImGui::Combo("Optimizer", &type,"ALM\0ADMM\0SQP\0SQP_PD\0NEWTON\0\0")) {
+        if (ImGui::Combo("Optimizer", &type,"ALM\0ADMM\0SQP\0SQP_PD\0NEWTON\0BENDING\0\0")) {
           config->optimizer = static_cast<OptimizerType>(type);
           optimizer = optimizer_factory.create(mesh, config);
 
@@ -123,6 +123,9 @@ namespace mfem {
           ImGui::InputDouble("max kappa", &config->max_kappa, 0,0,"%.5g");
           ImGui::InputDouble("constraint tol",&config->constraint_tol, 0,0,"%.5g");
           ImGui::InputDouble("lamda update tol",&config->update_zone_tol,0,0,"%.5g");
+        }
+        if (config->optimizer == OPTIMIZER_SQP_BENDING) {
+          ImGui::InputDouble("kappa", &config->kappa,0,0,"%.5g");
         }
         // ImGui::Checkbox("floor collision",&config->floor_collision);
         // ImGui::Checkbox("warm start",&config->warm_start);

@@ -22,6 +22,7 @@ namespace mfem {
       OPTIMIZER_SQP,
       OPTIMIZER_SQP_PD,
       OPTIMIZER_NEWTON,
+      OPTIMIZER_SQP_BENDING,
   };
 
   enum MaterialModelType {

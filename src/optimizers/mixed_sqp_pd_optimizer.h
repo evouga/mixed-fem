@@ -9,10 +9,10 @@
 namespace mfem {
 
   // Mixed FEM Sequential Quadratic Program
-  class MixedSQPROptimizer : public MixedSQPOptimizer {
+  class MixedSQPPDOptimizer : public MixedSQPOptimizer {
   public:
     
-    MixedSQPROptimizer(std::shared_ptr<Mesh> mesh,
+    MixedSQPPDOptimizer(std::shared_ptr<Mesh> mesh,
         std::shared_ptr<SimConfig> config) : MixedSQPOptimizer(mesh, config) {}
 
     static std::string name() {
@@ -36,6 +36,8 @@ namespace mfem {
     // Update gradients, LHS, RHS for a new configuration
     virtual void update_system() override;
 
+
+    //TODO change this global solver step + "local_update"
     virtual void substep(int step, double& decrement) override;
 
     Eigen::VectorXd gl_;
@@ -45,6 +47,7 @@ namespace mfem {
     #else
     Eigen::SimplicialLLT<Eigen::SparseMatrix<double, Eigen::RowMajor>> solver_;
     #endif
+    Eigen::SimplicialLDLT<Eigen::SparseMatrix<double, Eigen::RowMajor>> solver_arap_;
 
     Eigen::Matrix<double, 12,12> pre_affine_;
 

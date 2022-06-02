@@ -67,6 +67,7 @@ struct PolyscopeTriApp : public PolyscopeApp {
 
     material = material_factory.create(material_config);
     config->kappa = material_config->mu;
+    config->kappa = 1;
     mesh = std::make_shared<TriMesh>(meshV, meshF, meshN,
         material, material_config);
 

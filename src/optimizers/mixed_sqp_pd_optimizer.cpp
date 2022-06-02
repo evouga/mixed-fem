@@ -19,7 +19,7 @@ using namespace mfem;
 using namespace Eigen;
 using namespace std::chrono;
 
-void MixedSQPROptimizer::step() {
+void MixedSQPPDOptimizer::step() {
   data_.clear();
 
   E_prev_ = 0;
@@ -85,7 +85,7 @@ void MixedSQPROptimizer::step() {
   update_configuration();
 }
 
-void MixedSQPROptimizer::gradient(VectorXd& g, const VectorXd& x, const VectorXd& s,
+void MixedSQPPDOptimizer::gradient(VectorXd& g, const VectorXd& x, const VectorXd& s,
     const VectorXd& la) {  
   VectorXd xt = P_.transpose()*x + b_;
   grad_.resize(xt.size() + 6*nelem_);
@@ -103,7 +103,7 @@ void MixedSQPROptimizer::gradient(VectorXd& g, const VectorXd& x, const VectorXd
       - Jw_.transpose() * tmp;
 }
 
-void MixedSQPROptimizer::build_lhs() {
+void MixedSQPPDOptimizer::build_lhs() {
   data_.timer.start("LHS");
 
   double ih2 = 1. / (wdt_*wdt_*config_->h * config_->h);
@@ -140,7 +140,7 @@ void MixedSQPROptimizer::build_lhs() {
 
 }
 
-void MixedSQPROptimizer::build_rhs() {
+void MixedSQPPDOptimizer::build_rhs() {
   data_.timer.start("RHS");
 
   rhs_.resize(x_.size());
@@ -174,7 +174,7 @@ void MixedSQPROptimizer::build_rhs() {
       - h2*f_ext_) - object_->jacobian()  * tmp;
 }
 
-void MixedSQPROptimizer::update_system() {
+void MixedSQPPDOptimizer::update_system() {
 
   if (!object_->fixed_jacobian()) {
     VectorXd x = P_.transpose()*x_ + b_;
@@ -189,7 +189,7 @@ void MixedSQPROptimizer::update_system() {
   build_rhs();
 }
 
-void MixedSQPROptimizer::substep(int step, double& decrement) {
+void MixedSQPPDOptimizer::substep(int step, double& decrement) {
   int niter = 0;
 
   data_.timer.start("global");
@@ -231,7 +231,7 @@ void MixedSQPROptimizer::substep(int step, double& decrement) {
   //decrement = std::sqrt(dx_.dot(P_*grad_.segment(0,x0_.size())) + ds_.dot(grad_.segment(x0_.size(),6*nelem_)));
 }
 
-void MixedSQPROptimizer::reset() {
+void MixedSQPPDOptimizer::reset() {
   MixedSQPOptimizer::reset();
 
   SparseMatrixdRowMajor A;
@@ -247,6 +247,7 @@ void MixedSQPROptimizer::reset() {
   double h2 = wdt_*wdt_*config_->h * config_->h;
   SparseMatrixdRowMajor L = PJ_ * A * PJ_.transpose();
   SparseMatrixdRowMajor lhs = M_ + h2*L;
+  solver_arap_.compute(lhs);
 
   //build up reduced space
   T0_.resize(3*object_->V0_.rows(), 12);

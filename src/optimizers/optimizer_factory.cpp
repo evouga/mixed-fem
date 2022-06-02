@@ -4,6 +4,7 @@
 #include "optimizers/mixed_sqp_optimizer.h"
 #include "optimizers/mixed_sqp_pd_optimizer.h"
 #include "optimizers/newton_optimizer.h"
+#include "optimizers/mixed_sqp_bending.h"
 #include "optimizers/optimizer_factory.h"
 
 using namespace mfem;
@@ -29,16 +30,23 @@ OptimizerFactory::OptimizerFactory() {
       {return std::make_unique<MixedSQPOptimizer>(mesh, config);});
 
   // SQP Positive Definite
-  register_type(OptimizerType::OPTIMIZER_SQP_PD, MixedSQPROptimizer::name(),
+  register_type(OptimizerType::OPTIMIZER_SQP_PD, MixedSQPPDOptimizer::name(),
       [](std::shared_ptr<Mesh> mesh, std::shared_ptr<SimConfig> config)
       ->std::unique_ptr<Optimizer>
-      {return std::make_unique<MixedSQPROptimizer>(mesh, config);});
+      {return std::make_unique<MixedSQPPDOptimizer>(mesh, config);});
 
   // Newton's
   register_type(OptimizerType::OPTIMIZER_NEWTON, NewtonOptimizer::name(),
       [](std::shared_ptr<Mesh> mesh, std::shared_ptr<SimConfig> config)
       ->std::unique_ptr<Optimizer>
-      {return std::make_unique<NewtonOptimizer>(mesh, config);});     
+      {return std::make_unique<NewtonOptimizer>(mesh, config);});
+
+  // SQP with Bending Energy
+  register_type(OptimizerType::OPTIMIZER_SQP_BENDING, MixedSQPBending::name(),
+      [](std::shared_ptr<Mesh> mesh, std::shared_ptr<SimConfig> config)
+      ->std::unique_ptr<Optimizer>
+      {return std::make_unique<MixedSQPBending>(mesh, config);});
+
 }
 
 std::unique_ptr<Optimizer> OptimizerFactory::create(
