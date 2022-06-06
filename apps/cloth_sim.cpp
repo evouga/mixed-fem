@@ -63,11 +63,21 @@ struct PolyscopeTriApp : public PolyscopeApp {
 
     material_config = std::make_shared<MaterialConfig>();
     material_config->density = 1e3;
-    material_config->thickness = 1e-3;
+    material_config->thickness = 0.5e-3;
+    material_config->pr = 0.3;
+
+    // material_config->density = 83;
+    // material_config->thickness = 0.18e-3;
+    material_config->ym = 0.57e6;
+    Enu_to_lame(material_config->ym, material_config->pr,
+        material_config->la, material_config->mu);
 
     material = material_factory.create(material_config);
-    config->kappa = material_config->mu;
-    config->kappa = 1;
+    double E = material_config->ym;
+    double nu = material_config->pr;
+    double thickness = material_config->thickness;
+    config->kappa = E / (24 * (1.0 - nu * nu))
+        * thickness * thickness * thickness;
     mesh = std::make_shared<TriMesh>(meshV, meshF, meshN,
         material, material_config);
 

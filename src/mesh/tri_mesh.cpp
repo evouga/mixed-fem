@@ -42,7 +42,6 @@ void TriMesh::volumes(Eigen::VectorXd& vol) {
 
 void TriMesh::mass_matrix(Eigen::SparseMatrixdRowMajor& M,
     const VectorXd& vols) {
-std::cerr << "use volumes dummy" << std::endl;
   std::vector<Triplet<double>> trips;
 
   // 1. Mass matrix terms

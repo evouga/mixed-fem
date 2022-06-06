@@ -31,13 +31,19 @@ void MixedSQPBending::build_lhs() {
   grad_a_.resize(nedges_);
   // std::cout << "nedges_: " << nedges_ << std::endl;
   // std::cout << "a_ : "<< a_.size() << " a0_: " << a0_.size() << " l size: " << l_.size() << std::endl;
+  std::vector<Eigen::Triplet<double>> trips(nedges_);
   #pragma omp parallel for
   for (int i = 0; i < nedges_; ++i) {
     Ha_inv_[i] = 1 / h2 / config_->kappa;
     grad_a_[i] = h2 * config_->kappa * (a_(i) - a0_(i));
     Ha_[i] = (1.0 / l_(i)) * h2 * config_->kappa;
+    trips[i] = Triplet<double>(i,i,Ha_[i]);
   }
-  
+  SparseMatrixd Ha(PDW_.cols(), PDW_.cols());
+  Ha.setFromTriplets(trips.begin(), trips.end());
+  SparseMatrixdRowMajor Ha2 = PDW_ * Ha * PDW_.transpose();
+  // std::cout << "PDW: " << PDW_.rows() << " PDW_.cols: " << PDW_.cols() << std::endl
+  // std::cout << "Ha2 .rows() : " << Ha2.rows() << M_.rows() << std::endl;
 
   data_.timer.start("Hinv");
   #pragma omp parallel for
@@ -65,7 +71,7 @@ void MixedSQPBending::build_lhs() {
   assembler_->update_matrix(Hloc);
   data_.timer.stop("Update LHS");
 
-  lhs_ = M_ + assembler_->A;
+  lhs_ = M_ + assembler_->A + Ha2;
   data_.timer.stop("LHS");
 
 }

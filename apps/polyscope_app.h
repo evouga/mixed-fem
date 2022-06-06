@@ -76,9 +76,15 @@ namespace mfem {
           
           Enu_to_lame(material_config->ym, material_config->pr,
               material_config->la, material_config->mu);
-          std::cout << "MU: " << material_config->mu;
-          std::cout << " LA: " << material_config->la << std::endl;
           config->kappa = material_config->mu;
+
+          if (config->optimizer == OPTIMIZER_SQP_BENDING) {
+            double E = material_config->ym;
+            double nu = material_config->pr;
+            double thickness = material_config->thickness;
+            config->kappa = E / (24 * (1.0 - nu * nu))
+                * thickness * thickness * thickness;
+          }
         }
         // ImGui::SameLine(); 
         // HelpMarker("Young's Modulus");
@@ -87,6 +93,24 @@ namespace mfem {
           
           Enu_to_lame(material_config->ym, material_config->pr,
               material_config->la, material_config->mu);
+
+          if (config->optimizer == OPTIMIZER_SQP_BENDING) {
+            double E = material_config->ym;
+            double nu = material_config->pr;
+            double thickness = material_config->thickness;
+            config->kappa = E / (24 * (1.0 - nu * nu))
+                * thickness * thickness * thickness;
+          }
+        }
+
+        if (config->optimizer == OPTIMIZER_SQP_BENDING) {
+          if (ImGui::InputDouble("Thickness", &material_config->thickness)) {
+            double E = material_config->ym;
+            double nu = material_config->pr;
+            double thickness = material_config->thickness;
+            config->kappa = E / (24 * (1.0 - nu * nu))
+                * thickness * thickness * thickness;
+          }
         }
         ImGui::TreePop();
       }

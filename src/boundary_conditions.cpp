@@ -28,6 +28,31 @@ void BoundaryConditions<dim>::init_boundary_groups(const Eigen::MatrixXd &V,
   }
 }
 
+// template <int dim>
+// void BoundaryConditions<dim>::init_boundary_groups(const Eigen::MatrixXd &V,
+//     std::vector<std::vector<int>> &bc_groups, double ratio) {
+
+//   // resize to match size
+//   Eigen::RowVectorXd bottomLeft = V.colwise().minCoeff();
+//   Eigen::RowVectorXd topRight = V.colwise().maxCoeff();
+//   Eigen::RowVectorXd range = topRight - bottomLeft;
+
+//   bc_groups.resize(2);
+//   for (int vI = 0; vI < V.rows(); vI++)
+//   {
+//     if (V(vI, 0) < bottomLeft[0] + range[0] * ratio 
+//         && V(vI, 1) > topRight[1] - range[1] * ratio )
+//     {
+//       bc_groups[0].emplace_back(vI);
+//     }
+//     else if (V(vI, 0) > topRight[0] - range[0] * ratio 
+//         && V(vI, 1) > topRight[1] - range[1] * ratio )
+//     {
+//       bc_groups[1].emplace_back(vI);
+//     }
+//   }
+// }
+
 template <int dim>
 const std::vector<std::string> BoundaryConditions<dim>::script_type_strings = {
     "null", "scaleF", "hang", "hangends","stretch", "squash", "stretchnsquash",
