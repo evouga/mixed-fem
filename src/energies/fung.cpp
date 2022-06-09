@@ -1,4 +1,4 @@
-#include "materials/fung.h"
+#include "energies/fung.h"
 #include "simple_psd_fix.h"
 #include "config.h"
 

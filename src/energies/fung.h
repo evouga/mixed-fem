@@ -1,6 +1,6 @@
 #pragma once
 
-#include "materials/material_model.h"
+#include "energies/material_model.h"
 
 namespace mfem {
 

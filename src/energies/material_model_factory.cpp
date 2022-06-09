@@ -1,10 +1,10 @@
-#include "materials/material_model.h"
-#include "materials/neohookean.h"
-#include "materials/corotational.h"
-#include "materials/arap.h"
-#include "materials/stable_neohookean.h"
-#include "materials/fung.h"
-#include "materials/material_model_factory.h"
+#include "energies/material_model.h"
+#include "energies/neohookean.h"
+#include "energies/corotational.h"
+#include "energies/arap.h"
+#include "energies/stable_neohookean.h"
+#include "energies/fung.h"
+#include "energies/material_model_factory.h"
 
 using namespace mfem;
 

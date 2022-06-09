@@ -1,19 +1,21 @@
 #pragma once
 
-#include "materials/material_model.h"
+#include "energies/material_model.h"
 
 namespace mfem {
 
-  // Standard neohookean material model
-  class Neohookean : public MaterialModel {
+  // Stable neohookean material model
+  class StableNeohookean : public MaterialModel {
   public:
     
     static std::string name() {
-      return "Neohookean";
+      return "Stable-Neohookean";
     }
 
-    Neohookean(const std::shared_ptr<MaterialConfig>& config)
-        : MaterialModel(config) {}
+    StableNeohookean(const std::shared_ptr<MaterialConfig>& config)
+        : MaterialModel(config) {
+      std::cout << "Creating Stable-Neohookean" << std::endl;
+    }
 
     double energy(const Eigen::Vector6d& S) override; 
     Eigen::Vector6d gradient(const Eigen::Vector6d& S) override; 
@@ -24,5 +26,4 @@ namespace mfem {
     Eigen::Vector9d gradient(const Eigen::Vector9d& F) override;
     Eigen::Matrix9d hessian(const Eigen::Vector9d& F) override;
   };
-
 }

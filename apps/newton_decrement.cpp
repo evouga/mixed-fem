@@ -9,13 +9,14 @@
 #include "json/json.hpp"
 
 #include "mesh/mesh.h"
-#include "materials/material_model.h"
+#include "energies/material_model.h"
 #include "optimizers/mixed_alm_optimizer.h"
 #include "optimizers/mixed_admm_optimizer.h"
 #include "optimizers/mixed_sqp_optimizer.h"
-#include "optimizers/mixed_sqpr_optimizer.h"
+#include "optimizers/mixed_sqp_pd_optimizer.h"
 #include "optimizers/newton_optimizer.h"
 #include "boundary_conditions.h"
+#include "energies/stable_neohookean.h"
 #include <sstream>
 #include <fstream>
 

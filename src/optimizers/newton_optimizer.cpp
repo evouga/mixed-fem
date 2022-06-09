@@ -6,7 +6,7 @@
 #include "pinning_matrix.h"
 #include "linear_tetmesh_dphi_dX.h"
 #include "assemble.h"
-#include "materials/material_model.h"
+#include "energies/material_model.h"
 #include "mesh/mesh.h"
 
 #include <amgcl/backend/eigen.hpp>

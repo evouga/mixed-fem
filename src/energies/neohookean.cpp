@@ -1,4 +1,4 @@
-#include "materials/neohookean.h"
+#include "energies/neohookean.h"
 #include "simple_psd_fix.h"
 #include "config.h"
 

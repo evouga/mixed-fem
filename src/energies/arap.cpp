@@ -1,4 +1,4 @@
-#include "materials/arap.h"
+#include "energies/arap.h"
 #include "config.h"
 
 using namespace Eigen;

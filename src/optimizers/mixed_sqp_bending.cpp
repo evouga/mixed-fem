@@ -7,7 +7,7 @@
 #include "linesearch.h"
 #include "pcg.h"
 #include "svd/newton_procrustes.h"
-#include "materials/material_model.h"
+#include "energies/material_model.h"
 #include "mesh/mesh.h"
 
 #include <iomanip>
@@ -66,14 +66,13 @@ void MixedSQPBending::build_lhs() {
         * dS_[i].transpose()) * Jloc[i]) * (vols_[i] * vols_[i]);
   }
   data_.timer.stop("Local H");
-  //saveMarket(assembler_->A, "lhs2.mkt");
   data_.timer.start("Update LHS");
   assembler_->update_matrix(Hloc);
   data_.timer.stop("Update LHS");
 
   lhs_ = M_ + assembler_->A + Ha2;
   data_.timer.stop("LHS");
-
+  //saveMarket(lhs_, "lhs_full.mkt");
 }
 
 void MixedSQPBending::build_rhs() {
@@ -178,6 +177,8 @@ void MixedSQPBending::update_system() {
   // Assemble blocks for left and right hand side
   build_lhs();
   build_rhs();
+
+  energy(x_, s_, a_, la_, ga_);
 }
 
 double MixedSQPBending::energy(const VectorXd& x, const VectorXd& s,
@@ -202,12 +203,14 @@ double MixedSQPBending::energy(const VectorXd& x, const VectorXd& s,
   }
 
   double e = 0;
-  #pragma omp parallel for reduction( + : e )
+  //#pragma omp parallel for reduction( + : e )
   for (int i = 0; i < nelem_; ++i) {
   
     Matrix3d R = R_[i];
     newton_procrustes(R, Matrix3d::Identity(), Map<Matrix3d>(def_grad.segment<9>(9*i).data()));
     Matrix3d S = R.transpose()*Eigen::Map<Matrix3d>(def_grad.segment<9>(9*i).data());
+
+  std::cout << "Si: \n" << S << std::endl;
 
     Vector6d stmp; stmp << S(0,0), S(1,1), S(2,2),
         0.5*(S(1,0) + S(0,1)),
@@ -302,16 +305,19 @@ void MixedSQPBending::grad_angles(const VectorXd& x, const MatrixXd& N,
 
 void MixedSQPBending::reset() {
 
+
   igl::edge_topology(object_->V0_, object_->T_, EV_, FE_, EF_);
 
   ArrayXX<bool> valid = (EF_.col(0).array() != -1 && EF_.col(1).array() != -1);
-  MatrixXi tmp1,tmp2,tmp3;
-  igl::slice_mask(EV_, valid, 1, tmp1);
-  igl::slice_mask(FE_, valid, 1, tmp2);
-  igl::slice_mask(EF_, valid, 1, tmp3);
+  MatrixXi tmp1,tmp2;
+  std::cout << "1" << std::endl;
+  igl::slice_mask(EV_, valid, Array<bool,2,1>::Ones(), tmp1);
+  igl::slice_mask(EF_, valid, Array<bool,2,1>::Ones(), tmp2);
+    std::cout << "1" << std::endl;
+
   EV_ = tmp1;
-  FE_ = tmp2;
-  EF_ = tmp3;
+  //FE_ = tmp2;
+  EF_ = tmp2;
   igl::edge_lengths(object_->V0_, EV_, l_);
 
   nedges_ = l_.size(); 

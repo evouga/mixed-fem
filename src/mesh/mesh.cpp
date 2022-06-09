@@ -1,6 +1,6 @@
 #include "mesh.h"
 #include "boundary_conditions.h"
-#include "materials/material_model.h"
+#include "energies/material_model.h"
 #include "config.h"
 #include "pinning_matrix.h"
 

@@ -7,7 +7,7 @@
 #include "linesearch.h"
 #include "pcg.h"
 #include "svd/newton_procrustes.h"
-#include "materials/material_model.h"
+#include "energies/material_model.h"
 #include "mesh/mesh.h"
 
 #include <iomanip>
