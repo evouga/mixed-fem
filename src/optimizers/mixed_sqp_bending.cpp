@@ -16,9 +16,68 @@
 #include "igl/edge_topology.h"
 #include "igl/edge_lengths.h"
 #include "igl/slice_mask.h"
+#include <rigid_inertia_com.h>
 
 using namespace mfem;
 using namespace Eigen;
+
+static const Eigen::Matrix<double, 9,9> Id = []{
+  
+  Matrix<double, 9,9> tmp;
+  tmp.setZero();
+
+  for(unsigned int ll=0; ll<3; ++ll) {
+    for(unsigned int mm=0; mm<3; ++mm) {
+      tmp(ll + 3*mm, ll+3*mm) = 1.0;
+    }
+  }
+
+  return tmp;
+
+}();
+
+void MixedSQPBending::step() {
+  data_.clear();
+
+  E_prev_ = 0;
+  // setup_preconditioner();
+
+  int i = 0;
+  double grad_norm;
+  q_.setZero();
+  q_.segment(0, x_.size()) = x_ - P_*x0_;
+
+  do {
+    data_.timer.start("step");
+    update_system();
+    substep(i, grad_norm);
+
+    // TODO:
+    // convergence check with norm([dx;ds])
+    // data ordering for performance :)
+
+    //linesearch_x(x_, dx_);
+    //linesearch_s(s_, ds_);
+    linesearch(x_, dx_, s_, ds_); // dont do
+
+    // x_ += dx_;
+    // s_ += ds_;
+
+    double E = energy(x_, s_, a_, la_, ga_);
+    double res = std::abs((E - E_prev_) / E);
+    data_.egrad_.push_back(rhs_.norm());
+    data_.energies_.push_back(E);
+    data_.energy_residuals_.push_back(res);
+    E_prev_ = E;
+    data_.timer.stop("step");
+
+
+    ++i;
+  } while (i < config_->outer_steps && grad_norm > config_->newton_tol);
+
+  data_.print_data();
+  update_configuration();
+}
 
 void MixedSQPBending::build_lhs() {
   data_.timer.start("LHS");
@@ -48,11 +107,11 @@ void MixedSQPBending::build_lhs() {
   data_.timer.start("Hinv");
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
-    const Vector6d& si = s_.segment(6*i,6);
-    Matrix6d H = h2 * object_->material_->hessian(si);
+    const Vector3d& si = s_.segment<3>(3*i,3);
+    Matrix3d H = h2 * object_->material_->hessian(si);
     Hinv_[i] = H.inverse();
     g_[i] = h2 * object_->material_->gradient(si);
-    H_[i] = (1.0 / vols_[i]) * (Syminv * H * Syminv);
+    H_[i] = (1.0 / vols_[i]) * (Sym3inv * H * Sym3inv);
   }
   data_.timer.stop("Hinv");
   
@@ -80,7 +139,7 @@ void MixedSQPBending::build_rhs() {
 
   rhs_.resize(x_.size());
   rhs_.setZero();
-  gl_.resize(6*nelem_);
+  gl_.resize(3*nelem_);
   gg_.resize(nedges_);
   
   double h = wdt_*config_->h;
@@ -99,20 +158,20 @@ void MixedSQPBending::build_rhs() {
   VectorXd tmp(9*nelem_);
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
-    const Vector6d& si = s_.segment<6>(6*i);
-    gl_.segment<6>(6*i) = vols_[i] * H_[i] * Sym * (S_[i] - si) + Syminv*g_[i];
-    tmp.segment<9>(9*i) = dS_[i]*gl_.segment<6>(6*i);
+    const Vector3d& si = s_.segment<3>(3*i);
+    gl_.segment<3>(3*i) = vols_[i] * H_[i] * Sym3 * (S_[i] - si) + Sym3inv*g_[i];
+    tmp.segment<9>(9*i) = dS_[i]*gl_.segment<3>(3*i);
   }
 
   rhs_ = -object_->jacobian() * tmp - PDW_ * gg_ - PM_*(wx_*xt + wx0_*x0_
       + wx1_*x1_ + wx2_*x2_ - h2*f_ext_);
   data_.timer.stop("RHS");
 
-  grad_.resize(x_.size() + 6*nelem_);
+  grad_.resize(x_.size() + 3*nelem_);
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
-    tmp.segment<9>(9*i) = dS_[i]*la_.segment<6>(6*i);
-    grad_.segment<6>(x_.size() + 6*i) = vols_[i] * (g_[i] + Sym*la_.segment<6>(6*i));
+    tmp.segment<9>(9*i) = dS_[i]*la_.segment<3>(3*i);
+    grad_.segment<3>(x_.size() + 3*i) = vols_[i] * (g_[i] + Sym3*la_.segment<3>(3*i));
   }
   grad_.segment(0,x_.size()) = PM_*(wx_*xt + wx0_*x0_ + wx1_*x1_ + wx2_*x2_
       - h2*f_ext_) - object_->jacobian()  * tmp;
@@ -142,16 +201,16 @@ void MixedSQPBending::substep(int step, double& decrement) {
   ga_ = gg_.array() - (PDW_.transpose() * dx_).array() * Ha;
   
   // Update per-element R & S matrices
-  ds_.resize(6*nelem_);
+  ds_.resize(3*nelem_);
 
   da_.resize(nedges_);
   da_ = -(l_.array()*(ga_.array() + ga)) / Ha;
   std::cout << "da: " << da_.norm() << std::endl;
-  a_ += da_;
+  // a_ += da_;
   #pragma omp parallel for 
   for (int i = 0; i < nelem_; ++i) {
-    la_.segment<6>(6*i) += H_[i] * (dS_[i].transpose() * Jdx_.segment<9>(9*i));
-    ds_.segment<6>(6*i) = -Hinv_[i] * (Sym * la_.segment<6>(6*i)+ g_[i]);
+    la_.segment<3>(3*i) += H_[i] * (dS_[i].transpose() * Jdx_.segment<9>(9*i));
+    ds_.segment<3>(3*i) = -Hinv_[i] * (Sym3 * la_.segment<3>(3*i)+ g_[i]);
   }
   data_.timer.stop("local");
 
@@ -177,8 +236,44 @@ void MixedSQPBending::update_system() {
   // Assemble blocks for left and right hand side
   build_lhs();
   build_rhs();
+}
 
-  energy(x_, s_, a_, la_, ga_);
+
+void MixedSQPBending::update_rotations() {
+  data_.timer.start("Rot Update");
+  dS_.resize(nelem_);
+
+  VectorXd def_grad;
+  object_->deformation_gradient(P_.transpose()*x_+b_, def_grad);
+
+  #pragma omp parallel for 
+  for (int i = 0; i < nelem_; ++i) {
+
+    Matrix<double, 9, 9> J;
+    
+    //polar decomp code
+    Eigen::Matrix<double, 9,9> dRdF;
+
+    newton_procrustes(R_[i], Eigen::Matrix3d::Identity(), 
+        sim::unflatten<3,3>(def_grad.segment(9*i,9)), true, dRdF, 1e-6, 100);
+    
+ 
+    Eigen::Matrix3d Sf = R_[i].transpose()
+        * sim::unflatten<3,3>(def_grad.segment(9*i,9));
+
+    Sf = 0.5*(Sf+Sf.transpose());
+    S_[i] << Sf(0,0), Sf(2,2), Sf(2,0);
+
+    J = sim::flatten_multiply<Eigen::Matrix3d>(R_[i].transpose())
+        * (Id - sim::flatten_multiply_right<Eigen::Matrix3d>(Sf)*dRdF);
+
+    Matrix<double, 3, 9> Js;
+    Js.row(0) = J.row(0);
+    Js.row(1) = J.row(8);
+    Js.row(2) = 0.5*(J.row(5) + J.row(7));
+    dS_[i] = Js.transpose()*Sym3;
+  }
+  data_.timer.stop("Rot Update");
 }
 
 double MixedSQPBending::energy(const VectorXd& x, const VectorXd& s,
@@ -196,30 +291,29 @@ double MixedSQPBending::energy(const VectorXd& x, const VectorXd& s,
   normals(xt, n_);
   angles(xt, n_, ax);
   double el = 0;
-  #pragma omp parallel for reduction( + : el)
-  for (int i = 0; i < nedges_; ++i) {
-    el += l_(i) * (h2 * 0.5 * config_->kappa * std::pow(a(i) - a0_(i), 2)
-        - ga(i)*(ax(i) - a(i)));
-  }
+  // #pragma omp parallel for reduction( + : el)
+  // for (int i = 0; i < nedges_; ++i) {
+  //   el += l_(i) * (h2 * 0.5 * config_->kappa * std::pow(a(i) - a0_(i), 2)
+  //       - ga(i)*(ax(i) - a(i)));
+  // }
 
   double e = 0;
-  //#pragma omp parallel for reduction( + : e )
+  #pragma omp parallel for reduction( + : e )
   for (int i = 0; i < nelem_; ++i) {
   
     Matrix3d R = R_[i];
     newton_procrustes(R, Matrix3d::Identity(), Map<Matrix3d>(def_grad.segment<9>(9*i).data()));
     Matrix3d S = R.transpose()*Eigen::Map<Matrix3d>(def_grad.segment<9>(9*i).data());
 
-  std::cout << "Si: \n" << S << std::endl;
+  //std::cout << "Si: \n" << S << std::endl;
 
-    Vector6d stmp; stmp << S(0,0), S(1,1), S(2,2),
-        0.5*(S(1,0) + S(0,1)),
-        0.5*(S(2,0) + S(0,2)),
-        0.5*(S(2,1) + S(1,2));
-    const Vector6d& si = s.segment<6>(6*i);
-    Vector6d diff = Sym * (stmp - si);
+    Vector3d stmp; 
+    stmp << S(0,0), S(2,2), 0.5*(S(2,0) + S(0,2));
+    
+    const Vector3d& si = s.segment<3>(3*i);
+    Vector3d diff = Sym3 * (stmp - si);
     e += h2 * object_->material_->energy(si) * vols_[i]
-        - la.segment<6>(6*i).dot(diff) * vols_[i];
+        - la.segment<3>(3*i).dot(diff) * vols_[i];
   }
   e += (Em + el);
   return e;
@@ -303,8 +397,41 @@ void MixedSQPBending::grad_angles(const VectorXd& x, const MatrixXd& N,
 
 }
 
+bool MixedSQPBending::linesearch(Eigen::VectorXd& x, const Eigen::VectorXd& dx,
+        Eigen::VectorXd& s, const Eigen::VectorXd& ds) {
+  data_.timer.start("linesearch");
+
+  auto value = [&](const VectorXd& xs)->double {
+    return energy(xs.segment(0,x.size()), xs.segment(x.size(),s.size()), a_, la_, ga_);
+  };
+
+  VectorXd f(x.size() + s.size());
+  f.segment(0,x.size()) = x;
+  f.segment(x.size(),s.size()) = s;
+
+  VectorXd g(x.size() + s.size());
+  g.segment(0,x.size()) = dx;
+  g.segment(x.size(),s.size()) = ds;
+
+  double alpha = 1.0;
+  VectorXd grad;
+
+  // std::cout << "grad_ norm: " << grad_.norm() << std::endl;
+  // SolverExitStatus status = linesearch_backtracking_bisection(f, g, value,
+  //     grad, alpha, config_->ls_iters, 0.1, 0.5, E_prev_);
+  SolverExitStatus status = linesearch_backtracking_cubic(f, g, value,
+      grad_, alpha, config_->ls_iters, 1e-4, 0.5, E_prev_);    
+  // std::cout << "ALPHA: " << alpha << std::endl;
+  bool done = (status == MAX_ITERATIONS_REACHED);
+  x = f.segment(0, x.size());
+  s = f.segment(x.size(), s.size());
+  data_.timer.stop("linesearch");
+  return done;
+}
+
 void MixedSQPBending::reset() {
 
+  MixedOptimizer::reset();
 
   igl::edge_topology(object_->V0_, object_->T_, EV_, FE_, EF_);
 
@@ -335,8 +462,84 @@ void MixedSQPBending::reset() {
   a_.resize(nedges_);
   a0_.resize(nedges_);
   ga_.resize(nedges_);
+  s_.resize(3 * nelem_);
+  la_.resize(3 * nelem_);
+  la_.setZero();
+  S_.resize(nelem_);
+  H_.resize(nelem_);
+  Hinv_.resize(nelem_);
+  g_.resize(nelem_);
+    // Make sure matrices are initially zero
 
-  MixedSQPPDOptimizer::reset();
+  Vector3d I3(1,1,0);
+  #pragma omp parallel for
+  for (int i = 0; i < nelem_; ++i) {
+    S_[i] << I3;
+    s_.segment<3>(3*i) = I3;
+  }
+
+  int curr = 0;
+  std::vector<int> free_map(object_->is_fixed_.size(), -1);  
+  for (int i = 0; i < object_->is_fixed_.size(); ++i) {
+    if (object_->is_fixed_(i) == 0) {
+      free_map[i] = curr++;
+    }
+  }
+  assembler_ = std::make_shared<Assembler<double,3>>(object_->T_, free_map);
+  vec_assembler_ = std::make_shared<VecAssembler<double,3>>(object_->T_,
+      free_map);
+
+
+  // SQP PD //
+  SparseMatrixdRowMajor A;
+  A.resize(nelem_*9, nelem_*9);
+  trips.clear();
+  for (int i = 0; i < nelem_; ++i) {
+    for (int j = 0; j < 9; ++j) {
+      trips.push_back(Triplet<double>(9*i+j, 9*i+j, object_->config_->mu / vols_[i]));
+    }
+  }
+  A.setFromTriplets(trips.begin(),trips.end());
+
+  double h2 = wdt_*wdt_*config_->h * config_->h;
+  object_->jacobian(Jw_, vols_, true);
+  object_->jacobian(Jloc_);
+  PJ_ = P_ * Jw_.transpose();
+  PM_ = P_ * Mfull_;
+
+  SparseMatrixdRowMajor L = PJ_ * A * PJ_.transpose();
+  SparseMatrixdRowMajor lhs = M_ + h2*L;
+  solver_arap_.compute(lhs);
+
+  //build up reduced space
+  T0_.resize(3*object_->V0_.rows(), 12);
+
+  //compute center of mass
+  Eigen::Matrix3d I;
+  Eigen::Vector3d c;
+  double mass = 0;
+
+  //std::cout<<"HERE 1 \n";
+  // TODO wrong? should be F_ not T_ for tetrahedra
+  sim::rigid_inertia_com(I, c, mass, object_->V0_, object_->T_, 1.0);
+
+  for(unsigned int ii=0; ii<object_->V0_.rows(); ii++ ) {
+
+    //std::cout<<"HERE 2 "<<ii<<"\n";
+    T0_.block<3,3>(3*ii, 0) = Eigen::Matrix3d::Identity()*(object_->V0_(ii,0) - c(0));
+    T0_.block<3,3>(3*ii, 3) = Eigen::Matrix3d::Identity()*(object_->V0_(ii,1) - c(1));
+    T0_.block<3,3>(3*ii, 6) = Eigen::Matrix3d::Identity()*(object_->V0_(ii,2) - c(2));
+    T0_.block<3,3>(3*ii, 9) = Eigen::Matrix3d::Identity();
+
+  }
+
+  T0_ = P_*T0_;
+  //std::cout<<"c: "<<c.transpose()<<"\n";
+  //std::cout<<"T0: \n"<<T0_<<"\n";
+
+  Matrix<double, 12,12> tmp_pre_affine = T0_.transpose()*lhs*T0_; 
+  pre_affine_ = tmp_pre_affine.inverse();
+  //
 
   VectorXd xt = P_.transpose()*x_+b_;
   normals(xt, n_);

@@ -18,39 +18,6 @@ using namespace mfem;
 using namespace Eigen;
 using namespace std::chrono;
 
-
-void MixedSQPOptimizer::setup_preconditioner() {
-
-  //really soft preconditioner works better
-  double mat_val = std::min(object_->config_->mu, 1e10);
-
-  
-  if(std::abs(mat_val - preconditioner_.mat_val()) > 1e-3) {
-
-    std::cout<<"Rebuilding Preconditioner\n";
-    std::vector<Matrix9d> C(nelem_);  
-    #pragma omp parallel for
-    for (int i = 0; i < nelem_; ++i) {
-      
-      C[i] = Eigen::Matrix9d::Identity()*(-vols_[i] / (mat_val
-          * wdt_*wdt_*config_->h * config_->h));
-    }
-    
-    SparseMatrixd P;
-    SparseMatrixd J = -Jw_ * P_.transpose();
-    fill_block_matrix(M_, J, C, P); 
-    preconditioner_ = Eigen::CorotatedPreconditioner<double>(mat_val,
-        P_.rows(), nelem_, P, dS_);
-
-    //cg.preconditioner() = preconditioner_;
-    //cg.setTolerance(1e-5);
-    //cg.compute(lhs_);
-  }
-
-  preconditioner_.compute(lhs_);
-  
-}
-
 void MixedSQPOptimizer::build_lhs() {
   data_.timer.start("LHS");
 

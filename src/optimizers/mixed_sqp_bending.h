@@ -8,8 +8,16 @@
 
 namespace mfem {
 
+
+  static Eigen::Matrix3d Sym3 = (Eigen::Vector3d() <<
+    1, 1, 2).finished().asDiagonal();
+
+  static Eigen::Matrix3d Sym3inv = (Eigen::Vector3d() <<
+    1, 1, 0.5).finished().asDiagonal();
+
   // Mixed FEM Sequential Quadratic Program
   class MixedSQPBending : public MixedSQPPDOptimizer {
+
   public:
     
     MixedSQPBending(std::shared_ptr<Mesh> mesh,
@@ -18,6 +26,8 @@ namespace mfem {
     static std::string name() {
       return "SQP-PD";
     }
+
+    void step() override;
 
   public:
 
@@ -36,6 +46,11 @@ namespace mfem {
     virtual void reset() override;
 
     virtual void update_system() override;
+
+    virtual void update_rotations() override;
+
+    virtual bool linesearch(Eigen::VectorXd& x, const Eigen::VectorXd& dx,
+            Eigen::VectorXd& s, const Eigen::VectorXd& ds);
 
     void normals(const Eigen::VectorXd& x, Eigen::MatrixXd& n);
     void angles(const Eigen::VectorXd& x, const Eigen::MatrixXd& n,
@@ -62,6 +77,12 @@ namespace mfem {
     Eigen::VectorXd gg_;
     Eigen::SparseMatrix<double, Eigen::RowMajor> Dx_;
     Eigen::SparseMatrix<double, Eigen::RowMajor> PDW_;
+
+    std::vector<Eigen::Vector3d> S_;    // Per-element deformation
+    std::vector<Eigen::Matrix3d> H_;    // Elemental hessians w.r.t dS
+    std::vector<Eigen::Matrix3d> Hinv_; // Elemental hessians w.r.t dS
+    std::vector<Eigen::Vector3d> g_;    // Elemental gradients w.r.t dS
+    std::vector<Eigen::Matrix<double,9,3>> dS_;
 
 
 

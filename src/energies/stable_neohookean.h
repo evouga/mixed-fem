@@ -25,5 +25,9 @@ namespace mfem {
     double energy(const Eigen::Vector9d& F) override;
     Eigen::Vector9d gradient(const Eigen::Vector9d& F) override;
     Eigen::Matrix9d hessian(const Eigen::Vector9d& F) override;
+
+    double energy(const Eigen::Vector3d& s) override;
+    Eigen::Vector3d gradient(const Eigen::Vector3d& s);
+    Eigen::Matrix3d hessian(const Eigen::Vector3d& s);
   };
 }
