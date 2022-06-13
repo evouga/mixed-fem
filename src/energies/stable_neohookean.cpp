@@ -272,5 +272,6 @@ Matrix3d StableNeohookean::hessian(const Vector3d& s) {
   H(2,0) = S2*S3*la*-2.0;
   H(2,1) = S1*S3*la*-2.0;
   H(2,2) = la*2.0+mu*4.0+(S3*S3)*la*6.0-S1*S2*la*2.0;
+  sim::simple_psd_fix(H);
   return H;
 }

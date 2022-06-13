@@ -4,6 +4,7 @@
 #include "sparse_utils.h"
 #include "svd/dsvd.h"
 #include "svd/svd3x3_sse.h"
+#include "svd/svd_eigen.h"
 #include "linesearch.h"
 #include "pcg.h"
 #include "svd/newton_procrustes.h"
@@ -21,47 +22,23 @@
 using namespace mfem;
 using namespace Eigen;
 
-static const Eigen::Matrix<double, 9,9> Id = []{
-  
-  Matrix<double, 9,9> tmp;
-  tmp.setZero();
-
-  for(unsigned int ll=0; ll<3; ++ll) {
-    for(unsigned int mm=0; mm<3; ++mm) {
-      tmp(ll + 3*mm, ll+3*mm) = 1.0;
-    }
-  }
-
-  return tmp;
-
-}();
-
 void MixedSQPBending::step() {
   data_.clear();
 
   E_prev_ = 0;
-  // setup_preconditioner();
 
   int i = 0;
   double grad_norm;
-  q_.setZero();
-  q_.segment(0, x_.size()) = x_ - P_*x0_;
 
   do {
     data_.timer.start("step");
     update_system();
     substep(i, grad_norm);
-
-    // TODO:
-    // convergence check with norm([dx;ds])
-    // data ordering for performance :)
-
-    //linesearch_x(x_, dx_);
-    //linesearch_s(s_, ds_);
-    linesearch(x_, dx_, s_, ds_); // dont do
+    linesearch(x_, dx_, s_, ds_);
 
     // x_ += dx_;
     // s_ += ds_;
+     std::cout << "ds norm: " << ds_.norm() << " la norm: " << la_.norm() << std::endl;
 
     double E = energy(x_, s_, a_, la_, ga_);
     double res = std::abs((E - E_prev_) / E);
@@ -112,6 +89,11 @@ void MixedSQPBending::build_lhs() {
     Hinv_[i] = H.inverse();
     g_[i] = h2 * object_->material_->gradient(si);
     H_[i] = (1.0 / vols_[i]) * (Sym3inv * H * Sym3inv);
+    
+    Vector6d si2;
+    si2 << si(0), 1, si(1), 0, si(2), 0;
+    std::cout << "g1: \n" << object_->material_->gradient(si) <<
+      " \n g2: \n" << object_->material_->gradient(si2) << "\n"<< std::endl;
   }
   data_.timer.stop("Hinv");
   
@@ -129,7 +111,7 @@ void MixedSQPBending::build_lhs() {
   assembler_->update_matrix(Hloc);
   data_.timer.stop("Update LHS");
 
-  lhs_ = M_ + assembler_->A + Ha2;
+  lhs_ = M_ + assembler_->A;// + Ha2;
   data_.timer.stop("LHS");
   //saveMarket(lhs_, "lhs_full.mkt");
 }
@@ -257,20 +239,23 @@ void MixedSQPBending::update_rotations() {
     newton_procrustes(R_[i], Eigen::Matrix3d::Identity(), 
         sim::unflatten<3,3>(def_grad.segment(9*i,9)), true, dRdF, 1e-6, 100);
     
- 
     Eigen::Matrix3d Sf = R_[i].transpose()
         * sim::unflatten<3,3>(def_grad.segment(9*i,9));
 
     Sf = 0.5*(Sf+Sf.transpose());
     S_[i] << Sf(0,0), Sf(2,2), Sf(2,0);
+    const Vector3d& si = s_.segment<3>(3*i);
+    std::cout << "Sf: \n" << Sf << "\n si: " << si << std::endl;
 
     J = sim::flatten_multiply<Eigen::Matrix3d>(R_[i].transpose())
-        * (Id - sim::flatten_multiply_right<Eigen::Matrix3d>(Sf)*dRdF);
+        * (Matrix9d::Identity() 
+            * - sim::flatten_multiply_right<Eigen::Matrix3d>(Sf)*dRdF);
 
     Matrix<double, 3, 9> Js;
     Js.row(0) = J.row(0);
     Js.row(1) = J.row(8);
-    Js.row(2) = 0.5*(J.row(5) + J.row(7));
+    Js.row(2) = 0.5*(J.row(2) + J.row(6));
+    //Js.row(2) = 0.5*(J.row(5) + J.row(7));
     dS_[i] = Js.transpose()*Sym3;
   }
   data_.timer.stop("Rot Update");
