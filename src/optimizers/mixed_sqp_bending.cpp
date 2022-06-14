@@ -52,7 +52,9 @@ void MixedSQPBending::step() {
     ++i;
   } while (i < config_->outer_steps && grad_norm > config_->newton_tol);
 
-  data_.print_data();
+  if (config_->show_data) {
+    data_.print_data(config_->show_timing);
+  }
   update_configuration();
 }
 
@@ -90,10 +92,10 @@ void MixedSQPBending::build_lhs() {
     g_[i] = h2 * object_->material_->gradient(si);
     H_[i] = (1.0 / vols_[i]) * (Sym3inv * H * Sym3inv);
     
-    Vector6d si2;
-    si2 << si(0), 1, si(1), 0, si(2), 0;
-    std::cout << "g1: \n" << object_->material_->gradient(si) <<
-      " \n g2: \n" << object_->material_->gradient(si2) << "\n"<< std::endl;
+    // Vector6d si2;
+    // si2 << si(0), 1, si(1), 0, si(2), 0;
+    // std::cout << "g1: \n" << object_->material_->gradient(si) <<
+      // " \n g2: \n" << object_->material_->gradient(si2) << "\n"<< std::endl;
   }
   data_.timer.stop("Hinv");
   
@@ -111,7 +113,7 @@ void MixedSQPBending::build_lhs() {
   assembler_->update_matrix(Hloc);
   data_.timer.stop("Update LHS");
 
-  lhs_ = M_ + assembler_->A;// + Ha2;
+  lhs_ = M_ + assembler_->A + Ha2;
   data_.timer.stop("LHS");
   //saveMarket(lhs_, "lhs_full.mkt");
 }
@@ -188,7 +190,7 @@ void MixedSQPBending::substep(int step, double& decrement) {
   da_.resize(nedges_);
   da_ = -(l_.array()*(ga_.array() + ga)) / Ha;
   std::cout << "da: " << da_.norm() << std::endl;
-  // a_ += da_;
+  a_ += da_;
   #pragma omp parallel for 
   for (int i = 0; i < nelem_; ++i) {
     la_.segment<3>(3*i) += H_[i] * (dS_[i].transpose() * Jdx_.segment<9>(9*i));
@@ -244,12 +246,10 @@ void MixedSQPBending::update_rotations() {
 
     Sf = 0.5*(Sf+Sf.transpose());
     S_[i] << Sf(0,0), Sf(2,2), Sf(2,0);
-    const Vector3d& si = s_.segment<3>(3*i);
-    std::cout << "Sf: \n" << Sf << "\n si: " << si << std::endl;
 
     J = sim::flatten_multiply<Eigen::Matrix3d>(R_[i].transpose())
         * (Matrix9d::Identity() 
-            * - sim::flatten_multiply_right<Eigen::Matrix3d>(Sf)*dRdF);
+           - sim::flatten_multiply_right<Eigen::Matrix3d>(Sf)*dRdF);
 
     Matrix<double, 3, 9> Js;
     Js.row(0) = J.row(0);

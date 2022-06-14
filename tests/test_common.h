@@ -4,7 +4,7 @@
 #include "igl/readMESH.h"
 //#include "simulator.h"
 #include "optimizers/mixed_alm_optimizer.h"
-#include "materials/stable_neohookean.h"
+#include "energies/stable_neohookean.h"
 #include "mesh/tet_mesh.h"
 
 namespace Test {

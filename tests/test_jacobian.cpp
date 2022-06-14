@@ -54,9 +54,9 @@ TEST_CASE("Tri Jacobian - dF/dx") {
   material = std::make_shared<StableNeohookean>(material_config);
   obj = std::make_shared<TriMesh>(meshV, meshF, meshN, material,
       material_config);
+  std::cout << "4 " << std::endl;
 
   SparseMatrixdRowMajor J;
-  SparseMatrixdRowMajor J2;
   VectorXd vols;
   obj->jacobian(J, vols, false);
   MatrixXd perturb(obj->V_);
@@ -65,7 +65,9 @@ TEST_CASE("Tri Jacobian - dF/dx") {
 
   MatrixXd tmp = obj->V_.transpose();
   VectorXd xt = Map<VectorXd>(tmp.data(), obj->V_.size());
-  obj->update_jacobian(J2);
+  obj->init_jacobian();
+  obj->update_jacobian(xt);
+  std::cout << "6 " << std::endl;
 
 
   // function for finite differences
@@ -96,10 +98,12 @@ TEST_CASE("Tri Jacobian - dF/dx") {
       return vecF;
     }
   };
+  std::cout << "7 " << std::endl;
 
   // Finite difference gradient
+  const Eigen::SparseMatrixdRowMajor& J2 = obj->Mesh::jacobian();
   MatrixXd fgrad;
-  MatrixXd grad = (J + J2);//.transpose();
+  MatrixXd grad = J2;//(J + J2);//.transpose();
   finite_jacobian(xt, E, fgrad, SECOND);
   CHECK(compare_jacobian(grad, fgrad));
 

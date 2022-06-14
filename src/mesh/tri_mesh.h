@@ -29,7 +29,7 @@ namespace mfem {
       return false;
     }
     const std::vector<Eigen::MatrixXd>& local_jacobians() override{
-      return Jloc_;
+      return Jloc0_;
     }
 
     Eigen::MatrixXd N_;

@@ -64,3 +64,35 @@ Matrix6d ArapModel::hessian(const Vector6d& S, bool psd_fix) {
   return tmp.asDiagonal() * mu;
 }
 
+double ArapModel::energy(const Vector3d& s) {
+  double mu = config_->mu;
+  double S1 = s(0);
+  double S2 = s(1);
+  double S3 = s(2);
+  return (mu*(pow(S1-1.0,2.0)+pow(S2-1.0,2.0)+(S3*S3)*2.0))/2.0;;
+}
+
+Vector3d ArapModel::gradient(const Vector3d& s) {
+  double mu = config_->mu;
+  double S1 = s(0);
+  double S2 = s(1);
+  double S3 = s(2);
+  Vector3d g;
+  g(0) = (mu*(S1*2.0-2.0))/2.0;
+  g(1) = (mu*(S2*2.0-2.0))/2.0;
+  g(2) = S3*mu*2.0;
+  return g;
+}
+
+Matrix3d ArapModel::hessian(const Vector3d& s) {
+  double mu = config_->mu;
+  double S1 = s(0);
+  double S2 = s(1);
+  double S3 = s(2);
+  Matrix3d H;
+  H.setZero();
+  H(0,0) = mu;
+  H(1,1) = mu;
+  H(2,2) = mu*2.0;
+  return H;
+}
