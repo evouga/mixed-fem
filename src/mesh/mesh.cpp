@@ -77,9 +77,9 @@ void Mesh::update_free_map() {
   int curr = 0;
   for (int i = 0; i < is_fixed_.size(); ++i) {
     if (is_fixed_(i) == 0) {
-      free_map_(i) = curr++;
+      free_map_[i] = curr++;
     } else {
-      free_map_(i) = -1;
+      free_map_[i] = -1;
     }
   }
   P_ = pinning_matrix(V_, T_, is_fixed_);

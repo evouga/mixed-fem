@@ -1,6 +1,7 @@
 #pragma once
 
 #include "optimizers/optimizer.h"
+#include "sparse_utils.h"
 
 #if defined(SIM_USE_CHOLMOD)
 #include <Eigen/CholmodSupport>
@@ -53,13 +54,15 @@ namespace mfem {
     Eigen::VectorXd b_;         // coordinates projected out
     Eigen::VectorXd vols_;      // per element volume
     Eigen::VectorXd rhs_;       // linear system right hand side
-    Eigen::SparseMatrixd lhs_;  // linear system left hand side
+    Eigen::SparseMatrix<double, Eigen::RowMajor> lhs_;  // linear system left hand side
 
-    Eigen::SparseMatrixd PMP_;        // mass matrix
+    Eigen::SparseMatrix<double, Eigen::RowMajor> PMP_;        // mass matrix
     Eigen::SparseMatrixd PM_;         // mass matrix
     Eigen::SparseMatrixd M_;          // mass matrix
-    Eigen::SparseMatrix<double, Eigen::RowMajor> J_;  // jacobian
     Eigen::MatrixXd dphidX_;
+
+    std::shared_ptr<Assembler<double,3>> assembler_;
+    std::shared_ptr<VecAssembler<double,3>> vec_assembler_;
 
     // Solve used for preconditioner
     #if defined(SIM_USE_CHOLMOD)

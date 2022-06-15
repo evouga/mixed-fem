@@ -86,7 +86,7 @@ namespace mfem {
     std::vector<std::vector<int>> bc_groups_;
     std::vector<int> fixed_vertices_;
     Eigen::VectorXi is_fixed_;
-    Eigen::VectorXi free_map_;
+    std::vector<int> free_map_;
     Eigen::Matrix23x<double> bbox;
 
   

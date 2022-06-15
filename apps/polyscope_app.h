@@ -62,7 +62,8 @@ namespace mfem {
       if (ImGui::TreeNode("Material Params")) {
 
         int type = material_config->material_model;
-        if (ImGui::Combo("Material Model", &type,"SNH\0NH\0FCR\0FUNG\0ARAP\0\0")) {
+
+        if (ImGui::Combo("Material Model", &type,"SNH\0NH\0FCR\0ARAP\0FUNG\0\0")) {
           material_config->material_model = 
               static_cast<MaterialModelType>(type);
           material = material_factory.create(material_config);
@@ -111,6 +112,8 @@ namespace mfem {
             config->kappa = E / (24 * (1.0 - nu * nu))
                 * thickness * thickness * thickness;
           }
+
+          ImGui::InputDouble("Density", &material_config->density);
         }
         ImGui::TreePop();
       }

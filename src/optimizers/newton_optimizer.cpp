@@ -1,21 +1,10 @@
 #include "newton_optimizer.h"
 
 #include <chrono>
-#include "sparse_utils.h"
 #include "linesearch.h"
 #include "pinning_matrix.h"
-#include "linear_tetmesh_dphi_dX.h"
-#include "assemble.h"
 #include "energies/material_model.h"
 #include "mesh/mesh.h"
-
-#include <amgcl/backend/eigen.hpp>
-#include <amgcl/amg.hpp>
-#include <amgcl/make_solver.hpp>
-#include <amgcl/relaxation/spai0.hpp>
-#include <amgcl/coarsening/smoothed_aggregation.hpp>
-#include <amgcl/solver/bicgstab.hpp>
-#include <amgcl/solver/cg.hpp>
 
 using namespace mfem;
 using namespace Eigen;
@@ -78,39 +67,26 @@ void NewtonOptimizer::build_lhs() {
   double h = config_->h;
   double h2 = h*h;
 
-  VectorXd x = P_.transpose()*x_ + b_;
+  VectorXd def_grad;
+  object_->deformation_gradient(P_.transpose()*x_+b_, def_grad);
 
-  auto assemble_func = [&](auto &H,  auto &e, 
-      const auto &dphidX, const auto &volume) { 
-    Matrix<double, 4,3> dX = sim::unflatten<4,3>(dphidX);
+  const std::vector<MatrixXd>& Jloc = object_->local_jacobians();
+  std::vector<MatrixXd> Hloc(nelem_); 
+  #pragma omp parallel for
+  for (int i = 0; i < nelem_; ++i) {
+    const Vector9d& F = def_grad.segment<9>(9*i);
+    
+    Hloc[i] = (Jloc[i].transpose() * object_->material_->hessian(F)
+        * Jloc[i]) * vols_[i] * h2;
+  }
+  assembler_->update_matrix(Hloc);
 
-    // Local block
-    // NOTE: assuming tetmesh
-    Matrix<double,9,12> B;
-    B  << dX(0,0), 0, 0, dX(1,0), 0, 0, dX(2,0), 0, 0, dX(3,0), 0, 0,
-          0, dX(0,0), 0, 0, dX(1,0), 0, 0, dX(2,0), 0, 0, dX(3,0), 0,
-          0, 0, dX(0,0), 0, 0, dX(1,0), 0, 0, dX(2,0), 0, 0, dX(3,0),
-          dX(0,1), 0, 0, dX(1,1), 0, 0, dX(2,1), 0, 0, dX(3,1), 0, 0, 
-          0, dX(0,1), 0, 0, dX(1,1), 0, 0, dX(2,1), 0, 0, dX(3,1), 0,
-          0, 0, dX(0,1), 0, 0, dX(1,1), 0, 0, dX(2,1), 0, 0, dX(3,1),
-          dX(0,2), 0, 0, dX(1,2), 0, 0, dX(2,2), 0, 0, dX(3,2), 0, 0, 
-          0, dX(0,2), 0, 0, dX(1,2), 0, 0, dX(2,2), 0, 0, dX(3,2), 0,
-          0, 0, dX(0,2), 0, 0, dX(1,2), 0, 0, dX(2,2), 0, 0, dX(3,2);
-    Vector12d qe;
-    qe << x.segment(3*e(0),3), x.segment(3*e(1),3),
-       x.segment(3*e(2),3), x.segment(3*e(3),3);
-    Vector9d F = B * qe;
+  lhs_ = assembler_->A;
+  // std::cout << "A - LHS_ : " << (assembler_->A - lhs_).norm() << std::endl;
 
-    Matrix12d tmp = (B.transpose() * object_->material_->hessian(F) * B) *volume(0)*h2;
-    H = tmp.eval();
-  };
-
-  Eigen::Matrix12d Htmp;
-  SparseMatrixd K;
-  sim::assemble(K, object_->V_.size(), object_->V_.size(), 
-      object_->T_, object_->T_, assemble_func, Htmp, dphidX_, vols_);
-  lhs_ = P_ * K * P_.transpose();
   lhs_ += PMP_;
+
+
 }
 
 void NewtonOptimizer::build_rhs() {
@@ -119,43 +95,21 @@ void NewtonOptimizer::build_rhs() {
 
   VectorXd x = P_.transpose()*x_ + b_;
 
-  auto assemble_func = [&](auto &H,  auto &e, 
-      const auto &dphidX, const auto &volume) { 
-    Matrix<double, 4,3> dX = sim::unflatten<4,3>(dphidX);
-
-    // Local block
-    // NOTE: assuming tetmesh
-    Matrix<double,9,12> B;
-    B  << dX(0,0), 0, 0, dX(1,0), 0, 0, dX(2,0), 0, 0, dX(3,0), 0, 0,
-          0, dX(0,0), 0, 0, dX(1,0), 0, 0, dX(2,0), 0, 0, dX(3,0), 0,
-          0, 0, dX(0,0), 0, 0, dX(1,0), 0, 0, dX(2,0), 0, 0, dX(3,0),
-          dX(0,1), 0, 0, dX(1,1), 0, 0, dX(2,1), 0, 0, dX(3,1), 0, 0, 
-          0, dX(0,1), 0, 0, dX(1,1), 0, 0, dX(2,1), 0, 0, dX(3,1), 0,
-          0, 0, dX(0,1), 0, 0, dX(1,1), 0, 0, dX(2,1), 0, 0, dX(3,1),
-          dX(0,2), 0, 0, dX(1,2), 0, 0, dX(2,2), 0, 0, dX(3,2), 0, 0, 
-          0, dX(0,2), 0, 0, dX(1,2), 0, 0, dX(2,2), 0, 0, dX(3,2), 0,
-          0, 0, dX(0,2), 0, 0, dX(1,2), 0, 0, dX(2,2), 0, 0, dX(3,2);
-    Vector12d qe;
-    qe << x.segment(3*e(0),3), x.segment(3*e(1),3),
-       x.segment(3*e(2),3), x.segment(3*e(3),3);
-    Vector9d F = B * qe;
-
-    H = B.transpose() * object_->material_->gradient(F) * volume(0) * h2;
-  };
-  Vector12d Htmp;
   VectorXd g;
-  sim::assemble(g, object_->V_.size(), object_->T_, object_->T_,
-      assemble_func, Htmp, dphidX_, vols_);
+  VectorXd def_grad;
+  object_->deformation_gradient(x, def_grad);
 
-  // inertial term
-  rhs_ = -(P_*g + PM_*(x - x0_ - h*vt_ - h2*f_ext_));
+  const std::vector<MatrixXd>& Jloc = object_->local_jacobians();
+  std::vector<VectorXd> gloc(nelem_); 
+  #pragma omp parallel for
+  for (int i = 0; i < nelem_; ++i) {
+    const Vector9d& F = def_grad.segment<9>(9*i);
+    gloc[i] = Jloc[i].transpose()
+        * object_->material_->gradient(F) * vols_[i] * h2;
+  }
+  vec_assembler_->assemble(gloc, g);
 
-  double gradx = rhs_.norm();
-  double grads = 0;
-  double gradl = 0;
-  data_.egrad_x_.push_back(gradx);
-  data_.egrad_s_.push_back(std::sqrt(grads));
-  data_.egrad_la_.push_back(std::sqrt(gradl));
+  rhs_ = -(g + PM_*(x - x0_ - h*vt_ - h2*f_ext_));
 }
 
 void NewtonOptimizer::substep(bool init_guess, double& decrement) {
@@ -221,11 +175,12 @@ double NewtonOptimizer::energy(const VectorXd& x) {
   
   double Em = 0.5*xdiff.transpose()*M_*xdiff;
 
-  VectorXd def_grad = J_*xt;
+  VectorXd def_grad;
+  object_->deformation_gradient(xt, def_grad);
   double Epsi = 0.0;
   #pragma omp parallel for reduction(+ : Epsi)
   for (int i = 0; i < nelem_; ++i) {
-    Vector9d F = def_grad.segment<9>(9*i);
+    const Vector9d& F = def_grad.segment<9>(9*i);
     Epsi += object_->material_->energy(F) * vols_[i];
   }
   double e = Em + Epsi*h2;
@@ -243,8 +198,6 @@ void NewtonOptimizer::reset() {
   object_->mass_matrix(tmpM, vols_);
   M_ = tmpM;
   
-  object_->jacobian(J_, vols_, false);
-
   MatrixXd tmp = object_->V_.transpose();
   x_ = Map<VectorXd>(tmp.data(), object_->V_.size());
 
@@ -262,6 +215,7 @@ void NewtonOptimizer::reset() {
   Vector3d ext = Map<Vector3f>(config_->ext).cast<double>();
   f_ext_ = P_.transpose()*P_*ext.replicate(object_->V_.rows(),1);
 
-  // J matrix (big jacobian guy)
-  sim::linear_tetmesh_dphi_dX(dphidX_, object_->V0_, object_->T_);
+  assembler_ = std::make_shared<Assembler<double,3>>(object_->T_, object_->free_map_);
+  vec_assembler_ = std::make_shared<VecAssembler<double,3>>(object_->T_,
+      object_->free_map_);
 }

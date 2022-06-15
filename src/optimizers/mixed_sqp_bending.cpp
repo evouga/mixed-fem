@@ -294,6 +294,9 @@ double MixedSQPBending::energy(const VectorXd& x, const VectorXd& s,
 
     Vector3d stmp; 
     stmp << S(0,0), S(2,2), 0.5*(S(2,0) + S(0,2));
+    if ( (S(1,1) - 1.0) > 1e-12) {
+      std::cout << "S: " << S << std::endl;
+    }
     
     const Vector3d& si = s.segment<3>(3*i);
     Vector3d diff = Sym3 * (stmp - si);
