@@ -88,11 +88,7 @@ void NewtonOptimizer::build_lhs() {
   assembler_->update_matrix(Hloc);
 
   lhs_ = assembler_->A;
-  // std::cout << "A - LHS_ : " << (assembler_->A - lhs_).norm() << std::endl;
-
   lhs_ += PMP_;
-
-
 }
 
 void NewtonOptimizer::build_rhs() {

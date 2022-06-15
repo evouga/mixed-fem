@@ -59,7 +59,6 @@ namespace mfem {
     Eigen::SparseMatrix<double, Eigen::RowMajor> PMP_;        // mass matrix
     Eigen::SparseMatrixd PM_;         // mass matrix
     Eigen::SparseMatrixd M_;          // mass matrix
-    Eigen::MatrixXd dphidX_;
 
     std::shared_ptr<Assembler<double,3>> assembler_;
     std::shared_ptr<VecAssembler<double,3>> vec_assembler_;
