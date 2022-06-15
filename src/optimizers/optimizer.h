@@ -23,7 +23,7 @@ namespace mfem {
   public:
     Optimizer(std::shared_ptr<Mesh> object,
           std::shared_ptr<SimConfig> config)
-          : object_(object), config_(config) {}
+          : mesh_(object), config_(config) {}
           
     static std::string name() {
       return "base";
@@ -52,7 +52,7 @@ namespace mfem {
   protected:
 
     OptimizerData data_;
-    std::shared_ptr<Mesh> object_;
+    std::shared_ptr<Mesh> mesh_;
     std::shared_ptr<SimConfig> config_;
 
     // Debug timing variables (timings in milliseconds)

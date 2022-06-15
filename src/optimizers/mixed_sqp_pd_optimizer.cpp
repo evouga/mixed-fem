@@ -71,8 +71,8 @@ void MixedSQPPDOptimizer::step() {
     data_.add("primal ||gs||", gs.norm());
 
     VectorXd xt = P_.transpose()*x_ + b_;
-    MatrixXd V = Map<MatrixXd>(xt.data(), object_->V_.cols(), object_->V_.rows());
-    object_->V_ = V.transpose();
+    MatrixXd V = Map<MatrixXd>(xt.data(), mesh_->V_.cols(), mesh_->V_.rows());
+    mesh_->V_ = V.transpose();
 
     ++i;
   } while (i < config_->outer_steps && grad_norm > config_->newton_tol
@@ -113,16 +113,16 @@ void MixedSQPPDOptimizer::build_lhs() {
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
     const Vector6d& si = s_.segment(6*i,6);
-    Matrix6d H = h2 * object_->material_->hessian(si);
+    Matrix6d H = h2 * mesh_->material_->hessian(si);
     Hinv_[i] = H.inverse();
-    g_[i] = h2 * object_->material_->gradient(si);
+    g_[i] = h2 * mesh_->material_->gradient(si);
     H_[i] = (1.0 / vols_[i]) * (Syminv * H * Syminv);
   }
   data_.timer.stop("Hinv");
   
   data_.timer.start("Local H");
 
-  const std::vector<MatrixXd>& Jloc = object_->local_jacobians();
+  const std::vector<MatrixXd>& Jloc = mesh_->local_jacobians();
   std::vector<MatrixXd> Hloc(nelem_); 
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
@@ -160,7 +160,7 @@ void MixedSQPPDOptimizer::build_rhs() {
     tmp.segment<9>(9*i) = dS_[i]*gl_.segment<6>(6*i);
   }
 
-  rhs_ = -object_->jacobian() * tmp - PM_*(wx_*xt + wx0_*x0_
+  rhs_ = -mesh_->jacobian() * tmp - PM_*(wx_*xt + wx0_*x0_
       + wx1_*x1_ + wx2_*x2_ - h2*f_ext_);
   data_.timer.stop("RHS");
 
@@ -171,14 +171,14 @@ void MixedSQPPDOptimizer::build_rhs() {
     grad_.segment<6>(x_.size() + 6*i) = vols_[i] * (g_[i] + Sym*la_.segment<6>(6*i));
   }
   grad_.segment(0,x_.size()) = PM_*(wx_*xt + wx0_*x0_ + wx1_*x1_ + wx2_*x2_
-      - h2*f_ext_) - object_->jacobian()  * tmp;
+      - h2*f_ext_) - mesh_->jacobian()  * tmp;
 }
 
 void MixedSQPPDOptimizer::update_system() {
 
-  if (!object_->fixed_jacobian()) {
+  if (!mesh_->fixed_jacobian()) {
     VectorXd x = P_.transpose()*x_ + b_;
-    object_->update_jacobian(x);
+    mesh_->update_jacobian(x);
   }
 
   // Compute rotations and rotation derivatives
@@ -210,7 +210,7 @@ void MixedSQPPDOptimizer::substep(int step, double& decrement) {
 
 
   data_.timer.start("local");
-  Jdx_ = -object_->jacobian().transpose() * dx_;
+  Jdx_ = -mesh_->jacobian().transpose() * dx_;
   la_ = -gl_;
 
   // Update per-element R & S matrices
@@ -239,7 +239,7 @@ void MixedSQPPDOptimizer::reset() {
   std::vector<Triplet<double>> trips;
   for (int i = 0; i < nelem_; ++i) {
     for (int j = 0; j < 9; ++j) {
-      trips.push_back(Triplet<double>(9*i+j, 9*i+j, object_->config_->mu / vols_[i]));
+      trips.push_back(Triplet<double>(9*i+j, 9*i+j, mesh_->config_->mu / vols_[i]));
     }
   }
   A.setFromTriplets(trips.begin(),trips.end());
@@ -250,7 +250,7 @@ void MixedSQPPDOptimizer::reset() {
   solver_arap_.compute(lhs);
 
   //build up reduced space
-  T0_.resize(3*object_->V0_.rows(), 12);
+  T0_.resize(3*mesh_->V0_.rows(), 12);
 
   //compute center of mass
   Eigen::Matrix3d I;
@@ -259,14 +259,14 @@ void MixedSQPPDOptimizer::reset() {
 
   //std::cout<<"HERE 1 \n";
   // TODO wrong? should be F_ not T_ for tetrahedra
-  sim::rigid_inertia_com(I, c, mass, object_->V0_, object_->T_, 1.0);
+  sim::rigid_inertia_com(I, c, mass, mesh_->V0_, mesh_->T_, 1.0);
 
-  for(unsigned int ii=0; ii<object_->V0_.rows(); ii++ ) {
+  for(unsigned int ii=0; ii<mesh_->V0_.rows(); ii++ ) {
 
     //std::cout<<"HERE 2 "<<ii<<"\n";
-    T0_.block<3,3>(3*ii, 0) = Eigen::Matrix3d::Identity()*(object_->V0_(ii,0) - c(0));
-    T0_.block<3,3>(3*ii, 3) = Eigen::Matrix3d::Identity()*(object_->V0_(ii,1) - c(1));
-    T0_.block<3,3>(3*ii, 6) = Eigen::Matrix3d::Identity()*(object_->V0_(ii,2) - c(2));
+    T0_.block<3,3>(3*ii, 0) = Eigen::Matrix3d::Identity()*(mesh_->V0_(ii,0) - c(0));
+    T0_.block<3,3>(3*ii, 3) = Eigen::Matrix3d::Identity()*(mesh_->V0_(ii,1) - c(1));
+    T0_.block<3,3>(3*ii, 6) = Eigen::Matrix3d::Identity()*(mesh_->V0_(ii,2) - c(2));
     T0_.block<3,3>(3*ii, 9) = Eigen::Matrix3d::Identity();
 
   }

@@ -87,9 +87,9 @@ void MixedSQPBending::build_lhs() {
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
     const Vector3d& si = s_.segment<3>(3*i,3);
-    Matrix3d H = h2 * object_->material_->hessian(si);
+    Matrix3d H = h2 * mesh_->material_->hessian(si);
     Hinv_[i] = H.inverse();
-    g_[i] = h2 * object_->material_->gradient(si);
+    g_[i] = h2 * mesh_->material_->gradient(si);
     H_[i] = (1.0 / vols_[i]) * (Sym3inv * H * Sym3inv);
     
     // Vector6d si2;
@@ -101,7 +101,7 @@ void MixedSQPBending::build_lhs() {
   
   data_.timer.start("Local H");
 
-  const std::vector<MatrixXd>& Jloc = object_->local_jacobians();
+  const std::vector<MatrixXd>& Jloc = mesh_->local_jacobians();
   std::vector<MatrixXd> Hloc(nelem_); 
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
@@ -147,7 +147,7 @@ void MixedSQPBending::build_rhs() {
     tmp.segment<9>(9*i) = dS_[i]*gl_.segment<3>(3*i);
   }
 
-  rhs_ = -object_->jacobian() * tmp - PDW_ * gg_ - PM_*(wx_*xt + wx0_*x0_
+  rhs_ = -mesh_->jacobian() * tmp - PDW_ * gg_ - PM_*(wx_*xt + wx0_*x0_
       + wx1_*x1_ + wx2_*x2_ - h2*f_ext_);
   data_.timer.stop("RHS");
 
@@ -158,7 +158,7 @@ void MixedSQPBending::build_rhs() {
     grad_.segment<3>(x_.size() + 3*i) = vols_[i] * (g_[i] + Sym3*la_.segment<3>(3*i));
   }
   grad_.segment(0,x_.size()) = PM_*(wx_*xt + wx0_*x0_ + wx1_*x1_ + wx2_*x2_
-      - h2*f_ext_) - object_->jacobian()  * tmp;
+      - h2*f_ext_) - mesh_->jacobian()  * tmp;
 }
 
 void MixedSQPBending::substep(int step, double& decrement) {
@@ -175,7 +175,7 @@ void MixedSQPBending::substep(int step, double& decrement) {
 
 
   data_.timer.start("local");
-  Jdx_ = -object_->jacobian().transpose() * dx_;
+  Jdx_ = -mesh_->jacobian().transpose() * dx_;
   la_ = -gl_;
 
   double h2 = config_->h*config_->h;
@@ -203,9 +203,9 @@ void MixedSQPBending::substep(int step, double& decrement) {
 
 void MixedSQPBending::update_system() {
 
-  if (!object_->fixed_jacobian()) {
+  if (!mesh_->fixed_jacobian()) {
     VectorXd x = P_.transpose()*x_ + b_;
-    object_->update_jacobian(x);
+    mesh_->update_jacobian(x);
   }
 
   VectorXd x = P_.transpose()*x_ + b_;
@@ -228,7 +228,7 @@ void MixedSQPBending::update_rotations() {
   dS_.resize(nelem_);
 
   VectorXd def_grad;
-  object_->deformation_gradient(P_.transpose()*x_+b_, def_grad);
+  mesh_->deformation_gradient(P_.transpose()*x_+b_, def_grad);
 
   #pragma omp parallel for 
   for (int i = 0; i < nelem_; ++i) {
@@ -270,7 +270,7 @@ double MixedSQPBending::energy(const VectorXd& x, const VectorXd& s,
   double Em = 0.5*xdiff.transpose()*M_*xdiff;
 
   VectorXd def_grad;
-  object_->deformation_gradient(xt, def_grad);
+  mesh_->deformation_gradient(xt, def_grad);
 
   VectorXd ax;
   normals(xt, n_);
@@ -300,7 +300,7 @@ double MixedSQPBending::energy(const VectorXd& x, const VectorXd& s,
     
     const Vector3d& si = s.segment<3>(3*i);
     Vector3d diff = Sym3 * (stmp - si);
-    e += h2 * object_->material_->energy(si) * vols_[i]
+    e += h2 * mesh_->material_->energy(si) * vols_[i]
         - la.segment<3>(3*i).dot(diff) * vols_[i];
   }
   e += (Em + el);
@@ -308,7 +308,7 @@ double MixedSQPBending::energy(const VectorXd& x, const VectorXd& s,
 }
 
 void MixedSQPBending::normals(const VectorXd& x, MatrixXd& n) {
-  const MatrixXi& T = object_->T_;
+  const MatrixXi& T = mesh_->T_;
   n.resize(T.rows(), T.cols());
 
   #pragma omp parallel for
@@ -353,7 +353,7 @@ void MixedSQPBending::grad_angles(const VectorXd& x, const MatrixXd& N,
   #pragma omp parallel for
   for(int i = 0; i < nedges_; ++i) {
     for (int j = 0; j < 2; ++j) {
-      const RowVector3i& T = object_->T_.row(EF_(i,j));
+      const RowVector3i& T = mesh_->T_.row(EF_(i,j));
       Vector3d v1 = x.segment<3>(3*T(1)) - x.segment<3>(3*T(0));
       Vector3d v2 = x.segment<3>(3*T(2)) - x.segment<3>(3*T(0));
       Vector3d n = v1.cross(v2);
@@ -421,7 +421,7 @@ void MixedSQPBending::reset() {
 
   MixedOptimizer::reset();
 
-  igl::edge_topology(object_->V0_, object_->T_, EV_, FE_, EF_);
+  igl::edge_topology(mesh_->V0_, mesh_->T_, EV_, FE_, EF_);
 
   ArrayXX<bool> valid = (EF_.col(0).array() != -1 && EF_.col(1).array() != -1);
   MatrixXi tmp1,tmp2;
@@ -433,7 +433,7 @@ void MixedSQPBending::reset() {
   EV_ = tmp1;
   //FE_ = tmp2;
   EF_ = tmp2;
-  igl::edge_lengths(object_->V0_, EV_, l_);
+  igl::edge_lengths(mesh_->V0_, EV_, l_);
 
   nedges_ = l_.size(); 
   std::cout << "nedges: " << nedges_ << std::endl;
@@ -446,7 +446,7 @@ void MixedSQPBending::reset() {
   }
   L_.setFromTriplets(trips.begin(),trips.end());
 
-  n_.resize(object_->T_.rows(), 3);
+  n_.resize(mesh_->T_.rows(), 3);
   a_.resize(nedges_);
   a0_.resize(nedges_);
   ga_.resize(nedges_);
@@ -467,14 +467,14 @@ void MixedSQPBending::reset() {
   }
 
   int curr = 0;
-  std::vector<int> free_map(object_->is_fixed_.size(), -1);  
-  for (int i = 0; i < object_->is_fixed_.size(); ++i) {
-    if (object_->is_fixed_(i) == 0) {
+  std::vector<int> free_map(mesh_->is_fixed_.size(), -1);  
+  for (int i = 0; i < mesh_->is_fixed_.size(); ++i) {
+    if (mesh_->is_fixed_(i) == 0) {
       free_map[i] = curr++;
     }
   }
-  assembler_ = std::make_shared<Assembler<double,3>>(object_->T_, free_map);
-  vec_assembler_ = std::make_shared<VecAssembler<double,3>>(object_->T_,
+  assembler_ = std::make_shared<Assembler<double,3>>(mesh_->T_, free_map);
+  vec_assembler_ = std::make_shared<VecAssembler<double,3>>(mesh_->T_,
       free_map);
 
 
@@ -484,14 +484,14 @@ void MixedSQPBending::reset() {
   trips.clear();
   for (int i = 0; i < nelem_; ++i) {
     for (int j = 0; j < 9; ++j) {
-      trips.push_back(Triplet<double>(9*i+j, 9*i+j, object_->config_->mu / vols_[i]));
+      trips.push_back(Triplet<double>(9*i+j, 9*i+j, mesh_->config_->mu / vols_[i]));
     }
   }
   A.setFromTriplets(trips.begin(),trips.end());
 
   double h2 = wdt_*wdt_*config_->h * config_->h;
-  object_->jacobian(Jw_, vols_, true);
-  object_->jacobian(Jloc_);
+  mesh_->jacobian(Jw_, vols_, true);
+  mesh_->jacobian(Jloc_);
   PJ_ = P_ * Jw_.transpose();
   PM_ = P_ * Mfull_;
 
@@ -500,7 +500,7 @@ void MixedSQPBending::reset() {
   solver_arap_.compute(lhs);
 
   //build up reduced space
-  T0_.resize(3*object_->V0_.rows(), 12);
+  T0_.resize(3*mesh_->V0_.rows(), 12);
 
   //compute center of mass
   Eigen::Matrix3d I;
@@ -509,14 +509,14 @@ void MixedSQPBending::reset() {
 
   //std::cout<<"HERE 1 \n";
   // TODO wrong? should be F_ not T_ for tetrahedra
-  sim::rigid_inertia_com(I, c, mass, object_->V0_, object_->T_, 1.0);
+  sim::rigid_inertia_com(I, c, mass, mesh_->V0_, mesh_->T_, 1.0);
 
-  for(unsigned int ii=0; ii<object_->V0_.rows(); ii++ ) {
+  for(unsigned int ii=0; ii<mesh_->V0_.rows(); ii++ ) {
 
     //std::cout<<"HERE 2 "<<ii<<"\n";
-    T0_.block<3,3>(3*ii, 0) = Eigen::Matrix3d::Identity()*(object_->V0_(ii,0) - c(0));
-    T0_.block<3,3>(3*ii, 3) = Eigen::Matrix3d::Identity()*(object_->V0_(ii,1) - c(1));
-    T0_.block<3,3>(3*ii, 6) = Eigen::Matrix3d::Identity()*(object_->V0_(ii,2) - c(2));
+    T0_.block<3,3>(3*ii, 0) = Eigen::Matrix3d::Identity()*(mesh_->V0_(ii,0) - c(0));
+    T0_.block<3,3>(3*ii, 3) = Eigen::Matrix3d::Identity()*(mesh_->V0_(ii,1) - c(1));
+    T0_.block<3,3>(3*ii, 6) = Eigen::Matrix3d::Identity()*(mesh_->V0_(ii,2) - c(2));
     T0_.block<3,3>(3*ii, 9) = Eigen::Matrix3d::Identity();
 
   }

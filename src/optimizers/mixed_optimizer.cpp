@@ -50,15 +50,15 @@ double MixedOptimizer::primal_energy(const VectorXd& x, const VectorXd& s,
   double Em = 0.5*xdiff.dot(gx);
 
   VectorXd def_grad;
-  object_->deformation_gradient(xt, def_grad);
+  mesh_->deformation_gradient(xt, def_grad);
 
   gs.resize(s.size());
   double Epsi = 0;
   #pragma omp parallel for reduction(+ : Epsi)
   for (int i = 0; i < nelem_; ++i) {
     const Vector6d& si = s.segment<6>(6*i);
-    Epsi += object_->material_->energy(si) * vols_[i];
-    gs.segment<6>(6*i) = h*h*object_->material_->gradient(si) * vols_[i];
+    Epsi += mesh_->material_->energy(si) * vols_[i];
+    gs.segment<6>(6*i) = h*h*mesh_->material_->gradient(si) * vols_[i];
   }
   return Em + h*h*Epsi;
 }
@@ -125,8 +125,8 @@ void MixedOptimizer::update_vertices(const Eigen::MatrixXd& V) {
 void MixedOptimizer::set_state(const Eigen::VectorXd& x,
     const Eigen::VectorXd& v) {
 
-  MatrixXd V = Map<const MatrixXd>(x.data(), object_->V_.cols(), object_->V_.rows());
-  object_->V_ = V.transpose();
+  MatrixXd V = Map<const MatrixXd>(x.data(), mesh_->V_.cols(), mesh_->V_.rows());
+  mesh_->V_ = V.transpose();
   x2_ = x1_;
   x1_ = x0_;
   x0_ = x;
@@ -135,7 +135,7 @@ void MixedOptimizer::set_state(const Eigen::VectorXd& x,
   x_ = P_ * x;
   
   VectorXd def_grad;
-  object_->deformation_gradient(P_.transpose()*x_+b_, def_grad);
+  mesh_->deformation_gradient(P_.transpose()*x_+b_, def_grad);
 
   for (int i = 0; i < nelem_; ++i) {
     Vector3d sigma;
@@ -187,12 +187,12 @@ void MixedOptimizer::reset() {
   la_.setZero();
   E_prev_ = 0;
   
-  object_->volumes(vols_);
-  object_->mass_matrix(Mfull_, vols_);
-  object_->jacobian(J_, vols_, false);
+  mesh_->volumes(vols_);
+  mesh_->mass_matrix(Mfull_, vols_);
+  mesh_->jacobian(J_, vols_, false);
 
-  MatrixXd tmp = object_->V_.transpose();
-  x_ = Map<VectorXd>(tmp.data(), object_->V_.size());
+  MatrixXd tmp = mesh_->V_.transpose();
+  x_ = Map<VectorXd>(tmp.data(), mesh_->V_.size());
 
   x0_ = x_;
   x1_ = x_;
@@ -210,7 +210,7 @@ void MixedOptimizer::reset() {
 
   // External gravity force
   Vector3d ext = Map<Vector3f>(config_->ext).cast<double>();
-  f_ext_ = P_.transpose()*P_*ext.replicate(object_->V_.rows(),1);
+  f_ext_ = P_.transpose()*P_*ext.replicate(mesh_->V_.rows(),1);
 }
 
 void MixedOptimizer::update_rotations() {
@@ -218,7 +218,7 @@ void MixedOptimizer::update_rotations() {
   dS_.resize(nelem_);
 
   VectorXd def_grad;
-  object_->deformation_gradient(P_.transpose()*x_+b_, def_grad);
+  mesh_->deformation_gradient(P_.transpose()*x_+b_, def_grad);
 
   #pragma omp parallel for 
   for (int i = 0; i < nelem_; ++i) {
@@ -320,7 +320,7 @@ bool MixedOptimizer::linesearch_s_local(VectorXd& s, const VectorXd& ds) {
     Ref<Vector6d> la = la_.segment<6>(6*i);
 
     auto value = [&](const Vector6d& s)->double {
-      return vols_[i] * (h2 * object_->material_->energy(s)
+      return vols_[i] * (h2 * mesh_->material_->energy(s)
           - la.dot(-Sym * s));
     };
 
@@ -376,11 +376,11 @@ bool MixedOptimizer::linesearch(Eigen::VectorXd& x, const Eigen::VectorXd& dx,
 
 void MixedOptimizer::update_configuration() {
   // Update boundary positions
-  BCs_.step_script(object_, config_->h);
+  BCs_.step_script(mesh_, config_->h);
   #pragma omp parallel for
-  for (int i = 0; i < object_->V_.rows(); ++i) {
-    if (object_->is_fixed_(i)) {
-      b_.segment(3*i,3) = object_->V_.row(i).transpose();
+  for (int i = 0; i < mesh_->V_.rows(); ++i) {
+    if (mesh_->is_fixed_(i)) {
+      b_.segment(3*i,3) = mesh_->V_.row(i).transpose();
     }
   }
 
@@ -392,6 +392,6 @@ void MixedOptimizer::update_configuration() {
   la_.setZero();
 
   // Update mesh vertices
-  MatrixXd V = Map<MatrixXd>(x.data(), object_->V_.cols(), object_->V_.rows());
-  object_->V_ = V.transpose();
+  MatrixXd V = Map<MatrixXd>(x.data(), mesh_->V_.cols(), mesh_->V_.rows());
+  mesh_->V_ = V.transpose();
 }

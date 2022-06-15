@@ -26,11 +26,11 @@ void MixedSQPOptimizer::build_lhs() {
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
     const Vector6d& si = s_.segment(6*i,6);
-    Matrix6d H = object_->material_->hessian(si);
+    Matrix6d H = mesh_->material_->hessian(si);
     Hinv_[i] = H.inverse();
-    g_[i] = object_->material_->gradient(si);
+    g_[i] = mesh_->material_->gradient(si);
     H_[i] = - ih2 * vols_[i] *  Sym * (Hinv_[i] + Matrix6d::Identity()
-        *(1./(std::min(std::min(object_->config_->mu, object_->config_->la),
+        *(1./(std::min(std::min(mesh_->config_->mu, mesh_->config_->la),
         1e10)))) * Sym;
     // H_[i] = - ih2 * vols_[i] *  Sym * (Hinv_[i]) * Sym;
   }
@@ -253,7 +253,7 @@ double MixedSQPOptimizer::energy(const VectorXd& x, const VectorXd& s,
   double Em = 0.5*xdiff.transpose()*M_*xdiff;
 
   VectorXd def_grad;
-  object_->deformation_gradient(xt, def_grad);
+  mesh_->deformation_gradient(xt, def_grad);
 
   VectorXd e_L(nelem_);
   VectorXd e_Psi(nelem_);
@@ -276,7 +276,7 @@ double MixedSQPOptimizer::energy(const VectorXd& x, const VectorXd& s,
     const Vector6d& si = s.segment<6>(6*i);
     Vector6d diff = Sym * (stmp - si);
     e_L(i) = la.segment<6>(6*i).dot(diff) * vols_[i];
-    e_Psi(i) = object_->material_->energy(si) * vols_[i];
+    e_Psi(i) = mesh_->material_->energy(si) * vols_[i];
   }
   double Ela = e_L.sum();
   double Epsi = h2 * e_Psi.sum();
@@ -293,8 +293,8 @@ void MixedSQPOptimizer::gradient(VectorXd& g, const VectorXd& x, const VectorXd&
 void MixedSQPOptimizer::reset() {
   MixedOptimizer::reset();
  
-  object_->jacobian(Jw_, vols_, true);
-  object_->jacobian(Jloc_);
+  mesh_->jacobian(Jw_, vols_, true);
+  mesh_->jacobian(Jloc_);
   PJ_ = P_ * Jw_.transpose();
   PM_ = P_ * Mfull_;
 
@@ -326,14 +326,14 @@ void MixedSQPOptimizer::reset() {
   }
 
   int curr = 0;
-  std::vector<int> free_map(object_->is_fixed_.size(), -1);  
-  for (int i = 0; i < object_->is_fixed_.size(); ++i) {
-    if (object_->is_fixed_(i) == 0) {
+  std::vector<int> free_map(mesh_->is_fixed_.size(), -1);  
+  for (int i = 0; i < mesh_->is_fixed_.size(); ++i) {
+    if (mesh_->is_fixed_(i) == 0) {
       free_map[i] = curr++;
     }
   }
-  assembler_ = std::make_shared<Assembler<double,3>>(object_->T_, free_map);
-  vec_assembler_ = std::make_shared<VecAssembler<double,3>>(object_->T_,
+  assembler_ = std::make_shared<Assembler<double,3>>(mesh_->T_, free_map);
+  vec_assembler_ = std::make_shared<VecAssembler<double,3>>(mesh_->T_,
       free_map);
       
   // Initializing gradients and LHS

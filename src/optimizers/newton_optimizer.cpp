@@ -68,15 +68,15 @@ void NewtonOptimizer::build_lhs() {
   double h2 = h*h;
 
   VectorXd def_grad;
-  object_->deformation_gradient(P_.transpose()*x_+b_, def_grad);
+  mesh_->deformation_gradient(P_.transpose()*x_+b_, def_grad);
 
-  const std::vector<MatrixXd>& Jloc = object_->local_jacobians();
+  const std::vector<MatrixXd>& Jloc = mesh_->local_jacobians();
   std::vector<MatrixXd> Hloc(nelem_); 
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
     const Vector9d& F = def_grad.segment<9>(9*i);
     
-    Hloc[i] = (Jloc[i].transpose() * object_->material_->hessian(F)
+    Hloc[i] = (Jloc[i].transpose() * mesh_->material_->hessian(F)
         * Jloc[i]) * vols_[i] * h2;
   }
   assembler_->update_matrix(Hloc);
@@ -97,15 +97,15 @@ void NewtonOptimizer::build_rhs() {
 
   VectorXd g;
   VectorXd def_grad;
-  object_->deformation_gradient(x, def_grad);
+  mesh_->deformation_gradient(x, def_grad);
 
-  const std::vector<MatrixXd>& Jloc = object_->local_jacobians();
+  const std::vector<MatrixXd>& Jloc = mesh_->local_jacobians();
   std::vector<VectorXd> gloc(nelem_); 
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
     const Vector9d& F = def_grad.segment<9>(9*i);
     gloc[i] = Jloc[i].transpose()
-        * object_->material_->gradient(F) * vols_[i] * h2;
+        * mesh_->material_->gradient(F) * vols_[i] * h2;
   }
   vec_assembler_->assemble(gloc, g);
 
@@ -139,8 +139,8 @@ void NewtonOptimizer::update_vertices(const Eigen::MatrixXd& V) {
 
 void NewtonOptimizer::set_state(const Eigen::VectorXd& x,
     const Eigen::VectorXd& v) {
-  MatrixXd V = Map<const MatrixXd>(x.data(), object_->V_.cols(), object_->V_.rows());
-  object_->V_ = V.transpose();
+  MatrixXd V = Map<const MatrixXd>(x.data(), mesh_->V_.cols(), mesh_->V_.rows());
+  mesh_->V_ = V.transpose();
   x0_ = x;
   vt_ = v;
   b_ = x - P_.transpose()*P_*x;
@@ -150,11 +150,11 @@ void NewtonOptimizer::set_state(const Eigen::VectorXd& x,
 
 void NewtonOptimizer::update_configuration() {
   // Update boundary positions
-  BCs_.step_script(object_, config_->h);
+  BCs_.step_script(mesh_, config_->h);
   #pragma omp parallel for
-  for (int i = 0; i < object_->V_.rows(); ++i) {
-    if (object_->is_fixed_(i)) {
-      b_.segment(3*i,3) = object_->V_.row(i).transpose();
+  for (int i = 0; i < mesh_->V_.rows(); ++i) {
+    if (mesh_->is_fixed_(i)) {
+      b_.segment(3*i,3) = mesh_->V_.row(i).transpose();
     }
   }
 
@@ -163,8 +163,8 @@ void NewtonOptimizer::update_configuration() {
   x0_ = x;
 
   // Update mesh vertices
-  MatrixXd V = Map<MatrixXd>(x.data(), object_->V_.cols(), object_->V_.rows());
-  object_->V_ = V.transpose();
+  MatrixXd V = Map<MatrixXd>(x.data(), mesh_->V_.cols(), mesh_->V_.rows());
+  mesh_->V_ = V.transpose();
 }
 
 double NewtonOptimizer::energy(const VectorXd& x) {
@@ -176,12 +176,12 @@ double NewtonOptimizer::energy(const VectorXd& x) {
   double Em = 0.5*xdiff.transpose()*M_*xdiff;
 
   VectorXd def_grad;
-  object_->deformation_gradient(xt, def_grad);
+  mesh_->deformation_gradient(xt, def_grad);
   double Epsi = 0.0;
   #pragma omp parallel for reduction(+ : Epsi)
   for (int i = 0; i < nelem_; ++i) {
     const Vector9d& F = def_grad.segment<9>(9*i);
-    Epsi += object_->material_->energy(F) * vols_[i];
+    Epsi += mesh_->material_->energy(F) * vols_[i];
   }
   double e = Em + Epsi*h2;
   return e;
@@ -192,14 +192,14 @@ void NewtonOptimizer::reset() {
   Optimizer::reset();
 
   E_prev_ = 0;
-  object_->volumes(vols_);
+  mesh_->volumes(vols_);
 
   SparseMatrixdRowMajor tmpM;
-  object_->mass_matrix(tmpM, vols_);
+  mesh_->mass_matrix(tmpM, vols_);
   M_ = tmpM;
   
-  MatrixXd tmp = object_->V_.transpose();
-  x_ = Map<VectorXd>(tmp.data(), object_->V_.size());
+  MatrixXd tmp = mesh_->V_.transpose();
+  x_ = Map<VectorXd>(tmp.data(), mesh_->V_.size());
 
   x0_ = x_;
   vt_ = 0*x_;
@@ -213,9 +213,9 @@ void NewtonOptimizer::reset() {
 
   // External gravity force
   Vector3d ext = Map<Vector3f>(config_->ext).cast<double>();
-  f_ext_ = P_.transpose()*P_*ext.replicate(object_->V_.rows(),1);
+  f_ext_ = P_.transpose()*P_*ext.replicate(mesh_->V_.rows(),1);
 
-  assembler_ = std::make_shared<Assembler<double,3>>(object_->T_, object_->free_map_);
-  vec_assembler_ = std::make_shared<VecAssembler<double,3>>(object_->T_,
-      object_->free_map_);
+  assembler_ = std::make_shared<Assembler<double,3>>(mesh_->T_, mesh_->free_map_);
+  vec_assembler_ = std::make_shared<VecAssembler<double,3>>(mesh_->T_,
+      mesh_->free_map_);
 }

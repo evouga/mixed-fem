@@ -100,8 +100,8 @@ void MixedADMMOptimizer::build_lhs() {
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
     const Vector6d& si = s_.segment(6*i,6);
-    g_[i] = object_->material_->gradient(si);
-    Matrix6d H = object_->material_->hessian(si);
+    g_[i] = mesh_->material_->gradient(si);
+    Matrix6d H = mesh_->material_->hessian(si);
     Hs_[i] = vols_[i]*h2*(H + config_->kappa*WTW);
   }
   end = high_resolution_clock::now();
@@ -372,7 +372,7 @@ double MixedADMMOptimizer::energy(const VectorXd& x, const VectorXd& s,
 
     e_R(i) = config_->kappa * 0.5 * diff.dot(diff) * vols_[i];
     e_L(i) = la.segment(9*i,9).dot(diff) * vols_[i];
-    e_Psi(i) = object_->material_->energy(si) * vols_[i];
+    e_Psi(i) = mesh_->material_->energy(si) * vols_[i];
   }
 
   double Er = h2 * e_R.sum();
@@ -393,7 +393,7 @@ void MixedADMMOptimizer::reset() {
 
   // Reset variables
     // Initialize rotation matrices to identity
-  nelem_ = object_->T_.rows();
+  nelem_ = mesh_->T_.rows();
   R_.resize(nelem_);
   Hs_.resize(nelem_);
   g_.resize(nelem_);
@@ -416,39 +416,39 @@ void MixedADMMOptimizer::reset() {
     s_.segment(6*i,6) = I_vec;
   }
 
-  object_->V_ = object_->V0_;
+  mesh_->V_ = mesh_->V0_;
 
   // Initialize lambdas
   la_.resize(9 * nelem_);
   la_.setZero();
   E_prev_ = 0;
   
-  object_->volumes(vols_);
-  object_->mass_matrix(M_, vols_);
-  object_->jacobian(J_, vols_, false);
-  object_->jacobian(Jw_, vols_, true);
+  mesh_->volumes(vols_);
+  mesh_->mass_matrix(M_, vols_);
+  mesh_->jacobian(J_, vols_, false);
+  mesh_->jacobian(Jw_, vols_, true);
   J2_ = J_;
 
   // Pinning matrices
-  double min_x = object_->V_.col(0).minCoeff();
-  double max_x = object_->V_.col(0).maxCoeff();
+  double min_x = mesh_->V_.col(0).minCoeff();
+  double max_x = mesh_->V_.col(0).maxCoeff();
   double pin_x = min_x + (max_x-min_x)*0.2;
-  double min_y = object_->V_.col(1).minCoeff();
-  double max_y = object_->V_.col(1).maxCoeff();
+  double min_y = mesh_->V_.col(1).minCoeff();
+  double max_y = mesh_->V_.col(1).maxCoeff();
   double pin_y = max_y - (max_y-min_y)*0.1;
   //double pin_y = min_y + (max_y-min_y)*0.1;
   //pinnedV_ = (V_.col(0).array() < pin_x).cast<int>(); 
-  pinnedV_ = (object_->V_.col(1).array() > pin_y).cast<int>();
+  pinnedV_ = (mesh_->V_.col(1).array() > pin_y).cast<int>();
   //pinnedV_ = (V_.col(0).array() < pin_x 
   //    && V_.col(1).array() > pin_y).cast<int>();
   //pinnedV_.resize(V_.rows());
   pinnedV_.setZero();
   pinnedV_(0) = 1;
 
-  P_ = pinning_matrix(object_->V_, object_->T_, pinnedV_, false);
+  P_ = pinning_matrix(mesh_->V_, mesh_->T_, pinnedV_, false);
 
-  MatrixXd tmp = object_->V_.transpose();
-  x_ = Map<VectorXd>(tmp.data(), object_->V_.size());
+  MatrixXd tmp = mesh_->V_.transpose();
+  x_ = Map<VectorXd>(tmp.data(), mesh_->V_.size());
 
   b_ = x_ - P_.transpose()*P_*x_;
   x_ = P_ * x_;
@@ -473,7 +473,7 @@ void MixedADMMOptimizer::reset() {
 
   // External gravity force
   Vector3d ext = Map<Vector3f>(config_->ext).cast<double>();
-  f_ext_ = P_ * ext.replicate(object_->V_.rows(),1);
+  f_ext_ = P_ * ext.replicate(mesh_->V_.rows(),1);
 
   init_block_diagonal<9,6>(Whate_, nelem_);
   init_block_diagonal<9,6>(WhatL_, nelem_);
