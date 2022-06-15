@@ -28,6 +28,12 @@ void NewtonOptimizer::step() {
       step_v = vt_;
       step_x0 = x0_;
     }
+    
+    // Update jacobians if necessary
+    if (!mesh_->fixed_jacobian()) {
+      VectorXd x = P_.transpose()*x_ + b_;
+      mesh_->update_jacobian(x);
+    }
 
     // Update gradient and hessian
     build_lhs();
