@@ -25,6 +25,16 @@ namespace {
           0, 0, dX(0,2), 0, 0, dX(1,2), 0, 0, dX(2,2);
   }
 
+  template <typename Scalar>
+  void local_jacobian(Matrix<Scalar,6,9>& B, const Matrix<Scalar,3,2>& dX) {
+    B  << dX(0,0), 0, 0, dX(1,0), 0, 0, dX(2,0), 0, 0,
+          0, dX(0,0), 0, 0, dX(1,0), 0, 0, dX(2,0), 0,
+          0, 0, dX(0,0), 0, 0, dX(1,0), 0, 0, dX(2,0),
+          dX(0,1), 0, 0, dX(1,1), 0, 0, dX(2,1), 0, 0, 
+          0, dX(0,1), 0, 0, dX(1,1), 0, 0, dX(2,1), 0,
+          0, 0, dX(0,1), 0, 0, dX(1,1), 0, 0, dX(2,1);
+  }
+
 }
 
 TriMesh::TriMesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
@@ -33,6 +43,34 @@ TriMesh::TriMesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
     std::shared_ptr<MaterialConfig> material_config)
     : Mesh(V,T,material,material_config), N_(N) {
   sim::linear_tri3dmesh_dphi_dX(dphidX_, V0_, T_);
+
+  // dphidX_.resize(dphidX_.rows(), 6);
+  for (int i = 0; i < dphidX_.rows(); ++i) {
+
+    Vector3d v1 = (V.row(T_(i,1)) - V.row(T_(i,0))).transpose();
+    Vector3d v2 = (V.row(T_(i,2)) - V.row(T_(i,0))).transpose();
+    Vector3d n = v1.cross(v2);
+    n.normalize();
+    v1.normalize();
+
+    Matrix23x<double> P;
+    P.row(0) = v1.transpose();
+    P.row(1) = (v1.cross(n)).transpose(); 
+
+    Matrix32d T;
+    T.col(0) = (V.row(T_(i,1)) - V.row(T_(i,0))).transpose();
+    T.col(1) = (V.row(T_(i,2)) - V.row(T_(i,0))).transpose();
+    Matrix2d PT = P*T;
+    Matrix2d NN = PT.inverse();
+    Matrix32d N;
+    N.block(1,0,2,2) = PT.inverse();
+    N.row(0) = -N.block(1,0,2,2).colwise().sum(); 
+    Matrix3d dphi = N * P;
+    dphi.setZero();
+    dphi.block(0,0,3,2) = N;
+    RowVector<double,9> asdf = sim::flatten(dphi);
+    dphidX_.row(i) = sim::flatten(dphi);
+  }
 }
 
 void TriMesh::volumes(Eigen::VectorXd& vol) {
@@ -78,7 +116,6 @@ void TriMesh::init_jacobian() {
     Matrix9d B;
     Matrix3d dX = sim::unflatten<3,3>(dphidX_.row(i));
     local_jacobian(B, dX);
-
     Jloc_[i] = B;
 
     for (int j = 0; j < 9; ++j) {
@@ -159,25 +196,25 @@ void TriMesh::jacobian(std::vector<MatrixXd>& J) {
 void TriMesh::deformation_gradient(const VectorXd& x, VectorXd& F) {
   assert(x.size() == J_.cols());
   F = J0_ * x;
-
-  #pragma omp parallel for 
-  for (int i = 0; i < T_.rows(); ++i) {
-      Matrix<double, 9, 3> N;
-      N << N_(i,0), 0, 0,
-           0, N_(i,0), 0,
-           0, 0, N_(i,0),
-           N_(i,1), 0, 0,
-           0, N_(i,1), 0,
-           0, 0, N_(i,1),
-           N_(i,2), 0, 0,
-           0, N_(i,2), 0,
-           0, 0, N_(i,2);
-      Vector3d v1 = x.segment<3>(3*T_(i,1)) - x.segment<3>(3*T_(i,0));
-      Vector3d v2 = x.segment<3>(3*T_(i,2)) - x.segment<3>(3*T_(i,0));
-      Vector3d n = v1.cross(v2);
-      n.normalize();
-      F.segment<9>(9*i) += N*n;
-  }
+// std::cout << "F: " << F << std::endl;
+  // #pragma omp parallel for 
+  // for (int i = 0; i < T_.rows(); ++i) {
+  //     Matrix<double, 9, 3> N;
+  //     N << N_(i,0), 0, 0,
+  //          0, N_(i,0), 0,
+  //          0, 0, N_(i,0),
+  //          N_(i,1), 0, 0,
+  //          0, N_(i,1), 0,
+  //          0, 0, N_(i,1),
+  //          N_(i,2), 0, 0,
+  //          0, N_(i,2), 0,
+  //          0, 0, N_(i,2);
+  //     Vector3d v1 = x.segment<3>(3*T_(i,1)) - x.segment<3>(3*T_(i,0));
+  //     Vector3d v2 = x.segment<3>(3*T_(i,2)) - x.segment<3>(3*T_(i,0));
+  //     Vector3d n = v1.cross(v2);
+  //     n.normalize();
+  //     F.segment<9>(9*i) += N*n;
+  // }
 }
 
 void TriMesh::update_jacobian(const VectorXd& x) {
@@ -241,5 +278,5 @@ void TriMesh::update_jacobian(const VectorXd& x) {
   }
   J_.resize(9*T_.rows(), V_.size());
   J_.setFromTriplets(trips.begin(),trips.end());
-  PJW_ = P_ * J_.transpose() * W_;
+  PJW_ = P_ * J0_.transpose() * W_;
 }

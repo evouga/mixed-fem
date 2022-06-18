@@ -22,7 +22,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 ### Compiler options
 set( CMAKE_EXPORT_COMPILE_COMMANDS 1 ) # Emit a compile flags file to support completion engines 
-
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_CXX_STANDARD 17)
 
 if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
@@ -194,7 +194,7 @@ target_include_directories(mixed_fem_lib SYSTEM PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope/deps/json/include")
 
 # Link settings
-target_link_libraries(mixed_fem_lib polyscope Eigen3::Eigen amgcl::amgcl)
+target_link_libraries(mixed_fem_lib polyscope Eigen3::Eigen amgcl::amgcl finitediff::finitediff)
 
 # Create an executable
 add_executable(tet_sim apps/tet_sim.cpp ${SOURCES})

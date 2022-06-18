@@ -25,7 +25,7 @@ struct PolyscopeTriApp : public PolyscopeApp {
     igl::remove_unreferenced(meshV,meshF,NV,NF,VI,VJ);
     meshV = NV;
     meshF = NF;
-    meshV.array() /= meshV.maxCoeff();
+    meshV.array() /= meshV.maxCoeff() /1;
 
     igl::per_face_normals(meshV,meshF,meshN);
     //std::cout << "MESHN\n" << meshN << std::endl;

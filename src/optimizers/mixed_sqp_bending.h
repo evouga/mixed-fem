@@ -83,6 +83,7 @@ namespace mfem {
     std::vector<Eigen::Matrix3d> Hinv_; // Elemental hessians w.r.t dS
     std::vector<Eigen::Vector3d> g_;    // Elemental gradients w.r.t dS
     std::vector<Eigen::Matrix<double,9,3>> dS_;
+    std::vector<Eigen::Matrix<double,3,9>> dSdx_;
 
 
 

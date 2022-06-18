@@ -28,8 +28,12 @@ namespace mfem {
     bool fixed_jacobian() override { 
       return false;
     }
-    const std::vector<Eigen::MatrixXd>& local_jacobians() override{
-      return Jloc_;
+    const std::vector<Eigen::MatrixXd>& local_jacobians() override {
+      return Jloc0_;
+    }
+
+    const std::vector<Eigen::MatrixXd>& initial_jacobian() {
+      return Jloc0_;
     }
 
     Eigen::MatrixXd N_;

@@ -2,23 +2,80 @@
 #include "test_common.h"
 #include "svd/dsvd.h"
 #include "svd/newton_procrustes.h"
+
 using namespace Test;
 
-/*
 TEST_CASE("dsvd - dS/dF") {
 
   Matrix3d F;
   F << 1.0, 0.1, 0.2,
        0.1, 2.0, 0.4,
-       0.3, 0.4, 0.5;
+       0.3, 0.4, 1;
+  // F.setRandom();
+  // std::cout << "F : " << F << std::endl;
+
+  Matrix3d S = Matrix3d::Random();
+  Matrix<double, 9,9> dRdF, J; 
+  double alpha = 1e-5;
+  Matrix3d R = Eigen::Matrix3d::Identity();
+
+
+  newton_procrustes(R, Matrix3d::Identity(), 
+        F, true, dRdF, 1e-6, 100);
+
+  Matrix3d Sf = R.transpose() * F;
+  Sf = 0.5*(Sf+Sf.transpose()); 
+
+  J = sim::flatten_multiply<Matrix3d>(R.transpose())
+        * (Matrix9d::Identity() 
+        - sim::flatten_multiply_right<Matrix3d>(Sf)*dRdF);
+
+    // Matrix<double, 3, 9> Js;
+    // Js.row(0) = J.row(0);
+    // Js.row(1) = J.row(8);
+    // Js.row(2) = 0.5*(J.row(2) + J.row(6));
+    // //Js.row(2) = 0.5*(J.row(5) + J.row(7));
+    // dS_[i] = Js.transpose()*Sym3;
+  Matrix<double, 3, 9> Js;
+  Js.row(0) = J.row(0);
+  Js.row(1) = J.row(8);
+  Js.row(2) = J.row(2);
+
+
+  // Vecotr function for finite differences
+  auto E = [&](const VectorXd& vecF)-> VectorXd {
+
+    F = Matrix3d(vecF.data());
+    JacobiSVD<Matrix3d> svd(F, ComputeFullU | ComputeFullV);
+    Matrix3d S = svd.matrixV() * svd.singularValues().asDiagonal()
+        * svd.matrixV().transpose();
+    // Vector6d vecS; vecS << S(0,0), S(1,1), S(2,2), S(1,0), S(2,0), S(2,1);
+    Vector3d vecS; vecS << S(0,0),  S(2,2), S(2,0);
+    return vecS;
+  };
+
+  // Finite difference gradient
+  MatrixXd fgrad;
+  VectorXd vecF = Vector9d(F.data());
+  finite_jacobian(vecF, E, fgrad, FOURTH);
+
+  std::cout << "J: " << J << std::endl;
+  std::cout << "fgrad: \n" << fgrad << std::endl;
+  std::cout << "grad: \n" << Js << std::endl;
+  CHECK(compare_jacobian(Js, fgrad));
+}
+
+
+TEST_CASE("dsvd - dS3/dF") {
+
+  Matrix3d F;
+  F << 1.0, 10, 0.0,
+       0.1, 2.0, 0.0,
+       33, 0.4, 0;
+  // F.setRandom();
+  std::cout << "F : " << F << std::endl;
 
   JacobiSVD<Matrix3d> svd(F, ComputeFullU | ComputeFullV);
-  // Matrix3d U = svd.matrixU();
-  // Matrix3d V = svd.matrixV();
-  // std::array<Matrix3d, 9> dRdF;
-  // dsvd(F, U, svd.singularValues(), V, dRdF);
-
-
 
   Tensor3333d dU, dV;
   Tensor333d dS;
@@ -27,6 +84,7 @@ TEST_CASE("dsvd - dS/dF") {
   Matrix3d V = svd.matrixV();
   Matrix3d S = svd.singularValues().asDiagonal();
   std::array<Matrix3d, 9> dS_dF;
+  
 
   for (int r = 0; r < 3; ++r) {
     for (int c = 0; c < 3; ++c) {
@@ -40,13 +98,10 @@ TEST_CASE("dsvd - dS/dF") {
     J.col(i) = Vector9d(dS_dF[i].data());
   }
   
-  Matrix<double, 6, 9> Js;
+  Matrix<double, 3, 9> Js;
   Js.row(0) = J.row(0);
   Js.row(1) = J.row(4);
-  Js.row(2) = J.row(8);
-  Js.row(3) = J.row(1);
-  Js.row(4) = J.row(2);
-  Js.row(5) = J.row(5);
+  Js.row(2) = J.row(1);
 
 
   // Vecotr function for finite differences
@@ -56,20 +111,21 @@ TEST_CASE("dsvd - dS/dF") {
     JacobiSVD<Matrix3d> svd(F, ComputeFullU | ComputeFullV);
     Matrix3d S = svd.matrixV() * svd.singularValues().asDiagonal()
         * svd.matrixV().transpose();
-    Vector6d vecS; vecS << S(0,0), S(1,1), S(2,2), S(1,0), S(2,0), S(2,1);
+    Vector3d vecS; vecS << S(0,0), S(1,1), S(1,0);
     return vecS;
   };
 
   // Finite difference gradient
   MatrixXd fgrad;
   VectorXd vecF = Vector9d(F.data());
-  finite_jacobian(vecF, E, fgrad, SECOND);
+  finite_jacobian(vecF, E, fgrad, FOURTH);
 
   std::cout << "J: " << J << std::endl;
   std::cout << "fgrad: \n" << fgrad << std::endl;
   std::cout << "grad: \n" << Js << std::endl;
   CHECK(compare_jacobian(Js, fgrad));
-}*/
+}
+
 
 TEST_CASE("dsvd - dR/dF") {
 

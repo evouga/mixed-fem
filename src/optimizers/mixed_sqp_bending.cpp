@@ -38,7 +38,6 @@ void MixedSQPBending::step() {
 
     // x_ += dx_;
     // s_ += ds_;
-     std::cout << "ds norm: " << ds_.norm() << " la norm: " << la_.norm() << std::endl;
 
     double E = energy(x_, s_, a_, la_, ga_);
     double res = std::abs((E - E_prev_) / E);
@@ -47,7 +46,11 @@ void MixedSQPBending::step() {
     data_.energy_residuals_.push_back(res);
     E_prev_ = E;
     data_.timer.stop("step");
-
+    data_.add(" Iteration", i+1);
+    data_.add("mixed E", E);
+    data_.add("mixed E res", res);
+    data_.add("mixed grad", grad_.norm());
+    data_.add("Newton dec", grad_norm);
 
     ++i;
   } while (i < config_->outer_steps && grad_norm > config_->newton_tol);
@@ -107,15 +110,18 @@ void MixedSQPBending::build_lhs() {
   for (int i = 0; i < nelem_; ++i) {
     Hloc[i] = (Jloc[i].transpose() * (dS_[i] * H_[i]
         * dS_[i].transpose()) * Jloc[i]) * (vols_[i] * vols_[i]);
+    // Hloc[i] = dSdx_[i].transpose() * H_[i] * dSdx_[i] * vols_[i] * vols_[i];
+
+    // std::cout << " Jloc dS: \n " << Jloc[i].transpose() * (dS_[i]) << "\n dsdx: \n" << dSdx_[i].transpose() << std::endl;
   }
   data_.timer.stop("Local H");
   data_.timer.start("Update LHS");
   assembler_->update_matrix(Hloc);
   data_.timer.stop("Update LHS");
 
-  lhs_ = M_ + assembler_->A + Ha2;
+  lhs_ = M_ + assembler_->A ;//+ Ha2;
   data_.timer.stop("LHS");
-  //saveMarket(lhs_, "lhs_full.mkt");
+  saveMarket(lhs_, "lhs_full.mkt");
 }
 
 void MixedSQPBending::build_rhs() {
@@ -138,6 +144,7 @@ void MixedSQPBending::build_rhs() {
   for (int i = 0; i < nedges_; ++i) {
     gg_(i) = l_(i) * Ha_[i] * (ax(i) - a_(i)) + grad_a_[i];
   }
+  // std::cout << "gg_ norm: " << gg_.norm() << std::endl;
 
   VectorXd tmp(9*nelem_);
   #pragma omp parallel for
@@ -147,7 +154,7 @@ void MixedSQPBending::build_rhs() {
     tmp.segment<9>(9*i) = dS_[i]*gl_.segment<3>(3*i);
   }
 
-  rhs_ = -mesh_->jacobian() * tmp - PDW_ * gg_ - PM_*(wx_*xt + wx0_*x0_
+  rhs_ = -mesh_->jacobian() * tmp  /*- PDW_ * gg_*/ - PM_*(wx_*xt + wx0_*x0_
       + wx1_*x1_ + wx2_*x2_ - h2*f_ext_);
   data_.timer.stop("RHS");
 
@@ -172,7 +179,7 @@ void MixedSQPBending::substep(int step, double& decrement) {
   }
   dx_ = solver_.solve(rhs_);
   data_.timer.stop("global");
-
+  std::cout << "rel error: " << (lhs_*dx_-rhs_).norm() / rhs_.norm() << std::endl;
 
   data_.timer.start("local");
   Jdx_ = -mesh_->jacobian().transpose() * dx_;
@@ -189,8 +196,8 @@ void MixedSQPBending::substep(int step, double& decrement) {
 
   da_.resize(nedges_);
   da_ = -(l_.array()*(ga_.array() + ga)) / Ha;
-  std::cout << "da: " << da_.norm() << std::endl;
-  a_ += da_;
+  // std::cout << "da: " << da_.norm() << std::endl;
+  // a_ += da_;
   #pragma omp parallel for 
   for (int i = 0; i < nelem_; ++i) {
     la_.segment<3>(3*i) += H_[i] * (dS_[i].transpose() * Jdx_.segment<9>(9*i));
@@ -222,15 +229,22 @@ void MixedSQPBending::update_system() {
   build_rhs();
 }
 
+#include "finitediff.hpp"
 
 void MixedSQPBending::update_rotations() {
   data_.timer.start("Rot Update");
   dS_.resize(nelem_);
+  dSdx_.resize(nelem_);
 
   VectorXd def_grad;
   mesh_->deformation_gradient(P_.transpose()*x_+b_, def_grad);
+  
+  VectorXd F2 = J_ * (P_.transpose()*x_+b_);
 
-  #pragma omp parallel for 
+  const std::vector<MatrixXd>& Jloc = mesh_->local_jacobians();
+  double max_error = 0;
+
+  // #pragma omp parallel for 
   for (int i = 0; i < nelem_; ++i) {
 
     Matrix<double, 9, 9> J;
@@ -238,26 +252,90 @@ void MixedSQPBending::update_rotations() {
     //polar decomp code
     Eigen::Matrix<double, 9,9> dRdF;
 
-    newton_procrustes(R_[i], Eigen::Matrix3d::Identity(), 
-        sim::unflatten<3,3>(def_grad.segment(9*i,9)), true, dRdF, 1e-6, 100);
-    
+
+    // newton_procrustes(R_[i], Eigen::Matrix3d::Identity(), 
+        // sim::unflatten<3,3>(def_grad.segment(9*i,9)), true, dRdF, 1e-9, 1000);
+  
+    // JacobiSVD<Matrix3d> svd(sim::unflatten<3,3>(def_grad.segment(9*i,9)), ComputeFullU | ComputeFullV);
     Eigen::Matrix3d Sf = R_[i].transpose()
         * sim::unflatten<3,3>(def_grad.segment(9*i,9));
 
-    Sf = 0.5*(Sf+Sf.transpose());
-    S_[i] << Sf(0,0), Sf(2,2), Sf(2,0);
+    Matrix3d U,V;
+    Vector3d sigma;
+    Matrix3d F = sim::unflatten<3,3>(def_grad.segment(9*i,9));
+    svd(F, sigma, U, V);
+    Tensor3333d dU, dV;
+    Tensor333d dS;
+    dsvd(dU, dS, dV, F);
+    Matrix3d svals = sigma.asDiagonal();
+    std::array<Matrix3d, 9> dS_dF;
+    for (int r = 0; r < 3; ++r) {
+      for (int c = 0; c < 3; ++c) {
+        dS_dF[3*c + r] = dV[r][c]*svals*V.transpose() + V*dS[r][c].asDiagonal()*V.transpose()
+            + V*svals*dV[r][c].transpose();
+      }
+    }
+    R_[i] = U * V.transpose();
+    Sf = R_[i].transpose() * F;
+    for (int i = 0; i < 9; ++i) {
+      J.col(i) = Vector9d(dS_dF[i].data());
+    }
+    S_[i] << Sf(0,0), Sf(1,1), Sf(0,1);
 
-    J = sim::flatten_multiply<Eigen::Matrix3d>(R_[i].transpose())
-        * (Matrix9d::Identity() 
-           - sim::flatten_multiply_right<Eigen::Matrix3d>(Sf)*dRdF);
+
+    // JacobiSVD<MatrixXd> svd(sim::unflatten<3,3>(def_grad.segment(9*i,9)), ComputeThinU | ComputeThinV);
+    // std::cout << "Fflat: \n" << Fflat << std::endl;
+    // std::cout << "R_[i]: \n" << R_[i] << "\n Sf: \n" << Sf << std::endl;
+    // std::cout << "U: \n" << svd.matrixU() << "\n V \n" << svd.matrixV() << " \n svals: " << svd.singularValues() << std::endl;
+    // std::cout << "F: \n" << F << std::endl;
+    // std::cout << "F2: \n" << F2.segment<9>(9*i) << std::endl;
+    // std::cout << "S QR: \n" << Sf << std::endl;
+    // std::cout << "S2 \n" << V * svals * V.transpose() << std::endl;
+    // std::cout << "R QR: \n" << svd.matrixU() * svd.matrixV().transpose() << std::endl;
+    // MatrixXd Rthin = svd.matrixU() * svd.matrixV().transpose();
+    // std::cout << "R : \n " << U * V.transpose() << "\n S: \n"
+        // << V * sigma.asDiagonal() * V.transpose() << " svals: \n" << sigma << std::endl;
+    // std::cout << "F: \n" << U * sigma.asDiagonal() * V.transpose() << std::endl;
+    // max_error = std::max(error, max_error); 
+    // J = sim::flatten_multiply<Eigen::Matrix3d>(R_[i].transpose())
+    //     * (Matrix9d::Identity() 
+    //        - sim::flatten_multiply_right<Eigen::Matrix3d>(Sf)*dRdF);
 
     Matrix<double, 3, 9> Js;
     Js.row(0) = J.row(0);
-    Js.row(1) = J.row(8);
-    Js.row(2) = 0.5*(J.row(2) + J.row(6));
+    Js.row(1) = J.row(4);
+    // Js.row(2) = 0.5*(J.row(2) + J.row(6));
+    Js.row(2) = 0.5*(J.row(1) + J.row(3));
     //Js.row(2) = 0.5*(J.row(5) + J.row(7));
+    // std::cout << "J : \n" << J << std::endl;
     dS_[i] = Js.transpose()*Sym3;
+
+
+    // auto E = [&](const VectorXd& vecF)-> VectorXd {
+
+    //   F = Matrix3d(vecF.data());
+    //   JacobiSVD<Matrix3d> svd(F, ComputeFullU | ComputeFullV);
+    //   Matrix3d S = svd.matrixV() * svd.singularValues().asDiagonal()
+    //       * svd.matrixV().transpose();
+    //   Vector3d vecS; vecS << S(0,0), S(1,1), S(1,0);
+    //   return vecS;
+    // };
+
+    // // Finite difference gradient
+    // MatrixXd fgrad;
+    // VectorXd vecF = Vector9d(F.data());
+    // fd::finite_jacobian(vecF, E, fgrad, fd::FOURTH);
+    // max_error = std::max(max_error,(Js-fgrad).norm());
+    // // std::cout << "ERROR: " << (Js-fgrad).norm() << std::endl;
+    // if (!fd::compare_jacobian(Js, fgrad)) {
+    // std::cout << "J: " << J << std::endl;
+    // std::cout << "fgrad: \n" << fgrad << std::endl;
+    // std::cout << "grad: \n" << Js << std::endl;
+    // std::cout << "Sf: \n" << Sf << std::endl;
+    // }
+
   }
+  std::cout << "max error: " << max_error << std::endl;
   data_.timer.stop("Rot Update");
 }
 
@@ -286,16 +364,23 @@ double MixedSQPBending::energy(const VectorXd& x, const VectorXd& s,
   #pragma omp parallel for reduction( + : e )
   for (int i = 0; i < nelem_; ++i) {
   
-    Matrix3d R = R_[i];
-    newton_procrustes(R, Matrix3d::Identity(), Map<Matrix3d>(def_grad.segment<9>(9*i).data()));
-    Matrix3d S = R.transpose()*Eigen::Map<Matrix3d>(def_grad.segment<9>(9*i).data());
+    // Matrix3d R = R_[i];
+    // newton_procrustes(R, Matrix3d::Identity(), Map<Matrix3d>(def_grad.segment<9>(9*i).data()));
+    Matrix3d S;// = R.transpose()*Eigen::Map<Matrix3d>(def_grad.segment<9>(9*i).data());
+
+    Matrix3d F = sim::unflatten<3,3>(def_grad.segment(9*i,9));
+
+    Matrix3d U,V;
+    Vector3d sigma;
+    svd(F, sigma, U, V);
+    S = V * sigma.asDiagonal() * V.transpose();
 
   //std::cout << "Si: \n" << S << std::endl;
 
     Vector3d stmp; 
-    stmp << S(0,0), S(2,2), 0.5*(S(2,0) + S(0,2));
+    stmp << S(0,0), S(1,1), 0.5*(S(1,0) + S(0,1));
     if ( (S(1,1) - 1.0) > 1e-12) {
-      std::cout << "S: " << S << std::endl;
+      // std::cout << "S: " << S << std::endl;
     }
     
     const Vector3d& si = s.segment<3>(3*i);
@@ -425,13 +510,10 @@ void MixedSQPBending::reset() {
 
   ArrayXX<bool> valid = (EF_.col(0).array() != -1 && EF_.col(1).array() != -1);
   MatrixXi tmp1,tmp2;
-  std::cout << "1" << std::endl;
   igl::slice_mask(EV_, valid, Array<bool,2,1>::Ones(), tmp1);
   igl::slice_mask(EF_, valid, Array<bool,2,1>::Ones(), tmp2);
-    std::cout << "1" << std::endl;
 
   EV_ = tmp1;
-  //FE_ = tmp2;
   EF_ = tmp2;
   igl::edge_lengths(mesh_->V0_, EV_, l_);
 
@@ -466,17 +548,10 @@ void MixedSQPBending::reset() {
     s_.segment<3>(3*i) = I3;
   }
 
-  int curr = 0;
-  std::vector<int> free_map(mesh_->is_fixed_.size(), -1);  
-  for (int i = 0; i < mesh_->is_fixed_.size(); ++i) {
-    if (mesh_->is_fixed_(i) == 0) {
-      free_map[i] = curr++;
-    }
-  }
-  assembler_ = std::make_shared<Assembler<double,3>>(mesh_->T_, free_map);
+  assembler_ = std::make_shared<Assembler<double,3>>(mesh_->T_,
+      mesh_->free_map_);
   vec_assembler_ = std::make_shared<VecAssembler<double,3>>(mesh_->T_,
-      free_map);
-
+      mesh_->free_map_);
 
   // SQP PD //
   SparseMatrixdRowMajor A;
@@ -491,6 +566,7 @@ void MixedSQPBending::reset() {
 
   double h2 = wdt_*wdt_*config_->h * config_->h;
   mesh_->jacobian(Jw_, vols_, true);
+  mesh_->jacobian(J_, vols_, false);
   mesh_->jacobian(Jloc_);
   PJ_ = P_ * Jw_.transpose();
   PM_ = P_ * Mfull_;
