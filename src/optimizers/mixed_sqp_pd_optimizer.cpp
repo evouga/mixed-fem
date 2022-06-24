@@ -14,7 +14,6 @@
 #include <fstream>
 #include <rigid_inertia_com.h>
 #include "unsupported/Eigen/SparseExtra"
-#include "mixed_variables/symmetric_deformation.h"
 
 using namespace mfem;
 using namespace Eigen;
@@ -227,7 +226,7 @@ void MixedSQPPDOptimizer::substep(int step, double& decrement) {
   }
   data_.timer.stop("local");
 
-  decrement = std::sqrt( dx_.squaredNorm() + ds_.squaredNorm());
+  decrement = std::sqrt(dx_.squaredNorm() + ds_.squaredNorm());
   decrement = std::max(dx_.lpNorm<Infinity>(), ds_.lpNorm<Infinity>());
   //decrement = std::sqrt(dx_.dot(P_*grad_.segment(0,x0_.size())) + ds_.dot(grad_.segment(x0_.size(),6*nelem_)));
 }

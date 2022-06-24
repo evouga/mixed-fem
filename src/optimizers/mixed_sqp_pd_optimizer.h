@@ -1,6 +1,7 @@
 #pragma once
 
 #include "optimizers/mixed_sqp_optimizer.h"
+#include "mixed_variables/symmetric_deformation.h"
 
 #if defined(SIM_USE_CHOLMOD)
 #include <Eigen/CholmodSupport>

@@ -9,14 +9,14 @@ namespace mfem {
   // Variable for DIMxDIM symmetric deformation from polar decomposition of
   // deformation gradient (F = RS) 
   template<int DIM>
-  class SymmetricDeformation3D : public MixedVariable<DIM> {
+  class SymmetricDeformation : public MixedVariable<DIM> {
 
     typedef MixedVariable<DIM> Base;
 
   public:
 
-    SymmetricDeformation3D(std::shared_ptr<Mesh> mesh) : MixedVariable<DIM>(mesh) {
-    }
+    SymmetricDeformation(std::shared_ptr<Mesh> mesh) : MixedVariable<DIM>(mesh)
+    {}
 
     double energy(const Eigen::VectorXd& s) override;
     double constraint_value(const Eigen::VectorXd& x,
@@ -24,17 +24,24 @@ namespace mfem {
     void update(const Eigen::VectorXd& x, double dt) override;
     void reset() override;
 
+    Eigen::VectorXd rhs() override;
+    Eigen::VectorXd gradient() override;
+
+    const Eigen::SparseMatrix<double, Eigen::RowMajor>& lhs() override {
+      return A_;
+    }
+
+    void solve(const Eigen::VectorXd& dx) override;
+
+    Eigen::VectorXd& delta() override {
+      return ds_;
+    }
+
   protected:
 
     void update_rotations(const Eigen::VectorXd& x);
     void update_derivatives(double dt);
 
-    // Build right-hand-side of schur-complement reduced system of
-    // equations
-    void rhs();
-
-    // Gradient with respect to the 's' variables
-    void gradient();
 
   private:
 
@@ -92,10 +99,12 @@ namespace mfem {
     OptimizerData data_;      // Stores timing results
     int nelem_;               // number of elements
     Eigen::VectorXd s_;       // deformation variables
+    Eigen::VectorXd ds_;      // deformation variables deltas
     Eigen::VectorXd la_;      // lagrange multipliers
     Eigen::VectorXd rhs_;     // RHS for schur complement system
     Eigen::VectorXd grad_;    // Gradient with respect to 's' variables
-    Eigen::VectorXd gl_;      // g_\Lambda in the notes
+    Eigen::VectorXd gl_;      // tmp var: g_\Lambda in the notes
+    Eigen::VectorXd Jdx_;     // tmp var: Jacobian multiplied by dx
     std::vector<MatD> R_;     // per-element rotations
     std::vector<VecN> S_;     // per-element deformation
     std::vector<VecN> g_;     // per-element gradients
