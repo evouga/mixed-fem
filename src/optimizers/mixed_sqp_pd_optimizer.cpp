@@ -14,6 +14,7 @@
 #include <fstream>
 #include <rigid_inertia_com.h>
 #include "unsupported/Eigen/SparseExtra"
+#include "mixed_variables/symmetric_deformation.h"
 
 using namespace mfem;
 using namespace Eigen;

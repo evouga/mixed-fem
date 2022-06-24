@@ -425,10 +425,8 @@ void MixedSQPBending::reset() {
 
   ArrayXX<bool> valid = (EF_.col(0).array() != -1 && EF_.col(1).array() != -1);
   MatrixXi tmp1,tmp2;
-  std::cout << "1" << std::endl;
   igl::slice_mask(EV_, valid, Array<bool,2,1>::Ones(), tmp1);
   igl::slice_mask(EF_, valid, Array<bool,2,1>::Ones(), tmp2);
-    std::cout << "1" << std::endl;
 
   EV_ = tmp1;
   //FE_ = tmp2;
