@@ -1,4 +1,4 @@
-#include "symmetric_deformation.h"
+#include "displacement.h"
 
 #include "mesh/mesh.h"
 #include "energies/material_model.h"
@@ -7,11 +7,11 @@
 using namespace Eigen;
 using namespace mfem;
 
-template class mfem::SymmetricDeformation<3>; // 3D
-//template class mfem::SymmetricDeformation<2>; // 2D
+template class mfem::Displacement<3>; // 3D
+//template class mfem::Displacement<2>; // 2D
 
 template<int DIM>
-double SymmetricDeformation<DIM>::energy(const VectorXd& s) {
+double Displacement<DIM>::energy(const VectorXd& s) {
 
   double e = 0;
 
@@ -25,7 +25,7 @@ double SymmetricDeformation<DIM>::energy(const VectorXd& s) {
 }
 
 template<int DIM>
-double SymmetricDeformation<DIM>::constraint_value(const VectorXd& x,
+double Displacement<DIM>::constraint_value(const VectorXd& x,
     const VectorXd& s) {
 
   VectorXd def_grad;
@@ -58,13 +58,13 @@ double SymmetricDeformation<DIM>::constraint_value(const VectorXd& x,
 }
 
 template<int DIM>
-void SymmetricDeformation<DIM>::update(const Eigen::VectorXd& x, double dt) {
+void Displacement<DIM>::update(const Eigen::VectorXd& x, double dt) {
   update_rotations(x);
   update_derivatives(dt);
 }
 
 template<int DIM>
-void SymmetricDeformation<DIM>::update_rotations(const Eigen::VectorXd& x) {
+void Displacement<DIM>::update_rotations(const Eigen::VectorXd& x) {
   VectorXd def_grad;
   mesh_->deformation_gradient(x, def_grad);
 
@@ -74,7 +74,7 @@ void SymmetricDeformation<DIM>::update_rotations(const Eigen::VectorXd& x) {
     // Orthogonality sanity check
     // TODO switch to assert :)
     if((R_[i].transpose()*R_[i] - MatD::Identity()).norm() > 1e-6) {
-      std::cerr << "SymmetricDeformation<DIM> rotation failure!" << std::endl;
+      std::cerr << "Displacement<DIM> rotation failure!" << std::endl;
       exit(1);
     }
 
@@ -106,7 +106,7 @@ void SymmetricDeformation<DIM>::update_rotations(const Eigen::VectorXd& x) {
 }
 
 template<int DIM>
-void SymmetricDeformation<DIM>::update_derivatives(double dt) {
+void Displacement<DIM>::update_derivatives(double dt) {
 
   double h2 = dt * dt;
 
@@ -139,7 +139,7 @@ void SymmetricDeformation<DIM>::update_derivatives(double dt) {
 }
 
 template<int DIM>
-VectorXd SymmetricDeformation<DIM>::rhs() {
+VectorXd Displacement<DIM>::rhs() {
   data_.timer.start("RHS - s");
 
   rhs_.resize(mesh_->jacobian().rows());
@@ -161,7 +161,7 @@ VectorXd SymmetricDeformation<DIM>::rhs() {
 }
 
 template<int DIM>
-VectorXd SymmetricDeformation<DIM>::gradient() {
+VectorXd Displacement<DIM>::gradient() {
   grad_.resize(N()*nelem_);
 
   #pragma omp parallel for
@@ -173,7 +173,7 @@ VectorXd SymmetricDeformation<DIM>::gradient() {
 }
 
 template<int DIM>
-void SymmetricDeformation<DIM>::solve(const VectorXd& dx) {
+void Displacement<DIM>::solve(const VectorXd& dx) {
   data_.timer.start("local");
   Jdx_ = -mesh_->jacobian().transpose() * dx;
   la_ = -gl_;
@@ -194,7 +194,7 @@ void SymmetricDeformation<DIM>::solve(const VectorXd& dx) {
 }
 
 template<int DIM>
-void SymmetricDeformation<DIM>::reset() {
+void Displacement<DIM>::reset() {
   nelem_ = mesh_->T_.rows();
 
   s_.resize(N()*nelem_);
