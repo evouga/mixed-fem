@@ -37,6 +37,10 @@ namespace mfem {
       return ds_;
     }
 
+    Eigen::VectorXd& value() override {
+      return s_;
+    }
+
   protected:
 
     void update_rotations(const Eigen::VectorXd& x);

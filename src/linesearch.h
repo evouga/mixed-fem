@@ -1,6 +1,7 @@
 #pragma once
 
 #include <EigenTypes.h>
+#include "mixed_variables/mixed_variable.h"
 
 namespace {
   // Taken from https://github.com/mattoverby/mcloptlib
@@ -145,6 +146,72 @@ namespace mfem {
       x += alpha*d;
     }
       // printf("  - LS: f(x0): %.5g, f(x + a*d): %.5g, alpha: %.5g\n", fx0, f(x), alpha);
+    return (iter == max_iterations 
+        ? SolverExitStatus::MAX_ITERATIONS_REACHED 
+        : SolverExitStatus::CONVERGED);
+  }
+
+  // x     - Displacement variable
+  // vars  - Mixed variables
+  // alpha - step size (modified by function)
+  // c     - sufficient decrease factor for armijo rule
+  // p     - factor by which alpha is decreased
+  // func  - callback function
+  template <int DIM, typename DerivedX, typename Scalar, class Objective,
+            class Callback = decltype(default_linesearch_callback)>
+  SolverExitStatus linesearch_backtracking_cubic(
+      std::shared_ptr<MixedVariable<DIM>> x,
+      std::vector<std::shared_ptr<MixedVariable<DIM>>> vars,
+      Scalar& alpha, unsigned int max_iterations, Scalar c, Scalar p,  
+      const Callback func = default_linesearch_callback) {
+
+    auto f = [=](double a)->Scalar {
+      const Eigen::VectorXd x0 = x->value() + a * x->delta();
+      Scalar val = x->energy(x0);
+      for (int i = 0; i < vars.size(); ++i) {
+        const Eigen::VectorXd si = vars[i]->value() + a * vars[i]->delta();
+        val += vars->energy(si) + vars->constraint_value(x0, si);  
+      }
+      return val;
+    };
+
+    // Compute gradient dot descent direction
+    Scalar gTd = x->gradient().dot(x->delta());
+    for (int i = 0; i < vars.size(); ++i) {
+      gTd += vars[i]->gradient().dot(vars[i]->delta());
+    }
+
+    Scalar fx0 = f(0);
+    Scalar fx_prev = fx0;
+    Scalar alpha_prev = alpha;
+
+    int iter = 0;
+    while (iter < max_iterations) {
+
+      //func(x + alpha*d); // callback
+
+      Scalar fx = f(alpha);
+
+      // Armijo sufficient decrease condition
+      Scalar fxn = fx0 + (alpha * c) * gTd;
+      if (fx < fxn) {
+        break;
+      }
+
+      Scalar alpha_tmp = (iter == 0) ? (gTd / (2.0 * (fx0 + gTd - fx)))
+          : cubic(fx0, gTd, fx, alpha, fx_prev, alpha_prev);
+      fx_prev = fx;
+      alpha_prev = alpha;
+      alpha = range(alpha_tmp, 0.1*alpha, 0.5*alpha );
+      ++iter;
+    }
+
+    if(iter < max_iterations) {
+      x->value() += alpha * x->delta();
+      for (int i = 0; i < vars.size(); ++i) {
+        vars[i]->value() += alpha * vars[i]->delta();
+      }
+    }
     return (iter == max_iterations 
         ? SolverExitStatus::MAX_ITERATIONS_REACHED 
         : SolverExitStatus::CONVERGED);

@@ -51,6 +51,8 @@ namespace mfem {
     // Returns the updates from the mixed solves
     virtual Eigen::VectorXd& delta() = 0;
 
+    virtual Eigen::VectorXd& value() = 0;
+
   protected:
 
     std::shared_ptr<Mesh> mesh_;
