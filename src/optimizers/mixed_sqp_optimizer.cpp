@@ -337,15 +337,15 @@ void MixedSQPOptimizer::reset() {
       free_map);
       
   // Initializing gradients and LHS
-  update_system();
-  
-  // Compute preconditioner
-  #if defined(SIM_USE_CHOLMOD)
-  std::cout << "Using CHOLDMOD solver" << std::endl;
-  #endif
-  solver_.compute(lhs_);
-  if(solver_.info()!=Success) {
-    std::cerr << " KKT prefactor failed! " << std::endl;
-  }
+  //update_system();
+  //
+  //// Compute preconditioner
+  //#if defined(SIM_USE_CHOLMOD)
+  //std::cout << "Using CHOLDMOD solver" << std::endl;
+  //#endif
+  //solver_.compute(lhs_);
+  //if(solver_.info()!=Success) {
+  //  std::cerr << " KKT prefactor failed! " << std::endl;
+  //}
   //setup_preconditioner();
 }

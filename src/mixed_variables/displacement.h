@@ -1,9 +1,10 @@
 #pragma once
 
-#include "mixed_variable.h"
+#include "variable.h"
 #include "optimizers/optimizer_data.h"
 #include "sparse_utils.h"
 #include "time_integrators/implicit_integrator.h"
+#include "boundary_conditions.h"
 
 namespace mfem {
 
@@ -11,21 +12,19 @@ namespace mfem {
 
   // Nodal displacement variable
   template<int DIM>
-  class Displacement : public MixedVariable<DIM> {
+  class Displacement : public Variable<DIM> {
 
-    typedef MixedVariable<DIM> Base;
+    typedef Variable<DIM> Base;
 
   public:
 
-    Displacement(std::shared_ptr<Mesh> mesh) : MixedVariable<DIM>(mesh)
+    Displacement(std::shared_ptr<Mesh> mesh) : Variable<DIM>(mesh)
     { std::cerr << "init the integrator por favor" << std::endl;}
 
     Displacement(std::shared_ptr<Mesh> object,
           std::shared_ptr<SimConfig> config);
 
     double energy(const Eigen::VectorXd& s) override;
-    double constraint_value(const Eigen::VectorXd& x,
-        const Eigen::VectorXd& s) override;
     void update(const Eigen::VectorXd& x, double dt) override;
     void reset() override;
 
@@ -36,14 +35,22 @@ namespace mfem {
       return PMP_;
     }
 
-    void solve(const Eigen::VectorXd& dx) override;
-
     Eigen::VectorXd& delta() override {
       return dx_;
     }
 
     Eigen::VectorXd& value() override {
       return x_;
+    }
+
+    const std::shared_ptr<ImplicitIntegrator> integrator() const {
+      return integrator_;
+    }
+
+    // "Unproject" out of reduced space with dirichlet BCs removed
+    void unproject(Eigen::VectorXd& x) const {
+      assert(x.size() == P_.rows());
+      x = P_.transpose() * x + b_;
     }
 
   private:
@@ -74,6 +81,7 @@ namespace mfem {
 
     std::shared_ptr<SimConfig> config_;
     std::shared_ptr<ImplicitIntegrator> integrator_;
+    BoundaryConditions<DIM> BCs_;
 
     Eigen::SparseMatrix<double, Eigen::RowMajor> P_;   // dirichlet projection
     Eigen::SparseMatrix<double, Eigen::RowMajor> PMP_; // projected mass matrix

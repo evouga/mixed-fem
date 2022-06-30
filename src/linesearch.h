@@ -2,6 +2,7 @@
 
 #include <EigenTypes.h>
 #include "mixed_variables/mixed_variable.h"
+#include "mixed_variables/displacement.h"
 
 namespace {
   // Taken from https://github.com/mattoverby/mcloptlib
@@ -121,6 +122,8 @@ namespace mfem {
     Scalar fx_prev = fx0;
     Scalar alpha_prev = alpha;
 
+    std::cout << "fx0 : " << fx0 << " gTp: " << gTp << std::endl;
+
     int iter = 0;
     while (iter < max_iterations) {
 
@@ -157,20 +160,23 @@ namespace mfem {
   // c     - sufficient decrease factor for armijo rule
   // p     - factor by which alpha is decreased
   // func  - callback function
-  template <int DIM, typename DerivedX, typename Scalar, class Objective,
+  template <int DIM, typename Scalar,
             class Callback = decltype(default_linesearch_callback)>
   SolverExitStatus linesearch_backtracking_cubic(
-      std::shared_ptr<MixedVariable<DIM>> x,
+      std::shared_ptr<Displacement<DIM>> x,
       std::vector<std::shared_ptr<MixedVariable<DIM>>> vars,
-      Scalar& alpha, unsigned int max_iterations, Scalar c, Scalar p,  
+      Scalar& alpha, unsigned int max_iterations, Scalar c=1e-4, Scalar p=0.5,
       const Callback func = default_linesearch_callback) {
 
+    double h2 = std::pow(x->integrator()->dt(),2);
+
     auto f = [=](double a)->Scalar {
-      const Eigen::VectorXd x0 = x->value() + a * x->delta();
+      Eigen::VectorXd x0 = x->value() + a * x->delta();
       Scalar val = x->energy(x0);
+      x->unproject(x0);
       for (int i = 0; i < vars.size(); ++i) {
         const Eigen::VectorXd si = vars[i]->value() + a * vars[i]->delta();
-        val += vars->energy(si) + vars->constraint_value(x0, si);  
+        val += h2*vars[i]->energy(si) - vars[i]->constraint_value(x0, si);  
       }
       return val;
     };
@@ -178,12 +184,15 @@ namespace mfem {
     // Compute gradient dot descent direction
     Scalar gTd = x->gradient().dot(x->delta());
     for (int i = 0; i < vars.size(); ++i) {
-      gTd += vars[i]->gradient().dot(vars[i]->delta());
+      gTd += vars[i]->gradient().dot(x->delta())
+        + vars[i]->gradient_mixed().dot(vars[i]->delta());
     }
 
     Scalar fx0 = f(0);
     Scalar fx_prev = fx0;
     Scalar alpha_prev = alpha;
+
+    std::cout << "fx0 : " << fx0 << " gTd: " << gTd << std::endl;
 
     int iter = 0;
     while (iter < max_iterations) {
@@ -217,5 +226,3 @@ namespace mfem {
         : SolverExitStatus::CONVERGED);
   }
 }
-
-

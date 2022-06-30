@@ -4,6 +4,7 @@
 #include <memory>
 #include "optimizer_data.h"
 #include "boundary_conditions.h"
+#include "time_integrators/implicit_integrator.h"
 
 namespace mfem {
 
@@ -54,6 +55,7 @@ namespace mfem {
     OptimizerData data_;
     std::shared_ptr<Mesh> mesh_;
     std::shared_ptr<SimConfig> config_;
+    std::shared_ptr<ImplicitIntegrator> integrator_;
 
     // Debug timing variables (timings in milliseconds)
     std::map<std::string, double> timings;

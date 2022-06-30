@@ -36,8 +36,11 @@ namespace mfem {
     // reduced system of equations
     virtual Eigen::VectorXd rhs() = 0;
 
-    // Gradient of the energy with respect to mixed variable
+    // Gradient of the energy with respect to x 
     virtual Eigen::VectorXd gradient() = 0;
+
+    // Gradient of the energy with respect to mixed variable
+    virtual Eigen::VectorXd gradient_mixed() = 0;
 
     // Left-hand-side of the schur complement system with the mixed
     // variable eliminated
@@ -51,7 +54,11 @@ namespace mfem {
     // Returns the updates from the mixed solves
     virtual Eigen::VectorXd& delta() = 0;
 
+    // Returns variable values
     virtual Eigen::VectorXd& value() = 0;
+
+    // Returns lagrange multipliers
+    virtual Eigen::VectorXd& lambda() = 0;
 
   protected:
 

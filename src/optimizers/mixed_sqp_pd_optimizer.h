@@ -2,6 +2,7 @@
 
 #include "optimizers/mixed_sqp_optimizer.h"
 #include "mixed_variables/symmetric_deformation.h"
+#include "mixed_variables/displacement.h"
 
 #if defined(SIM_USE_CHOLMOD)
 #include <Eigen/CholmodSupport>
@@ -54,5 +55,8 @@ namespace mfem {
 
     Eigen::MatrixXd T0_;
     Eigen::VectorXd Jdx_;
+
+    std::shared_ptr<SymmetricDeformation<3>> svar_;
+    std::shared_ptr<Displacement<3>> xvar_;
   };
 }

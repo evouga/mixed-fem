@@ -2,7 +2,6 @@
 
 #include "optimizers/optimizer.h"
 
-
 #if defined(SIM_USE_CHOLMOD)
 #include <Eigen/CholmodSupport>
 #endif

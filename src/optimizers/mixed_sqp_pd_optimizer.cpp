@@ -15,6 +15,9 @@
 #include <rigid_inertia_com.h>
 #include "unsupported/Eigen/SparseExtra"
 
+#include "mixed_variables/displacement.h"
+#include "time_integrators/bdf.h"
+
 using namespace mfem;
 using namespace Eigen;
 using namespace std::chrono;
@@ -52,13 +55,16 @@ void MixedSQPPDOptimizer::step() {
     // Solve system
     substep(i, grad_norm);
 
-    // Linesearch on descent direction from substep
-    // linesearch_x(x_, dx_);
-    // linesearch_s(s_, ds_);
-    // linesearch_s_local(s_,ds_);
+    // Linesearch on descent direction
     linesearch(x_, dx_, s_, ds_);
-    // x_ += dx_;
-    // s_ += ds_;
+
+    double alpha = 1.0;
+    SolverExitStatus status = linesearch_backtracking_cubic(xvar_, {svar_}, alpha,
+        config_->ls_iters);
+
+    std::cout << "alpha: " << alpha << std::endl;
+    std::cout << "xdiff: " << (x_ - xvar_->value()).norm() << std::endl;
+    std::cout << "sdiff: " << (s_ - svar_->value()).norm() << std::endl;
 
     // Record some data
     data_.add(" Iteration", i+1);
@@ -82,6 +88,8 @@ void MixedSQPPDOptimizer::step() {
     data_.print_data(config_->show_timing);
   }
 
+  xvar_->update(gx,0.);
+  svar_->lambda().setZero();
   update_configuration();
 }
 
@@ -136,6 +144,8 @@ void MixedSQPPDOptimizer::build_lhs() {
   data_.timer.stop("Update LHS");
 
   lhs_ = M_ + assembler_->A;
+  SparseMatrixdRowMajor lhs = xvar_->lhs() + svar_->lhs();
+  std::cout << "LHS diff : " << (lhs_-lhs).norm() << std::endl;
   data_.timer.stop("LHS");
 
 }
@@ -181,6 +191,8 @@ void MixedSQPPDOptimizer::update_system() {
     mesh_->update_jacobian(x);
   }
 
+  svar_->update(P_.transpose()*x_ + b_, wdt_*config_->h); 
+
   // Compute rotations and rotation derivatives
   update_rotations();
 
@@ -224,6 +236,13 @@ void MixedSQPPDOptimizer::substep(int step, double& decrement) {
     // Vector6d gs = vols_[i]*(Sym * la_.segment<6>(6*i)+ g_[i]);
     // ds_.segment<6>(6*i) = (vols_[i]*config_->h*config_->h*object_->material_->hessian(si,false)).completeOrthogonalDecomposition().solve(-gs);
   }
+
+  VectorXd rhs = xvar_->rhs() + svar_->rhs();
+
+  svar_->solve(dx_);
+  xvar_->delta() = dx_;
+  std::cout << "ds norm: " << ds_.norm() << " diff: " << (ds_-svar_->delta()).norm() << std::endl;
+  std::cout << "rhs diff: " << (rhs_ - rhs).norm() << std::endl;
   data_.timer.stop("local");
 
   decrement = std::sqrt(dx_.squaredNorm() + ds_.squaredNorm());
@@ -233,6 +252,11 @@ void MixedSQPPDOptimizer::substep(int step, double& decrement) {
 
 void MixedSQPPDOptimizer::reset() {
   MixedSQPOptimizer::reset();
+
+  svar_ = std::make_shared<SymmetricDeformation<3>>(mesh_);
+  svar_->reset();
+  xvar_ = std::make_shared<Displacement<3>>(mesh_, config_);
+  xvar_->reset();
 
   SparseMatrixdRowMajor A;
   A.resize(nelem_*9, nelem_*9);
@@ -262,13 +286,11 @@ void MixedSQPPDOptimizer::reset() {
   sim::rigid_inertia_com(I, c, mass, mesh_->V0_, mesh_->T_, 1.0);
 
   for(unsigned int ii=0; ii<mesh_->V0_.rows(); ii++ ) {
-
     //std::cout<<"HERE 2 "<<ii<<"\n";
     T0_.block<3,3>(3*ii, 0) = Eigen::Matrix3d::Identity()*(mesh_->V0_(ii,0) - c(0));
     T0_.block<3,3>(3*ii, 3) = Eigen::Matrix3d::Identity()*(mesh_->V0_(ii,1) - c(1));
     T0_.block<3,3>(3*ii, 6) = Eigen::Matrix3d::Identity()*(mesh_->V0_(ii,2) - c(2));
     T0_.block<3,3>(3*ii, 9) = Eigen::Matrix3d::Identity();
-
   }
 
   T0_ = P_*T0_;
@@ -277,7 +299,4 @@ void MixedSQPPDOptimizer::reset() {
 
   Matrix<double, 12,12> tmp_pre_affine = T0_.transpose()*lhs*T0_; 
   pre_affine_ = tmp_pre_affine.inverse();
-
-
 }
-

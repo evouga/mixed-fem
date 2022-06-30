@@ -9,7 +9,9 @@
 static Eigen::Matrix<double, 9,9> dRdFtmp; 
 
 static const Eigen::Matrix3d cpx = [] { Eigen::Matrix3d tmp;
-      tmp << 0.,0., 0., 0.,0., -1., 0.,1., 0.;
+      tmp << 0.,0., 0.,
+             0.,0., -1.,
+             0.,1., 0.;
       return tmp;
 }();
 

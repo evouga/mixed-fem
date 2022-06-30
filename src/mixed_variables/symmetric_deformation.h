@@ -26,6 +26,7 @@ namespace mfem {
 
     Eigen::VectorXd rhs() override;
     Eigen::VectorXd gradient() override;
+    Eigen::VectorXd gradient_mixed() override;
 
     const Eigen::SparseMatrix<double, Eigen::RowMajor>& lhs() override {
       return A_;
@@ -39,6 +40,10 @@ namespace mfem {
 
     Eigen::VectorXd& value() override {
       return s_;
+    }
+
+    Eigen::VectorXd& lambda() override {
+      return la_;
     }
 
   protected:
@@ -107,6 +112,7 @@ namespace mfem {
     Eigen::VectorXd la_;      // lagrange multipliers
     Eigen::VectorXd rhs_;     // RHS for schur complement system
     Eigen::VectorXd grad_;    // Gradient with respect to 's' variables
+    Eigen::VectorXd grad_x_;  // Gradient with respect to 'x' variables
     Eigen::VectorXd gl_;      // tmp var: g_\Lambda in the notes
     Eigen::VectorXd Jdx_;     // tmp var: Jacobian multiplied by dx
     std::vector<MatD> R_;     // per-element rotations

@@ -23,6 +23,7 @@ namespace mfem {
   class Mesh {
   public:
 
+    Mesh() {}
     Mesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
         std::shared_ptr<MaterialModel> material,
         std::shared_ptr<MaterialConfig> material_config);
@@ -65,6 +66,10 @@ namespace mfem {
 
     virtual const std::vector<Eigen::MatrixXd>& local_jacobians() {
       return Jloc_;
+    }
+
+    virtual const Eigen::VectorXd& volumes() {
+      return vols_;
     }
 
     Eigen::MatrixXd vertices() {

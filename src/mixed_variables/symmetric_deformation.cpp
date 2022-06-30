@@ -162,6 +162,20 @@ VectorXd SymmetricDeformation<DIM>::rhs() {
 
 template<int DIM>
 VectorXd SymmetricDeformation<DIM>::gradient() {
+  grad_x_.resize(mesh_->jacobian().rows());
+
+  VectorXd tmp(M()*nelem_);
+
+  #pragma omp parallel for
+  for (int i = 0; i < nelem_; ++i) {
+    tmp.segment<M()>(M()*i) = dSdF_[i]*la_.segment<N()>(N()*i);
+  }
+  grad_x_ = -mesh_->jacobian() * tmp;
+  return grad_x_;
+}
+
+template<int DIM>
+VectorXd SymmetricDeformation<DIM>::gradient_mixed() {
   grad_.resize(N()*nelem_);
 
   #pragma omp parallel for
