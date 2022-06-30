@@ -136,6 +136,26 @@ void SymmetricDeformation<DIM>::update_derivatives(double dt) {
   assembler_->update_matrix(Aloc_);
   data_.timer.stop("Update LHS");
   A_ = assembler_->A;
+
+  // Gradient with respect to x variable
+  grad_x_.resize(mesh_->jacobian().rows());
+
+  VectorXd tmp(M()*nelem_);
+
+  #pragma omp parallel for
+  for (int i = 0; i < nelem_; ++i) {
+    tmp.segment<M()>(M()*i) = dSdF_[i]*la_.segment<N()>(N()*i);
+  }
+  grad_x_ = -mesh_->jacobian() * tmp;
+
+  // Gradient with respect to mixed variable
+  grad_.resize(N()*nelem_);
+
+  #pragma omp parallel for
+  for (int i = 0; i < nelem_; ++i) {
+    double vol = mesh_->volumes()[i];
+    grad_.segment<N()>(N()*i) = vol * (g_[i] + Sym()*la_.segment<N()>(N()*i));
+  }
 }
 
 template<int DIM>
@@ -162,27 +182,11 @@ VectorXd SymmetricDeformation<DIM>::rhs() {
 
 template<int DIM>
 VectorXd SymmetricDeformation<DIM>::gradient() {
-  grad_x_.resize(mesh_->jacobian().rows());
-
-  VectorXd tmp(M()*nelem_);
-
-  #pragma omp parallel for
-  for (int i = 0; i < nelem_; ++i) {
-    tmp.segment<M()>(M()*i) = dSdF_[i]*la_.segment<N()>(N()*i);
-  }
-  grad_x_ = -mesh_->jacobian() * tmp;
   return grad_x_;
 }
 
 template<int DIM>
 VectorXd SymmetricDeformation<DIM>::gradient_mixed() {
-  grad_.resize(N()*nelem_);
-
-  #pragma omp parallel for
-  for (int i = 0; i < nelem_; ++i) {
-    double vol = mesh_->volumes()[i];
-    grad_.segment<N()>(N()*i) = vol * (g_[i] + Sym()*la_.segment<N()>(N()*i));
-  }
   return grad_;
 }
 
@@ -193,9 +197,6 @@ void SymmetricDeformation<DIM>::solve(const VectorXd& dx) {
   la_ = -gl_;
 
   ds_.resize(N()*nelem_);
-
-  //std::cout << "H size: " << H_.size() << " dsdf size: " << dSdF_.size() << std::endl;
-  //std::cout << "la size: " << la_.size() << " N()*nelem: " << N()*nelem_ << std::endl;
 
   #pragma omp parallel for 
   for (int i = 0; i < nelem_; ++i) {

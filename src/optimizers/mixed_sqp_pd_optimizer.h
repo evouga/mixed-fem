@@ -23,9 +23,6 @@ namespace mfem {
 
   public:
 
-    virtual void gradient(Eigen::VectorXd& g, const Eigen::VectorXd& x,
-        const Eigen::VectorXd& s, const Eigen::VectorXd& la) override;
-
     virtual void step() override;
     virtual void reset() override;
 

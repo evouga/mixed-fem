@@ -56,15 +56,9 @@ void MixedSQPPDOptimizer::step() {
     substep(i, grad_norm);
 
     // Linesearch on descent direction
-    linesearch(x_, dx_, s_, ds_);
-
     double alpha = 1.0;
     SolverExitStatus status = linesearch_backtracking_cubic(xvar_, {svar_}, alpha,
         config_->ls_iters);
-
-    std::cout << "alpha: " << alpha << std::endl;
-    std::cout << "xdiff: " << (x_ - xvar_->value()).norm() << std::endl;
-    std::cout << "sdiff: " << (s_ - svar_->value()).norm() << std::endl;
 
     // Record some data
     data_.add(" Iteration", i+1);
@@ -75,14 +69,10 @@ void MixedSQPPDOptimizer::step() {
     data_.add("primal E", e_primal);
     data_.add("primal ||gx||", gx.norm());
     data_.add("primal ||gs||", gs.norm());
-
-    VectorXd xt = P_.transpose()*x_ + b_;
-    MatrixXd V = Map<MatrixXd>(xt.data(), mesh_->V_.cols(), mesh_->V_.rows());
-    mesh_->V_ = V.transpose();
-
     ++i;
+
   } while (i < config_->outer_steps && grad_norm > config_->newton_tol
-    && (res > 1e-12));
+    /*`&& (res > 1e-12)*/);
 
   if (config_->show_data) {
     data_.print_data(config_->show_timing);
@@ -90,115 +80,26 @@ void MixedSQPPDOptimizer::step() {
 
   xvar_->update(gx,0.);
   svar_->lambda().setZero();
-  update_configuration();
+  //update_configuration();
 }
 
-void MixedSQPPDOptimizer::gradient(VectorXd& g, const VectorXd& x, const VectorXd& s,
-    const VectorXd& la) {  
-  VectorXd xt = P_.transpose()*x + b_;
-  grad_.resize(xt.size() + 6*nelem_);
-  double h = wdt_*config_->h;
-
-  VectorXd tmp(9*nelem_);
-  #pragma omp parallel for
-  for (int i = 0; i < nelem_; ++i) {
-    tmp.segment<9>(9*i) = dS_[i]*la.segment<6>(6*i);
-    grad_.segment<6>(x_.size() + 6*i) = vols_[i] 
-        * (g_[i] + Sym*la.segment<6>(6*i));
-  }
-
-  grad_.segment(0,xt.size()) = Mfull_*(wx_*xt + wx0_*x0_ + wx1_*x1_  + wx1_*x2_ - h*h*f_ext_)
-      - Jw_.transpose() * tmp;
-}
-
-void MixedSQPPDOptimizer::build_lhs() {
-  data_.timer.start("LHS");
-
-  double ih2 = 1. / (wdt_*wdt_*config_->h * config_->h);
-  double h2 = (wdt_*wdt_*config_->h * config_->h);
-
-  data_.timer.start("Hinv");
-  #pragma omp parallel for
-  for (int i = 0; i < nelem_; ++i) {
-    const Vector6d& si = s_.segment(6*i,6);
-    Matrix6d H = h2 * mesh_->material_->hessian(si);
-    Hinv_[i] = H.inverse();
-    g_[i] = h2 * mesh_->material_->gradient(si);
-    H_[i] = (1.0 / vols_[i]) * (Syminv * H * Syminv);
-  }
-  data_.timer.stop("Hinv");
-  
-  data_.timer.start("Local H");
-
-  const std::vector<MatrixXd>& Jloc = mesh_->local_jacobians();
-  std::vector<MatrixXd> Hloc(nelem_); 
-  #pragma omp parallel for
-  for (int i = 0; i < nelem_; ++i) {
-    Hloc[i] = (Jloc[i].transpose() * (dS_[i] * H_[i]
-        * dS_[i].transpose()) * Jloc[i]) * (vols_[i] * vols_[i]);
-  }
-  data_.timer.stop("Local H");
-  //saveMarket(assembler_->A, "lhs2.mkt");
-  data_.timer.start("Update LHS");
-  assembler_->update_matrix(Hloc);
-  data_.timer.stop("Update LHS");
-
-  lhs_ = M_ + assembler_->A;
-  SparseMatrixdRowMajor lhs = xvar_->lhs() + svar_->lhs();
-  std::cout << "LHS diff : " << (lhs_-lhs).norm() << std::endl;
-  data_.timer.stop("LHS");
-
-}
-
-void MixedSQPPDOptimizer::build_rhs() {
-  data_.timer.start("RHS");
-
-  rhs_.resize(x_.size());
-  rhs_.setZero();
-  gl_.resize(6*nelem_);
-  double h = wdt_*config_->h;
-  double h2 = h*h;
-
-  VectorXd xt = P_.transpose()*x_ + b_;
-
-
-  VectorXd tmp(9*nelem_);
-  #pragma omp parallel for
-  for (int i = 0; i < nelem_; ++i) {
-    const Vector6d& si = s_.segment<6>(6*i);
-    gl_.segment<6>(6*i) = vols_[i] * H_[i] * Sym * (S_[i] - si) + Syminv*g_[i];
-    tmp.segment<9>(9*i) = dS_[i]*gl_.segment<6>(6*i);
-  }
-
-  rhs_ = -mesh_->jacobian() * tmp - PM_*(wx_*xt + wx0_*x0_
-      + wx1_*x1_ + wx2_*x2_ - h2*f_ext_);
-  data_.timer.stop("RHS");
-
-  grad_.resize(x_.size() + 6*nelem_);
-  #pragma omp parallel for
-  for (int i = 0; i < nelem_; ++i) {
-    tmp.segment<9>(9*i) = dS_[i]*la_.segment<6>(6*i);
-    grad_.segment<6>(x_.size() + 6*i) = vols_[i] * (g_[i] + Sym*la_.segment<6>(6*i));
-  }
-  grad_.segment(0,x_.size()) = PM_*(wx_*xt + wx0_*x0_ + wx1_*x1_ + wx2_*x2_
-      - h2*f_ext_) - mesh_->jacobian()  * tmp;
-}
+void MixedSQPPDOptimizer::build_lhs() {}
+void MixedSQPPDOptimizer::build_rhs() {}
 
 void MixedSQPPDOptimizer::update_system() {
 
+  VectorXd x = xvar_->value();
+  xvar_->unproject(x);
+
   if (!mesh_->fixed_jacobian()) {
-    VectorXd x = P_.transpose()*x_ + b_;
     mesh_->update_jacobian(x);
   }
 
-  svar_->update(P_.transpose()*x_ + b_, wdt_*config_->h); 
-
-  // Compute rotations and rotation derivatives
-  update_rotations();
+  svar_->update(x, wdt_*config_->h); 
 
   // Assemble blocks for left and right hand side
-  build_lhs();
-  build_rhs();
+  lhs_ = xvar_->lhs() + svar_->lhs();
+  rhs_ = xvar_->rhs() + svar_->rhs();
 }
 
 void MixedSQPPDOptimizer::substep(int step, double& decrement) {
@@ -220,34 +121,12 @@ void MixedSQPPDOptimizer::substep(int step, double& decrement) {
   dx_ = solver_.solve(rhs_);
   data_.timer.stop("global");
 
-
   data_.timer.start("local");
-  Jdx_ = -mesh_->jacobian().transpose() * dx_;
-  la_ = -gl_;
-
-  // Update per-element R & S matrices
-  ds_.resize(6*nelem_);
-
-  #pragma omp parallel for 
-  for (int i = 0; i < nelem_; ++i) {
-    la_.segment<6>(6*i) += H_[i] * (dS_[i].transpose() * Jdx_.segment<9>(9*i));
-    ds_.segment<6>(6*i) = -Hinv_[i] * (Sym * la_.segment<6>(6*i)+ g_[i]);
-    // Vector6d si = s_.segment<6>(6*i);
-    // Vector6d gs = vols_[i]*(Sym * la_.segment<6>(6*i)+ g_[i]);
-    // ds_.segment<6>(6*i) = (vols_[i]*config_->h*config_->h*object_->material_->hessian(si,false)).completeOrthogonalDecomposition().solve(-gs);
-  }
-
-  VectorXd rhs = xvar_->rhs() + svar_->rhs();
-
   svar_->solve(dx_);
   xvar_->delta() = dx_;
-  std::cout << "ds norm: " << ds_.norm() << " diff: " << (ds_-svar_->delta()).norm() << std::endl;
-  std::cout << "rhs diff: " << (rhs_ - rhs).norm() << std::endl;
   data_.timer.stop("local");
 
-  decrement = std::sqrt(dx_.squaredNorm() + ds_.squaredNorm());
-  decrement = std::max(dx_.lpNorm<Infinity>(), ds_.lpNorm<Infinity>());
-  //decrement = std::sqrt(dx_.dot(P_*grad_.segment(0,x0_.size())) + ds_.dot(grad_.segment(x0_.size(),6*nelem_)));
+  decrement = std::max(dx_.lpNorm<Infinity>(), svar_->delta().lpNorm<Infinity>());
 }
 
 void MixedSQPPDOptimizer::reset() {
