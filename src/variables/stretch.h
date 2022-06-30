@@ -6,16 +6,16 @@
 
 namespace mfem {
 
-  // Variable for DIMxDIM symmetric deformation from polar decomposition of
-  // deformation gradient (F = RS) 
+  // Variable for DIMxDIM symmetric deformation stretch matrix
+  // from polar decomposition of deformation gradient (F = RS) 
   template<int DIM>
-  class SymmetricDeformation : public MixedVariable<DIM> {
+  class Stretch : public MixedVariable<DIM> {
 
     typedef MixedVariable<DIM> Base;
 
   public:
 
-    SymmetricDeformation(std::shared_ptr<Mesh> mesh) : MixedVariable<DIM>(mesh)
+    Stretch(std::shared_ptr<Mesh> mesh) : MixedVariable<DIM>(mesh)
     {}
 
     double energy(const Eigen::VectorXd& s) override;
@@ -50,7 +50,6 @@ namespace mfem {
 
     void update_rotations(const Eigen::VectorXd& x);
     void update_derivatives(double dt);
-
 
   private:
 

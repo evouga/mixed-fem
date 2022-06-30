@@ -1,8 +1,8 @@
 #pragma once
 
 #include <EigenTypes.h>
-#include "mixed_variables/mixed_variable.h"
-#include "mixed_variables/displacement.h"
+#include "variables/mixed_variable.h"
+#include "variables/displacement.h"
 
 namespace {
   // Taken from https://github.com/mattoverby/mcloptlib
@@ -122,7 +122,7 @@ namespace mfem {
     Scalar fx_prev = fx0;
     Scalar alpha_prev = alpha;
 
-    std::cout << "fx0 : " << fx0 << " gTp: " << gTp << std::endl;
+    //std::cout << "fx0 : " << fx0 << " gTp: " << gTp << std::endl;
 
     int iter = 0;
     while (iter < max_iterations) {
@@ -191,8 +191,6 @@ namespace mfem {
     Scalar fx0 = f(0);
     Scalar fx_prev = fx0;
     Scalar alpha_prev = alpha;
-
-    std::cout << "fx0 : " << fx0 << " gTd: " << gTd << std::endl;
 
     int iter = 0;
     while (iter < max_iterations) {

@@ -15,7 +15,6 @@
 #include <rigid_inertia_com.h>
 #include "unsupported/Eigen/SparseExtra"
 
-#include "mixed_variables/displacement.h"
 #include "time_integrators/bdf.h"
 
 using namespace mfem;
@@ -33,7 +32,6 @@ void MixedSQPPDOptimizer::step() {
   double res;
   double E;
   VectorXd gx;
-  VectorXd gs;
   step_x.clear();
   do {
     if (config_->save_substeps) {
@@ -50,7 +48,6 @@ void MixedSQPPDOptimizer::step() {
     E = energy(x_, s_, la_);
     res = std::abs((E - E_prev_) / (E+1));
     E_prev_ = E;
-    double e_primal = primal_energy(x_,s_,gx,gs);
 
     // Solve system
     substep(i, grad_norm);
@@ -66,9 +63,6 @@ void MixedSQPPDOptimizer::step() {
     data_.add("mixed E res", res);
     data_.add("mixed grad", grad_.norm());
     data_.add("Newton dec", grad_norm);
-    data_.add("primal E", e_primal);
-    data_.add("primal ||gx||", gx.norm());
-    data_.add("primal ||gs||", gs.norm());
     ++i;
 
   } while (i < config_->outer_steps && grad_norm > config_->newton_tol
@@ -85,7 +79,6 @@ void MixedSQPPDOptimizer::step() {
 
 void MixedSQPPDOptimizer::build_lhs() {}
 void MixedSQPPDOptimizer::build_rhs() {}
-
 void MixedSQPPDOptimizer::update_system() {
 
   VectorXd x = xvar_->value();
@@ -132,7 +125,7 @@ void MixedSQPPDOptimizer::substep(int step, double& decrement) {
 void MixedSQPPDOptimizer::reset() {
   MixedSQPOptimizer::reset();
 
-  svar_ = std::make_shared<SymmetricDeformation<3>>(mesh_);
+  svar_ = std::make_shared<Stretch<3>>(mesh_);
   svar_->reset();
   xvar_ = std::make_shared<Displacement<3>>(mesh_, config_);
   xvar_->reset();

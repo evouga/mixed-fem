@@ -7,7 +7,7 @@ namespace mfem {
   class Mesh;
 
   // Base class for mixed fem variables.
-  template<int dim>
+  template<int DIM>
   class Variable {
   public:
     
@@ -36,9 +36,10 @@ namespace mfem {
     // Left-hand-side of the system
     virtual const Eigen::SparseMatrix<double, Eigen::RowMajor>& lhs() = 0;
 
-    // Returns the updates from the mixed solves
+    // Returns the updates from the solves
     virtual Eigen::VectorXd& delta() = 0;
 
+    // Returns variable values
     virtual Eigen::VectorXd& value() = 0;
 
   protected:

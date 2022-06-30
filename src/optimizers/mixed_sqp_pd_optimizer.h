@@ -1,8 +1,8 @@
 #pragma once
 
 #include "optimizers/mixed_sqp_optimizer.h"
-#include "mixed_variables/symmetric_deformation.h"
-#include "mixed_variables/displacement.h"
+#include "variables/stretch.h"
+#include "variables/displacement.h"
 
 #if defined(SIM_USE_CHOLMOD)
 #include <Eigen/CholmodSupport>
@@ -35,8 +35,6 @@ namespace mfem {
     // Update gradients, LHS, RHS for a new configuration
     virtual void update_system() override;
 
-
-    //TODO change this global solver step + "local_update"
     virtual void substep(int step, double& decrement) override;
 
     Eigen::VectorXd gl_;
@@ -53,7 +51,7 @@ namespace mfem {
     Eigen::MatrixXd T0_;
     Eigen::VectorXd Jdx_;
 
-    std::shared_ptr<SymmetricDeformation<3>> svar_;
+    std::shared_ptr<Stretch<3>> svar_;
     std::shared_ptr<Displacement<3>> xvar_;
   };
 }
