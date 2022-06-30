@@ -23,9 +23,9 @@ namespace mfem {
     }
   protected:
 
-		double h_;
-		std::deque<Eigen::VectorXd> x_prevs_;
-		std::deque<Eigen::VectorXd> v_prevs_;
+    double h_;
+    std::deque<Eigen::VectorXd> x_prevs_;
+    std::deque<Eigen::VectorXd> v_prevs_;
   };
 
 }

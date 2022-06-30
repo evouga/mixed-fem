@@ -27,8 +27,8 @@ namespace {
 
     Scalar mult = 1.0 / ( alpha*alpha * alphap*alphap * (alpha-alphap) );
     Mat2 A;
-    A(0,0) = alphap*alphap;		A(0,1) = -alpha*alpha;
-    A(1,0) = -alphap*alphap*alphap;	A(1,1) = alpha*alpha*alpha;	
+    A(0,0) = alphap*alphap;   A(0,1) = -alpha*alpha;
+    A(1,0) = -alphap*alphap*alphap; A(1,1) = alpha*alpha*alpha; 
     Vec2 B;
     B[0] = fxa - fx0 - alpha*gtp; B[1] = fxp - fx0 - alphap*gtp;
     Vec2 r = mult * A * B;
