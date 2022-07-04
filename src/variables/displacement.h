@@ -21,7 +21,7 @@ namespace mfem {
     Displacement(std::shared_ptr<Mesh> mesh) : Variable<DIM>(mesh)
     { std::cerr << "init the integrator por favor" << std::endl;}
 
-    Displacement(std::shared_ptr<Mesh> object,
+    Displacement(std::shared_ptr<Mesh> mesh,
           std::shared_ptr<SimConfig> config);
 
     double energy(const Eigen::VectorXd& s) override;

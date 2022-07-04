@@ -76,6 +76,14 @@ namespace mfem {
       return V_;
     }
 
+    Eigen::SparseMatrixdRowMajor laplacian() {
+      return P_ * (J_.transpose() * W_ * J_) * P_.transpose();
+    }
+
+    const Eigen::SparseMatrixdRowMajor& mass_matrix() {
+      return PMP_;
+    }
+
     void clear_fixed_vertices();
 
     void free_vertex(int id);
@@ -105,9 +113,11 @@ namespace mfem {
   protected:
     // Weighted jacobian matrix with dirichlet BCs projected out
     Eigen::SparseMatrixdRowMajor PJW_;
-    Eigen::SparseMatrixdRowMajor J_;
-    Eigen::SparseMatrixd P_;          // pinning constraint (for vertices)
-    Eigen::SparseMatrixd W_; // weight matrix
+    Eigen::SparseMatrixdRowMajor J_;   // Shape function jacobian
+    Eigen::SparseMatrixdRowMajor PMP_; // Mass matrix (dirichlet BCs projected)
+    Eigen::SparseMatrixdRowMajor M_;   // Mass matrix
+    Eigen::SparseMatrixd P_;           // pinning constraint (for vertices)
+    Eigen::SparseMatrixd W_;           // weight matrix
     Eigen::VectorXd vols_;
     std::vector<Eigen::MatrixXd> Jloc_;
 

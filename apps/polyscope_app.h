@@ -17,6 +17,9 @@
 
 #include "optimizers/optimizer_factory.h"
 #include "optimizers/optimizer.h"
+
+#include "linear_solvers/solver_factory.h"
+
 namespace mfem {
 
   struct PolyscopeApp {
@@ -167,13 +170,30 @@ namespace mfem {
               type = n;
               config->bc_type = static_cast<BCScriptType>(type);
               optimizer->reset();
+              //std::cout << "begin fixed" << std::endl;
+              //for (int i = 0; i < mesh->fixed_vertices_.size();++i) {
+              //  std::cout << mesh->fixed_vertices_[i] << std::endl;
+              //}
+            }
 
-              std::cout << "begin fixed" << std::endl;
-              for (int i = 0; i < mesh->fixed_vertices_.size();++i) {
-                std::cout << mesh->fixed_vertices_[i] << std::endl;
-              }
-              std::cout << "end fixed" << std::endl;
+            // Set the initial focus when opening the combo
+            // (scrolling + keyboard navigation focus)
+            if (is_selected)
+              ImGui::SetItemDefaultFocus();
+        }
+          ImGui::EndCombo();
+        }
 
+        const std::vector<std::string>& solvers = solver_factory.names();
+        std::string solver_name = solver_factory.name_by_type(config->solver_type);
+        if (ImGui::BeginCombo("Linear Solver ", solver_name.c_str())) {
+          for (int n = 0; n < solvers.size(); ++n) {
+            SolverType type = solver_factory.type_by_name(solvers[n]);
+            const bool is_selected = (type == config->solver_type);
+            if (ImGui::Selectable(solvers[n].c_str(), is_selected)) {
+              config->solver_type = type;
+              solver = solver_factory.create(mesh, config);
+              optimizer->reset();
             }
 
             // Set the initial focus when opening the combo
@@ -292,7 +312,9 @@ namespace mfem {
 
     MaterialModelFactory material_factory;
     OptimizerFactory optimizer_factory;
+    SolverFactory solver_factory;
 
+    std::shared_ptr<LinearSolver<double, Eigen::RowMajor>> solver;
     std::shared_ptr<MaterialConfig> material_config;
     std::shared_ptr<MaterialModel> material;
     std::shared_ptr<Optimizer> optimizer;

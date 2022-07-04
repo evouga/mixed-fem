@@ -3,6 +3,8 @@
 #include "optimizers/mixed_sqp_optimizer.h"
 #include "variables/stretch.h"
 #include "variables/displacement.h"
+#include "linear_solvers/linear_solver.h"
+
 
 #if defined(SIM_USE_CHOLMOD)
 #include <Eigen/CholmodSupport>
@@ -53,5 +55,6 @@ namespace mfem {
 
     std::shared_ptr<Stretch<3>> svar_;
     std::shared_ptr<Displacement<3>> xvar_;
+    std::shared_ptr<LinearSolver<double, Eigen::RowMajor>> linsolver_;
   };
 }

@@ -14,8 +14,6 @@ namespace mfem {
     lambda = (E*nu)/((1.0+nu)*(1.0-2.0*nu));
   }
 
-  // TODO shouldn't list everything here, use a factory or whatever the fuck
-  // that OOP design is called
   enum OptimizerType {
       OPTIMIZER_ALM,
       OPTIMIZER_ADMM,
@@ -23,6 +21,13 @@ namespace mfem {
       OPTIMIZER_SQP_PD,
       OPTIMIZER_NEWTON,
       OPTIMIZER_SQP_BENDING,
+  };
+
+  enum SolverType {
+    SOLVER_EIGEN_LLT,
+    SOLVER_EIGEN_LDLT,
+    SOLVER_EIGEN_LU,
+    SOLVER_CHOLMOD
   };
 
   enum MaterialModelType {
@@ -84,7 +89,7 @@ namespace mfem {
     int max_iterative_solver_iters = 500;
     double itr_tol = 1e-4;
     BCScriptType bc_type = BC_ONEPOINT;
-
+    SolverType solver_type = SOLVER_EIGEN_LLT;
   };
 
   // Simple config for material parameters for a single object

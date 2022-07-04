@@ -16,6 +16,7 @@
 #include "unsupported/Eigen/SparseExtra"
 
 #include "time_integrators/bdf.h"
+#include "linear_solvers/solver_factory.h"
 
 using namespace mfem;
 using namespace Eigen;

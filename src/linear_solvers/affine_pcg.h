@@ -1,14 +1,21 @@
 #pragma once
 
 #include "linear_solver.h"
+#include "pcg.h"
 
 namespace mfem {
 
+  struct AffinePCGInput {
+
+  };
+
   template <typename Solver, typename Scalar, int Ordering>
-  class EigenSolver : public LinearSolver<Scalar, Ordering> {
+  class AffinePCG : public LinearSolver<Scalar, Ordering> {
   public:
 
-    EigenSolver() : has_init_(false) {}
+    AfficePCG() : has_init_(false) {
+
+    }
 
     void compute(const Eigen::SparseMatrix<Scalar, Ordering>& A) override {
       if (!has_init_) {
@@ -18,9 +25,9 @@ namespace mfem {
       solver_.factorize(A);
     }
 
-    Eigen::VectorXx<Scalar> solve(const Eigen::VectorXx<Scalar>& b) override {
+    Eigen::VectorXx<Scalar> solve(const Eigen::MatrixBase<Scalar>& b) override {
       assert(has_init_);
-      return solver_.solve(b);
+      return solver_.compute(b);
     }
 
   private:

@@ -48,6 +48,9 @@ void Mesh::init() {
 
   init_jacobian();
   PJW_ = P_ * J_.transpose() * W_;
+
+  mass_matrix(M_, vols_);
+  PMP_ = P_ * M_ * P_.transpose();
 }
 
 void Mesh::clear_fixed_vertices() {

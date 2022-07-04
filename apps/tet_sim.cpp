@@ -108,9 +108,11 @@ struct PolyscopeTetApp : public PolyscopeApp {
         material, material_config);
 
     optimizer = optimizer_factory.create(mesh, config);
+
+    solver = solver_factory.create(mesh,config);
+
     optimizer->reset();
 
-    // std::vector<std::string> names;
     BoundaryConditions<3>::get_script_names(bc_list);
   }
 };
