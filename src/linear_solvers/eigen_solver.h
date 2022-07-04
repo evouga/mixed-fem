@@ -16,6 +16,10 @@ namespace mfem {
         has_init_ = true;
       }
       solver_.factorize(A);
+      if (solver_.info() != Eigen::Success) {
+       std::cerr << "prefactor failed! " << std::endl;
+       exit(1);
+      }
     }
 
     Eigen::VectorXx<Scalar> solve(const Eigen::VectorXx<Scalar>& b) override {

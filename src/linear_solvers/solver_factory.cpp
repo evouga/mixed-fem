@@ -1,7 +1,8 @@
 #include "solver_factory.h"
-#include "eigen_solver.h"
 #include "mesh/mesh.h"
 #include "EigenTypes.h"
+#include "eigen_solver.h"
+#include "affine_pcg.h"
 
 #if defined(SIM_USE_CHOLMOD)
 #include <Eigen/CholmodSupport>
@@ -43,6 +44,12 @@ SolverFactory::SolverFactory() {
       ->std::unique_ptr<LinearSolver<Scalar, RowMajor>>
       {return std::make_unique<EigenSolver<CHOLMOD, Scalar, RowMajor>>();});
   #endif
+
+  // Affine Body Dynamics initialized PCG with ARAP preconditioner
+  register_type(SolverType::SOLVER_AFFINE_PCG, "affine-pcg",
+      [](std::shared_ptr<Mesh> mesh, std::shared_ptr<SimConfig> config)
+      ->std::unique_ptr<LinearSolver<Scalar, RowMajor>>
+      {return std::make_unique<AffinePCG<Scalar, RowMajor>>(mesh, config);});
 }
 
 std::unique_ptr<LinearSolver<Scalar, RowMajor>>

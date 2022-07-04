@@ -41,11 +41,6 @@ namespace mfem {
 
     Eigen::VectorXd gl_;
 
-    #if defined(SIM_USE_CHOLMOD)
-    Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<double, Eigen::RowMajor>> solver_;
-    #else
-    Eigen::SimplicialLLT<Eigen::SparseMatrix<double, Eigen::RowMajor>> solver_;
-    #endif
     Eigen::SimplicialLDLT<Eigen::SparseMatrix<double, Eigen::RowMajor>> solver_arap_;
 
     Eigen::Matrix<double, 12,12> pre_affine_;
@@ -55,6 +50,6 @@ namespace mfem {
 
     std::shared_ptr<Stretch<3>> svar_;
     std::shared_ptr<Displacement<3>> xvar_;
-    std::shared_ptr<LinearSolver<double, Eigen::RowMajor>> linsolver_;
+    std::shared_ptr<LinearSolver<double, Eigen::RowMajor>> solver_;
   };
 }

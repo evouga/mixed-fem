@@ -84,6 +84,11 @@ namespace mfem {
       return PMP_;
     }
 
+    const Eigen::SparseMatrixdRowMajor& P() {
+      return P_;
+    }
+
+
     void clear_fixed_vertices();
 
     void free_vertex(int id);
@@ -116,7 +121,8 @@ namespace mfem {
     Eigen::SparseMatrixdRowMajor J_;   // Shape function jacobian
     Eigen::SparseMatrixdRowMajor PMP_; // Mass matrix (dirichlet BCs projected)
     Eigen::SparseMatrixdRowMajor M_;   // Mass matrix
-    Eigen::SparseMatrixd P_;           // pinning constraint (for vertices)
+    Eigen::SparseMatrixdRowMajor P_;   // pinning matrix (for dirichlet BCs) 
+    //Eigen::SparseMatrixd P_;         // pinning constraint (for vertices)
     Eigen::SparseMatrixd W_;           // weight matrix
     Eigen::VectorXd vols_;
     std::vector<Eigen::MatrixXd> Jloc_;

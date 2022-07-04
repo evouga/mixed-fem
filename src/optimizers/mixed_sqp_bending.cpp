@@ -18,6 +18,7 @@
 #include "igl/edge_lengths.h"
 #include "igl/slice_mask.h"
 #include <rigid_inertia_com.h>
+#include "linear_solvers/solver_factory.h"
 
 using namespace mfem;
 using namespace Eigen;
@@ -165,12 +166,8 @@ void MixedSQPBending::substep(int step, double& decrement) {
   int niter = 0;
 
   data_.timer.start("global");
-  solver_.compute(lhs_);
-  if(solver_.info()!=Success) {
-   std::cerr << "prefactor failed! " << std::endl;
-   exit(1);
-  }
-  dx_ = solver_.solve(rhs_);
+  solver_->compute(lhs_);
+  dx_ = solver_->solve(rhs_);
   data_.timer.stop("global");
 
 
@@ -420,6 +417,9 @@ bool MixedSQPBending::linesearch(Eigen::VectorXd& x, const Eigen::VectorXd& dx,
 void MixedSQPBending::reset() {
 
   MixedOptimizer::reset();
+
+  SolverFactory solver_factory;
+  solver_ = solver_factory.create(mesh_, config_);
 
   igl::edge_topology(mesh_->V0_, mesh_->T_, EV_, FE_, EF_);
 

@@ -100,19 +100,8 @@ void MixedSQPPDOptimizer::substep(int step, double& decrement) {
   int niter = 0;
 
   data_.timer.start("global");
-  // Eigen::Matrix<double, 12, 1> dx_affine;  
-  // dx_affine = (T0_.transpose()*lhs_*T0_).lu().solve(T0_.transpose()*rhs_);
-  // dx_ = T0_*dx_affine;
-  // niter = pcg(dx_, lhs_ , rhs_, tmp_r_, tmp_z_, tmp_zm1_, tmp_p_, tmp_Ap_, solver_arap_, config_->itr_tol, config_->max_iterative_solver_iters);
-  // std::cout << "  - CG iters: " << niter;
-  // double relative_error = (lhs_*dx_ - rhs_).norm() / rhs_.norm(); 
-  // std::cout << " rel error: " << relative_error << " abs error: " << (lhs_*dx_-rhs_).norm() << std::endl;
-  solver_.compute(lhs_);
-  if(solver_.info()!=Success) {
-   std::cerr << "prefactor failed! " << std::endl;
-   exit(1);
-  }
-  dx_ = solver_.solve(rhs_);
+  solver_->compute(lhs_);
+  dx_ = solver_->solve(rhs_);
   data_.timer.stop("global");
 
   data_.timer.start("local");
@@ -131,45 +120,6 @@ void MixedSQPPDOptimizer::reset() {
   xvar_ = std::make_shared<Displacement<3>>(mesh_, config_);
   xvar_->reset();
 
-  SparseMatrixdRowMajor A;
-  A.resize(nelem_*9, nelem_*9);
-  std::vector<Triplet<double>> trips;
-  for (int i = 0; i < nelem_; ++i) {
-    for (int j = 0; j < 9; ++j) {
-      trips.push_back(Triplet<double>(9*i+j, 9*i+j, mesh_->config_->mu / vols_[i]));
-    }
-  }
-  A.setFromTriplets(trips.begin(),trips.end());
-
-  double h2 = wdt_*wdt_*config_->h * config_->h;
-  SparseMatrixdRowMajor L = PJ_ * A * PJ_.transpose();
-  SparseMatrixdRowMajor lhs = M_ + h2*L;
-  solver_arap_.compute(lhs);
-
-  //build up reduced space
-  T0_.resize(3*mesh_->V0_.rows(), 12);
-
-  //compute center of mass
-  Eigen::Matrix3d I;
-  Eigen::Vector3d c;
-  double mass = 0;
-
-  //std::cout<<"HERE 1 \n";
-  // TODO wrong? should be F_ not T_ for tetrahedra
-  sim::rigid_inertia_com(I, c, mass, mesh_->V0_, mesh_->T_, 1.0);
-
-  for(unsigned int ii=0; ii<mesh_->V0_.rows(); ii++ ) {
-    //std::cout<<"HERE 2 "<<ii<<"\n";
-    T0_.block<3,3>(3*ii, 0) = Eigen::Matrix3d::Identity()*(mesh_->V0_(ii,0) - c(0));
-    T0_.block<3,3>(3*ii, 3) = Eigen::Matrix3d::Identity()*(mesh_->V0_(ii,1) - c(1));
-    T0_.block<3,3>(3*ii, 6) = Eigen::Matrix3d::Identity()*(mesh_->V0_(ii,2) - c(2));
-    T0_.block<3,3>(3*ii, 9) = Eigen::Matrix3d::Identity();
-  }
-
-  T0_ = P_*T0_;
-  //std::cout<<"c: "<<c.transpose()<<"\n";
-  //std::cout<<"T0: \n"<<T0_<<"\n";
-
-  Matrix<double, 12,12> tmp_pre_affine = T0_.transpose()*lhs*T0_; 
-  pre_affine_ = tmp_pre_affine.inverse();
+  SolverFactory solver_factory;
+  solver_ = solver_factory.create(mesh_, config_);
 }

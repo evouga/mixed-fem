@@ -192,7 +192,6 @@ namespace mfem {
             const bool is_selected = (type == config->solver_type);
             if (ImGui::Selectable(solvers[n].c_str(), is_selected)) {
               config->solver_type = type;
-              solver = solver_factory.create(mesh, config);
               optimizer->reset();
             }
 
@@ -314,7 +313,6 @@ namespace mfem {
     OptimizerFactory optimizer_factory;
     SolverFactory solver_factory;
 
-    std::shared_ptr<LinearSolver<double, Eigen::RowMajor>> solver;
     std::shared_ptr<MaterialConfig> material_config;
     std::shared_ptr<MaterialModel> material;
     std::shared_ptr<Optimizer> optimizer;
