@@ -6,7 +6,7 @@
 #include "svd/svd3x3_sse.h"
 #include "linesearch.h"
 #include "pinning_matrix.h"
-#include "pcg.h"
+#include "linear_solvers/pcg.h"
 // #include "linsolver/nasoq_lbl_eigen.h"
 #include "svd/svd_eigen.h"
 #include "energies/material_model.h"

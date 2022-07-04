@@ -4,7 +4,7 @@
 #include "sparse_utils.h"
 #include "svd/dsvd.h"
 #include "svd/svd3x3_sse.h"
-#include "pcg.h"
+#include "linear_solvers/pcg.h"
 // #include "linsolver/nasoq_lbl_eigen.h"
 #include "svd/svd_eigen.h"
 #include "svd/newton_procrustes.h"

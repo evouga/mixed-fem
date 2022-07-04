@@ -1,26 +1,11 @@
 #include "mixed_sqp_pd_optimizer.h"
 
-#include <chrono>
-#include "sparse_utils.h"
-#include "svd/dsvd.h"
-#include "svd/svd3x3_sse.h"
 #include "linesearch.h"
-#include "pcg.h"
-#include "svd/newton_procrustes.h"
-#include "energies/material_model.h"
 #include "mesh/mesh.h"
-
-#include <iomanip>
-#include <fstream>
-#include <rigid_inertia_com.h>
-#include "unsupported/Eigen/SparseExtra"
-
-#include "time_integrators/bdf.h"
 #include "linear_solvers/solver_factory.h"
 
 using namespace mfem;
 using namespace Eigen;
-using namespace std::chrono;
 
 void MixedSQPPDOptimizer::step() {
   data_.clear();

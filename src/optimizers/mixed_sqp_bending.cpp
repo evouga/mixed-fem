@@ -6,7 +6,7 @@
 #include "svd/svd3x3_sse.h"
 #include "svd/svd_eigen.h"
 #include "linesearch.h"
-#include "pcg.h"
+#include "linear_solvers/pcg.h"
 #include "svd/newton_procrustes.h"
 #include "energies/material_model.h"
 #include "mesh/mesh.h"
