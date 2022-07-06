@@ -19,8 +19,36 @@
 #include "optimizers/optimizer.h"
 
 #include "linear_solvers/solver_factory.h"
+#include "factories/integrator_factory.h"
 
 namespace mfem {
+
+  template <typename Factory, typename TypeEnum>
+  bool FactoryCombo(const char* id, TypeEnum& type) {
+    static Factory factory;
+    const std::vector<std::string>& names = factory.names();
+    std::string name = factory.name_by_type(type);
+
+    if (ImGui::BeginCombo(id, name.c_str())) {
+      for (int i = 0; i < names.size(); ++i) {
+        TypeEnum type_i = factory.type_by_name(names[i]);
+        const bool is_selected = (type_i == type);
+        if (ImGui::Selectable(names[i].c_str(), is_selected)) {
+          type = type_i;
+          //optimizer->reset();
+          return true;
+        }
+
+        // Set the initial focus when opening the combo
+        // (scrolling + keyboard navigation focus)
+        if (is_selected) {
+          ImGui::SetItemDefaultFocus();
+        }
+      }
+      ImGui::EndCombo();
+    }
+    return false;
+  }
 
   struct PolyscopeApp {
     
@@ -203,6 +231,12 @@ namespace mfem {
           ImGui::EndCombo();
         }
 
+        if (FactoryCombo<IntegratorFactory, TimeIntegratorType>(
+            "Integrator", config->ti_type)) {
+          optimizer->reset();
+        }
+  //template <typename Factory, typename TypeEnum>
+  //bool FactoryCombo(const char* id, TypeEnum& type) {
 
         ImGui::TreePop();
       }

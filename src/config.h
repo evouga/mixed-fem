@@ -23,6 +23,15 @@ namespace mfem {
       OPTIMIZER_SQP_BENDING,
   };
 
+  enum TimeIntegratorType {
+    TI_BDF1,
+    TI_BDF2,
+    TI_BDF3,
+    TI_BDF4,
+    TI_BDF5,
+    TI_BDF6
+  };
+
   enum SolverType {
     SOLVER_EIGEN_LLT,
     SOLVER_EIGEN_LDLT,
@@ -91,6 +100,7 @@ namespace mfem {
     double itr_tol = 1e-4;
     BCScriptType bc_type = BC_ONEPOINT;
     SolverType solver_type = SOLVER_EIGEN_LLT;
+    TimeIntegratorType ti_type = TI_BDF1;
   };
 
   // Simple config for material parameters for a single object

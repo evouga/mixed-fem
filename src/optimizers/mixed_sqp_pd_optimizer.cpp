@@ -3,6 +3,7 @@
 #include "linesearch.h"
 #include "mesh/mesh.h"
 #include "linear_solvers/solver_factory.h"
+#include "factories/integrator_factory.h"
 
 using namespace mfem;
 using namespace Eigen;
@@ -11,7 +12,6 @@ void MixedSQPPDOptimizer::step() {
   data_.clear();
 
   E_prev_ = 0;
-  // setup_preconditioner();
 
   int i = 0;
   double grad_norm;
