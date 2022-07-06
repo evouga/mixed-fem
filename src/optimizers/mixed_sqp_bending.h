@@ -24,7 +24,7 @@ namespace mfem {
         std::shared_ptr<SimConfig> config) : MixedSQPPDOptimizer(mesh, config) {}
 
     static std::string name() {
-      return "SQP-PD";
+      return "SQP-PD-Bending";
     }
 
     void step() override;

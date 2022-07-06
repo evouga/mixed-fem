@@ -101,13 +101,14 @@ struct PolyscopeTetApp : public PolyscopeApp {
     config->inner_steps=1;
 
     material_config = std::make_shared<MaterialConfig>();
-    material = material_factory.create(material_config);
+    material = material_factory.create(material_config->material_model,
+        material_config);
     config->kappa = material_config->mu;
 
     mesh = std::make_shared<TetrahedralMesh>(meshV, meshT,
         material, material_config);
 
-    optimizer = optimizer_factory.create(mesh, config);
+    optimizer = optimizer_factory.create(config->optimizer, mesh, config);
     optimizer->reset();
 
     BoundaryConditions<3>::get_script_names(bc_list);

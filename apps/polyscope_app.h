@@ -12,14 +12,13 @@
 #include "json/json.hpp"
 
 #include "mesh/mesh.h"
-#include "energies/material_model_factory.h"
+#include "optimizers/optimizer.h"
 #include "energies/material_model.h"
 
-#include "optimizers/optimizer_factory.h"
-#include "optimizers/optimizer.h"
-
-#include "linear_solvers/solver_factory.h"
+#include "factories/solver_factory.h"
+#include "factories/optimizer_factory.h"
 #include "factories/integrator_factory.h"
+#include "factories/material_model_factory.h"
 
 namespace mfem {
 
@@ -93,13 +92,10 @@ namespace mfem {
 
       if (ImGui::TreeNode("Material Params")) {
 
-        int type = material_config->material_model;
-
-        if (ImGui::Combo("Material Model", &type,"SNH\0NH\0FCR\0ARAP\0FUNG\0\0")) {
-          material_config->material_model = 
-              static_cast<MaterialModelType>(type);
-          material = material_factory.create(material_config);
-
+        if (FactoryCombo<MaterialModelFactory, MaterialModelType>(
+            "Material Model", material_config->material_model)) {
+          material = material_factory.create(material_config->material_model,
+              material_config);
           mesh->material_ = material;
         }
 
@@ -158,11 +154,9 @@ namespace mfem {
           config->ih2 = 1.0/config->h/config->h;
         }
 
-        int type = config->optimizer;
-        if (ImGui::Combo("Optimizer", &type,"ALM\0ADMM\0SQP\0SQP_PD\0NEWTON\0BENDING\0\0")) {
-          config->optimizer = static_cast<OptimizerType>(type);
-          optimizer = optimizer_factory.create(mesh, config);
-
+        if (FactoryCombo<OptimizerFactory, OptimizerType>(
+            "Optimizer", config->optimizer)) {
+          optimizer = optimizer_factory.create(config->optimizer, mesh, config);
           optimizer->reset();
         }
 
@@ -190,7 +184,7 @@ namespace mfem {
         // ImGui::Checkbox("warm start",&config->warm_start);
 
 
-        type = config->bc_type;
+        int type = config->bc_type;
         const char* combo_preview_value = bc_list[type].c_str(); 
         if (ImGui::BeginCombo("Boundary Condition", combo_preview_value)) {
           for (int n = 0; n < bc_list.size(); ++n) {
@@ -213,23 +207,9 @@ namespace mfem {
           ImGui::EndCombo();
         }
 
-        const std::vector<std::string>& solvers = solver_factory.names();
-        std::string solver_name = solver_factory.name_by_type(config->solver_type);
-        if (ImGui::BeginCombo("Linear Solver ", solver_name.c_str())) {
-          for (int n = 0; n < solvers.size(); ++n) {
-            SolverType type = solver_factory.type_by_name(solvers[n]);
-            const bool is_selected = (type == config->solver_type);
-            if (ImGui::Selectable(solvers[n].c_str(), is_selected)) {
-              config->solver_type = type;
-              optimizer->reset();
-            }
-
-            // Set the initial focus when opening the combo
-            // (scrolling + keyboard navigation focus)
-            if (is_selected)
-              ImGui::SetItemDefaultFocus();
-        }
-          ImGui::EndCombo();
+        if (FactoryCombo<SolverFactory, SolverType>(
+            "Linear Solver", config->solver_type)) {
+          optimizer->reset();
         }
 
         if (FactoryCombo<IntegratorFactory, TimeIntegratorType>(

@@ -18,7 +18,7 @@
 #include "igl/edge_lengths.h"
 #include "igl/slice_mask.h"
 #include <rigid_inertia_com.h>
-#include "linear_solvers/solver_factory.h"
+#include "factories/solver_factory.h"
 
 using namespace mfem;
 using namespace Eigen;
@@ -419,7 +419,7 @@ void MixedSQPBending::reset() {
   MixedOptimizer::reset();
 
   SolverFactory solver_factory;
-  solver_ = solver_factory.create(mesh_, config_);
+  solver_ = solver_factory.create(config_->solver_type, mesh_, config_);
 
   igl::edge_topology(mesh_->V0_, mesh_->T_, EV_, FE_, EF_);
 

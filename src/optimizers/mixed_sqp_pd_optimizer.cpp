@@ -2,7 +2,7 @@
 
 #include "linesearch.h"
 #include "mesh/mesh.h"
-#include "linear_solvers/solver_factory.h"
+#include "factories/solver_factory.h"
 #include "factories/integrator_factory.h"
 
 using namespace mfem;
@@ -106,5 +106,5 @@ void MixedSQPPDOptimizer::reset() {
   xvar_->reset();
 
   SolverFactory solver_factory;
-  solver_ = solver_factory.create(mesh_, config_);
+  solver_ = solver_factory.create(config_->solver_type, mesh_, config_);
 }

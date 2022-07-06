@@ -22,7 +22,7 @@ namespace mfem {
     
       if (auto it = type_creators_.find(type);
           it !=  type_creators_.end()) {
-        return it->second(&args...);
+        return it->second(args...);
       }
       std::cerr << "Factory create: type not found" << std::endl;
       return nullptr;
