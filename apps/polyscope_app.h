@@ -28,6 +28,7 @@ namespace mfem {
     static Factory factory;
     const std::vector<std::string>& names = factory.names();
     std::string name = factory.name_by_type(type);
+    bool ret = false;;
 
     if (ImGui::BeginCombo(id, name.c_str())) {
       for (int i = 0; i < names.size(); ++i) {
@@ -36,7 +37,7 @@ namespace mfem {
         if (ImGui::Selectable(names[i].c_str(), is_selected)) {
           type = type_i;
           //optimizer->reset();
-          return true;
+          ret = true;
         }
 
         // Set the initial focus when opening the combo
@@ -47,7 +48,7 @@ namespace mfem {
       }
       ImGui::EndCombo();
     }
-    return false;
+    return ret;
   }
 
   struct PolyscopeApp {
@@ -235,8 +236,6 @@ namespace mfem {
             "Integrator", config->ti_type)) {
           optimizer->reset();
         }
-  //template <typename Factory, typename TypeEnum>
-  //bool FactoryCombo(const char* id, TypeEnum& type) {
 
         ImGui::TreePop();
       }
