@@ -1,6 +1,7 @@
 #pragma once
 
 #include "optimizers/optimizer.h"
+#include "variables/displacement.h"
 #include "sparse_utils.h"
 
 #if defined(SIM_USE_CHOLMOD)
@@ -60,8 +61,8 @@ namespace mfem {
     Eigen::SparseMatrixd PM_;         // mass matrix
     Eigen::SparseMatrixd M_;          // mass matrix
 
-    std::shared_ptr<Assembler<double,3>> assembler_;
-    std::shared_ptr<VecAssembler<double,3>> vec_assembler_;
+    std::shared_ptr<Assembler<double,3,-1>> assembler_;
+    std::shared_ptr<VecAssembler<double,3,-1>> vec_assembler_;
 
     // Solve used for preconditioner
     #if defined(SIM_USE_CHOLMOD)
@@ -71,5 +72,6 @@ namespace mfem {
     #endif
 
     double E_prev_; // energy from last result of linesearch
+    std::shared_ptr<Displacement<3>> xvar_;
   };
 }

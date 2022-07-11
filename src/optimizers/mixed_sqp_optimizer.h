@@ -62,8 +62,8 @@ namespace mfem {
     std::vector<Eigen::Matrix3f> V_;
     std::vector<Eigen::Vector3f> sigma_;
     std::vector<Eigen::MatrixXd> Jloc_;
-    std::shared_ptr<Assembler<double,3>> assembler_;
-    std::shared_ptr<VecAssembler<double,3>> vec_assembler_;
+    std::shared_ptr<Assembler<double,3,-1>> assembler_;
+    std::shared_ptr<VecAssembler<double,3,4>> vec_assembler_;
 
     // // Solve used for preconditioner
     // #if defined(SIM_USE_CHOLMOD)

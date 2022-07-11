@@ -39,6 +39,17 @@ void NewtonOptimizer::step() {
     build_lhs();
     build_rhs();
 
+    VectorXd x = xvar_->value();
+    xvar_->unproject(x);
+
+    if (!mesh_->fixed_jacobian()) {
+      mesh_->update_jacobian(x);
+    }
+
+    // Assemble blocks for left and right hand side
+    SparseMatrixdRowMajor lhs = xvar_->lhs();
+    VectorXd rhs = xvar_->rhs();
+
     // Compute search direction
     substep(i==0, grad_norm);
 
@@ -46,10 +57,17 @@ void NewtonOptimizer::step() {
     auto value = [&](const VectorXd& x)->double {
       return energy(x);
     };
+
+    std::cout << "rhs diff: " << (rhs - rhs_).norm() << std::endl;
+    std::cout << "dx diff: " << (dx_ - xvar_->delta()).norm() << std::endl;
     VectorXd tmp;
     double alpha = 1.0;
     SolverExitStatus status = linesearch_backtracking_bisection(x_, dx_, value,
         tmp, alpha, config_->ls_iters, 0.1, 0.5, E_prev_);
+
+    alpha = 1.0;
+    status = linesearch_backtracking_cubic(xvar_, {}, alpha,
+        config_->ls_iters);
     bool done = status == MAX_ITERATIONS_REACHED;
 
     double E = energy(x_);
@@ -67,6 +85,7 @@ void NewtonOptimizer::step() {
 
   data_.print_data();
   update_configuration();
+  xvar_->post_solve();
 }
 
 void NewtonOptimizer::build_lhs() {
@@ -124,6 +143,7 @@ void NewtonOptimizer::substep(bool init_guess, double& decrement) {
 
   // Solve for update
   dx_ = solver_.solve(rhs_);
+  xvar_->delta() = dx_;
 
   double relative_error = (lhs_*dx_ - rhs_).norm() / rhs_.norm();
   decrement = dx_.norm(); // if doing "full newton use this"
@@ -193,6 +213,10 @@ void NewtonOptimizer::reset() {
   // Reset variables
   Optimizer::reset();
 
+  xvar_ = std::make_shared<Displacement<3>>(mesh_, config_);
+  xvar_->set_mixed(false);
+  xvar_->reset();
+
   E_prev_ = 0;
   mesh_->volumes(vols_);
 
@@ -217,7 +241,7 @@ void NewtonOptimizer::reset() {
   Vector3d ext = Map<Vector3f>(config_->ext).cast<double>();
   f_ext_ = P_.transpose()*P_*ext.replicate(mesh_->V_.rows(),1);
 
-  assembler_ = std::make_shared<Assembler<double,3>>(mesh_->T_, mesh_->free_map_);
-  vec_assembler_ = std::make_shared<VecAssembler<double,3>>(mesh_->T_,
+  assembler_ = std::make_shared<Assembler<double,3,-1>>(mesh_->T_, mesh_->free_map_);
+  vec_assembler_ = std::make_shared<VecAssembler<double,3,-1>>(mesh_->T_,
       mesh_->free_map_);
 }

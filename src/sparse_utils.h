@@ -8,9 +8,10 @@ namespace mfem {
   // Each element's input is a block of size NxN composed of DIMxDIM sub-blocks
   // these sub-blocks are scattered to their global nodes positions and
   // summed with duplicates.
-  template <typename Scalar, int DIM>
+  template <typename Scalar, int DIM, int N>
   class Assembler {
-  public:
+
+  private:
 
     template<typename T>
     static void reorder(std::vector<T>& val, const std::vector<int>& indices) {
@@ -23,6 +24,19 @@ namespace mfem {
       std::copy(tmp.begin(), tmp.end(), val.begin());
     }
 
+    // Returns the size of the local blocks for assembly. If N is dynamic
+    // M() returns -1
+    static constexpr int M() {
+      if (N == -1) {
+        return -1;
+      } else {
+        return DIM * N;
+      }
+    }
+
+    using MatM  = Eigen::Matrix<Scalar, M(), M()>;
+
+  public:
     // Initialize assembler / analyze sparsity of system
     // None of this wonderfully optimized since we only have to do it once
     // E        - elements nelem x 4 for tetrahedra
@@ -30,9 +44,11 @@ namespace mfem {
     //            equals -1 if node is pinned
     Assembler(const Eigen::MatrixXi& E, const std::vector<int>& free_map);
 
+    
+
     // Update entries of matrix using per-element blocks
     // blocks   - |nelem| N*DIM x N*DIM blocks to update assembly matrix
-    void update_matrix(std::vector<Eigen::MatrixXx<Scalar>> blocks);
+    void update_matrix(const std::vector<MatM>& blocks);
 
     // Element IDs, global, and local coordinates. Each of these vectors
     // is of the same size.
@@ -40,7 +56,6 @@ namespace mfem {
     std::vector<std::pair<int,int>> global_pairs;
     std::vector<std::pair<int,int>> local_pairs;
 
-    int N_;        // number of points per element (block)
     int num_nodes; // number of unique pairs / blocks in matrix
     std::vector<int> multiplicity; // number of pairs to sum over for a node
     std::vector<int> row_offsets;
@@ -50,7 +65,10 @@ namespace mfem {
   };
 
   // Class for parallel assembly of FEM vectors
-  template <typename Scalar, int DIM>
+  // Scalar {double, float)}
+  // DIM    {2, 3}
+  // N      - Number of points per element (-1 if Dynamic)
+  template <typename Scalar, int DIM, int N>
   class VecAssembler {
   public:
 
@@ -62,10 +80,22 @@ namespace mfem {
     VecAssembler(const Eigen::MatrixXi& E,
         const std::vector<int>& free_map);
 
+    // Returns the size of the local blocks for assembly. If N is dynamic
+    // M() returns -1
+    static constexpr int M() {
+      if (N == -1) {
+        return -1;
+      } else {
+        return DIM * N;
+      }
+    }
+
     // Assemble local products into vector
     // vecs   - |nnodes|xN*M x 1
-    void assemble(std::vector<Eigen::Matrix<Scalar,Eigen::Dynamic,1>> vecs,
+    void assemble(const std::vector<Eigen::Matrix<Scalar,M(),1>>& vecs,
         Eigen::VectorXd& a);
+  private:
+
 
     // Element IDs, global, and local coordinates. Each of these vectors
     // is of the same size.
@@ -73,7 +103,6 @@ namespace mfem {
     std::vector<int> global_vids;
     std::vector<int> local_vids;
 
-    int N_;        // number of points per element (block)
     int num_nodes; // number of unique pairs / blocks in matrix
     int size_;     // size of the assembled vector
     std::vector<int> multiplicity; // number of pairs to sum over for a node

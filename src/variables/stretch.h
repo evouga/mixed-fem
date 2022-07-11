@@ -23,6 +23,7 @@ namespace mfem {
         const Eigen::VectorXd& s) override;
     void update(const Eigen::VectorXd& x, double dt) override;
     void reset() override;
+    void post_solve() override;
 
     Eigen::VectorXd rhs() override;
     Eigen::VectorXd gradient() override;
@@ -122,6 +123,6 @@ namespace mfem {
     std::vector<MatMN> dSdF_; 
     std::vector<Eigen::MatrixXd> Aloc_;
     Eigen::SparseMatrix<double, Eigen::RowMajor> A_;
-    std::shared_ptr<Assembler<double,DIM>> assembler_;
+    std::shared_ptr<Assembler<double,DIM,-1>> assembler_;
   };
 }

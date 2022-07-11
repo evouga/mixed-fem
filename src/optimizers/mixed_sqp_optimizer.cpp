@@ -332,20 +332,7 @@ void MixedSQPOptimizer::reset() {
       free_map[i] = curr++;
     }
   }
-  assembler_ = std::make_shared<Assembler<double,3>>(mesh_->T_, free_map);
-  vec_assembler_ = std::make_shared<VecAssembler<double,3>>(mesh_->T_,
+  assembler_ = std::make_shared<Assembler<double,3,-1>>(mesh_->T_, free_map);
+  vec_assembler_ = std::make_shared<VecAssembler<double,3,4>>(mesh_->T_,
       free_map);
-      
-  // Initializing gradients and LHS
-  //update_system();
-  //
-  //// Compute preconditioner
-  //#if defined(SIM_USE_CHOLMOD)
-  //std::cout << "Using CHOLDMOD solver" << std::endl;
-  //#endif
-  //solver_.compute(lhs_);
-  //if(solver_.info()!=Success) {
-  //  std::cerr << " KKT prefactor failed! " << std::endl;
-  //}
-  //setup_preconditioner();
 }

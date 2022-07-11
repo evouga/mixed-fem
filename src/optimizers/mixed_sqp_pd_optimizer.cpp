@@ -58,9 +58,8 @@ void MixedSQPPDOptimizer::step() {
     data_.print_data(config_->show_timing);
   }
 
-  xvar_->update(gx,0.);
-  svar_->lambda().setZero();
-  //update_configuration();
+  xvar_->post_solve();
+  svar_->post_solve();
 }
 
 void MixedSQPPDOptimizer::build_lhs() {}
@@ -74,7 +73,7 @@ void MixedSQPPDOptimizer::update_system() {
     mesh_->update_jacobian(x);
   }
 
-  svar_->update(x, wdt_*config_->h); 
+  svar_->update(x, xvar_->integrator()->dt());
 
   // Assemble blocks for left and right hand side
   lhs_ = xvar_->lhs() + svar_->lhs();

@@ -16,10 +16,16 @@ namespace {
   }
 }
 
-template <typename Scalar, int DIM>
-Assembler<Scalar,DIM>::Assembler(const MatrixXi& E,
-    const std::vector<int>& free_map) : N_(E.cols())
-{
+template <typename Scalar, int DIM, int N>
+Assembler<Scalar,DIM,N>::Assembler(const MatrixXi& E,
+    const std::vector<int>& free_map) {
+
+  if (N != -1) {
+    assert(N == E.cols());
+  }
+
+  int N_ = E.cols();
+
   element_ids.reserve(N_*N_*E.rows());
   global_pairs.reserve(N_*N_*E.rows());
   local_pairs.reserve(N_*N_*E.rows());
@@ -123,8 +129,8 @@ Assembler<Scalar,DIM>::Assembler(const MatrixXi& E,
 }
 
  
-template <typename Scalar, int DIM>
-void Assembler<Scalar,DIM>::update_matrix(std::vector<MatrixXx<Scalar>> blocks)
+template <typename Scalar, int DIM, int N>
+void Assembler<Scalar,DIM,N>::update_matrix(const std::vector<MatM>& blocks)
 {
   // Iterate over M rows at a time
   #pragma omp parallel for
@@ -180,11 +186,15 @@ void Assembler<Scalar,DIM>::update_matrix(std::vector<MatrixXx<Scalar>> blocks)
   }
 }
 
-template <typename Scalar, int DIM>
-VecAssembler<Scalar,DIM>::VecAssembler(const MatrixXi& E,
-    const std::vector<int>& free_map) : N_(E.cols())
-{
-  element_ids.reserve(N_*E.rows());
+template <typename Scalar, int DIM, int N>
+VecAssembler<Scalar,DIM,N>::VecAssembler(const MatrixXi& E,
+    const std::vector<int>& free_map) {
+  if (N != -1) {
+    assert(N == E.cols());
+  }
+
+  int N_ = E.cols();
+element_ids.reserve(N_*E.rows());
   global_vids.reserve(N_*E.rows());
   local_vids.reserve(N_*E.rows());
 
@@ -256,9 +266,9 @@ VecAssembler<Scalar,DIM>::VecAssembler(const MatrixXi& E,
   size_ = DIM * m;
 }
 
-template <typename Scalar, int DIM>
-void VecAssembler<Scalar,DIM>::assemble(
-    std::vector<Matrix<Scalar,Dynamic,1>> vecs, VectorXd& a) {
+template <typename Scalar, int DIM, int N>
+void VecAssembler<Scalar,DIM,N>::assemble(
+    const std::vector<Matrix<Scalar,M(),1>>& vecs, VectorXd& a) {
   a.resize(size_);
 
   // Iterate over M rows at a time
@@ -296,7 +306,11 @@ void VecAssembler<Scalar,DIM>::assemble(
 }
 
 // Explicit template instantiation
-template class mfem::Assembler<double, 3>;
-template class mfem::Assembler<double, 2>;
-template class mfem::VecAssembler<double, 3>;
-template class mfem::VecAssembler<double, 2>;
+template class mfem::Assembler<double, 3, Eigen::Dynamic>;
+template class mfem::Assembler<double, 3, 4>;
+template class mfem::Assembler<double, 3, 3>;
+template class mfem::Assembler<double, 2, 3>;
+template class mfem::VecAssembler<double, 3, Eigen::Dynamic>;
+template class mfem::VecAssembler<double, 3, 4>;
+template class mfem::VecAssembler<double, 3, 3>;
+template class mfem::VecAssembler<double, 2, 3>;

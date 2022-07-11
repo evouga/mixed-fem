@@ -471,8 +471,8 @@ void MixedSQPBending::reset() {
       free_map[i] = curr++;
     }
   }
-  assembler_ = std::make_shared<Assembler<double,3>>(mesh_->T_, free_map);
-  vec_assembler_ = std::make_shared<VecAssembler<double,3>>(mesh_->T_,
+  assembler_ = std::make_shared<Assembler<double,3,-1>>(mesh_->T_, free_map);
+  vec_assembler_ = std::make_shared<VecAssembler<double,3,4>>(mesh_->T_,
       free_map);
 
 

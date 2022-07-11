@@ -6,7 +6,7 @@ namespace mfem {
 
   class Mesh;
 
-  // Base class for mixed fem variables.
+  // Base class for fem degrees of freedom.
   template<int DIM>
   class Variable {
   public:
@@ -25,6 +25,8 @@ namespace mfem {
 
     // Resets the state
     virtual void reset() = 0;
+
+    virtual void post_solve() = 0;
 
     // Build and return the right-hand-side of schur-complement
     // reduced system of equations

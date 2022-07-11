@@ -27,12 +27,13 @@ namespace mfem {
     double energy(const Eigen::VectorXd& s) override;
     void update(const Eigen::VectorXd& x, double dt) override;
     void reset() override;
+    void post_solve() override;
 
     Eigen::VectorXd rhs() override;
     Eigen::VectorXd gradient() override;
 
     const Eigen::SparseMatrix<double, Eigen::RowMajor>& lhs() override {
-      return PMP_;
+      return lhs_;
     }
 
     Eigen::VectorXd& delta() override {
@@ -51,6 +52,10 @@ namespace mfem {
     void unproject(Eigen::VectorXd& x) const {
       assert(x.size() == P_.rows());
       x = P_.transpose() * x + b_;
+    }
+
+    void set_mixed(bool is_mixed) {
+      is_mixed_ = is_mixed;
     }
 
   private:
@@ -78,26 +83,30 @@ namespace mfem {
 
     OptimizerData data_;      // Stores timing results
     int nelem_;               // number of elements
+    bool is_mixed_;
 
     std::shared_ptr<SimConfig> config_;
     std::shared_ptr<ImplicitIntegrator> integrator_;
     BoundaryConditions<DIM> BCs_;
 
+    Eigen::SparseMatrix<double, Eigen::RowMajor> lhs_;
     Eigen::SparseMatrix<double, Eigen::RowMajor> P_;   // dirichlet projection
     Eigen::SparseMatrix<double, Eigen::RowMajor> PMP_; // projected mass matrix
     Eigen::SparseMatrix<double, Eigen::RowMajor> PM_;  // projected mass matrix
     Eigen::SparseMatrix<double, Eigen::RowMajor> M_;   // mass matrix
+    Eigen::SparseMatrix<double, Eigen::RowMajor> K_;   // stiffness matrix
 
     Eigen::VectorXd x_;       // displacement variables
     Eigen::VectorXd b_;       // dirichlet values
     Eigen::VectorXd dx_;      // displacement deltas
-    Eigen::VectorXd rhs_;     // RHS for schur complement system
+    Eigen::VectorXd rhs_;     // right-hand-side vector
     Eigen::VectorXd grad_;    // Gradient with respect to 's' variables
     Eigen::VectorXd f_ext_;   // body forces
-    std::vector<VecN> g_;     // per-element gradients
-    std::vector<MatN> H_;     // per-element hessians
+    std::vector<Eigen::VectorXd> g_;     // per-element gradients
+    std::vector<Eigen::MatrixXd> H_;     // per-element hessians
     std::vector<Eigen::MatrixXd> Aloc_;
     Eigen::SparseMatrix<double, Eigen::RowMajor> A_;
-    std::shared_ptr<Assembler<double,DIM>> assembler_;
+    std::shared_ptr<Assembler<double,DIM,-1>> assembler_;
+    std::shared_ptr<VecAssembler<double,DIM,-1>> vec_assembler_;
   };
 }

@@ -221,7 +221,7 @@ void Stretch<DIM>::reset() {
   dSdF_.resize(nelem_);
   Hinv_.resize(nelem_);
   Aloc_.resize(nelem_);
-  assembler_ = std::make_shared<Assembler<double,DIM>>(
+  assembler_ = std::make_shared<Assembler<double,DIM,-1>>(
       mesh_->T_, mesh_->free_map_);
 
   #pragma omp parallel for
@@ -235,3 +235,7 @@ void Stretch<DIM>::reset() {
   }
 }
 
+template<int DIM>
+void Stretch<DIM>::post_solve() {
+  la_.setZero();
+}
