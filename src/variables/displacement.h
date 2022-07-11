@@ -18,9 +18,6 @@ namespace mfem {
 
   public:
 
-    Displacement(std::shared_ptr<Mesh> mesh) : Variable<DIM>(mesh)
-    { std::cerr << "init the integrator por favor" << std::endl;}
-
     Displacement(std::shared_ptr<Mesh> mesh,
           std::shared_ptr<SimConfig> config);
 
@@ -83,9 +80,10 @@ namespace mfem {
 
     OptimizerData data_;      // Stores timing results
     int nelem_;               // number of elements
-    bool is_mixed_;
 
     std::shared_ptr<SimConfig> config_;
+    bool is_mixed_;
+
     std::shared_ptr<ImplicitIntegrator> integrator_;
     BoundaryConditions<DIM> BCs_;
 

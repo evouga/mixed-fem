@@ -1,6 +1,7 @@
 #pragma once
 
 #include "EigenTypes.h"
+#include <memory>
 
 namespace mfem {
 

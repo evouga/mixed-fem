@@ -15,9 +15,7 @@ void MixedSQPPDOptimizer::step() {
 
   int i = 0;
   double grad_norm;
-  double res;
   double E;
-  VectorXd gx;
   step_x.clear();
   do {
     if (config_->save_substeps) {
@@ -32,7 +30,7 @@ void MixedSQPPDOptimizer::step() {
 
     // Record initial energies
     E = energy(x_, s_, la_);
-    res = std::abs((E - E_prev_) / (E+1));
+    double res = std::abs((E - E_prev_) / (E+1));
     E_prev_ = E;
 
     // Solve system

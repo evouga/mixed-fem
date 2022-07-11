@@ -9,10 +9,8 @@ namespace mfem {
   public:
 
     ImplicitIntegrator(Eigen::VectorXd x0, Eigen::VectorXd v0, double h)
-        : h_(h) {
-      x_prevs_.push_front(x0);
-      v_prevs_.push_front(v0);
-    }
+        : h_(h) {}
+        
     virtual ~ImplicitIntegrator() = default;
     virtual Eigen::VectorXd x_tilde() const = 0;
     virtual double dt() const = 0;

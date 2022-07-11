@@ -30,6 +30,8 @@ template <int I>
 VectorXd BDF<I>::weighted_sum(const std::deque<VectorXd>& x) const {
 	const std::array<double,I>& a = alphas();
 
+	assert(x.size() > 0 && x.size() <= I);
+
 	VectorXd wx = VectorXd::Zero(x.front().size());
 
 	for (int i = 0; i < x.size(); ++i) {
