@@ -108,6 +108,10 @@ file(GLOB SOURCES
     ${PROJECT_SOURCE_DIR}/src/svd/*.cpp 
     ${PROJECT_SOURCE_DIR}/src/energies/*.cpp
     ${PROJECT_SOURCE_DIR}/src/optimizers/*.cpp
+    ${PROJECT_SOURCE_DIR}/src/variables/*.cpp
+    ${PROJECT_SOURCE_DIR}/src/linear_solvers/*.cpp
+    ${PROJECT_SOURCE_DIR}/src/time_integrators/*.cpp
+    ${PROJECT_SOURCE_DIR}/src/factories/*.cpp
     ${PROJECT_SOURCE_DIR}/src/mesh/*.cpp)
 
 # message("SOURCES" ${SOURCES})
@@ -212,4 +216,4 @@ target_link_libraries(decrement mixed_fem_lib)
 add_executable(energy apps/energy.cpp ${SOURCES})
 target_link_libraries(energy mixed_fem_lib)
 
-add_subdirectory(tests)
+#add_subdirectory(tests)
