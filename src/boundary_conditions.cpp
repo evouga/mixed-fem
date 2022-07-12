@@ -5,8 +5,8 @@
 using namespace mfem;
 using namespace Eigen;
 
-template <int dim>
-void BoundaryConditions<dim>::init_boundary_groups(const Eigen::MatrixXd &V,
+template <int DIM>
+void BoundaryConditions<DIM>::init_boundary_groups(const Eigen::MatrixXd &V,
     std::vector<std::vector<int>> &bc_groups, double ratio) {
 
   // resize to match size
@@ -28,8 +28,8 @@ void BoundaryConditions<dim>::init_boundary_groups(const Eigen::MatrixXd &V,
   }
 }
 
-// template <int dim>
-// void BoundaryConditions<dim>::init_boundary_groups(const Eigen::MatrixXd &V,
+// template <int DIM>
+// void BoundaryConditions<DIM>::init_boundary_groups(const Eigen::MatrixXd &V,
 //     std::vector<std::vector<int>> &bc_groups, double ratio) {
 
 //   // resize to match size
@@ -53,19 +53,19 @@ void BoundaryConditions<dim>::init_boundary_groups(const Eigen::MatrixXd &V,
 //   }
 // }
 
-template <int dim>
-const std::vector<std::string> BoundaryConditions<dim>::script_type_strings = {
+template <int DIM>
+const std::vector<std::string> BoundaryConditions<DIM>::script_type_strings = {
     "null", "scaleF", "hang", "hangends","stretch", "squash", "stretchnsquash",
     "bend", "twist", "twistnstretch", "twistnsns", "twistnsns_old",
     "rubberBandPull", "onepoint", "random", "fall"};
 
-template <int dim>
-BoundaryConditions<dim>::BoundaryConditions(BCScriptType script_type) : script_type_(script_type)
+template <int DIM>
+BoundaryConditions<DIM>::BoundaryConditions(BCScriptType script_type) : script_type_(script_type)
 {
 }
 
-template <int dim>
-void BoundaryConditions<dim>::init_script(std::shared_ptr<Mesh> &mesh)
+template <int DIM>
+void BoundaryConditions<DIM>::init_script(std::shared_ptr<Mesh> &mesh)
 {
 
   switch (script_type_)
@@ -77,7 +77,7 @@ void BoundaryConditions<dim>::init_script(std::shared_ptr<Mesh> &mesh)
   {
     mesh->clear_fixed_vertices();
 
-    Matrix3d M;
+    MatD M;
     M << 1.5, 0.0, 0.0,
         0.0, 1.5, 0.0,
         0.0, 0.0, 1.5;
@@ -207,7 +207,7 @@ void BoundaryConditions<dim>::init_script(std::shared_ptr<Mesh> &mesh)
       for (size_t bVI = 0; bVI < borderI.size(); bVI++)
       {
         angVel_bc_groups_[borderI[bVI]] = std::pow(-1.0, bI) * -0.1 * M_PI;
-        rotCenter_bc_groups_[borderI[bVI]] = rotCenter.transpose().topRows(dim);
+        rotCenter_bc_groups_[borderI[bVI]] = rotCenter.transpose().topRows(DIM);
       }
       bI++;
     }
@@ -229,7 +229,7 @@ void BoundaryConditions<dim>::init_script(std::shared_ptr<Mesh> &mesh)
       for (size_t bVI = 0; bVI < borderI.size(); bVI++)
       {
         angVel_bc_groups_[borderI[bVI]] = std::pow(-1.0, bI) * -0.1 * M_PI;
-        rotCenter_bc_groups_[borderI[bVI]] = rotCenter.transpose().topRows(dim);
+        rotCenter_bc_groups_[borderI[bVI]] = rotCenter.transpose().topRows(DIM);
 
         group_velocity_[borderI[bVI]].setZero();
         group_velocity_[borderI[bVI]][0] = std::pow(-1.0, bI) * -0.1;
@@ -255,7 +255,7 @@ void BoundaryConditions<dim>::init_script(std::shared_ptr<Mesh> &mesh)
       for (size_t bVI = 0; bVI < borderI.size(); bVI++)
       {
         angVel_bc_groups_[borderI[bVI]] = std::pow(-1.0, bI) * -0.4 * M_PI;
-        rotCenter_bc_groups_[borderI[bVI]] = rotCenter.transpose().topRows(dim);
+        rotCenter_bc_groups_[borderI[bVI]] = rotCenter.transpose().topRows(DIM);
 
         group_velocity_[borderI[bVI]].setZero();
         if (script_type_ == BC_TWISTNSNS)
@@ -334,8 +334,8 @@ void BoundaryConditions<dim>::init_script(std::shared_ptr<Mesh> &mesh)
 
   // case BC_ONEPOINT:
   // {
-  //   const RowVector3d center = mesh->bbox.colwise().mean();
-  //   mesh->V_.rowwise() = center.leftCols(dim);
+  //   const RowVecD center = mesh->bbox.colwise().mean();
+  //   mesh->V_.rowwise() = center.leftCols(DIM);
   //   mesh->V_.col(1).array() += (mesh->bbox(1, 1) - mesh->bbox(0, 1)) / 2.0;
   //   break;
   // }
@@ -350,8 +350,8 @@ void BoundaryConditions<dim>::init_script(std::shared_ptr<Mesh> &mesh)
     mesh->V_ /= 2.0;
     RowVector3d offset = mesh->bbox.colwise().mean();
     offset[1] += (mesh->bbox(1, 1) - mesh->bbox(0, 1)) / 2.0;
-    offset.leftCols(dim) -= mesh->V_.row(0);
-    mesh->V_.rowwise() += offset.leftCols(dim);
+    offset.leftCols(DIM) -= mesh->V_.row(0);
+    mesh->V_.rowwise() += offset.leftCols(DIM);
     break;
   }
 
@@ -370,10 +370,10 @@ void BoundaryConditions<dim>::init_script(std::shared_ptr<Mesh> &mesh)
   }
 }
 
-template <int dim>
-int BoundaryConditions<dim>::step_script(std::shared_ptr<Mesh> &mesh, double dt)
+template <int DIM>
+int BoundaryConditions<DIM>::step_script(std::shared_ptr<Mesh> &mesh, double dt)
 {
-  VectorXd searchDir(mesh->V_.rows() * dim);
+  VectorXd searchDir(mesh->V_.rows() * DIM);
   searchDir.setZero();
   int returnFlag = 0;
   switch (script_type_)
@@ -389,7 +389,7 @@ int BoundaryConditions<dim>::step_script(std::shared_ptr<Mesh> &mesh, double dt)
   case BC_SQUASH:
     for (const auto &movingVerts : group_velocity_)
     {
-      searchDir.segment<dim>(movingVerts.first * dim) =
+      searchDir.segment<DIM>(movingVerts.first * DIM) =
           movingVerts.second * dt;
     }
     break;
@@ -410,7 +410,7 @@ int BoundaryConditions<dim>::step_script(std::shared_ptr<Mesh> &mesh, double dt)
       {
         movingVerts.second[0] *= -1.0;
       }
-      searchDir.segment<dim>(movingVerts.first * dim) =
+      searchDir.segment<DIM>(movingVerts.first * DIM) =
           movingVerts.second * dt;
     }
     break;
@@ -426,7 +426,7 @@ int BoundaryConditions<dim>::step_script(std::shared_ptr<Mesh> &mesh, double dt)
       const auto rotCenter = rotCenter_bc_groups_.find(movingVerts.first);
       assert(rotCenter != rotCenter_bc_groups_.end());
 
-      searchDir.segment<dim>(movingVerts.first * dim) = (rotMtr.block<dim, dim>(0, 0) * (mesh->V_.row(movingVerts.first).transpose() - rotCenter->second) + rotCenter->second) - mesh->V_.row(movingVerts.first).transpose();
+      searchDir.segment<DIM>(movingVerts.first * DIM) = (rotMtr.block<DIM, DIM>(0, 0) * (mesh->V_.row(movingVerts.first).transpose() - rotCenter->second) + rotCenter->second) - mesh->V_.row(movingVerts.first).transpose();
     }
     break;
 
@@ -440,7 +440,7 @@ int BoundaryConditions<dim>::step_script(std::shared_ptr<Mesh> &mesh, double dt)
       const auto rotCenter = rotCenter_bc_groups_.find(movingVerts.first);
       assert(rotCenter != rotCenter_bc_groups_.end());
 
-      searchDir.segment<dim>(movingVerts.first * dim) = (rotMtr.block<dim, dim>(0, 0) * (mesh->V_.row(movingVerts.first).transpose() - rotCenter->second) + rotCenter->second) - mesh->V_.row(movingVerts.first).transpose();
+      searchDir.segment<DIM>(movingVerts.first * DIM) = (rotMtr.block<DIM, DIM>(0, 0) * (mesh->V_.row(movingVerts.first).transpose() - rotCenter->second) + rotCenter->second) - mesh->V_.row(movingVerts.first).transpose();
     }
     break;
 
@@ -455,11 +455,11 @@ int BoundaryConditions<dim>::step_script(std::shared_ptr<Mesh> &mesh, double dt)
       const auto rotCenter = rotCenter_bc_groups_.find(movingVerts.first);
       assert(rotCenter != rotCenter_bc_groups_.end());
 
-      searchDir.segment<dim>(movingVerts.first * dim) = (rotMtr.block<dim, dim>(0, 0) * (mesh->V_.row(movingVerts.first).transpose() - rotCenter->second) + rotCenter->second) - mesh->V_.row(movingVerts.first).transpose();
+      searchDir.segment<DIM>(movingVerts.first * DIM) = (rotMtr.block<DIM, DIM>(0, 0) * (mesh->V_.row(movingVerts.first).transpose() - rotCenter->second) + rotCenter->second) - mesh->V_.row(movingVerts.first).transpose();
     }
     for (const auto &movingVerts : group_velocity_)
     {
-      searchDir.segment<dim>(movingVerts.first * dim) += movingVerts.second * dt;
+      searchDir.segment<DIM>(movingVerts.first * DIM) += movingVerts.second * dt;
     }
     break;
   }
@@ -489,7 +489,7 @@ int BoundaryConditions<dim>::step_script(std::shared_ptr<Mesh> &mesh, double dt)
       const auto rotCenter = rotCenter_bc_groups_.find(movingVerts.first);
       assert(rotCenter != rotCenter_bc_groups_.end());
 
-      searchDir.segment<dim>(movingVerts.first * dim) = (rotMtr.block<dim, dim>(0, 0) * (mesh->V_.row(movingVerts.first).transpose() - rotCenter->second) + rotCenter->second) - mesh->V_.row(movingVerts.first).transpose();
+      searchDir.segment<DIM>(movingVerts.first * DIM) = (rotMtr.block<DIM, DIM>(0, 0) * (mesh->V_.row(movingVerts.first).transpose() - rotCenter->second) + rotCenter->second) - mesh->V_.row(movingVerts.first).transpose();
     }
     for (auto &movingVerts : group_velocity_)
     {
@@ -497,7 +497,7 @@ int BoundaryConditions<dim>::step_script(std::shared_ptr<Mesh> &mesh, double dt)
       {
         movingVerts.second[0] *= -1.0;
       }
-      searchDir.segment<dim>(movingVerts.first * dim) += movingVerts.second * dt;
+      searchDir.segment<DIM>(movingVerts.first * DIM) += movingVerts.second * dt;
     }
     break;
   }
@@ -521,7 +521,7 @@ int BoundaryConditions<dim>::step_script(std::shared_ptr<Mesh> &mesh, double dt)
     }
     for (const auto &movingVerts : group_velocity_)
     {
-      searchDir.segment<dim>(movingVerts.first * dim) =
+      searchDir.segment<DIM>(movingVerts.first * DIM) =
           movingVerts.second * dt;
     }
     break;
@@ -545,26 +545,26 @@ int BoundaryConditions<dim>::step_script(std::shared_ptr<Mesh> &mesh, double dt)
   #pragma omp parallel for
   for (int vI = 0; vI < mesh->V_.rows(); ++vI)
   {
-    mesh->V_.row(vI) += stepSize * searchDir.segment<dim>(vI * dim).transpose();
+    mesh->V_.row(vI) += stepSize * searchDir.segment<DIM>(vI * DIM).transpose();
   }
 
   return returnFlag;
 }
 
-template <int dim>
-void BoundaryConditions<dim>::set_script(BCScriptType script_type)
+template <int DIM>
+void BoundaryConditions<DIM>::set_script(BCScriptType script_type)
 {
   script_type_ = script_type;
 }
 
-template <int dim>
-const std::vector<std::vector<int>> &BoundaryConditions<dim>::get_bc_groups(void) const
+template <int DIM>
+const std::vector<std::vector<int>> &BoundaryConditions<DIM>::get_bc_groups(void) const
 {
   return bc_groups_;
 }
 
-template <int dim>
-BCScriptType BoundaryConditions<dim>::get_script_type(const std::string &str)
+template <int DIM>
+BCScriptType BoundaryConditions<DIM>::get_script_type(const std::string &str)
 {
 
   for (size_t i = 0; i < script_type_strings.size(); i++)
@@ -577,22 +577,18 @@ BCScriptType BoundaryConditions<dim>::get_script_type(const std::string &str)
   return BC_NULL;
 }
 
-template <int dim>
-std::string BoundaryConditions<dim>::get_script_name(BCScriptType script_type)
+template <int DIM>
+std::string BoundaryConditions<DIM>::get_script_name(BCScriptType script_type)
 {
   assert(script_type < script_type_strings.size());
   return script_type_strings[script_type];
 }
 
-template <int dim>
-void BoundaryConditions<dim>::get_script_names(std::vector<std::string>& names)
+template <int DIM>
+void BoundaryConditions<DIM>::get_script_names(std::vector<std::string>& names)
 {
   names = script_type_strings;
 }
 
-
-#define DIM 3
-namespace mfem
-{
-  template class BoundaryConditions<DIM>;
-}
+template class mfem::BoundaryConditions<3>;
+template class mfem::BoundaryConditions<2>;

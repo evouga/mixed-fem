@@ -93,6 +93,29 @@ namespace mfem {
       return H;
     }
 
+    // Computes psi, the strain energy density value.
+    // F - 4x1 deformation gradient flattened (column-major)
+    virtual double energy(const Eigen::Vector4d& F) {
+      std::cerr << "energy unimplemented for 4x1 input" << std::endl;
+      return 0;
+    }
+
+    // shell gradient with respect to deformation gradient
+    // F - 9x1 deformation gradient flattened (column-major)
+    virtual Eigen::Vector4d gradient(const Eigen::Vector4d& F) {
+      Eigen::Vector4d g;
+      std::cerr << "gradient unimplemented for 4x1 input" << std::endl;
+      return g;
+    }
+
+    // mixed shell hessian 
+    // F - 9x1 deformation gradient flattened (column-major)
+    virtual Eigen::Matrix4d hessian(const Eigen::Vector4d& F) {
+      std::cerr << "gradient unimplemented for 4x1 input" << std::endl;
+      Eigen::Matrix4d H;
+      return H;
+    }
+
   protected:
 
     std::shared_ptr<MaterialConfig> config_;     

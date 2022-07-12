@@ -134,7 +134,7 @@ void Displacement<DIM>::reset() {
   mesh_->V_ = mesh_->V0_;
   mesh_->clear_fixed_vertices();
 
-  BoundaryConditions<3>::init_boundary_groups(mesh_->V0_,
+  BoundaryConditions<DIM>::init_boundary_groups(mesh_->V0_,
       mesh_->bc_groups_, 0.01); // .01, hang for astronaut
 
   BCs_.set_script(config_->bc_type);
@@ -162,10 +162,10 @@ void Displacement<DIM>::reset() {
   lhs_ = PMP_;
 
   // External gravity force
-  Vector3d ext = Map<Vector3f>(config_->ext).cast<double>();
+  VecD ext = Map<Matrix<float,DIM,1>>(config_->ext).template cast<double>();
   f_ext_ = P_.transpose()*P_*ext.replicate(mesh_->V_.rows(),1);
 }
 
 template class mfem::Displacement<3>; // 3D
-//template class mfem::Displacement<2>; // 2D
+template class mfem::Displacement<2>; // 2D
 

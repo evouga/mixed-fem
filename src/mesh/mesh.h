@@ -72,7 +72,7 @@ namespace mfem {
       return vols_;
     }
 
-    Eigen::MatrixXd vertices() {
+    virtual Eigen::MatrixXd vertices() {
       return V_;
     }
 

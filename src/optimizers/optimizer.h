@@ -19,7 +19,8 @@ namespace mfem {
 
   static Eigen::Matrix6d Syminv = (Eigen::Vector6d() <<
     1, 1, 1, .5, .5, .5).finished().asDiagonal();
-    
+  
+  template <int DIM>
   class Optimizer {
   public:
     Optimizer(std::shared_ptr<Mesh> object,
@@ -60,7 +61,7 @@ namespace mfem {
     // Debug timing variables (timings in milliseconds)
     std::map<std::string, double> timings;
 
-    BoundaryConditions<3> BCs_;
+    BoundaryConditions<DIM> BCs_;
 
     // Eigen::SparseMatrixd P_;          // pinning constraint (for vertices)
     int nelem_;             // number of elements

@@ -275,3 +275,54 @@ Matrix3d StableNeohookean::hessian(const Vector3d& s) {
   sim::simple_psd_fix(H);
   return H;
 }
+
+double StableNeohookean::energy(const Vector4d& F) {
+  double mu = config_->mu;
+  double la = config_->la;
+  double F1_1 = F(0);
+  double F2_1 = F(1);
+  double F1_2 = F(2);
+  double F2_2 = F(3);
+  return mu*(-F1_1*F2_2+F1_2*F2_1+1.0)+(la*pow(-F1_1*F2_2+F1_2*F2_1+1.0,2.0))/2.0+(mu*(F1_1*F1_1+F1_2*F1_2+F2_1*F2_1+F2_2*F2_2-2.0))/2.0;
+}
+Vector4d StableNeohookean::gradient(const Vector4d& F) {
+  double mu = config_->mu;
+  double la = config_->la;
+  double F1_1 = F(0);
+  double F2_1 = F(1);
+  double F1_2 = F(2);
+  double F2_2 = F(3);
+  Vector4d g;
+  g(0,0) = F1_1*mu-F2_2*mu-F2_2*la*(-F1_1*F2_2+F1_2*F2_1+1.0);
+  g(1,0) = F1_2*mu+F2_1*mu+F1_2*la*(-F1_1*F2_2+F1_2*F2_1+1.0);
+  g(2,0) = F1_2*mu+F2_1*mu+F2_1*la*(-F1_1*F2_2+F1_2*F2_1+1.0);
+  g(3,0) = -F1_1*mu+F2_2*mu-F1_1*la*(-F1_1*F2_2+F1_2*F2_1+1.0);
+  return g;
+  
+}
+Matrix4d StableNeohookean::hessian(const Vector4d& F) {
+  double mu = config_->mu;
+  double la = config_->la;
+  double F1_1 = F(0);
+  double F2_1 = F(1);
+  double F1_2 = F(2);
+  double F2_2 = F(3);
+  Matrix4d H;
+  H(0,0) = mu+(F2_2*F2_2)*la;
+  H(0,1) = -F1_2*F2_2*la;
+  H(0,2) = -F2_1*F2_2*la;
+  H(0,3) = -la-mu+F1_1*F2_2*la*2.0-F1_2*F2_1*la;
+  H(1,0) = -F1_2*F2_2*la;
+  H(1,1) = mu+(F1_2*F1_2)*la;
+  H(1,2) = la+mu-F1_1*F2_2*la+F1_2*F2_1*la*2.0;
+  H(1,3) = -F1_1*F1_2*la;
+  H(2,0) = -F2_1*F2_2*la;
+  H(2,1) = la+mu-F1_1*F2_2*la+F1_2*F2_1*la*2.0;
+  H(2,2) = mu+(F2_1*F2_1)*la;
+  H(2,3) = -F1_1*F2_1*la;
+  H(3,0) = -la-mu+F1_1*F2_2*la*2.0-F1_2*F2_1*la;
+  H(3,1) = -F1_1*F1_2*la;
+  H(3,2) = -F1_1*F2_1*la;
+  H(3,3) = mu+(F1_1*F1_1)*la;
+  return H;
+}

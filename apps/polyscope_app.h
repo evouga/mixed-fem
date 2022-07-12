@@ -30,7 +30,7 @@ namespace mfem {
     bool ret = false;;
 
     if (ImGui::BeginCombo(id, name.c_str())) {
-      for (int i = 0; i < names.size(); ++i) {
+      for (size_t i = 0; i < names.size(); ++i) {
         TypeEnum type_i = factory.type_by_name(names[i]);
         const bool is_selected = (type_i == type);
         if (ImGui::Selectable(names[i].c_str(), is_selected)) {
@@ -50,6 +50,7 @@ namespace mfem {
     return ret;
   }
 
+  template <int DIM>
   struct PolyscopeApp {
     
     // Helper to display a little (?) mark which shows a tooltip when hovered.
@@ -76,7 +77,6 @@ namespace mfem {
       static bool export_mesh = false;
       static bool export_sim_substeps = false;
       static bool simulating = false;
-      static bool BDF2 = false;
       static int step = 0;
       static int export_step = 0;
       static int max_steps = 300;
@@ -154,17 +154,20 @@ namespace mfem {
           config->ih2 = 1.0/config->h/config->h;
         }
 
-        if (FactoryCombo<OptimizerFactory, OptimizerType>(
+        if (FactoryCombo<OptimizerFactory<DIM>, OptimizerType>(
             "Optimizer", config->optimizer)) {
           optimizer = optimizer_factory.create(config->optimizer, mesh, config);
           optimizer->reset();
         }
 
         ImGui::InputInt("Max Newton Iters", &config->outer_steps);
-        ImGui::InputInt("Max CG Iters", &config->max_iterative_solver_iters);
         ImGui::InputInt("Max LS Iters", &config->ls_iters);
-        ImGui::InputDouble("CG Tol", &config->itr_tol,0,0,"%.5g");
         ImGui::InputDouble("Newton Tol", &config->newton_tol,0,0,"%.5g");
+
+        if (config->solver_type == SolverType::SOLVER_AFFINE_PCG) {
+          ImGui::InputInt("Max CG Iters", &config->max_iterative_solver_iters);
+          ImGui::InputDouble("CG Tol", &config->itr_tol,0,0,"%.5g");
+        }
 
         if (ImGui::InputFloat3("Body Force", config->ext, 3)) {
         }
@@ -230,7 +233,12 @@ namespace mfem {
         std::cout << "Timestep: " << step << std::endl;
         simulation_step();
         ++step;
-        srf->updateVertexPositions(meshV);
+
+        if (DIM == 3) {
+          srf->updateVertexPositions(meshV);
+        } else {
+          srf->updateVertexPositions2D(meshV);
+        }
 
         if (srf_skin && srf_skin->isEnabled()) {
           srf_skin->updateVertexPositions(skinV);
@@ -260,7 +268,7 @@ namespace mfem {
           int n;
           Eigen::MatrixXd x(optimizer->step_x[0].size(),
               optimizer->step_x.size());
-          for (int i = 0; i < optimizer->step_x.size(); ++i) {
+          for (size_t i = 0; i < optimizer->step_x.size(); ++i) {
             x.col(i) = optimizer->step_x[i];
           }
           // Save the file names
@@ -296,15 +304,6 @@ namespace mfem {
         export_step = 0;
         step = 0;
       }
-      ImGui::SameLine();
-      ImGui::Checkbox("BDF2", &BDF2); 
-      
-      if(BDF2) {
-        optimizer->wx_ = 1.; optimizer->wx0_ = -7./3.; optimizer->wx1_ = 5./3.; optimizer->wx2_ = -1./3; optimizer->wdt_ = 2./3.;
-      } else {
-        optimizer->wx_ = 1.0; optimizer->wx0_ = -2.0; optimizer->wx1_ = 1.; optimizer->wx2_ = 0.0; optimizer->wdt_ = 1.0;
-      }
-
       if (step >= max_steps) {
         simulating = false;
       }
@@ -323,12 +322,12 @@ namespace mfem {
     Eigen::VectorXd x0, v;
 
     MaterialModelFactory material_factory;
-    OptimizerFactory optimizer_factory;
+    OptimizerFactory<DIM> optimizer_factory;
     SolverFactory solver_factory;
 
     std::shared_ptr<MaterialConfig> material_config;
     std::shared_ptr<MaterialModel> material;
-    std::shared_ptr<Optimizer> optimizer;
+    std::shared_ptr<Optimizer<DIM>> optimizer;
     std::shared_ptr<SimConfig> config;
     std::shared_ptr<Mesh> mesh;
 

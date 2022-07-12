@@ -1,8 +1,6 @@
 #include "newton_optimizer.h"
 
-#include <chrono>
 #include "linesearch.h"
-#include "pinning_matrix.h"
 #include "energies/material_model.h"
 #include "mesh/mesh.h"
 #include "factories/solver_factory.h"
@@ -12,7 +10,8 @@ using namespace mfem;
 using namespace Eigen;
 using namespace std::chrono;
 
-void NewtonOptimizer::step() {
+template <int DIM>
+void NewtonOptimizer<DIM>::step() {
   data_.clear();
   E_prev_ = 0;
 
@@ -65,8 +64,8 @@ void NewtonOptimizer::step() {
   xvar_->post_solve();
 }
 
-
-void NewtonOptimizer::substep(double& decrement) {
+template <int DIM>
+void NewtonOptimizer<DIM>::substep(double& decrement) {
   // Factorize and solve system
   solver_->compute(lhs_);
 
@@ -78,7 +77,8 @@ void NewtonOptimizer::substep(double& decrement) {
   //decrement = dx_.dot(rhs_);
 }
 
-void NewtonOptimizer::update_vertices(const Eigen::MatrixXd& V) {
+template <int DIM>
+void NewtonOptimizer<DIM>::update_vertices(const Eigen::MatrixXd& V) {
   // MatrixXd tmp = V.transpose();
   // VectorXd x = Map<VectorXd>(tmp.data(), V.size());
   // x0_ = x;
@@ -87,7 +87,8 @@ void NewtonOptimizer::update_vertices(const Eigen::MatrixXd& V) {
   // x_ = P_ * x;
 }
 
-void NewtonOptimizer::set_state(const Eigen::VectorXd& x,
+template <int DIM>
+void NewtonOptimizer<DIM>::set_state(const Eigen::VectorXd& x,
     const Eigen::VectorXd& v) {
   // MatrixXd V = Map<const MatrixXd>(x.data(), mesh_->V_.cols(), mesh_->V_.rows());
   // mesh_->V_ = V.transpose();
@@ -98,14 +99,18 @@ void NewtonOptimizer::set_state(const Eigen::VectorXd& x,
   // std::cout << "set_state: " << vt_.norm() << std::endl;
 }
 
-void NewtonOptimizer::reset() {
+template <int DIM>
+void NewtonOptimizer<DIM>::reset() {
   // Reset variables
-  Optimizer::reset();
+  Optimizer<DIM>::reset();
 
-  xvar_ = std::make_shared<Displacement<3>>(mesh_, config_);
+  xvar_ = std::make_shared<Displacement<DIM>>(mesh_, config_);
   xvar_->set_mixed(false);
   xvar_->reset();
 
   SolverFactory solver_factory;
   solver_ = solver_factory.create(config_->solver_type, mesh_, config_);
 }
+
+template class mfem::NewtonOptimizer<3>;
+template class mfem::NewtonOptimizer<2>;

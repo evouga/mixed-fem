@@ -15,12 +15,13 @@ Mesh::Mesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
       config_(material_config) {
   is_fixed_.resize(V_.rows());
   is_fixed_.setZero();
-
-  bbox.block(0,0,1,3) = V0_.row(0);
-  bbox.block(1,0,1,3) = V0_.row(0);
+  bbox.setZero();
+  int cols = V0_.cols();
+  bbox.block(0,0,1,cols) = V0_.row(0);
+  bbox.block(1,0,1,cols) = V0_.row(0);
   for(int i = 1; i < V0_.rows(); i++) {
-    const Eigen::RowVector3d& v = V0_.row(i);
-    for(int d = 0; d < 3; d++) {
+    const Eigen::RowVectorXd& v = V0_.row(i);
+    for(int d = 0; d < cols; d++) {
       if(v[d] < bbox(0, d)) {
           bbox(0, d) = v[d];
       }
@@ -36,12 +37,14 @@ Mesh::Mesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
 void Mesh::init() {
   volumes(vols_);
 
+  int M = std::pow(V_.cols(),2);
+
   // Initialize volume sparse matrix
-  W_.resize(T_.rows()*9, T_.rows()*9);
+  W_.resize(T_.rows()*M, T_.rows()*M);
   std::vector<Triplet<double>> trips;
   for (int i = 0; i < T_.rows(); ++i) {
-    for (int j = 0; j < 9; ++j) {
-      trips.push_back(Triplet<double>(9*i+j, 9*i+j,vols_[i]));
+    for (int j = 0; j < M; ++j) {
+      trips.push_back(Triplet<double>(M*i+j, M*i+j,vols_[i]));
     }
   }
   W_.setFromTriplets(trips.begin(),trips.end());

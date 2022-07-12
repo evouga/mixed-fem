@@ -216,4 +216,7 @@ target_link_libraries(decrement mixed_fem_lib)
 add_executable(energy apps/energy.cpp ${SOURCES})
 target_link_libraries(energy mixed_fem_lib)
 
+add_executable(tri2d_sim apps/tri2d_sim.cpp ${SOURCES})
+target_link_libraries(tri2d_sim mixed_fem_lib)
+
 #add_subdirectory(tests)

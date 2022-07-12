@@ -69,6 +69,7 @@ namespace mfem {
     }
 
     // Matrix and vector data types
+    using VecD  = Eigen::Matrix<double, DIM, 1>;   // 3x1 or 2x1
     using MatD  = Eigen::Matrix<double, DIM, DIM>; // 3x3 or 2x2
     using VecN  = Eigen::Vector<double, N()>;      // 6x1 or 3x1
     using VecM  = Eigen::Vector<double, M()>;      // 9x1

@@ -16,7 +16,7 @@
 using namespace Eigen;
 using namespace mfem;
 
-struct PolyscopeTetApp : public PolyscopeApp {
+struct PolyscopeTetApp : public PolyscopeApp<3> {
   
   virtual void simulation_step() override {
     PolyscopeApp::simulation_step();
@@ -184,9 +184,8 @@ int main(int argc, char **argv) {
     app.init_skin(hires_fn);
   }
 
-
   // Add the callback
-  polyscope::state::userCallback = std::bind(&PolyscopeApp::callback, app);
+  polyscope::state::userCallback = std::bind(&PolyscopeApp<3>::callback, app);
 
   // Show the gui
   polyscope::show();

@@ -310,7 +310,10 @@ template class mfem::Assembler<double, 3, Eigen::Dynamic>;
 template class mfem::Assembler<double, 3, 4>;
 template class mfem::Assembler<double, 3, 3>;
 template class mfem::Assembler<double, 2, 3>;
+template class mfem::Assembler<double, 2, Eigen::Dynamic>;
+
 template class mfem::VecAssembler<double, 3, Eigen::Dynamic>;
 template class mfem::VecAssembler<double, 3, 4>;
 template class mfem::VecAssembler<double, 3, 3>;
 template class mfem::VecAssembler<double, 2, 3>;
+template class mfem::VecAssembler<double, 2, Eigen::Dynamic>;

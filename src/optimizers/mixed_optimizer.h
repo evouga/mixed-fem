@@ -9,11 +9,11 @@
 namespace mfem {
 
   // Mixed FEM Optimizer Base Class
-  class MixedOptimizer : public Optimizer {
+  class MixedOptimizer : public Optimizer<3> {
   public:
     
     MixedOptimizer(std::shared_ptr<Mesh> mesh,
-        std::shared_ptr<SimConfig> config) : Optimizer(mesh, config) {}
+        std::shared_ptr<SimConfig> config) : Optimizer<3>(mesh, config) {}
 
     static std::string name() {
       return "mixed base";

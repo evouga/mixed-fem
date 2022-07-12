@@ -8,7 +8,7 @@ SparseMatrixd pinning_matrix(const MatrixXd& V, const MatrixXi& F,
   typedef Triplet<double> T;
   std::vector<T> trips;
 
-  int d = 3;
+  int d = V.cols();
   int row =0;
   for (int i = 0; i < V.rows(); ++i) {
     if (!to_pin(i)) {

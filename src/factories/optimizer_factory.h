@@ -2,14 +2,15 @@
 
 #include "factory.h"
 #include "config.h"
+#include "optimizers/optimizer.h"
 
 namespace mfem {
 
-	class Optimizer;
 	class Mesh;
 
+  template<int DIM>
 	class OptimizerFactory : public Factory<OptimizerType,
-			Optimizer, std::shared_ptr<Mesh>, std::shared_ptr<SimConfig>> {
+			Optimizer<DIM>, std::shared_ptr<Mesh>, std::shared_ptr<SimConfig>> {
 	public:
     OptimizerFactory();
 	};
