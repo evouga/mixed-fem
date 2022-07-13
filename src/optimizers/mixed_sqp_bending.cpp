@@ -471,61 +471,16 @@ void MixedSQPBending::reset() {
       free_map[i] = curr++;
     }
   }
-  assembler_ = std::make_shared<Assembler<double,3,-1>>(mesh_->T_, free_map);
-  vec_assembler_ = std::make_shared<VecAssembler<double,3,4>>(mesh_->T_,
-      free_map);
+
+  assembler_ = std::make_shared<Assembler<double,3,-1>>(mesh_->T_, mesh_->free_map_);
+  vec_assembler_  = std::make_shared<VecAssembler<double,3,-1>>(mesh_->T_,
+      mesh_->free_map_);
 
 
   // SQP PD //
-  SparseMatrixdRowMajor A;
-  A.resize(nelem_*9, nelem_*9);
-  trips.clear();
-  for (int i = 0; i < nelem_; ++i) {
-    for (int j = 0; j < 9; ++j) {
-      trips.push_back(Triplet<double>(9*i+j, 9*i+j, mesh_->config_->mu / vols_[i]));
-    }
-  }
-  A.setFromTriplets(trips.begin(),trips.end());
-
   double h2 = wdt_*wdt_*config_->h * config_->h;
-  mesh_->jacobian(Jw_, vols_, true);
-  mesh_->jacobian(Jloc_);
-  PJ_ = P_ * Jw_.transpose();
   PM_ = P_ * Mfull_;
-
-  SparseMatrixdRowMajor L = PJ_ * A * PJ_.transpose();
-  SparseMatrixdRowMajor lhs = M_ + h2*L;
-  solver_arap_.compute(lhs);
-
-  //build up reduced space
-  T0_.resize(3*mesh_->V0_.rows(), 12);
-
-  //compute center of mass
-  Eigen::Matrix3d I;
-  Eigen::Vector3d c;
-  double mass = 0;
-
-  //std::cout<<"HERE 1 \n";
-  // TODO wrong? should be F_ not T_ for tetrahedra
-  sim::rigid_inertia_com(I, c, mass, mesh_->V0_, mesh_->T_, 1.0);
-
-  for(unsigned int ii=0; ii<mesh_->V0_.rows(); ii++ ) {
-
-    //std::cout<<"HERE 2 "<<ii<<"\n";
-    T0_.block<3,3>(3*ii, 0) = Eigen::Matrix3d::Identity()*(mesh_->V0_(ii,0) - c(0));
-    T0_.block<3,3>(3*ii, 3) = Eigen::Matrix3d::Identity()*(mesh_->V0_(ii,1) - c(1));
-    T0_.block<3,3>(3*ii, 6) = Eigen::Matrix3d::Identity()*(mesh_->V0_(ii,2) - c(2));
-    T0_.block<3,3>(3*ii, 9) = Eigen::Matrix3d::Identity();
-
-  }
-
-  T0_ = P_*T0_;
-  //std::cout<<"c: "<<c.transpose()<<"\n";
-  //std::cout<<"T0: \n"<<T0_<<"\n";
-
-  Matrix<double, 12,12> tmp_pre_affine = T0_.transpose()*lhs*T0_; 
-  pre_affine_ = tmp_pre_affine.inverse();
-  //
+  // 
 
   VectorXd xt = P_.transpose()*x_+b_;
   normals(xt, n_);

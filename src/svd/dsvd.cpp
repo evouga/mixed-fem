@@ -26,8 +26,12 @@ void dsvd(Tensor3333d &dU, Tensor333d  &dS,
   double d01, d02, d12;
   
   d01 = S(1)*S(1)-S(0)*S(0);
+  d02 = S(2)*S(2)-S(0)*S(0);
+  d12 = S(2)*S(2)-S(1)*S(1);
   d01 = 1.0/(std::abs(d01) < tol ? std::numeric_limits<double>::infinity() : d01);
-  
+  d02 = 1.0/(std::abs(d02) < tol ? std::numeric_limits<double>::infinity() : d02);
+  d12 = 1.0/(std::abs(d12) < tol ? std::numeric_limits<double>::infinity() : d12);
+    
   for(unsigned int r = 0; r < 3; ++r) {
     for(unsigned int s =0; s < 3; ++s) {
         

@@ -16,12 +16,12 @@ namespace mfem {
     1, 1, 0.5).finished().asDiagonal();
 
   // Mixed FEM Sequential Quadratic Program
-  class MixedSQPBending : public MixedSQPPDOptimizer {
+  class MixedSQPBending : public MixedOptimizer {
 
   public:
     
     MixedSQPBending(std::shared_ptr<Mesh> mesh,
-        std::shared_ptr<SimConfig> config) : MixedSQPPDOptimizer(mesh, config) {}
+        std::shared_ptr<SimConfig> config) : MixedOptimizer(mesh, config) {}
 
     static std::string name() {
       return "SQP-PD-Bending";
@@ -30,6 +30,16 @@ namespace mfem {
     void step() override;
 
   public:
+
+    virtual double energy(const Eigen::VectorXd& x, const Eigen::VectorXd& s,
+        const Eigen::VectorXd& la) {
+          return 0;
+        }
+
+    virtual void gradient(Eigen::VectorXd& g, const Eigen::VectorXd& x,
+        const Eigen::VectorXd& s, const Eigen::VectorXd& la) {
+
+        }
 
     // Build system left hand side
     virtual void build_lhs() override;
@@ -77,6 +87,7 @@ namespace mfem {
     Eigen::VectorXd gg_;
     Eigen::SparseMatrix<double, Eigen::RowMajor> Dx_;
     Eigen::SparseMatrix<double, Eigen::RowMajor> PDW_;
+    Eigen::SparseMatrix<double, Eigen::RowMajor> PM_;
 
     std::vector<Eigen::Vector3d> S_;    // Per-element deformation
     std::vector<Eigen::Matrix3d> H_;    // Elemental hessians w.r.t dS
@@ -84,7 +95,13 @@ namespace mfem {
     std::vector<Eigen::Vector3d> g_;    // Elemental gradients w.r.t dS
     std::vector<Eigen::Matrix<double,9,3>> dS_;
 
+    std::shared_ptr<Assembler<double,3,-1>> assembler_;
+    std::shared_ptr<VecAssembler<double,3,-1>> vec_assembler_;
 
+    std::shared_ptr<LinearSolver<double, Eigen::RowMajor>> solver_;
+    Eigen::VectorXd gl_;
+
+    Eigen::VectorXd Jdx_;
 
   };
 }

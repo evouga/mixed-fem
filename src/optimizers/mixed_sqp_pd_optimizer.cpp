@@ -8,33 +8,32 @@
 using namespace mfem;
 using namespace Eigen;
 
-void MixedSQPPDOptimizer::step() {
+template <int DIM>
+void MixedSQPPDOptimizer<DIM>::step() {
   data_.clear();
-
-  E_prev_ = 0;
 
   int i = 0;
   double grad_norm;
-  double E;
-  step_x.clear();
+  double E = 0, E_prev = 0;
+  // step_x.clear();
   do {
     if (config_->save_substeps) {
-      VectorXd x = P_.transpose()*x_ + b_;
-      step_x.push_back(x);
-      step_v = vt_;
-      step_x0 = x0_;
+      // VectorXd x = P_.transpose()*x_ + b_;
+      // step_x.push_back(x);
+      // step_v = vt_;
+      // step_x0 = x0_;
     }
 
     // Update gradient and hessian
     update_system();
 
     // Record initial energies
-    E = energy(x_, s_, la_);
-    double res = std::abs((E - E_prev_) / (E+1));
-    E_prev_ = E;
+    // E = energy(x_, s_, la_);
+    double res = std::abs((E - E_prev) / (E+1));
+    E_prev = E;
 
     // Solve system
-    substep(i, grad_norm);
+    substep(grad_norm);
 
     // Linesearch on descent direction
     double alpha = 1.0;
@@ -45,7 +44,7 @@ void MixedSQPPDOptimizer::step() {
     data_.add(" Iteration", i+1);
     data_.add("mixed E", E);
     data_.add("mixed E res", res);
-    data_.add("mixed grad", grad_.norm());
+    // data_.add("mixed grad", grad_.norm());
     data_.add("Newton dec", grad_norm);
     ++i;
 
@@ -60,9 +59,8 @@ void MixedSQPPDOptimizer::step() {
   svar_->post_solve();
 }
 
-void MixedSQPPDOptimizer::build_lhs() {}
-void MixedSQPPDOptimizer::build_rhs() {}
-void MixedSQPPDOptimizer::update_system() {
+template <int DIM>
+void MixedSQPPDOptimizer<DIM>::update_system() {
 
   VectorXd x = xvar_->value();
   xvar_->unproject(x);
@@ -78,30 +76,33 @@ void MixedSQPPDOptimizer::update_system() {
   rhs_ = xvar_->rhs() + svar_->rhs();
 }
 
-void MixedSQPPDOptimizer::substep(int step, double& decrement) {
-  int niter = 0;
-
+template <int DIM>
+void MixedSQPPDOptimizer<DIM>::substep(double& decrement) {
   data_.timer.start("global");
   solver_->compute(lhs_);
-  dx_ = solver_->solve(rhs_);
+  xvar_->delta() = solver_->solve(rhs_);
   data_.timer.stop("global");
 
   data_.timer.start("local");
-  svar_->solve(dx_);
-  xvar_->delta() = dx_;
+  svar_->solve(xvar_->delta());
   data_.timer.stop("local");
 
-  decrement = std::max(dx_.lpNorm<Infinity>(), svar_->delta().lpNorm<Infinity>());
+  decrement = std::max(xvar_->delta().template lpNorm<Infinity>(),
+                       svar_->delta().template lpNorm<Infinity>());
 }
 
-void MixedSQPPDOptimizer::reset() {
-  MixedSQPOptimizer::reset();
+template <int DIM>
+void MixedSQPPDOptimizer<DIM>::reset() {
+  Optimizer<DIM>::reset();
 
-  svar_ = std::make_shared<Stretch<3>>(mesh_);
+  svar_ = std::make_shared<Stretch<DIM>>(mesh_);
   svar_->reset();
-  xvar_ = std::make_shared<Displacement<3>>(mesh_, config_);
+  xvar_ = std::make_shared<Displacement<DIM>>(mesh_, config_);
   xvar_->reset();
 
   SolverFactory solver_factory;
   solver_ = solver_factory.create(config_->solver_type, mesh_, config_);
 }
+
+template class mfem::MixedSQPPDOptimizer<3>;
+template class mfem::MixedSQPPDOptimizer<2>;

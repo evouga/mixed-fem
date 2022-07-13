@@ -26,10 +26,10 @@ OptimizerFactory<3>::OptimizerFactory() {
       {return std::make_unique<MixedSQPOptimizer>(mesh, config);});
 
   // SQP Positive Definite
-  register_type(OptimizerType::OPTIMIZER_SQP_PD, MixedSQPPDOptimizer::name(),
+  register_type(OptimizerType::OPTIMIZER_SQP_PD,MixedSQPPDOptimizer<3>::name(),
       [](std::shared_ptr<Mesh> mesh, std::shared_ptr<SimConfig> config)
       ->std::unique_ptr<Optimizer<3>>
-      {return std::make_unique<MixedSQPPDOptimizer>(mesh, config);});
+      {return std::make_unique<MixedSQPPDOptimizer<3>>(mesh, config);});
 
   // Newton's
   register_type(OptimizerType::OPTIMIZER_NEWTON, NewtonOptimizer<3>::name(),
@@ -51,6 +51,11 @@ OptimizerFactory<2>::OptimizerFactory() {
       [](std::shared_ptr<Mesh> mesh, std::shared_ptr<SimConfig> config)
       ->std::unique_ptr<Optimizer<2>>
       {return std::make_unique<NewtonOptimizer<2>>(mesh, config);});
+
+  register_type(OptimizerType::OPTIMIZER_SQP_PD,MixedSQPPDOptimizer<2>::name(),
+      [](std::shared_ptr<Mesh> mesh, std::shared_ptr<SimConfig> config)
+      ->std::unique_ptr<Optimizer<2>>
+      {return std::make_unique<MixedSQPPDOptimizer<2>>(mesh, config);});
 }
 
 template class mfem::OptimizerFactory<3>;

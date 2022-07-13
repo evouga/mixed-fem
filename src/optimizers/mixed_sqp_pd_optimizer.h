@@ -13,43 +13,42 @@
 namespace mfem {
 
   // Mixed FEM Sequential Quadratic Program
-  class MixedSQPPDOptimizer : public MixedSQPOptimizer {
+  template <int DIM>
+  class MixedSQPPDOptimizer : public Optimizer<DIM> {
+
+    typedef Optimizer<DIM> Base;
+
   public:
     
     MixedSQPPDOptimizer(std::shared_ptr<Mesh> mesh,
-        std::shared_ptr<SimConfig> config) : MixedSQPOptimizer(mesh, config) {}
+        std::shared_ptr<SimConfig> config) : Optimizer<DIM>(mesh, config) {}
 
     static std::string name() {
       return "SQP-PD";
     }
 
-  public:
+    void step() override;
+    void reset() override;
 
-    virtual void step() override;
-    virtual void reset() override;
+  private:
 
-    // Build system left hand side
-    virtual void build_lhs() override;
-
-    // Build linear system right hand side
-    virtual void build_rhs() override;
+    using Base::mesh_;
+    using Base::data_;
+    using Base::config_;
 
     // Update gradients, LHS, RHS for a new configuration
-    virtual void update_system() override;
+    void update_system();
 
-    virtual void substep(int step, double& decrement) override;
+    void substep(double& decrement);
 
-    Eigen::VectorXd gl_;
+    // linear system left hand side
+    Eigen::SparseMatrix<double, Eigen::RowMajor> lhs_; 
 
-    Eigen::SimplicialLDLT<Eigen::SparseMatrix<double, Eigen::RowMajor>> solver_arap_;
+    // linear system right hand side
+    Eigen::VectorXd rhs_;       
 
-    Eigen::Matrix<double, 12,12> pre_affine_;
-
-    Eigen::MatrixXd T0_;
-    Eigen::VectorXd Jdx_;
-
-    std::shared_ptr<Stretch<3>> svar_;
-    std::shared_ptr<Displacement<3>> xvar_;
+    std::shared_ptr<Stretch<DIM>> svar_;
+    std::shared_ptr<Displacement<DIM>> xvar_;
     std::shared_ptr<LinearSolver<double, Eigen::RowMajor>> solver_;
   };
 }
