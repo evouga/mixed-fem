@@ -69,6 +69,7 @@ namespace mfem {
     using MatD  = Eigen::Matrix<double, DIM, DIM>; // 3x3 or 2x2
     using VecN  = Eigen::Vector<double, N()>;      // 6x1 or 3x1
     using VecM  = Eigen::Vector<double, M()>;      // 9x1
+    using MatM  = Eigen::Matrix<double, M(), M()>; // 9x9
     using MatN  = Eigen::Matrix<double, N(), N()>; // 6x6 or 3x3
     using MatMN = Eigen::Matrix<double, M(), N()>; // 9x6 or 4x3
 

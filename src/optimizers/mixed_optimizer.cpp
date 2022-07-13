@@ -140,7 +140,7 @@ void MixedOptimizer::set_state(const Eigen::VectorXd& x,
   for (int i = 0; i < nelem_; ++i) {
     Vector3d sigma;
     Matrix3d U,V;
-    svd(Map<Matrix3d>(def_grad.segment(9*i,9).data()), sigma, U, V);
+    svd<double,3>(Map<Matrix3d>(def_grad.segment(9*i,9).data()), sigma, U, V);
     Eigen::Vector3d stemp;
     Matrix3d S = V * sigma.asDiagonal() * V.transpose();
     Vector6d stmp; stmp << S(0,0), S(1,1), S(2,2), S(1,0), S(2,0), S(2,1);
@@ -230,10 +230,10 @@ void MixedOptimizer::update_rotations() {
     
     //orthogonlity sanity check
     if((R_[i].transpose()*R_[i] - Matrix3d::Identity()).norm() > 1e-6) {
-        Vector3d sigma;
-        Matrix3d U,V;
-        svd(R_[i], sigma, U, V);
-        R_[i] = U*V.transpose();
+        //Vector3d sigma;
+        //Matrix3d U,V;
+        //svd<double,3>(R_[i], sigma, U, V);
+        //R_[i] = U*V.transpose();
         std::cout<<"in here\n";
         exit(1);
     }

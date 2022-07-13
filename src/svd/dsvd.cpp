@@ -13,7 +13,7 @@ void dsvd(Tensor3333d &dU, Tensor333d  &dS,
   //get the SVD 
   F = Fin;
 
-  mfem::svd(F, S, U, V);
+  mfem::svd<double,3>(F, S, U, V);
   
   //crappy hack for now
   double tol = 1e-4;
@@ -26,16 +26,10 @@ void dsvd(Tensor3333d &dU, Tensor333d  &dS,
   double d01, d02, d12;
   
   d01 = S(1)*S(1)-S(0)*S(0);
-  d02 = S(2)*S(2)-S(0)*S(0);
-  d12 = S(2)*S(2)-S(1)*S(1);
-  
-  //corresponds to conservative solution --- if singularity is detected no angular velocity
   d01 = 1.0/(std::abs(d01) < tol ? std::numeric_limits<double>::infinity() : d01);
-  d02 = 1.0/(std::abs(d02) < tol ? std::numeric_limits<double>::infinity() : d02);
-  d12 = 1.0/(std::abs(d12) < tol ? std::numeric_limits<double>::infinity() : d12);
   
-  for(unsigned int r=0; r<3; ++r) {
-    for(unsigned int s =0; s <3; ++s) {
+  for(unsigned int r = 0; r < 3; ++r) {
+    for(unsigned int s =0; s < 3; ++s) {
         
       UVT = U.row(r).transpose()*V.row(s);
       
@@ -137,4 +131,57 @@ void dsvd(Ref<const Matrix3d> Fin, Ref<const Matrix3d> Uin,
     }
   }
 
+}
+
+void dsvd(Tensor2222d &dU, Tensor222d  &dS,
+    Tensor2222d &dV, Ref<const Matrix2d> Fin) {
+
+  Matrix2d UVT, tmp, U,V;
+  Matrix2d lambda;
+  Matrix2d F;
+  Vector2d S; 
+  //get the SVD 
+  F = Fin;
+
+  //TODO TODO TODO
+  mfem::svd<double,2>(F, S, U, V);
+  
+  double tol = 1e-4;
+  if(std::fabs(S[0] - S[1]) < tol) {
+    // F += Matrix3d::Random()*tol;
+    // mfem::svd(F, S, U, V);
+  }
+  
+  double w01;
+  double d01;
+  
+  d01 = S(1)*S(1)-S(0)*S(0);
+  
+  //corresponds to conservative solution --- if singularity is detected no angular velocity
+  d01 = 1.0/(std::abs(d01) < tol ? std::numeric_limits<double>::infinity() : d01);
+  
+  for(unsigned int r=0; r<2; ++r) {
+    for(unsigned int s =0; s <2; ++s) {
+        
+      UVT = U.row(r).transpose()*V.row(s);
+      
+      //Compute dS
+      dS[r][s] = UVT.diagonal();
+      
+      UVT -= dS[r][s].asDiagonal();
+      
+      tmp  = S.asDiagonal()*UVT + UVT.transpose()*S.asDiagonal();
+      w01 = tmp(0,1)*d01;
+      tmp << 0, w01,
+            -w01, 0;
+      
+      dV[r][s] = V*tmp;
+      
+      tmp = UVT*S.asDiagonal() + S.asDiagonal()*UVT.transpose();
+      w01 = tmp(0,1)*d01;
+      tmp << 0, w01,
+            -w01, 0;
+      dU[r][s] = U*tmp;
+    }
+  }
 }
