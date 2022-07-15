@@ -27,6 +27,10 @@ struct PolyscopeTetApp : public PolyscopeApp<3> {
       skinV.col(1) = lbs * meshV.col(1);
       skinV.col(2) = lbs * meshV.col(2);
     }
+
+    if (srf_skin && srf_skin->isEnabled()) {
+      srf_skin->updateVertexPositions(skinV);
+    }
   }
 
   void init_skin(const std::string& filename) {

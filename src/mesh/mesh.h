@@ -68,11 +68,11 @@ namespace mfem {
       return Jloc_;
     }
 
-    virtual const Eigen::VectorXd& volumes() {
+    virtual const Eigen::VectorXd& volumes() const {
       return vols_;
     }
 
-    virtual Eigen::MatrixXd vertices() {
+    virtual const Eigen::MatrixXd& vertices() const {
       return V_;
     }
 

@@ -1,4 +1,4 @@
-#include "stretch.h"
+#include "collision.h"
 #include "mesh/mesh.h"
 #include "energies/material_model.h"
 #include "svd/newton_procrustes.h"
@@ -79,7 +79,7 @@ namespace {
 }
 
 template<int DIM>
-double Stretch<DIM>::energy(const VectorXd& s) {
+double Collision<DIM>::energy(const VectorXd& s) {
 
   double e = 0;
 
@@ -93,7 +93,7 @@ double Stretch<DIM>::energy(const VectorXd& s) {
 }
 
 template <int DIM>
-double Stretch<DIM>::constraint_value(const VectorXd& x,
+double Collision<DIM>::constraint_value(const VectorXd& x,
     const VectorXd& s) {
 
   VectorXd def_grad;
@@ -121,13 +121,13 @@ double Stretch<DIM>::constraint_value(const VectorXd& x,
 }
 
 template<int DIM>
-void Stretch<DIM>::update(const Eigen::VectorXd& x, double dt) {
+void Collision<DIM>::update(const Eigen::VectorXd& x, double dt) {
   update_rotations(x);
   update_derivatives(dt);
 }
 
 template<int DIM>
-void Stretch<DIM>::update_rotations(const Eigen::VectorXd& x) {
+void Collision<DIM>::update_rotations(const Eigen::VectorXd& x) {
   VectorXd def_grad;
   mesh_->deformation_gradient(x, def_grad);
 
@@ -145,7 +145,7 @@ void Stretch<DIM>::update_rotations(const Eigen::VectorXd& x) {
 }
 
 template<int DIM>
-void Stretch<DIM>::update_derivatives(double dt) {
+void Collision<DIM>::update_derivatives(double dt) {
 
   double h2 = dt * dt;
 
@@ -198,7 +198,7 @@ void Stretch<DIM>::update_derivatives(double dt) {
 }
 
 template<int DIM>
-VectorXd Stretch<DIM>::rhs() {
+VectorXd Collision<DIM>::rhs() {
   data_.timer.start("RHS - s");
 
   rhs_.resize(mesh_->jacobian().rows());
@@ -220,17 +220,17 @@ VectorXd Stretch<DIM>::rhs() {
 }
 
 template<int DIM>
-VectorXd Stretch<DIM>::gradient() {
+VectorXd Collision<DIM>::gradient() {
   return grad_x_;
 }
 
 template<int DIM>
-VectorXd Stretch<DIM>::gradient_mixed() {
+VectorXd Collision<DIM>::gradient_mixed() {
   return grad_;
 }
 
 template<int DIM>
-void Stretch<DIM>::solve(const VectorXd& dx) {
+void Collision<DIM>::solve(const VectorXd& dx) {
   data_.timer.start("local");
   Jdx_ = -mesh_->jacobian().transpose() * dx;
   la_ = -gl_;
@@ -248,7 +248,7 @@ void Stretch<DIM>::solve(const VectorXd& dx) {
 }
 
 template<int DIM>
-void Stretch<DIM>::reset() {
+void Collision<DIM>::reset() {
   nelem_ = mesh_->T_.rows();
 
   s_.resize(N()*nelem_);
@@ -276,9 +276,9 @@ void Stretch<DIM>::reset() {
 }
 
 template<int DIM>
-void Stretch<DIM>::post_solve() {
+void Collision<DIM>::post_solve() {
   la_.setZero();
 }
 
-template class mfem::Stretch<3>; // 3D
-template class mfem::Stretch<2>; // 2D
+template class mfem::Collision<3>; // 3D
+template class mfem::Collision<2>; // 2D

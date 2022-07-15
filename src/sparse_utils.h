@@ -289,4 +289,41 @@ namespace mfem {
       }
     }
   }
+
+
+  // Build block diagonal matrix
+  template <typename Scalar, int Ordering>
+  void build_block_diagonal(Eigen::SparseMatrix<Scalar, Ordering>& B,
+      const std::vector<Eigen::SparseMatrix<Scalar, Ordering>>& A) {
+    
+    using Iterator = typename Eigen::SparseMatrix<Scalar, Ordering>::InnerIterator;
+    size_t nrows = 0, ncols = 0;
+
+    for (size_t i = 0; i < A.size(); ++i) {
+      assert(A[i].rows() > 0 && A[i].cols() > 0);
+      nrows += A[i].rows();
+      ncols += A[i].cols();
+    }
+    
+    B.resize(nrows, ncols);
+
+    // This could be parallelized easily
+    std::vector<Eigen::Triplet<double>> trips;
+
+    size_t row_offset = 0;
+    size_t col_offset = 0;
+
+    for (size_t i = 0; i < A.size(); ++i) { 
+      for (int j = 0; j < A[i].outerSize(); ++j) {
+        for (Iterator it(A[i],j); it; ++it) {
+          trips.push_back(Eigen::Triplet<double>(row_offset + it.row(),
+              col_offset + it.col(), it.value()));
+        }
+      }
+      row_offset += A[i].rows();
+      col_offset += A[i].cols();
+    }
+    B.setFromTriplets(trips.begin(), trips.end());
+  }
+
 }
