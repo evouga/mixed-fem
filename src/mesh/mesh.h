@@ -12,11 +12,21 @@
 namespace Eigen {
   using SparseMatrixdRowMajor = Eigen::SparseMatrix<double, Eigen::RowMajor>;
 }
-
 namespace mfem {
 
   class MaterialConfig;
   class MaterialModel;
+
+  struct Element {
+
+    Element(std::shared_ptr<MaterialModel> material,
+        std::shared_ptr<MaterialConfig> config)
+        : material_(material), config_(config) {}
+
+    std::shared_ptr<MaterialModel> material_;
+    std::shared_ptr<MaterialConfig> config_;
+
+  };
 
   // Class to maintain the state and perform physics updates on an object,
   // which has a particular discretization, material, and material config
@@ -114,6 +124,7 @@ namespace mfem {
 
     std::shared_ptr<MaterialModel> material_;
     std::shared_ptr<MaterialConfig> config_;
+    std::vector<Element> elements_;
 
   protected:
     // Weighted jacobian matrix with dirichlet BCs projected out

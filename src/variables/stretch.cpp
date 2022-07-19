@@ -86,7 +86,7 @@ double Stretch<DIM>::energy(const VectorXd& s) {
   #pragma omp parallel for reduction( + : e )
   for (int i = 0; i < nelem_; ++i) {
     const VecN& si = s.segment<N()>(N()*i);
-    double e_psi = mesh_->material_->energy(si) * mesh_->volumes()[i];
+    double e_psi = mesh_->elements_[i].material_->energy(si) * mesh_->volumes()[i];
     e += e_psi;
   }
   return e;
@@ -154,9 +154,9 @@ void Stretch<DIM>::update_derivatives(double dt) {
   for (int i = 0; i < nelem_; ++i) {
     double vol = mesh_->volumes()[i];
     const VecN& si = s_.segment<N()>(N()*i);
-    MatN H = h2 * mesh_->material_->hessian(si);
+    MatN H = h2 * mesh_->elements_[i].material_->hessian(si);
     Hinv_[i] = H.inverse();
-    g_[i] = h2 * mesh_->material_->gradient(si);
+    g_[i] = h2 * mesh_->elements_[i].material_->gradient(si);
     H_[i] = (1.0 / vol) * (Syminv() * H * Syminv());
   }
   data_.timer.stop("Hinv");
