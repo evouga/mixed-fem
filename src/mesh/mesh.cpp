@@ -86,6 +86,8 @@ void Mesh::init() {
   PJW_ = P_ * J_.transpose() * W_;
 
   mass_matrix(M_, vols_);
+  std::cout << "Mesh::init() " << M_.rows() << ", " << M_.cols() << std::endl;
+
   PMP_ = P_ * M_ * P_.transpose();
 }
 

@@ -86,12 +86,3 @@ void Tri2DMesh::deformation_gradient(const VectorXd& x, VectorXd& F) {
   assert(x.size() == J_.cols());
   F = J_ * x;
 }
-
-// MatrixXd Tri2DMesh::vertices() {
-//   MatrixXd tmp;
-//   tmp.resize(V_.rows(), 3);
-//   tmp.col(0) = V_.col(0);
-//   tmp.col(1) = V_.col(1);
-//   tmp.col(2).setZero();
-//   return tmp;
-// }

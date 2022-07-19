@@ -34,7 +34,7 @@ VectorXd BDF<I>::weighted_sum(const std::deque<VectorXd>& x) const {
 
 	VectorXd wx = VectorXd::Zero(x.front().size());
 
-	for (int i = 0; i < x.size(); ++i) {
+	for (size_t i = 0; i < x.size(); ++i) {
 		wx += a[i] * x[i];
 	}
 	return wx;

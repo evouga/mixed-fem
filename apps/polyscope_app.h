@@ -69,6 +69,36 @@ namespace mfem {
 
       optimizer->step();
       meshV = mesh->vertices();
+
+      if (DIM == 3) {
+        srf->updateVertexPositions(meshV);
+      } else {
+        srf->updateVertexPositions2D(meshV);
+      }
+    }
+
+    virtual void reset() {
+      optimizer->reset();
+
+      if (initMeshV.size() != 0) {
+        optimizer->update_vertices(initMeshV);
+        srf->updateVertexPositions(initMeshV);
+      }
+
+      if (x0.size() != 0) {
+        optimizer->set_state(x0, v);
+        if (DIM == 3) {
+          srf->updateVertexPositions(mesh->V_);
+        } else {
+          srf->updateVertexPositions2D(mesh->V_);
+        }          
+      } else {
+        if (DIM == 3) {
+          srf->updateVertexPositions(mesh->V0_);
+        } else {
+          srf->updateVertexPositions2D(mesh->V0_);
+        }
+      }
     }
 
     virtual void callback() {
@@ -234,16 +264,6 @@ namespace mfem {
         simulation_step();
         ++step;
 
-        if (DIM == 3) {
-          srf->updateVertexPositions(meshV);
-        } else {
-          srf->updateVertexPositions2D(meshV);
-        }
-
-        if (srf_skin && srf_skin->isEnabled()) {
-          srf_skin->updateVertexPositions(skinV);
-        }
-
         if (export_obj) {
           char buffer [50];
           int n = sprintf(buffer, "../output/obj/tet_%04d.obj", export_step++); 
@@ -288,19 +308,7 @@ namespace mfem {
       }
       ImGui::SameLine();
       if(ImGui::Button("reset")) {
-        optimizer->reset();
-
-        if (initMeshV.size() != 0) {
-          optimizer->update_vertices(initMeshV);
-          srf->updateVertexPositions(initMeshV);
-        }
-
-        if (x0.size() != 0) {
-          optimizer->set_state(x0, v);
-          srf->updateVertexPositions(mesh->V_);
-        } else {
-          srf->updateVertexPositions(mesh->V0_);
-        }
+        reset();
         export_step = 0;
         step = 0;
       }

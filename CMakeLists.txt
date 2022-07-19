@@ -219,4 +219,7 @@ target_link_libraries(energy mixed_fem_lib)
 add_executable(tri2d_sim apps/tri2d_sim.cpp ${SOURCES})
 target_link_libraries(tri2d_sim mixed_fem_lib)
 
+add_executable(coll_sim apps/collision2d_sim.cpp ${SOURCES})
+target_link_libraries(coll_sim mixed_fem_lib)
+
 #add_subdirectory(tests)
