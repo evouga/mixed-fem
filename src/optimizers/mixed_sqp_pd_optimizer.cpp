@@ -37,8 +37,8 @@ void MixedSQPPDOptimizer<DIM>::step() {
 
     // Linesearch on descent direction
     double alpha = 1.0;
-    SolverExitStatus status = linesearch_backtracking_cubic(xvar_, {svar_}, alpha,
-        config_->ls_iters);
+    SolverExitStatus status = linesearch_backtracking_cubic(xvar_,
+        {svar_,cvar_}, alpha, config_->ls_iters);
 
     // Record some data
     data_.add(" Iteration", i+1);
@@ -57,6 +57,7 @@ void MixedSQPPDOptimizer<DIM>::step() {
 
   xvar_->post_solve();
   svar_->post_solve();
+  cvar_->post_solve();
 }
 
 template <int DIM>
@@ -70,10 +71,12 @@ void MixedSQPPDOptimizer<DIM>::update_system() {
   }
 
   svar_->update(x, xvar_->integrator()->dt());
+  cvar_->update(x, xvar_->integrator()->dt());
 
   // Assemble blocks for left and right hand side
-  lhs_ = xvar_->lhs() + svar_->lhs();
-  rhs_ = xvar_->rhs() + svar_->rhs();
+  std::cout << "NFRAMES: " << cvar_->num_collision_frames() << std::endl; 
+  lhs_ = xvar_->lhs() + svar_->lhs();// + cvar_->lhs();
+  rhs_ = xvar_->rhs() + svar_->rhs() + cvar_->rhs();
 }
 
 template <int DIM>
@@ -87,6 +90,10 @@ void MixedSQPPDOptimizer<DIM>::substep(double& decrement) {
   svar_->solve(xvar_->delta());
   data_.timer.stop("local");
 
+  data_.timer.start("local-c");
+  cvar_->solve(xvar_->delta());
+  data_.timer.stop("local-c");
+
   decrement = std::max(xvar_->delta().template lpNorm<Infinity>(),
                        svar_->delta().template lpNorm<Infinity>());
 }
@@ -99,6 +106,8 @@ void MixedSQPPDOptimizer<DIM>::reset() {
   svar_->reset();
   xvar_ = std::make_shared<Displacement<DIM>>(mesh_, config_);
   xvar_->reset();
+  cvar_ = std::make_shared<Collision<DIM>>(mesh_);
+  cvar_->reset();
 
   SolverFactory solver_factory;
   solver_ = solver_factory.create(config_->solver_type, mesh_, config_);

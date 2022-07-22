@@ -4,7 +4,7 @@
 #include "variables/stretch.h"
 #include "variables/displacement.h"
 #include "linear_solvers/linear_solver.h"
-
+#include "variables/collision.h"
 
 #if defined(SIM_USE_CHOLMOD)
 #include <Eigen/CholmodSupport>
@@ -49,6 +49,7 @@ namespace mfem {
 
     std::shared_ptr<Stretch<DIM>> svar_;
     std::shared_ptr<Displacement<DIM>> xvar_;
+    std::shared_ptr<Collision<DIM>> cvar_;
     std::shared_ptr<LinearSolver<double, Eigen::RowMajor>> solver_;
   };
 }

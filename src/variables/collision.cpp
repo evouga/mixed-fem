@@ -1,147 +1,143 @@
 #include "collision.h"
 #include "mesh/mesh.h"
-#include "energies/material_model.h"
-#include "svd/newton_procrustes.h"
-#include "svd/dsvd.h"
-#include "svd/svd_eigen.h"
+#include "igl/unique.h"
+#include "igl/boundary_facets.h"
 
 using namespace Eigen;
 using namespace mfem;
 
-
 namespace {
+  // Log barrier energy
+  double psi(double d, double h) {
+    return -std::pow(d-h,2) * std::log(d/h);
+  }
 
-  template<int D, int N>
-  void polar_svd(Matrix<double,D,D>& R, Matrix<double,N,1>& s,
-      const Matrix<double,D,D>& A, bool compute_gradients,
-      Matrix<double, N, D*D>& dsdF) {
-    if constexpr (D == 3) {
-      Matrix9d dRdF;
-      // Compute R, and dR/dF
-      newton_procrustes(R, Matrix3d::Identity(), A, compute_gradients,
-          dRdF, 1e-6, 100);
+  double dpsi(double d, double h) {
+    //-(2(d-h)ln(d/h) + (d-h)^2 h/d
+    return -(2*(d-h)*std::log(d/h) + std::pow(d-h,2)*h/d);
+  }
 
-      // From rotations compute S & S in vec form
-      Matrix3d S = R.transpose() * A;
-      s << S(0,0), S(1,1), S(2,2),
-           0.5*(S(1,0) + S(0,1)),
-           0.5*(S(2,0) + S(0,2)),
-           0.5*(S(2,1) + S(1,2));
-
-      // dS/dF where S is 9x1 flattened 3x3 matrix
-      Matrix9d J = sim::flatten_multiply<Matrix3d>(R.transpose()) *
-        (Matrix9d::Identity() - sim::flatten_multiply_right<Matrix3d>(S)*dRdF);
-
-      // ds/dF where s is 6x1
-      dsdF.row(0) = J.row(0);
-      dsdF.row(1) = J.row(4);
-      dsdF.row(2) = J.row(8);
-      dsdF.row(3) = 0.5*(J.row(1) + J.row(3));
-      dsdF.row(4) = 0.5*(J.row(2) + J.row(6));
-      dsdF.row(5) = 0.5*(J.row(5) + J.row(7));
-
-    } else {
-      // Initial SVD computation
-      Matrix2d U,V;
-      Vector2d sval;
-      mfem::svd<double,2>(A, sval, U, V);
-
-      // Compute derivatives from SVD
-      Eigen::Tensor2222d dU, dV;
-      Eigen::Tensor222d dS;
-      dsvd(dU, dS, dV, A);
-      Matrix4d dRdF;
-      std::array<Matrix2d, 4> dR_dF;
-      for (int r = 0; r < 2; ++r) {
-        for (int c = 0; c < 2; ++c) {
-          dR_dF[2*c + r] = dU[r][c]*V.transpose() + U*dV[r][c].transpose();
-        }
-      }
-
-      // R, S, and the vector S
-      R = U * V.transpose();
-      Matrix2d S = R.transpose() * A;
-      s << S(0,0), S(1,1), 0.5*(S(1,0) + S(0,1));
-
-      for (int i = 0; i < 4; ++i) {
-        dRdF.col(i) = Vector4d(dR_dF[i].data());
-      }
-
-      // dS/dF where S is 2x2 flattened
-      Matrix4d J = sim::flatten_multiply<Matrix2d>(R.transpose()) *
-        (Matrix4d::Identity() - sim::flatten_multiply_right<Matrix2d>(S)*dRdF);
-
-      dsdF.row(0) = J.row(0);
-      dsdF.row(1) = J.row(3);
-      dsdF.row(2) = 0.5*(J.row(1) + J.row(2));
-    }
+  double d2psi(double d, double h) {
+    // -(2ln(d/h) + 4(d-h)h/d - h(d-h)^2 /(d^2))
+    return -(2*std::log(d/h) + 4*(d-h)*h/d - h*std::pow(d-h,2)/d/d);
   }
 }
 
 template<int DIM>
-double Collision<DIM>::energy(const VectorXd& s) {
+double Collision<DIM>::energy(const VectorXd& d) {
 
   double e = 0;
 
   #pragma omp parallel for reduction( + : e )
-  for (int i = 0; i < nelem_; ++i) {
-    const VecN& si = s.segment<N()>(N()*i);
-    double e_psi = mesh_->material_->energy(si) * mesh_->volumes()[i];
-    e += e_psi;
+  for (int i = 0; i < nframes_; ++i) {
+    e += psi(d(i), h_);
   }
   return e;
 }
 
+
 template <int DIM>
 double Collision<DIM>::constraint_value(const VectorXd& x,
-    const VectorXd& s) {
+    const VectorXd& d) {
 
-  VectorXd def_grad;
-  mesh_->deformation_gradient(x, def_grad);
-
+  // d - (p-x0)^T R(x) * N 
   double e = 0;
-  Matrix<double,N(),M()> tmp;
-
-  #pragma omp parallel for reduction( + : e )
-  for (int i = 0; i < nelem_; ++i) {
-
-    const VecM& F = def_grad.segment<M()>(M()*i);
-  
-    MatD R = R_[i];
-    VecN stmp;
-    polar_svd<DIM,N()>(R, stmp, Map<MatD>(def_grad.segment<M()>(M()*i).data()),
-        false, tmp);
-
-    const VecN& si = s.segment<N()>(N()*i);
-    VecN diff = Sym() * (stmp - si);
-    double e_l = la_.segment<N()>(N()*i).dot(diff) * mesh_->volumes()[i];
-    e += e_l;
+  #pragma omp parallel for reduction( + : e)
+  for (int i = 0; i < nframes_; ++i) {
+    e += la_(i) * (collision_frames_[i].distance(x) - d(i));
   }
   return e;
 }
 
 template<int DIM>
 void Collision<DIM>::update(const Eigen::VectorXd& x, double dt) {
-  update_rotations(x);
+  // Get collision frames
+
+  // Compute D_, dd_dx_
+  // Update:
+  // * Get boundary_facets
+  // * Check all point-edge pairs
+  //  - If less than h, create collision frame
+  //  - Collision frame just has vids
+  //
+  // Detect Collision Frames
+  // Initialize distance variables 
+    //igl::unique(
+    //const Eigen::MatrixBase<DerivedA> & A,
+    //Eigen::PlainObjectBase<DerivedC> & C)
+
+  std::cout << "NFRAMES(collision.cpp): " << frame_ids_.size() << std::endl;
+  std::vector<double> new_D;
+  std::vector<double> new_d;
+  std::vector<double> new_lambda;
+  std::vector<CollisionFrame> new_frames;
+  std::map<std::tuple<int,int,int>, int> new_ids;
+  for (int i = 0; i < C_.size(); ++i) {
+    for (int j = 0; j < F_.rows(); ++j) {
+      if (C_(i) == F_(j,0) || C_(i) == F_(j,1)) {
+        continue;
+      }
+
+      std::tuple<int,int,int> tup = std::make_tuple(F_(j,0),F_(j,1), C_(i));
+      auto it = frame_ids_.find(tup);
+      CollisionFrame frame(F_(j,0), F_(j,1), C_(i));
+      double D = frame.distance(x);
+      double la = 0;
+      double d = D; 
+
+      if (it != frame_ids_.end()) {
+        la = la_(it->second);
+        d = d_(it->second);
+      }
+
+      if (frame.is_valid(x) && D > 0 && D < h_) {
+        std::cout << "D : " << D << std::endl;
+        std::cout << "E_: " << frame.E_ << std::endl;
+        std::cout << "Ci: " << C_[i] << " Fj: " << F_.row(j) << std::endl;
+      const Eigen::Vector2d& a = x.segment<2>(2*frame.E_(0));
+      const Eigen::Vector2d& b = x.segment<2>(2*frame.E_(1));
+      const Eigen::Vector2d& p = x.segment<2>(2*frame.E_(2));
+      std::cout << "a: " << a << " b:  " << b <<  " p " << p << std::endl;
+        Eigen::Vector2d e = b-a;
+        double l = e.norm();
+        e /= l;
+        double proj = (p-a).dot(e);
+        std::cout << "proj: " << proj << std::endl;
+        std::cout << "p-a: " << (p-a) << " b-a: " << b-a << " l: " << l << std::endl;
+        new_D.push_back(D);
+        new_d.push_back(d);
+        new_lambda.push_back(la);
+        dd_dx_.push_back(frame.gradient(x));
+        new_frames.push_back(frame);
+        new_ids[tup] = new_frames.size() - 1;
+      }
+    }
+  }
+  D_ = Map<VectorXd>(new_D.data(), new_D.size());
+  d_ = Map<VectorXd>(new_d.data(), new_d.size());
+  la_ = Map<VectorXd>(new_lambda.data(), new_lambda.size());
+  std::swap(new_ids, frame_ids_);
+  std::swap(new_frames, collision_frames_);
+
+  
+  nframes_ = collision_frames_.size();
+  MatrixXi T(nframes_, 3);
+  for (int i = 0; i < nframes_; ++i) {
+    T(i,0) = collision_frames_[i].E_(0);
+    T(i,1) = collision_frames_[i].E_(1);
+    T(i,2) = collision_frames_[i].E_(2);
+  }
+  // Structure potentially changes each step, so just rebuild assembler :/
+  // NOTE assuming each local jacobian has same size!
+  assembler_ = std::make_shared<Assembler<double,DIM,-1>>(T, mesh_->free_map_);
+  vec_assembler_ = std::make_shared<VecAssembler<double,DIM,-1>>(T,
+      mesh_->free_map_);
+  //update_rotations(x);
   update_derivatives(dt);
 }
 
 template<int DIM>
 void Collision<DIM>::update_rotations(const Eigen::VectorXd& x) {
-  VectorXd def_grad;
-  mesh_->deformation_gradient(x, def_grad);
-
-  #pragma omp parallel for 
-  for (int i = 0; i < nelem_; ++i) {
-    // Orthogonality sanity check
-    assert( (R_[i].transpose()*R_[i] - MatD::Identity()).norm() < 1e-6);
-
-    // TODO wrap newton procrustes in some sort of thing
-    Matrix<double, N(), M()> Js;
-    polar_svd<DIM,N()>(R_[i], S_[i],
-        Map<MatD>(def_grad.segment<M()>(M()*i).data()), true, Js);
-    dSdF_[i] = Js.transpose()*Sym();
-  }
 }
 
 template<int DIM>
@@ -149,135 +145,133 @@ void Collision<DIM>::update_derivatives(double dt) {
 
   double h2 = dt * dt;
 
+  if (nframes_ == 0) {
+    return;
+  }
+
   data_.timer.start("Hinv");
+  H_.resize(nframes_);
+  g_.resize(nframes_);
+
   #pragma omp parallel for
-  for (int i = 0; i < nelem_; ++i) {
-    double vol = mesh_->volumes()[i];
-    const VecN& si = s_.segment<N()>(N()*i);
-    MatN H = h2 * mesh_->material_->hessian(si);
-    Hinv_[i] = H.inverse();
-    g_[i] = h2 * mesh_->material_->gradient(si);
-    H_[i] = (1.0 / vol) * (Syminv() * H * Syminv());
+  for (int i = 0; i < nframes_; ++i) {
+    H_[i] = h2 * d2psi(d_(i),h_);
+    g_[i] = h2 * dpsi(d_(i),h_);
   }
   data_.timer.stop("Hinv");
   
   data_.timer.start("Local H");
-  const std::vector<MatrixXd>& Jloc = mesh_->local_jacobians();
+  Aloc_.resize(nframes_);
   #pragma omp parallel for
-  for (int i = 0; i < nelem_; ++i) {
-    double vol = mesh_->volumes()[i];
-    Aloc_[i] = (Jloc[i].transpose() * (dSdF_[i] * H_[i]
-        * dSdF_[i].transpose()) * Jloc[i]) * (vol*vol);
+  for (int i = 0; i < nframes_; ++i) {
+    Aloc_[i] = dd_dx_[i] * H_(i) * dd_dx_[i].transpose();
   }
   data_.timer.stop("Local H");
-  //saveMarket(assembler_->A, "lhs2.mkt");
+  ////saveMarket(assembler_->A, "lhs2.mkt");
+
   data_.timer.start("Update LHS");
   assembler_->update_matrix(Aloc_);
   data_.timer.stop("Update LHS");
   A_ = assembler_->A;
 
   // Gradient with respect to x variable
-  grad_x_.resize(mesh_->jacobian().rows());
-
-  VectorXd tmp(M()*nelem_);
-
-  #pragma omp parallel for
-  for (int i = 0; i < nelem_; ++i) {
-    tmp.segment<M()>(M()*i) = dSdF_[i]*la_.segment<N()>(N()*i);
+  std::vector<VectorXd> g(nframes_);
+  for (int i = 0; i < nframes_; ++i) {
+    g[i] = -dd_dx_[i] * g_(i);
   }
-  grad_x_ = -mesh_->jacobian() * tmp;
+  vec_assembler_->assemble(g, grad_x_);
 
   // Gradient with respect to mixed variable
-  grad_.resize(N()*nelem_);
-
-  #pragma omp parallel for
-  for (int i = 0; i < nelem_; ++i) {
-    double vol = mesh_->volumes()[i];
-    grad_.segment<N()>(N()*i) = vol * (g_[i] + Sym()*la_.segment<N()>(N()*i));
-  }
+  grad_ = g_ + la_;
 }
 
 template<int DIM>
 VectorXd Collision<DIM>::rhs() {
   data_.timer.start("RHS - s");
 
+  assert(D_.size() == d_.size());
+
   rhs_.resize(mesh_->jacobian().rows());
   rhs_.setZero();
-  gl_.resize(N()*nelem_);
+  gl_.resize(nframes_);
 
-  VectorXd tmp(M()*nelem_);
+  std::vector<VectorXd> g(nframes_);
   #pragma omp parallel for
-  for (int i = 0; i < nelem_; ++i) {
-    double vol = mesh_->volumes()[i];
-    const VecN& si = s_.segment<N()>(N()*i);
-    gl_.segment<N()>(N()*i) = vol * H_[i] * Sym() * (S_[i] - si)
-        + Syminv() * g_[i];
-    tmp.segment<M()>(M()*i) = dSdF_[i] * gl_.segment<N()>(N()*i);
+  for (int i = 0; i < nframes_; ++i) {
+    gl_(i) = H_(i) * (D_(i) - d_(i)) + g_(i);
+    g[i] = -dd_dx_[i] * gl_(i);
   }
-  rhs_ = -mesh_->jacobian() * tmp;
+  vec_assembler_->assemble(g, rhs_);
   data_.timer.stop("RHS - s");
   return rhs_;
 }
 
 template<int DIM>
 VectorXd Collision<DIM>::gradient() {
+  if (nframes_ == 0) {
+    grad_x_.resize(mesh_->jacobian().rows());
+    grad_x_.setZero();
+  }
   return grad_x_;
 }
 
 template<int DIM>
 VectorXd Collision<DIM>::gradient_mixed() {
+  if (nframes_ == 0) {
+    grad_.resize(0);
+  }
   return grad_;
 }
 
 template<int DIM>
 void Collision<DIM>::solve(const VectorXd& dx) {
-  data_.timer.start("local");
-  Jdx_ = -mesh_->jacobian().transpose() * dx;
-  la_ = -gl_;
-
-  ds_.resize(N()*nelem_);
-
-  #pragma omp parallel for 
-  for (int i = 0; i < nelem_; ++i) {
-    la_.segment<N()>(N()*i) += H_[i] * (dSdF_[i].transpose()
-        * Jdx_.segment<M()>(M()*i));
-    ds_.segment<N()>(N()*i) = -Hinv_[i]
-        * (Sym() * la_.segment<N()>(N()*i) + g_[i]);
+  if (nframes_ == 0) {
+    return;
   }
+
+  data_.timer.start("local");
+  std::vector<VectorXd> g(nframes_);
+  Gdx_.resize(d_.size());
+  #pragma omp parallel for
+  for (int i = 0; i < nframes_; ++i) {
+    Matrix<double,DIM*3,1> q;
+    const Vector3i& E = collision_frames_[i].E_;
+    q << dx.segment<DIM>(DIM*E(0)), dx.segment<DIM>(DIM*E(1)),
+         dx.segment<DIM>(DIM*E(2));
+    Gdx_(i) = -q.dot(dd_dx_[i]);
+  }
+  la_ = -gl_.array() + (H_.array() * Gdx_.array());
+  delta_ = -(la_ + g_).array() / H_.array();
   data_.timer.stop("local");
 }
 
 template<int DIM>
 void Collision<DIM>::reset() {
-  nelem_ = mesh_->T_.rows();
+  h_ = 1e-1; // 1e-3 in ipc
+  d_.resize(0);
+  g_.resize(0);
+  H_.resize(0);
+  la_.resize(0);
+  gl_.resize(0);
+  rhs_.resize(0);
+  grad_.resize(0);
+  delta_.resize(0);
+  dd_dx_.resize(0);
+  grad_x_.resize(0);
+  collision_frames_.clear();
 
-  s_.resize(N()*nelem_);
-  la_.resize(N()*nelem_);
-  la_.setZero();
-  R_.resize(nelem_);
-  S_.resize(nelem_);
-  H_.resize(nelem_);
-  g_.resize(nelem_);
-  dSdF_.resize(nelem_);
-  Hinv_.resize(nelem_);
-  Aloc_.resize(nelem_);
-  assembler_ = std::make_shared<Assembler<double,DIM,-1>>(
-      mesh_->T_, mesh_->free_map_);
-
-  #pragma omp parallel for
-  for (int i = 0; i < nelem_; ++i) {
-    R_[i].setIdentity();
-    H_[i].setIdentity();
-    Hinv_[i].setIdentity();
-    g_[i].setZero();
-    S_[i] = Ivec();
-    s_.segment<N()>(N()*i) = Ivec();
-  }
+  igl::boundary_facets(mesh_->T_, F_);
+  assert(F_.cols() == 2); // Only supports 2D right now
+  std::cout << "F: " << F_ << std::endl;
+  igl::unique(F_,C_); 
 }
 
 template<int DIM>
 void Collision<DIM>::post_solve() {
   la_.setZero();
+  dd_dx_.clear();
+  collision_frames_.clear();
+  frame_ids_.clear();
 }
 
 template class mfem::Collision<3>; // 3D
