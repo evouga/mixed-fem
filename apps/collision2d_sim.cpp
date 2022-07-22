@@ -83,7 +83,7 @@ struct PolyscopeTriApp : public PolyscopeApp<2> {
     }
 
     MaterialModelFactory material_factory;
-    std::shared_ptr<MaterialConfig> material_config =
+    material_config =
         std::make_shared<MaterialConfig>();
     std::shared_ptr<MaterialModel> material = material_factory.create(
         material_config->material_model, material_config);
@@ -93,9 +93,10 @@ struct PolyscopeTriApp : public PolyscopeApp<2> {
 
     // Initial simulation setup
     config = std::make_shared<SimConfig>();
-    config->bc_type = BC_NULL;
+    //config->bc_type = BC_NULL;
+    config->bc_type = BC_HANGENDS;
 
-    config->optimizer = OptimizerType::OPTIMIZER_NEWTON;
+    //config->optimizer = OptimizerType::OPTIMIZER_NEWTON;
     optimizer = optimizer_factory.create(config->optimizer, mesh, config);
     optimizer->reset();
 

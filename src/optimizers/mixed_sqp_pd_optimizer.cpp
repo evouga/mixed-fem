@@ -4,6 +4,8 @@
 #include "mesh/mesh.h"
 #include "factories/solver_factory.h"
 #include "factories/integrator_factory.h"
+#include <unsupported/Eigen/SparseExtra>
+
 
 using namespace mfem;
 using namespace Eigen;
@@ -75,8 +77,12 @@ void MixedSQPPDOptimizer<DIM>::update_system() {
 
   // Assemble blocks for left and right hand side
   std::cout << "NFRAMES: " << cvar_->num_collision_frames() << std::endl; 
-  lhs_ = xvar_->lhs() + svar_->lhs();// + cvar_->lhs();
+  lhs_ = xvar_->lhs() + svar_->lhs() + cvar_->lhs();
   rhs_ = xvar_->rhs() + svar_->rhs() + cvar_->rhs();
+  //saveMarket(lhs_, "lhs.mkt");
+  //saveMarket(xvar_->lhs(), "lhs_x.mkt");
+  //saveMarket(svar_->lhs(), "lhs_s.mkt");
+  //saveMarket(cvar_->lhs(), "lhs_c.mkt");
 }
 
 template <int DIM>

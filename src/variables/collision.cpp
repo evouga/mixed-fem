@@ -2,24 +2,28 @@
 #include "mesh/mesh.h"
 #include "igl/unique.h"
 #include "igl/boundary_facets.h"
+#include "simple_psd_fix.h"
 
 using namespace Eigen;
 using namespace mfem;
 
 namespace {
+
+  const double kappa = 1e1;
   // Log barrier energy
   double psi(double d, double h) {
-    return -std::pow(d-h,2) * std::log(d/h);
+    return -kappa*std::pow(d-h,2) * std::log(d/h);
   }
 
   double dpsi(double d, double h) {
     //-(2(d-h)ln(d/h) + (d-h)^2 h/d
-    return -(2*(d-h)*std::log(d/h) + std::pow(d-h,2)*h/d);
+    return -kappa*std::pow(d-h,2.0)/d-std::log(d/h)*(d*2.0-h*2.0);
   }
 
   double d2psi(double d, double h) {
     // -(2ln(d/h) + 4(d-h)h/d - h(d-h)^2 /(d^2))
-    return -(2*std::log(d/h) + 4*(d-h)*h/d - h*std::pow(d-h,2)/d/d);
+    //return -(2*std::log(d/h) + 4*(d-h)*h/d - h*std::pow(d-h,2)/d/d);
+    return kappa*std::log(d/h)*-2.0-((d*2.0-h*2.0)*2.0)/d+1.0/(d*d)*std::pow(d-h,2.0);
   }
 }
 
@@ -62,11 +66,6 @@ void Collision<DIM>::update(const Eigen::VectorXd& x, double dt) {
   //
   // Detect Collision Frames
   // Initialize distance variables 
-    //igl::unique(
-    //const Eigen::MatrixBase<DerivedA> & A,
-    //Eigen::PlainObjectBase<DerivedC> & C)
-
-  std::cout << "NFRAMES(collision.cpp): " << frame_ids_.size() << std::endl;
   std::vector<double> new_D;
   std::vector<double> new_d;
   std::vector<double> new_lambda;
@@ -91,19 +90,6 @@ void Collision<DIM>::update(const Eigen::VectorXd& x, double dt) {
       }
 
       if (frame.is_valid(x) && D > 0 && D < h_) {
-        std::cout << "D : " << D << std::endl;
-        std::cout << "E_: " << frame.E_ << std::endl;
-        std::cout << "Ci: " << C_[i] << " Fj: " << F_.row(j) << std::endl;
-      const Eigen::Vector2d& a = x.segment<2>(2*frame.E_(0));
-      const Eigen::Vector2d& b = x.segment<2>(2*frame.E_(1));
-      const Eigen::Vector2d& p = x.segment<2>(2*frame.E_(2));
-      std::cout << "a: " << a << " b:  " << b <<  " p " << p << std::endl;
-        Eigen::Vector2d e = b-a;
-        double l = e.norm();
-        e /= l;
-        double proj = (p-a).dot(e);
-        std::cout << "proj: " << proj << std::endl;
-        std::cout << "p-a: " << (p-a) << " b-a: " << b-a << " l: " << l << std::endl;
         new_D.push_back(D);
         new_d.push_back(d);
         new_lambda.push_back(la);
@@ -132,7 +118,6 @@ void Collision<DIM>::update(const Eigen::VectorXd& x, double dt) {
   assembler_ = std::make_shared<Assembler<double,DIM,-1>>(T, mesh_->free_map_);
   vec_assembler_ = std::make_shared<VecAssembler<double,DIM,-1>>(T,
       mesh_->free_map_);
-  //update_rotations(x);
   update_derivatives(dt);
 }
 
@@ -165,6 +150,11 @@ void Collision<DIM>::update_derivatives(double dt) {
   #pragma omp parallel for
   for (int i = 0; i < nframes_; ++i) {
     Aloc_[i] = dd_dx_[i] * H_(i) * dd_dx_[i].transpose();
+    sim::simple_psd_fix(Aloc_[i]);
+    //Eigen::VectorXx<Scalar> diag_eval = es.eigenvalues().real();
+    //std::cout << " d_(i) : " << d_(i) << std::endl;
+    //std::cout << " g_(i) : " << g_(i) << std::endl;
+    //std::cout << " H_(i) : " << H_(i) << std::endl;
   }
   data_.timer.stop("Local H");
   ////saveMarket(assembler_->A, "lhs2.mkt");
@@ -247,7 +237,7 @@ void Collision<DIM>::solve(const VectorXd& dx) {
 
 template<int DIM>
 void Collision<DIM>::reset() {
-  h_ = 1e-1; // 1e-3 in ipc
+  h_ = 2e-1; // 1e-3 in ipc
   d_.resize(0);
   g_.resize(0);
   H_.resize(0);
@@ -262,7 +252,6 @@ void Collision<DIM>::reset() {
 
   igl::boundary_facets(mesh_->T_, F_);
   assert(F_.cols() == 2); // Only supports 2D right now
-  std::cout << "F: " << F_ << std::endl;
   igl::unique(F_,C_); 
 }
 

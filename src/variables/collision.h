@@ -31,7 +31,7 @@ namespace mfem {
       const Eigen::Vector2d& b = x.segment<2>(2*E_(1));
       const Eigen::Vector2d& p = x.segment<2>(2*E_(2));
       Eigen::Vector2d e = b-a;
-      Eigen::Vector2d normal(-e(1),e(0));
+      Eigen::Vector2d normal(e(1),-e(0));
       normal.normalize();
       return (p-a).dot(normal);
     }
@@ -43,12 +43,12 @@ namespace mfem {
       // dn/db  =
       // C * (I/ ||l|| - (C*(b-a) * (C*b-a)T) 
       Eigen::Matrix2d C;
-      C << 0, -1, 1, 0;
+      C << 0, 1, -1, 0;
       const Eigen::Vector2d& a = x.segment<2>(2*E_(0));
       const Eigen::Vector2d& b = x.segment<2>(2*E_(1));
       const Eigen::Vector2d& p = x.segment<2>(2*E_(2));
       Eigen::Vector2d e = b-a;
-      Eigen::Vector2d normal(-e(1),e(0));
+      Eigen::Vector2d normal(e(1),-e(0));
       double l = normal.norm();
       normal /= l;
       Eigen::Vector6d g;
