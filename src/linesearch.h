@@ -4,6 +4,8 @@
 #include "variables/mixed_variable.h"
 #include "variables/displacement.h"
 
+  #include <iomanip>
+
 namespace {
   // Taken from https://github.com/mattoverby/mcloptlib
   template <typename Scalar>
@@ -210,6 +212,67 @@ namespace mfem {
       fx_prev = fx;
       alpha_prev = alpha;
       alpha = range(alpha_tmp, 0.1*alpha, 0.5*alpha );
+      ++iter;
+    }
+
+    if(iter < max_iterations) {
+      x->value() += alpha * x->delta();
+      for (int i = 0; i < vars.size(); ++i) {
+        vars[i]->value() += alpha * vars[i]->delta();
+      }
+    }
+    return (iter == max_iterations 
+        ? SolverExitStatus::MAX_ITERATIONS_REACHED 
+        : SolverExitStatus::CONVERGED);
+  }
+
+  template <int DIM, typename Scalar,
+            class Callback = decltype(default_linesearch_callback)>
+  SolverExitStatus linesearch_backtracking(
+      std::shared_ptr<Displacement<DIM>> x,
+      std::vector<std::shared_ptr<MixedVariable<DIM>>> vars,
+      Scalar& alpha, unsigned int max_iterations, Scalar c=1e-4, Scalar p=0.5,
+      const Callback func = default_linesearch_callback) {
+
+    double h2 = std::pow(x->integrator()->dt(),2);
+
+    auto f = [=](double a)->Scalar {
+      Eigen::VectorXd x0 = x->value() + a * x->delta();
+      Scalar val = x->energy(x0);
+      x->unproject(x0);
+      for (int i = 0; i < vars.size(); ++i) {
+        const Eigen::VectorXd si = vars[i]->value() + a * vars[i]->delta();
+        val += h2*vars[i]->energy(si) - vars[i]->constraint_value(x0, si);  
+      }
+      return val;
+    };
+
+    // Compute gradient dot descent direction
+    Scalar gTd = x->gradient().dot(x->delta());
+    for (int i = 0; i < vars.size(); ++i) {
+      gTd += vars[i]->gradient().dot(x->delta())
+        + vars[i]->gradient_mixed().dot(vars[i]->delta());
+    }
+
+    Scalar fx0 = f(0);
+    Scalar fx_prev = fx0;
+    Scalar alpha_prev = alpha;
+
+    //std::cout << "LS: " << fx0 << std::endl;
+
+    int iter = 0;
+    while (iter < max_iterations) {
+
+      Scalar fx = f(alpha);
+
+      // Armijo sufficient decrease condition
+      Scalar fxn = fx0 + (alpha * c) * gTd;
+      //std::cout << std::setprecision(10) << "LS: i: " << iter << " f: " << fx << std::endl;
+      if (fx < fxn) {
+        break;
+      }
+
+      alpha = alpha * p;
       ++iter;
     }
 

@@ -85,7 +85,7 @@ namespace mfem {
     int outer_steps = 5;
     int inner_steps = 7;
     double plane_d = 0;
-    double kappa = 1000.0;
+    double kappa = 10.0;
     double max_kappa = 1e6;
     double constraint_tol = 1e-2;
     

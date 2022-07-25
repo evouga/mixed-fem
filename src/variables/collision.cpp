@@ -3,27 +3,27 @@
 #include "igl/unique.h"
 #include "igl/boundary_facets.h"
 #include "simple_psd_fix.h"
+#include "config.h"
 
 using namespace Eigen;
 using namespace mfem;
 
 namespace {
 
-  const double kappa = 1e1;
   // Log barrier energy
-  double psi(double d, double h) {
-    return -kappa*std::pow(d-h,2) * std::log(d/h);
+  double psi(double d, double h, double k) {
+    return -k*log(d/h)*pow(d-h,2.0);
+    //return k*pow(d-h,2);
   }
 
-  double dpsi(double d, double h) {
-    //-(2(d-h)ln(d/h) + (d-h)^2 h/d
-    return -kappa*std::pow(d-h,2.0)/d-std::log(d/h)*(d*2.0-h*2.0);
+  double dpsi(double d, double h, double k) {
+    return -(k*pow(d-h,2.0))/d-k*log(d/h)*(d*2.0-h*2.0);
+    //return k*2*(d-h);
   }
 
-  double d2psi(double d, double h) {
-    // -(2ln(d/h) + 4(d-h)h/d - h(d-h)^2 /(d^2))
-    //return -(2*std::log(d/h) + 4*(d-h)*h/d - h*std::pow(d-h,2)/d/d);
-    return kappa*std::log(d/h)*-2.0-((d*2.0-h*2.0)*2.0)/d+1.0/(d*d)*std::pow(d-h,2.0);
+  double d2psi(double d, double h, double k) {
+    return k*log(d/h)*-2.0-(k*(d*2.0-h*2.0)*2.0)/d+1.0/(d*d)*k*pow(d-h,2.0);
+    //return 2*k;
   }
 }
 
@@ -31,11 +31,7 @@ template<int DIM>
 double Collision<DIM>::energy(const VectorXd& d) {
 
   double e = 0;
-
-  #pragma omp parallel for reduction( + : e )
-  for (int i = 0; i < nframes_; ++i) {
-    e += psi(d(i), h_);
-  }
+  return e;
   return e;
 }
 
@@ -44,18 +40,69 @@ template <int DIM>
 double Collision<DIM>::constraint_value(const VectorXd& x,
     const VectorXd& d) {
 
-  // d - (p-x0)^T R(x) * N 
-  double e = 0;
-  #pragma omp parallel for reduction( + : e)
-  for (int i = 0; i < nframes_; ++i) {
-    e += la_(i) * (collision_frames_[i].distance(x) - d(i));
+  //std::cout << "Energy() d: " << d << std::endl;
+  //if ( (d.array() <= 0.0).any())
+  //  return 1e8;
+
+  // Check for intersections
+  // (p0 + t(p1-p0) - v0)
+  for (int i = 0; i < F_.rows(); ++i) {
+    for (int j = 0; j < F_.rows(); ++j) {
+
+      if (F_(i,0) == F_(j,0) || F_(i,0) == F_(j,1) || F_(i,1) == F_(j,0)
+          || F_(i,1) == F_(j,1)) {
+        continue;
+      }
+
+      const Eigen::Vector2d& p0 = x.segment<2>(2*F_(i,0));
+      const Eigen::Vector2d& p1 = x.segment<2>(2*F_(i,1));
+      const Eigen::Vector2d& v0 = x.segment<2>(2*F_(j,0));
+      const Eigen::Vector2d& v1 = x.segment<2>(2*F_(j,1));
+
+      Eigen::Vector2d e1 = (p1-p0);
+      Eigen::Vector2d e2 = (v1-v0);
+      Eigen::Vector2d tmp = (v0-p0);
+
+      // a1b2 - a2b1
+      double denom = (e1(0)*e2(1) - e1(1)*e2(0));
+      if (denom != 0) {
+        double t = (tmp(0)*e2(1)-tmp(1)*e2(0))/denom;
+        double u = (tmp(0)*e1(1)-tmp(1)*e1(0))/denom;
+        if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
+          //std::cout << "OBJECTION t: " << t << std::endl;
+          //std::cout << "denom: " << denom << std::endl;
+          //std::cout << "p0: " << p0 << std::endl;
+          //std::cout << "p1: " << p1 << std::endl;
+          //std::cout << "v0: " << v0 << std::endl;
+          //std::cout << "v1: " << v1 << std::endl;
+          return std::numeric_limits<double>::min();
+
+        }
+      }
+
+      // Edge edge intersection
+      // p0 + t(p1-p0) = v0 + y(v1-v0)
+      // (p0 + t(p1-p0)) x (v1-v0) = v0 x (v1-v0)
+      // (v0 - p0) x (v1-v0) / (p1-p0) x (v1-v0)
+    }
   }
-  return e;
+
+
+  double e = 0;
+  #pragma omp parallel for reduction( + : e )
+  for (int i = 0; i < nframes_; ++i) {
+    e += dt_*dt_*(psi(d(i), h_, config_->kappa)
+      - la_(i) * (collision_frames_[i].distance(x) - d(i)));
+  }
+  std::cout << "energy (e): " << e << std::endl;
+  // d - (p-x0)^T R(x) * N 
+  return -e; // negating cause my dumb fuckin linesearch negates it.....
 }
 
 template<int DIM>
 void Collision<DIM>::update(const Eigen::VectorXd& x, double dt) {
   // Get collision frames
+  dt_ = dt;
 
   // Compute D_, dd_dx_
   // Update:
@@ -89,7 +136,7 @@ void Collision<DIM>::update(const Eigen::VectorXd& x, double dt) {
         d = d_(it->second);
       }
 
-      if (frame.is_valid(x) && D > 0 && D < h_) {
+      if (frame.is_valid(x) && D > -h_ && D < h_) {
         new_D.push_back(D);
         new_d.push_back(d);
         new_lambda.push_back(la);
@@ -140,17 +187,32 @@ void Collision<DIM>::update_derivatives(double dt) {
 
   #pragma omp parallel for
   for (int i = 0; i < nframes_; ++i) {
-    H_[i] = h2 * d2psi(d_(i),h_);
-    g_[i] = h2 * dpsi(d_(i),h_);
+    H_[i] = h2 * d2psi(d_(i),h_, config_->kappa);
+    g_[i] = h2 * dpsi(d_(i),h_, config_->kappa);
   }
   data_.timer.stop("Hinv");
   
   data_.timer.start("Local H");
   Aloc_.resize(nframes_);
-  #pragma omp parallel for
+  std::vector<Eigen::Triplet<double>> trips;
+  //#pragma omp parallel for
   for (int i = 0; i < nframes_; ++i) {
     Aloc_[i] = dd_dx_[i] * H_(i) * dd_dx_[i].transpose();
     sim::simple_psd_fix(Aloc_[i]);
+    for (int j = 0; j < 3; ++j) {
+      int id1 = collision_frames_[i].E_(j);
+      for (int k = 0; k < 3; ++k) {
+        int id2 = collision_frames_[i].E_(k);
+        for (int l = 0; l < 2; ++l) {
+          for (int m = 0; m < 2; ++m) {
+            double val = Aloc_[i](2*j+l, 2*k+m); 
+            double r = 2*id1 + l;
+            double c = 2*id2 + m;
+            trips.push_back(Eigen::Triplet<double>(r,c,val));
+          }
+        }
+      }
+    }
     //Eigen::VectorXx<Scalar> diag_eval = es.eigenvalues().real();
     //std::cout << " d_(i) : " << d_(i) << std::endl;
     //std::cout << " g_(i) : " << g_(i) << std::endl;
@@ -163,6 +225,8 @@ void Collision<DIM>::update_derivatives(double dt) {
   assembler_->update_matrix(Aloc_);
   data_.timer.stop("Update LHS");
   A_ = assembler_->A;
+  A_.setFromTriplets(trips.begin(),trips.end());
+  
 
   // Gradient with respect to x variable
   std::vector<VectorXd> g(nframes_);
@@ -237,7 +301,7 @@ void Collision<DIM>::solve(const VectorXd& dx) {
 
 template<int DIM>
 void Collision<DIM>::reset() {
-  h_ = 2e-1; // 1e-3 in ipc
+  h_ = 1e-1; // 1e-3 in ipc
   d_.resize(0);
   g_.resize(0);
   H_.resize(0);

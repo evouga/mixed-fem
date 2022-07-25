@@ -8,6 +8,7 @@
 
 namespace mfem {
 
+  class SimConfig;
 
   // Make this an abstract class
   // and a folder with all the collision shit
@@ -64,31 +65,6 @@ namespace mfem {
     Eigen::Vector3i E_;
   };
 
-  // Functor for insterting into set
-  struct CollisionCmp {
-    bool operator() (CollisionFrame& f1, CollisionFrame& f2) {
-
-      const Eigen::VectorXi E1 = f1.E_;
-      const Eigen::VectorXi E2 = f1.E_;
-      int sz = std::min(E1.size(), E2.size());
-      for (int i = 0; i < sz; ++i) {
-        if (E1(i) < E2(i)) {
-          return true;
-        } else if (E1(i) > E2(i)) {
-          return false;
-        } 
-      }
-      // If all entries equal but E1 has fewer elements, it is
-      // "less than"
-      if (E1.size() < E2.size()) {
-        return true;
-      } else {
-        return false;
-      }
-    }
-  };
-
-
   template<int DIM>
   class Collision : public MixedVariable<DIM> {
 
@@ -96,7 +72,8 @@ namespace mfem {
 
   public:
 
-    Collision(std::shared_ptr<Mesh> mesh) : MixedVariable<DIM>(mesh)
+    Collision(std::shared_ptr<Mesh> mesh, std::shared_ptr<SimConfig> config)
+        : MixedVariable<DIM>(mesh), config_(config)
     {}
 
     double energy(const Eigen::VectorXd& d) override;
@@ -164,6 +141,7 @@ namespace mfem {
 
     OptimizerData data_;     // Stores timing results
     double h_;
+    double dt_;
     int nframes_;            // number of elements
     Eigen::VectorXd D_;      // per-frames distances
     Eigen::VectorXd d_;      // distance variables
@@ -180,8 +158,8 @@ namespace mfem {
     Eigen::MatrixXi F_;
     Eigen::VectorXi C_;
 
+    std::shared_ptr<SimConfig> config_;
     std::map<std::tuple<int,int,int>, int> frame_ids_;
-    //std::set<CollisionFrame> collision_frames_;
     std::vector<Eigen::VectorXd> dd_dx_; 
     std::vector<Eigen::MatrixXd> Aloc_;
     Eigen::SparseMatrix<double, Eigen::RowMajor> A_;

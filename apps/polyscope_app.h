@@ -202,6 +202,7 @@ namespace mfem {
         if (ImGui::InputFloat3("Body Force", config->ext, 3)) {
         }
 
+        ImGui::InputDouble("kappa", &config->kappa,0,0,"%.5g");
         if (config->optimizer == OPTIMIZER_ALM
             || config->optimizer == OPTIMIZER_ADMM) {
           ImGui::InputDouble("kappa", &config->kappa,0,0,"%.5g");

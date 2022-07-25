@@ -18,6 +18,8 @@ void MixedSQPPDOptimizer<DIM>::step() {
   double grad_norm;
   double E = 0, E_prev = 0;
   // step_x.clear();
+  //config_->kappa = 1e0;
+  double kappa0 = config_->kappa;
   do {
     if (config_->save_substeps) {
       // VectorXd x = P_.transpose()*x_ + b_;
@@ -39,8 +41,16 @@ void MixedSQPPDOptimizer<DIM>::step() {
 
     // Linesearch on descent direction
     double alpha = 1.0;
-    SolverExitStatus status = linesearch_backtracking_cubic(xvar_,
-        {svar_,cvar_}, alpha, config_->ls_iters);
+    //SolverExitStatus status = linesearch_backtracking_cubic(xvar_,
+    //    {svar_,cvar_}, alpha, config_->ls_iters);
+    Eigen::VectorXd x0 = xvar_->value();
+    SolverExitStatus status = linesearch_backtracking(xvar_,
+        {svar_,cvar_}, alpha, config_->ls_iters, 0.0, 0.9);
+    if (status == SolverExitStatus::MAX_ITERATIONS_REACHED) {
+      std::cout << " diff: " << (x0 - xvar_->value()).norm() << std::endl;
+
+
+    }
 
     // Record some data
     data_.add(" Iteration", i+1);
@@ -48,6 +58,9 @@ void MixedSQPPDOptimizer<DIM>::step() {
     data_.add("mixed E res", res);
     // data_.add("mixed grad", grad_.norm());
     data_.add("Newton dec", grad_norm);
+    data_.add("alpha ", alpha);
+    data_.add("kappa ", config_->kappa);
+    config_->kappa *= 1.1;
     ++i;
 
   } while (i < config_->outer_steps && grad_norm > config_->newton_tol
@@ -60,6 +73,7 @@ void MixedSQPPDOptimizer<DIM>::step() {
   xvar_->post_solve();
   svar_->post_solve();
   cvar_->post_solve();
+  config_->kappa = kappa0;
 }
 
 template <int DIM>
@@ -79,10 +93,10 @@ void MixedSQPPDOptimizer<DIM>::update_system() {
   std::cout << "NFRAMES: " << cvar_->num_collision_frames() << std::endl; 
   lhs_ = xvar_->lhs() + svar_->lhs() + cvar_->lhs();
   rhs_ = xvar_->rhs() + svar_->rhs() + cvar_->rhs();
-  //saveMarket(lhs_, "lhs.mkt");
-  //saveMarket(xvar_->lhs(), "lhs_x.mkt");
-  //saveMarket(svar_->lhs(), "lhs_s.mkt");
-  //saveMarket(cvar_->lhs(), "lhs_c.mkt");
+  saveMarket(lhs_, "lhs.mkt");
+  saveMarket(xvar_->lhs(), "lhs_x.mkt");
+  saveMarket(svar_->lhs(), "lhs_s.mkt");
+  saveMarket(cvar_->lhs(), "lhs_c.mkt");
 }
 
 template <int DIM>
@@ -99,6 +113,11 @@ void MixedSQPPDOptimizer<DIM>::substep(double& decrement) {
   data_.timer.start("local-c");
   cvar_->solve(xvar_->delta());
   data_.timer.stop("local-c");
+  std::cout << "Cvar delta: " << cvar_->delta() << std::endl;
+  if (cvar_->delta().hasNaN()) {
+    std::cout << "xvar delta(): " << xvar_->delta().norm() << std::endl;
+    exit(1);
+  }
 
   decrement = std::max(xvar_->delta().template lpNorm<Infinity>(),
                        svar_->delta().template lpNorm<Infinity>());
@@ -112,7 +131,7 @@ void MixedSQPPDOptimizer<DIM>::reset() {
   svar_->reset();
   xvar_ = std::make_shared<Displacement<DIM>>(mesh_, config_);
   xvar_->reset();
-  cvar_ = std::make_shared<Collision<DIM>>(mesh_);
+  cvar_ = std::make_shared<Collision<DIM>>(mesh_, config_);
   cvar_->reset();
 
   SolverFactory solver_factory;
