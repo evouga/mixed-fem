@@ -99,14 +99,10 @@ void BoundaryConditions<DIM>::init_script(std::shared_ptr<Mesh> &mesh)
   {
     mesh->clear_fixed_vertices();
     bc_groups_.resize(0);
-    int bI = 0;
-    for (const auto borderI : mesh->bc_groups_)
-    {
-      mesh->set_fixed(borderI);
-      bc_groups_.emplace_back(borderI);
-      bI++;
-      break;
-    }
+
+    int bg = 1;
+    mesh->set_fixed(mesh->bc_groups_[bg]);
+    bc_groups_.emplace_back(mesh->bc_groups_[bg]);
     break;
   }
   case BC_STRETCH:

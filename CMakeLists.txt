@@ -222,4 +222,7 @@ target_link_libraries(tri2d_sim mixed_fem_lib)
 add_executable(coll_sim apps/collision2d_sim.cpp ${SOURCES})
 target_link_libraries(coll_sim mixed_fem_lib)
 
+add_executable(hetero_tet_sim apps/hetero_tet_sim.cpp ${SOURCES})
+target_link_libraries(hetero_tet_sim mixed_fem_lib)
+
 #add_subdirectory(tests)

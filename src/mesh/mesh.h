@@ -35,6 +35,11 @@ namespace mfem {
 
     Mesh() {}
     Mesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
+        std::shared_ptr<MaterialConfig> material_config,
+        const std::vector<Eigen::VectorXi>& subsets,
+        const std::vector<std::shared_ptr<MaterialModel>>& materials);
+
+    Mesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
         std::shared_ptr<MaterialModel> material,
         std::shared_ptr<MaterialConfig> material_config);
     

@@ -101,6 +101,16 @@ namespace mfem {
       }
     }
 
+    virtual void write_obj(int step) {
+      char buffer [50];
+      int n = sprintf(buffer, "../output/obj/tet_%04d.obj", step); 
+      buffer[n] = 0;
+      if (skinV.rows() > 0)
+        igl::writeOBJ(std::string(buffer),skinV,skinF);
+      else
+        igl::writeOBJ(std::string(buffer),meshV,meshF);
+    }
+
     virtual void callback() {
 
       static bool export_obj = false;
@@ -265,14 +275,9 @@ namespace mfem {
         ++step;
 
         if (export_obj) {
-          char buffer [50];
-          int n = sprintf(buffer, "../output/obj/tet_%04d.obj", export_step++); 
-          buffer[n] = 0;
-          if (skinV.rows() > 0)
-            igl::writeOBJ(std::string(buffer),skinV,skinF);
-          else
-            igl::writeOBJ(std::string(buffer),meshV,meshF);
+          write_obj(export_step++);
         }
+
         if (export_mesh) {
           char buffer [50];
           int n = sprintf(buffer, "../output/mesh/tet_%04d.mesh", step); 

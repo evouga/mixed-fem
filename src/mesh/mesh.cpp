@@ -8,6 +8,49 @@
 using namespace mfem;
 using namespace Eigen;
 
+Mesh::Mesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
+    std::shared_ptr<MaterialConfig> material_config,
+    const std::vector<VectorXi>& subsets,
+    const std::vector<std::shared_ptr<MaterialModel>>& materials)
+    : V_(V), V0_(V), T_(T),
+      config_(material_config) {
+  assert(materials.size() > 0);
+  assert(subsets.size() == materials.size());
+  material_ = materials[0];
+
+  is_fixed_.resize(V_.rows());
+  is_fixed_.setZero();
+  bbox.setZero();
+  int cols = V0_.cols();
+  bbox.block(0,0,1,cols) = V0_.row(0);
+  bbox.block(1,0,1,cols) = V0_.row(0);
+  for(int i = 1; i < V0_.rows(); i++) {
+    const Eigen::RowVectorXd& v = V0_.row(i);
+    for(int d = 0; d < cols; d++) {
+      if(v[d] < bbox(0, d)) {
+          bbox(0, d) = v[d];
+      }
+      if(v[d] > bbox(1, d)) {
+          bbox(1, d) = v[d];
+      }
+    }
+  }
+  BoundaryConditions<3>::init_boundary_groups(V0_, bc_groups_, 0.01);
+  P_ = pinning_matrix(V_, T_, is_fixed_);
+
+  for (Eigen::Index i = 0; i < T_.rows(); ++i) {
+    elements_.push_back(Element(material_,config_));
+  }
+
+  for (size_t i = 0; i < subsets.size(); ++i) {
+    for (int j = 0; j < subsets[i].size(); ++j) {
+      elements_[subsets[i](j)].material_ = materials[i];
+    }
+  }
+
+
+}
+
 
 Mesh::Mesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
     std::shared_ptr<MaterialModel> material,
