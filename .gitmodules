@@ -13,3 +13,6 @@
 [submodule "deps/amgcl"]
 	path = deps/amgcl
 	url = https://github.com/ddemidov/amgcl
+[submodule "deps/collisiondetection"]
+	path = deps/collisiondetection
+	url = https://github.com/evouga/collisiondetection

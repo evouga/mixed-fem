@@ -95,6 +95,7 @@ struct PolyscopeTriApp : public PolyscopeApp<2> {
     config = std::make_shared<SimConfig>();
     //config->bc_type = BC_NULL;
     config->bc_type = BC_HANGENDS;
+    config->solver_type = SOLVER_EIGEN_LU;
 
     //config->optimizer = OptimizerType::OPTIMIZER_NEWTON;
     optimizer = optimizer_factory.create(config->optimizer, mesh, config);

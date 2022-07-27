@@ -83,6 +83,8 @@ find_package(CHOLMOD)
 find_package(SuiteSparse)
 
 add_subdirectory("deps/amgcl")
+#add_subdirectory("deps/collisiondetection")
+include(${PROJECT_SOURCE_DIR}/cmake/ccd.cmake)
 
 # Add polyscope
 message("\n\n == CMAKE recursively building Polyscope\n")
@@ -193,12 +195,14 @@ target_include_directories(mixed_fem_lib SYSTEM PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/agmcl"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/Bartels/include"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/libigl/include" 
+  "${CMAKE_CURRENT_SOURCE_DIR}/deps/collisiondetection/include" 
 #   #"${CMAKE_CURRENT_SOURCE_DIR}/deps/nasoq/include"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope/deps/args"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope/deps/json/include")
 
 # Link settings
-target_link_libraries(mixed_fem_lib polyscope Eigen3::Eigen amgcl::amgcl)
+target_link_libraries(mixed_fem_lib polyscope Eigen3::Eigen amgcl::amgcl 
+  collisiondetection)
 
 # Create an executable
 add_executable(tet_sim apps/tet_sim.cpp ${SOURCES})

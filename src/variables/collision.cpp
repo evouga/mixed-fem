@@ -4,6 +4,8 @@
 #include "igl/boundary_facets.h"
 #include "simple_psd_fix.h"
 #include "config.h"
+#include "CTCD.h"
+#include "Distance.h"
 
 using namespace Eigen;
 using namespace mfem;
@@ -43,58 +45,13 @@ double Collision<DIM>::constraint_value(const VectorXd& x,
   //std::cout << "Energy() d: " << d << std::endl;
   //if ( (d.array() <= 0.0).any())
   //  return 1e8;
-
-  // Check for intersections
-  // (p0 + t(p1-p0) - v0)
-  for (int i = 0; i < F_.rows(); ++i) {
-    for (int j = 0; j < F_.rows(); ++j) {
-
-      if (F_(i,0) == F_(j,0) || F_(i,0) == F_(j,1) || F_(i,1) == F_(j,0)
-          || F_(i,1) == F_(j,1)) {
-        continue;
-      }
-
-      const Eigen::Vector2d& p0 = x.segment<2>(2*F_(i,0));
-      const Eigen::Vector2d& p1 = x.segment<2>(2*F_(i,1));
-      const Eigen::Vector2d& v0 = x.segment<2>(2*F_(j,0));
-      const Eigen::Vector2d& v1 = x.segment<2>(2*F_(j,1));
-
-      Eigen::Vector2d e1 = (p1-p0);
-      Eigen::Vector2d e2 = (v1-v0);
-      Eigen::Vector2d tmp = (v0-p0);
-
-      // a1b2 - a2b1
-      double denom = (e1(0)*e2(1) - e1(1)*e2(0));
-      if (denom != 0) {
-        double t = (tmp(0)*e2(1)-tmp(1)*e2(0))/denom;
-        double u = (tmp(0)*e1(1)-tmp(1)*e1(0))/denom;
-        if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
-          //std::cout << "OBJECTION t: " << t << std::endl;
-          //std::cout << "denom: " << denom << std::endl;
-          //std::cout << "p0: " << p0 << std::endl;
-          //std::cout << "p1: " << p1 << std::endl;
-          //std::cout << "v0: " << v0 << std::endl;
-          //std::cout << "v1: " << v1 << std::endl;
-          return std::numeric_limits<double>::min();
-
-        }
-      }
-
-      // Edge edge intersection
-      // p0 + t(p1-p0) = v0 + y(v1-v0)
-      // (p0 + t(p1-p0)) x (v1-v0) = v0 x (v1-v0)
-      // (v0 - p0) x (v1-v0) / (p1-p0) x (v1-v0)
-    }
-  }
-
-
   double e = 0;
   #pragma omp parallel for reduction( + : e )
   for (int i = 0; i < nframes_; ++i) {
     e += dt_*dt_*(psi(d(i), h_, config_->kappa)
       - la_(i) * (collision_frames_[i].distance(x) - d(i)));
   }
-  std::cout << "energy (e): " << e << std::endl;
+  //std::cout << "energy (e): " << e << std::endl;
   // d - (p-x0)^T R(x) * N 
   return -e; // negating cause my dumb fuckin linesearch negates it.....
 }
@@ -290,6 +247,7 @@ void Collision<DIM>::solve(const VectorXd& dx) {
   for (int i = 0; i < nframes_; ++i) {
     Matrix<double,DIM*3,1> q;
     const Vector3i& E = collision_frames_[i].E_;
+    // WRONG
     q << dx.segment<DIM>(DIM*E(0)), dx.segment<DIM>(DIM*E(1)),
          dx.segment<DIM>(DIM*E(2));
     Gdx_(i) = -q.dot(dd_dx_[i]);
@@ -325,6 +283,77 @@ void Collision<DIM>::post_solve() {
   dd_dx_.clear();
   collision_frames_.clear();
   frame_ids_.clear();
+}
+
+template<int DIM>
+double Collision<DIM>::max_possible_step(const VectorXd& x1,
+    const VectorXd& x2) {
+    //static bool edgeEdgeCTCD(const Eigen::Vector3d &q0start,
+    //        const Eigen::Vector3d &p0start,
+    //        const Eigen::Vector3d &q1start,
+    //        const Eigen::Vector3d &p1start,
+    //        const Eigen::Vector3d &q0end,
+    //        const Eigen::Vector3d &p0end,
+    //        const Eigen::Vector3d &q1end,
+    //        const Eigen::Vector3d &p1end, double eta,
+    //        double &t);
+  // Check for intersections
+  // (p0 + t(p1-p0) - v0)
+  //
+  double min_step = 1.0;
+  double eta0 = 1e-8;
+
+  for (int i = 0; i < F_.rows(); ++i) {
+    for (int j = 0; j < F_.rows(); ++j) {
+
+      if (F_(i,0) == F_(j,0) || F_(i,0) == F_(j,1) || F_(i,1) == F_(j,0)
+          || F_(i,1) == F_(j,1)) {
+        continue;
+      }
+      const Vector2d& p0_2d_start = x1.segment<2>(2*F_(i,0));
+      const Vector2d& p1_2d_start = x1.segment<2>(2*F_(i,1));
+      const Vector2d& q0_2d_start = x1.segment<2>(2*F_(j,0));
+      const Vector2d& q1_2d_start = x1.segment<2>(2*F_(j,1));
+      const Vector2d& p0_2d_end = x2.segment<2>(2*F_(i,0));
+      const Vector2d& p1_2d_end = x2.segment<2>(2*F_(i,1));
+      const Vector2d& q0_2d_end = x2.segment<2>(2*F_(j,0));
+      const Vector2d& q1_2d_end = x2.segment<2>(2*F_(j,1));
+
+      Vector3d p0start(p0_2d_start(0), p0_2d_start(1), 0);
+      Vector3d p1start(p1_2d_start(0), p1_2d_start(1), 0);
+      Vector3d q0start(q0_2d_start(0), q0_2d_start(1), 0);
+      Vector3d q1start(q1_2d_start(0), q1_2d_start(1), 0);
+      Vector3d p0end(p0_2d_end(0), p0_2d_end(1), 0);
+      Vector3d p1end(p1_2d_end(0), p1_2d_end(1), 0);
+      Vector3d q0end(q0_2d_end(0), q0_2d_end(1), 0);
+      Vector3d q1end(q1_2d_end(0), q1_2d_end(1), 0);
+      double t = 1;
+
+      double d_sqrt;
+      double tmp;
+      d_sqrt = Distance::edgeEdgeDistance(p0start,p1start,q0start,
+          q1start,tmp,tmp,tmp,tmp).norm();
+      double eta = d_sqrt * eta0;
+      if (CTCD::edgeEdgeCTCD(p0start,p1start,q0start,q1start,
+            p0end,p1end,q0end,q1end,eta,t)) {
+      //std::cout << "p0 start: \n" << p0start << std::endl;
+      //std::cout << "p1 start: \n" << p1start << std::endl;
+      //std::cout << "q0 start: \n" << q0start << std::endl;
+      //std::cout << "q1 start: \n" << q1start << std::endl;
+
+      //std::cout << "p0 end: \n" << p0end << std::endl;
+      //std::cout << "p1 end: \n" << p1end << std::endl;
+      //std::cout << "q0 end: \n" << q0end << std::endl;
+      //std::cout << "q1 end: \n" << q1end << std::endl;
+      //TODO psi(s) can still be negative! Double check, then do exponential func or something
+      t = (t==0) ? 1 : t;
+
+        //std::cout << "t: " << t << " d_sqrt: " << d_sqrt << std::endl;
+        min_step = std::min(min_step,t);
+      }
+    }
+  }
+  return min_step;
 }
 
 template class mfem::Collision<3>; // 3D

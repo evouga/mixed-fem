@@ -30,6 +30,13 @@ void MixedSQPPDOptimizer<DIM>::step() {
 
     // Update gradient and hessian
     update_system();
+    
+    if (i == 0) {
+      //config_->kappa = -cvar_->rhs().dot(xvar_->rhs() + svar_->rhs()) /
+      //  (1e-12 + cvar_->rhs().squaredNorm());
+      //std::cout << " config_->kappa "<< config_->kappa << std::endl;
+      //config_->kappa = std::max(1e-6, config_->kappa);
+    }
 
     // Record initial energies
     // E = energy(x_, s_, la_);
@@ -46,11 +53,6 @@ void MixedSQPPDOptimizer<DIM>::step() {
     Eigen::VectorXd x0 = xvar_->value();
     SolverExitStatus status = linesearch_backtracking(xvar_,
         {svar_,cvar_}, alpha, config_->ls_iters, 0.0, 0.9);
-    if (status == SolverExitStatus::MAX_ITERATIONS_REACHED) {
-      std::cout << " diff: " << (x0 - xvar_->value()).norm() << std::endl;
-
-
-    }
 
     // Record some data
     data_.add(" Iteration", i+1);
@@ -60,7 +62,7 @@ void MixedSQPPDOptimizer<DIM>::step() {
     data_.add("Newton dec", grad_norm);
     data_.add("alpha ", alpha);
     data_.add("kappa ", config_->kappa);
-    config_->kappa *= 1.1;
+    //config_->kappa *= 2;
     ++i;
 
   } while (i < config_->outer_steps && grad_norm > config_->newton_tol
@@ -87,16 +89,22 @@ void MixedSQPPDOptimizer<DIM>::update_system() {
   }
 
   svar_->update(x, xvar_->integrator()->dt());
-  cvar_->update(x, xvar_->integrator()->dt());
+  //cvar_->update(x, xvar_->integrator()->dt());
+  cvar_->update(x, 1.0);//xvar_->integrator()->dt());
 
   // Assemble blocks for left and right hand side
   std::cout << "NFRAMES: " << cvar_->num_collision_frames() << std::endl; 
+  std::cout << "xvar_->rhs(): " << xvar_->rhs().norm() << std::endl;
+  std::cout << "svar_->rhs(): " << svar_->rhs().norm() << std::endl;
+  std::cout << "cvar_->rhs(): " << cvar_->rhs().norm() << std::endl;
+
+
   lhs_ = xvar_->lhs() + svar_->lhs() + cvar_->lhs();
   rhs_ = xvar_->rhs() + svar_->rhs() + cvar_->rhs();
-  saveMarket(lhs_, "lhs.mkt");
-  saveMarket(xvar_->lhs(), "lhs_x.mkt");
-  saveMarket(svar_->lhs(), "lhs_s.mkt");
-  saveMarket(cvar_->lhs(), "lhs_c.mkt");
+  //saveMarket(lhs_, "lhs.mkt");
+  //saveMarket(xvar_->lhs(), "lhs_x.mkt");
+  //saveMarket(svar_->lhs(), "lhs_s.mkt");
+  //saveMarket(cvar_->lhs(), "lhs_c.mkt");
 }
 
 template <int DIM>
@@ -111,9 +119,16 @@ void MixedSQPPDOptimizer<DIM>::substep(double& decrement) {
   data_.timer.stop("local");
 
   data_.timer.start("local-c");
-  cvar_->solve(xvar_->delta());
+  VectorXd fuck(xvar_->delta());
+  xvar_->unproject(fuck);
+  cvar_->solve(fuck);
+  //cvar_->solve(xvar_->delta());
   data_.timer.stop("local-c");
-  std::cout << "Cvar delta: " << cvar_->delta() << std::endl;
+
+  data_.add("||x delta||", xvar_->delta().norm());
+  data_.add("||s delta||", svar_->delta().norm());
+  data_.add("||c delta||", cvar_->delta().norm());
+  //std::cout << "Cvar delta: " << cvar_->delta() << std::endl;
   if (cvar_->delta().hasNaN()) {
     std::cout << "xvar delta(): " << xvar_->delta().norm() << std::endl;
     exit(1);
