@@ -298,6 +298,8 @@ void VecAssembler<Scalar,DIM,N>::assemble(
       // Get number of duplicate blocks for this offset
       int n = multiplicity[row_beg];
 
+      int global_id = global_vids[row_beg];
+
       // Compute Local block
       Matrix<Scalar,DIM,1> local_vec;
       local_vec.setZero();
@@ -310,7 +312,7 @@ void VecAssembler<Scalar,DIM,N>::assemble(
         local_vec += vecs[e].template segment<DIM>(DIM*l);
       }
 
-      a.segment<DIM>(DIM*ii) = local_vec;
+      a.segment<DIM>(DIM*global_id) = local_vec;
       
       // Move to next sequence of duplicate blocks
       row_beg += n;

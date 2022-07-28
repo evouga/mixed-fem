@@ -122,9 +122,6 @@ void Collision<DIM>::update(const Eigen::VectorXd& x, double dt) {
   assembler_ = std::make_shared<Assembler<double,DIM,-1>>(T, mesh_->free_map_);
   vec_assembler_ = std::make_shared<VecAssembler<double,DIM,-1>>(T,
       mesh_->free_map_);
-      for (auto i : mesh_->free_map_) {
-        std::cout << "free_map: " << i << std::endl;
-      }
   update_derivatives(dt);
 }
 

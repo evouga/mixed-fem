@@ -275,8 +275,20 @@ namespace mfem {
           buffer[n] = 0;
           if (skinV.rows() > 0)
             igl::writeOBJ(std::string(buffer),skinV,skinF);
-          else
-            igl::writeOBJ(std::string(buffer),meshV,meshF);
+          else {
+            if (meshV.cols() == 3) {
+              igl::writeOBJ(std::string(buffer),meshV,meshF);
+            } else {
+              // If in 2D, pad the matrix
+              Eigen::MatrixXd tmp(meshV.rows(), 3);
+              tmp.setZero();
+              tmp.col(0) = meshV.col(0);
+              tmp.col(1) = meshV.col(1);
+              igl::writeOBJ(std::string(buffer),tmp,meshF);
+
+            }
+
+          }
         }
         if (export_mesh) {
           char buffer [50];

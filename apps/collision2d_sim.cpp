@@ -171,6 +171,7 @@ struct PolyscopeTriApp : public PolyscopeApp<2> {
         material_config->material_model, material_config);
 
     mesh = std::make_shared<Meshes>(meshes,material,material_config);
+    meshF = mesh->T_;
 
 
     // Initial simulation setup
