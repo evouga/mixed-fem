@@ -120,6 +120,10 @@ namespace mfem {
       ImGui::SameLine();
       ImGui::Checkbox("export mesh",&export_mesh);
 
+      for (size_t i = 0; i < callback_funcs.size(); ++i) {
+        callback_funcs[i]();
+      }
+
       if (ImGui::TreeNode("Material Params")) {
 
         if (FactoryCombo<MaterialModelFactory, MaterialModelType>(
@@ -322,6 +326,10 @@ namespace mfem {
 
     polyscope::SurfaceMesh* srf = nullptr;
     polyscope::SurfaceMesh* srf_skin = nullptr;
+
+//    std::function<void(const std::vector<std::shared_ptr<Variable<DIM>>>&)> callback;
+
+    std::vector<std::function<void()>> callback_funcs;
 
     // The mesh, Eigen representation
     Eigen::MatrixXd meshV, meshV0, skinV, initMeshV;

@@ -45,6 +45,10 @@ namespace mfem {
     // Returns variable values
     virtual Eigen::VectorXd& value() = 0;
 
+    const std::shared_ptr<Mesh> mesh() const {
+      return mesh_;
+    }
+
   protected:
 
     std::shared_ptr<Mesh> mesh_;

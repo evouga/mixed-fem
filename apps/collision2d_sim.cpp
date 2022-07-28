@@ -13,9 +13,16 @@
 #include <fstream>
 #include <functional>
 #include <string>
+#include <algorithm>
+#include "variables/collision.h"
+#include "variables/displacement.h"
 
 using namespace Eigen;
 using namespace mfem;
+
+std::vector<MatrixXd> vertices;
+std::vector<MatrixXi> frame_faces;
+polyscope::SurfaceMesh* frame_srf = nullptr; // collision frame mesh
 
 std::shared_ptr<Mesh> load_mesh(const std::string& fn) {
   MatrixXd V,NV;
@@ -46,9 +53,15 @@ std::shared_ptr<Mesh> load_mesh(const std::string& fn) {
   return mesh;
 }
 
+
+
 struct PolyscopeTriApp : public PolyscopeApp<2> {
 
   virtual void simulation_step() {
+    std::cout << "SIMULATION STEP " << std::endl;
+    vertices.clear();
+    frame_faces.clear();
+    std::cout << "vertices size: " << vertices.size() << std::endl;
 
     optimizer->step();
     meshV = mesh->vertices();
@@ -60,16 +73,85 @@ struct PolyscopeTriApp : public PolyscopeApp<2> {
     }
   }
 
+  void collision_gui() {
+
+    static bool show_substeps = false;
+    static int substep = 0;
+    static bool show_frames = true;
+    ImGui::Checkbox("Show Substeps",&show_substeps);
+
+
+    if(!show_substeps) return;
+    ImGui::InputInt("Substep", &substep);
+
+    assert(vertices.size() == frame_faces.size());
+    if (show_frames && frame_faces.size() > 0) {
+      substep = std::clamp(substep, 0, int(vertices.size()-1));
+
+      // Update frame mesh
+      frame_srf = polyscope::registerSurfaceMesh2D("frames", vertices[substep],
+          frame_faces[substep]);
+
+      // Update regular meshes
+      size_t start = 0;
+      for (size_t i = 0; i < srfs.size(); ++i) {
+        size_t sz = meshes[i]->vertices().rows();
+        srfs[i]->updateVertexPositions2D(vertices[substep].block(start,0,sz,2));
+        start += sz;
+      }
+
+    } else if (frame_srf) {
+      frame_srf->setEnabled(false);
+    }
+  }
+
+  void collision_callback(const std::vector<std::shared_ptr<Variable<2>>>& var)
+  {
+    std::shared_ptr<Collision<2>> c;
+    std::shared_ptr<Displacement<2>> x;
+
+    // Determine if variables include the required displacement and collision
+    for (size_t i = 0; i < var.size(); ++i) {
+      if(!c) c = std::dynamic_pointer_cast<Collision<2>>(var[i]);
+      if(!x) x = std::dynamic_pointer_cast<Displacement<2>>(var[i]);
+    }
+
+    if (!x || !c) {
+      std::cout << "need displacement and collision yo" << std::endl;
+      return;
+    }
+    int n = c->num_collision_frames();
+    MatrixXi Fframe(n,3);
+
+    // Get vertices at current iteration
+    VectorXd xt = x->value();
+    x->unproject(xt);
+    MatrixXd V = Map<MatrixXd>(xt.data(), mesh->V_.cols(), mesh->V_.rows());
+    V.transposeInPlace();
+
+    // Add collision frames
+    const std::vector<CollisionFrame>& frames = c->frames();
+    for (int i = 0; i < n; ++i) {
+      Fframe.row(i) = frames[i].E_.transpose();
+    }
+    vertices.push_back(V);
+    frame_faces.push_back(Fframe);
+  }
+
   virtual void reset() {
     optimizer->reset();
     for (size_t i = 0; i < srfs.size(); ++i) {
       srfs[i]->updateVertexPositions2D(meshes[i]->V0_);
     }
+    if (frame_srf != nullptr) {
+      removeStructure(frame_srf);
+      frame_srf = nullptr;
+    }
   }
 
   void init(const std::vector<std::string>& filenames) {
 
-    for (int i = 0; i < filenames.size(); ++i) {
+    for (size_t i = 0; i < filenames.size(); ++i) {
       mesh = load_mesh(filenames[i]);
       mesh->V_.rowwise() += Eigen::RowVector2d(0,i*3);
       mesh->V0_ = mesh->V_;
@@ -102,8 +184,12 @@ struct PolyscopeTriApp : public PolyscopeApp<2> {
     optimizer->reset();
 
     BoundaryConditions<2>::get_script_names(bc_list);
-  }
 
+    optimizer->callback = std::bind(&PolyscopeTriApp::collision_callback, this,
+        std::placeholders::_1);
+
+    callback_funcs.push_back(std::bind(&PolyscopeTriApp::collision_gui, this));
+  }
 
   std::vector<polyscope::SurfaceMesh*> srfs;
   std::vector<std::shared_ptr<Mesh>> meshes;

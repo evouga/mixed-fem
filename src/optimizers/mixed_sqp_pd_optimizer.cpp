@@ -64,6 +64,7 @@ void MixedSQPPDOptimizer<DIM>::step() {
     data_.add("kappa ", config_->kappa);
     //config_->kappa *= 2;
     ++i;
+    Base::callback({xvar_,cvar_});
 
   } while (i < config_->outer_steps && grad_norm > config_->newton_tol
     /*`&& (res > 1e-12)*/);
@@ -119,9 +120,9 @@ void MixedSQPPDOptimizer<DIM>::substep(double& decrement) {
   data_.timer.stop("local");
 
   data_.timer.start("local-c");
-  VectorXd fuck(xvar_->delta());
-  xvar_->unproject(fuck);
-  cvar_->solve(fuck);
+  // VectorXd fuck(xvar_->delta());
+  // xvar_->unproject(fuck);
+  cvar_->solve(xvar_->projection_matrix().transpose() * xvar_->delta());
   //cvar_->solve(xvar_->delta());
   data_.timer.stop("local-c");
 

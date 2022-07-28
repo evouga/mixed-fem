@@ -2,9 +2,11 @@
 
 #include <EigenTypes.h>
 #include <memory>
+#include <functional>
 #include "optimizer_data.h"
 #include "boundary_conditions.h"
 #include "time_integrators/implicit_integrator.h"
+#include "variables/variable.h"
 
 namespace mfem {
 
@@ -50,7 +52,8 @@ namespace mfem {
     Eigen::SparseMatrixd P_;          // pinning constraint (for vertices)
 
     double wx_, wx0_, wx1_, wx2_, wdt_;
-    
+    std::function<void(const std::vector<std::shared_ptr<Variable<DIM>>>&)> callback;
+
   protected:
 
     OptimizerData data_;
@@ -63,9 +66,7 @@ namespace mfem {
 
     BoundaryConditions<DIM> BCs_;
 
-    // Eigen::SparseMatrixd P_;          // pinning constraint (for vertices)
     int nelem_;             // number of elements
-
   };        
   
 }

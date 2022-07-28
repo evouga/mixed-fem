@@ -51,6 +51,10 @@ namespace mfem {
       x = P_.transpose() * x + b_;
     }
 
+    const Eigen::SparseMatrix<double, Eigen::RowMajor>& projection_matrix() {
+      return P_;
+    }
+
     void set_mixed(bool is_mixed) {
       is_mixed_ = is_mixed;
     }

@@ -176,14 +176,19 @@ void Collision<DIM>::update_derivatives(double dt) {
     //std::cout << " H_(i) : " << H_(i) << std::endl;
   }
   data_.timer.stop("Local H");
-  ////saveMarket(assembler_->A, "lhs2.mkt");
 
   data_.timer.start("Update LHS");
   assembler_->update_matrix(Aloc_);
   data_.timer.stop("Update LHS");
+
+  saveMarket(assembler_->A, "lhs_c1.mkt");
+
   A_ = assembler_->A;
+
+  std::cout << "nframes: " << nframes_ << std::endl;
   A_.setFromTriplets(trips.begin(),trips.end());
-  
+  saveMarket(assembler_->A, "lhs_c2.mkt");
+
 
   // Gradient with respect to x variable
   std::vector<VectorXd> g(nframes_);

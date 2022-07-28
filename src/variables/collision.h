@@ -117,8 +117,12 @@ namespace mfem {
       return la_;
     }
 
-    int num_collision_frames() {
+    int num_collision_frames() const {
       return nframes_;
+    }
+
+    const std::vector<CollisionFrame>& frames() const {
+      return collision_frames_;
     }
 
     // Continuous
