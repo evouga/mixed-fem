@@ -59,27 +59,20 @@ Assembler<Scalar,DIM,N>::Assembler(const MatrixXi& E,
             (global_pairs[i].first == global_pairs[j].first 
             && global_pairs[i].second < global_pairs[j].second);
   };
-  //std::cout << "ids: ";
-  //for(int i= 0; i < ids.size();++i) { std::cout << ids[i] << ", ";}std::cout << std::endl;
   std::sort(ids.begin(), ids.end(), sorter);
   reorder(global_pairs, ids);
   reorder(element_ids, ids);
   reorder(local_pairs, ids);
-
-  //std::cout << "ids: ";
-  //for(int i= 0; i < ids.size();++i) { std::cout << ids[i] << ", ";
-  //  std::cout << " global: " << global_pairs[i].first << ", " << global_pairs[i].second << " " << element_ids[i] << std::endl;
-  //}std::cout << std::endl;
 
   // Identify multiplicity of each pair
   multiplicity.resize(element_ids.size(),1);
 
   int i = 0;
   int npairs = 0;
-  int curr_row = 0;
+  int curr_row = -1;
   std::pair<int, int> curr_pair;
 
-  row_offsets.push_back(curr_row);
+  //row_offsets.push_back(curr_row);
   num_nodes = 0;
 
   // Loop over pairs, counting duplicates
@@ -108,6 +101,21 @@ Assembler<Scalar,DIM,N>::Assembler(const MatrixXi& E,
   }
   row_offsets.push_back(multiplicity.size());
 
+  // std::cout << "Multiplicity: ";
+  // for (int i =0; i < multiplicity.size(); ++i) {
+  //   std::cout << multiplicity[i] << " ";
+  // }
+  // std::cout << std::endl;
+  // std::cout << "Element IDS: ";
+  // for (int i =0; i < element_ids.size(); ++i) {
+  //   std::cout << element_ids[i] << " ";
+  // }
+  // std::cout << std::endl;
+  // std::cout << "Global Pairs: ";
+  // for (int i =0; i < global_pairs.size(); ++i) {
+  //   std::cout << "(" << global_pairs[i].first << ", " << global_pairs[i].second << ") ";
+  // }
+  // std::cout << std::endl;
   // Initialize our sparse matrix
   std::vector<Triplet<Scalar>> trips;
   for (int i = 0; i < num_nodes; ++i) {
@@ -125,21 +133,26 @@ Assembler<Scalar,DIM,N>::Assembler(const MatrixXi& E,
   int m = *std::max_element(free_map.begin(), free_map.end()) + 1;
   A.resize(DIM*m, DIM*m);
   A.setFromTriplets(trips.begin(), trips.end());
-  // std::cout << "A\n" << A << std::endl;
 }
 
  
 template <typename Scalar, int DIM, int N>
 void Assembler<Scalar,DIM,N>::update_matrix(const std::vector<MatM>& blocks)
 {
+  //std::cout << "Assemble" << std::endl;
   // Iterate over M rows at a time
+
+  // for (int i = 0; i < 3; ++i) {
+  //   std::cout << "k start: " << A.outerIndexPtr()[i] << std::endl;
+  //   std::cout << "k end: " << A.outerIndexPtr()[i+1] << std::endl;
+  // }
   #pragma omp parallel for
   for (size_t ii = 0; ii < row_offsets.size() - 1; ++ii) {
     int row_beg = row_offsets[ii];
     int row_end = row_offsets[ii+1];
 
     // std::cout << "non zeros: " << A.nonZeros() << std::endl;
-    // std::cout << "row beg: " << row_beg << " k_start: " << A.outerIndexPtr()[3*ii] << std::endl;;
+    // std::cout << "row beg: " << row_beg << " k_start: " << A.outerIndexPtr()[DIM*ii] << std::endl;;
     // std::cout << "row end: " << row_end << std::endl;
     // The index of the block for this row. 
     int block_col = 0;
@@ -167,9 +180,10 @@ void Assembler<Scalar,DIM,N>::update_matrix(const std::vector<MatM>& blocks)
 
       // Apologies to the cache locality gods
       // For each row of the DIMxDIM blocks
+      // double global_row = g.first;
       for (int i = 0; i < DIM; ++i) {
         // Find the corresponding column position for this block
-        int start = A.outerIndexPtr()[DIM*ii + i] + DIM*block_col;
+        int start = A.outerIndexPtr()[DIM*g.first + i] + DIM*block_col;
         // std::cout << "\t start : " << i << " start : " << start << std::endl;
         for (int j = 0; j < DIM; ++j) {
           // Assign the value
@@ -194,7 +208,7 @@ VecAssembler<Scalar,DIM,N>::VecAssembler(const MatrixXi& E,
   }
 
   int N_ = E.cols();
-element_ids.reserve(N_*E.rows());
+  element_ids.reserve(N_*E.rows());
   global_vids.reserve(N_*E.rows());
   local_vids.reserve(N_*E.rows());
 

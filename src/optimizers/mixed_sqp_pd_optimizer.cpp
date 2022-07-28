@@ -21,12 +21,6 @@ void MixedSQPPDOptimizer<DIM>::step() {
   //config_->kappa = 1e0;
   double kappa0 = config_->kappa;
   do {
-    if (config_->save_substeps) {
-      // VectorXd x = P_.transpose()*x_ + b_;
-      // step_x.push_back(x);
-      // step_v = vt_;
-      // step_x0 = x0_;
-    }
 
     // Update gradient and hessian
     update_system();
@@ -48,9 +42,8 @@ void MixedSQPPDOptimizer<DIM>::step() {
 
     // Linesearch on descent direction
     double alpha = 1.0;
-    //SolverExitStatus status = linesearch_backtracking_cubic(xvar_,
-    //    {svar_,cvar_}, alpha, config_->ls_iters);
-    Eigen::VectorXd x0 = xvar_->value();
+    // SolverExitStatus status = linesearch_backtracking_cubic(xvar_,
+    //    {svar_}, alpha, config_->ls_iters);
     SolverExitStatus status = linesearch_backtracking(xvar_,
         {svar_,cvar_}, alpha, config_->ls_iters, 0.0, 0.9);
 
@@ -120,16 +113,13 @@ void MixedSQPPDOptimizer<DIM>::substep(double& decrement) {
   data_.timer.stop("local");
 
   data_.timer.start("local-c");
-  // VectorXd fuck(xvar_->delta());
-  // xvar_->unproject(fuck);
   cvar_->solve(xvar_->projection_matrix().transpose() * xvar_->delta());
-  //cvar_->solve(xvar_->delta());
   data_.timer.stop("local-c");
 
   data_.add("||x delta||", xvar_->delta().norm());
   data_.add("||s delta||", svar_->delta().norm());
   data_.add("||c delta||", cvar_->delta().norm());
-  //std::cout << "Cvar delta: " << cvar_->delta() << std::endl;
+  // //std::cout << "Cvar delta: " << cvar_->delta() << std::endl;
   if (cvar_->delta().hasNaN()) {
     std::cout << "xvar delta(): " << xvar_->delta().norm() << std::endl;
     exit(1);

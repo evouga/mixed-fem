@@ -122,6 +122,9 @@ void Collision<DIM>::update(const Eigen::VectorXd& x, double dt) {
   assembler_ = std::make_shared<Assembler<double,DIM,-1>>(T, mesh_->free_map_);
   vec_assembler_ = std::make_shared<VecAssembler<double,DIM,-1>>(T,
       mesh_->free_map_);
+      for (auto i : mesh_->free_map_) {
+        std::cout << "free_map: " << i << std::endl;
+      }
   update_derivatives(dt);
 }
 
@@ -181,14 +184,15 @@ void Collision<DIM>::update_derivatives(double dt) {
   assembler_->update_matrix(Aloc_);
   data_.timer.stop("Update LHS");
 
-  saveMarket(assembler_->A, "lhs_c1.mkt");
+  // saveMarket(assembler_->A, "lhs_c1.mkt");
 
   A_ = assembler_->A;
-
-  std::cout << "nframes: " << nframes_ << std::endl;
-  A_.setFromTriplets(trips.begin(),trips.end());
-  saveMarket(assembler_->A, "lhs_c2.mkt");
-
+// std::cout << "A1: \n " << MatrixXd(A_) << std::endl;
+  // std::cout << "nframes: " << nframes_ << std::endl;
+  // A_.setFromTriplets(trips.begin(),trips.end());
+  // saveMarket(assembler_->A, "lhs_c2.mkt");
+// std::cout << "A2: \n " << A_ << std::endl;
+std::cout << "E_ : " << collision_frames_[0].E_ << std::endl;
 
   // Gradient with respect to x variable
   std::vector<VectorXd> g(nframes_);

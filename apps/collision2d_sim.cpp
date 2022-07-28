@@ -33,7 +33,7 @@ std::shared_ptr<Mesh> load_mesh(const std::string& fn) {
   igl::remove_unreferenced(V,T,NV,NT,VI,VJ);
   V = NV;
   T = NT;
-  V.array() /= V.maxCoeff();
+  // V.array() /= V.maxCoeff();
 
   // Truncate z data
   MatrixXd tmp;
