@@ -59,8 +59,8 @@ double Collision<DIM>::constraint_value(const VectorXd& x,
   }
   //std::cout << "energy (e): " << e << std::endl;
   // d - (p-x0)^T R(x) * N 
-  std::cout << " e: " << e << std::endl;
-  std::cout << " la norm: " << la_.norm() << std::endl;
+  //std::cout << " e: " << e << std::endl;
+  //std::cout << " la norm: " << la_.norm() << std::endl;
   return -e; // negating cause my dumb fuckin linesearch negates it.....
 }
 
@@ -69,56 +69,10 @@ void Collision<DIM>::update(const Eigen::VectorXd& x, double dt) {
   // Get collision frames
   dt_ = dt;
 
-  // Compute D_, dd_dx_
-  // Update:
-  // * Get boundary_facets
-  // * Check all point-edge pairs
-  //  - If less than h, create collision frame
-  //  - Collision frame just has vids
-  //
-  // Detect Collision Frames
-  // Initialize distance variables 
-  std::vector<double> new_D;
-  std::vector<double> new_d;
-  std::vector<double> new_lambda;
-  std::vector<CollisionFrame> new_frames;
-  std::map<std::tuple<int,int,int>, int> new_ids;
-  for (int i = 0; i < C_.size(); ++i) {
-    for (int j = 0; j < F_.rows(); ++j) {
-      if (C_(i) == F_(j,0) || C_(i) == F_(j,1)) {
-        continue;
-      }
 
-      std::tuple<int,int,int> tup = std::make_tuple(F_(j,0),F_(j,1), C_(i));
-      auto it = frame_ids_.find(tup);
-      CollisionFrame frame(F_(j,0), F_(j,1), C_(i));
-      double D = frame.distance(x);
-      double la = 0;
-      double d = D; 
-
-      if (it != frame_ids_.end()) {
-        la = la_(it->second);
-        d = d_(it->second);
-      }
-
-      if (frame.is_valid(x) && D > 0 && D < h_) {
-        new_D.push_back(D);
-        new_d.push_back(d);
-        new_lambda.push_back(la);
-        dd_dx_.push_back(frame.gradient(x));
-        new_frames.push_back(frame);
-        new_ids[tup] = new_frames.size() - 1;
-      }
-    }
-  }
-  D_ = Map<VectorXd>(new_D.data(), new_D.size());
-  d_ = Map<VectorXd>(new_d.data(), new_d.size());
-  la_ = Map<VectorXd>(new_lambda.data(), new_lambda.size());
-  std::swap(new_ids, frame_ids_);
-  std::swap(new_frames, collision_frames_);
-
-  std::cout << "d: " << d_ << std::endl;
-  std::cout << "D: " << D_ << std::endl;
+  //std::cout << "d: " << d_ << std::endl;
+  //std::cout << "D: " << D_ << std::endl;
+  update_collision_frames(x);
   
   nframes_ = collision_frames_.size();
   MatrixXi T(nframes_, 3);
@@ -136,7 +90,63 @@ void Collision<DIM>::update(const Eigen::VectorXd& x, double dt) {
 }
 
 template<int DIM>
-void Collision<DIM>::update_rotations(const Eigen::VectorXd& x) {
+void Collision<DIM>::update_collision_frames(const Eigen::VectorXd& x) {
+  // Compute D_, dd_dx_
+  // Update:
+  // * Get boundary_facets
+  // * Check all point-edge pairs
+  //  - If less than h, create collision frame
+  //  - Collision frame just has vids
+  //
+  // Detect Collision Frames
+  // Initialize distance variables 
+  std::vector<double> new_D;
+  std::vector<double> new_d;
+  std::vector<double> new_lambda;
+  std::vector<CollisionFrame> new_frames;
+  std::map<std::tuple<int,int,int>, int> new_ids;
+  // For each boundary vertex find primitives within distance threshold
+  for (int i = 0; i < C_.size(); ++i) {
+
+    // Currently brute force check all primitives
+    for (int j = 0; j < F_.rows(); ++j) {
+      if (C_(i) == F_(j,0) || C_(i) == F_(j,1)) {
+        continue;
+      }
+
+      // Use tuple of vertex ids for hashing
+      std::tuple<int,int,int> tup = std::make_tuple(F_(j,0),F_(j,1), C_(i));
+      auto it = frame_ids_.find(tup);
+
+      // Build a frame and compute distance for the primitive - point pair
+      CollisionFrame frame(F_(j,0), F_(j,1), C_(i));
+      double D = frame.distance(x);
+      double la = 0;
+      double d = D; 
+
+      // Check if frame already exists and maintain its variable
+      // and lagrange multiplier values 
+      if (it != frame_ids_.end()) {
+        la = la_(it->second);
+        d = d_(it->second);
+      }
+
+      // If valid and within distance thresholds add new frame
+      if (frame.is_valid(x) && D > 0 && D < h_) {
+        new_D.push_back(D);
+        new_d.push_back(d);
+        new_lambda.push_back(la);
+        dd_dx_.push_back(frame.gradient(x));
+        new_frames.push_back(frame);
+        new_ids[tup] = new_frames.size() - 1;
+      }
+    }
+  }
+  D_ = Map<VectorXd>(new_D.data(), new_D.size());
+  d_ = Map<VectorXd>(new_d.data(), new_d.size());
+  la_ = Map<VectorXd>(new_lambda.data(), new_lambda.size());
+  std::swap(new_ids, frame_ids_);
+  std::swap(new_frames, collision_frames_);
 }
 
 template<int DIM>
@@ -326,7 +336,7 @@ double Collision<DIM>::max_possible_step(const VectorXd& x1,
       double eta = d_sqrt * eta0;
       if (CTCD::edgeEdgeCTCD(p0start,p1start,q0start,q1start,
             p0end,p1end,q0end,q1end,eta,t)) {
-        t = (t==0) ? 1 : t;
+        t = (t<1e-12) ? 1 : t;
         min_step = std::min(min_step,t);
       }
     }

@@ -133,6 +133,7 @@ namespace mfem {
 
     void update_rotations(const Eigen::VectorXd& x);
     void update_derivatives(double dt);
+    void update_collision_frames(const Eigen::VectorXd& x);
 
   private:
 

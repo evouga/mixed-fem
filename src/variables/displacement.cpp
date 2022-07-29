@@ -154,8 +154,6 @@ void Displacement<DIM>::reset() {
   dx_ = 0*x_;
 
   // Project out mass matrix pinned point
-  std::cout << "P_: " << P_.rows() << ", " << P_.cols() << std::endl;
-  std::cout << "M_: " << M_.rows() << ", " << M_.cols() << std::endl;
   PMP_ = P_ * M_ * P_.transpose();
   PM_ = P_ * M_;
 
@@ -165,7 +163,8 @@ void Displacement<DIM>::reset() {
 
   // External gravity force
   VecD ext = Map<Matrix<float,DIM,1>>(config_->ext).template cast<double>();
-  f_ext_ = P_.transpose()*P_*ext.replicate(mesh_->V_.rows(),1);
+  //f_ext_ = P_.transpose()*P_*ext.replicate(mesh_->V_.rows(),1);
+  f_ext_ = ext.replicate(mesh_->V_.rows(),1);
 }
 
 template class mfem::Displacement<3>; // 3D
