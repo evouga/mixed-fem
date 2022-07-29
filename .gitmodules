@@ -16,3 +16,6 @@
 [submodule "deps/collisiondetection"]
 	path = deps/collisiondetection
 	url = https://github.com/evouga/collisiondetection
+[submodule "deps/fcpw"]
+	path = deps/fcpw
+	url = https://github.com/rohan-sawhney/fcpw

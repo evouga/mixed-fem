@@ -12,9 +12,15 @@ using namespace mfem;
 
 namespace {
 
+  //TODO psi(s) can still be negative!
   // Log barrier energy
   double psi(double d, double h, double k) {
-    return -k*log(d/h)*pow(d-h,2.0);
+    if (d <= 0)
+      return std::numeric_limits<double>::max();
+    else if (d >= h)
+      return 0;
+    else
+      return -k*log(d/h)*pow(d-h,2.0);
     //return k*pow(d-h,2);
   }
 
@@ -53,6 +59,8 @@ double Collision<DIM>::constraint_value(const VectorXd& x,
   }
   //std::cout << "energy (e): " << e << std::endl;
   // d - (p-x0)^T R(x) * N 
+  std::cout << " e: " << e << std::endl;
+  std::cout << " la norm: " << la_.norm() << std::endl;
   return -e; // negating cause my dumb fuckin linesearch negates it.....
 }
 
@@ -93,7 +101,7 @@ void Collision<DIM>::update(const Eigen::VectorXd& x, double dt) {
         d = d_(it->second);
       }
 
-      if (frame.is_valid(x) && D > -h_ && D < h_) {
+      if (frame.is_valid(x) && D > 0 && D < h_) {
         new_D.push_back(D);
         new_d.push_back(d);
         new_lambda.push_back(la);
@@ -109,6 +117,8 @@ void Collision<DIM>::update(const Eigen::VectorXd& x, double dt) {
   std::swap(new_ids, frame_ids_);
   std::swap(new_frames, collision_frames_);
 
+  std::cout << "d: " << d_ << std::endl;
+  std::cout << "D: " << D_ << std::endl;
   
   nframes_ = collision_frames_.size();
   MatrixXi T(nframes_, 3);
@@ -151,25 +161,10 @@ void Collision<DIM>::update_derivatives(double dt) {
   
   data_.timer.start("Local H");
   Aloc_.resize(nframes_);
-  std::vector<Eigen::Triplet<double>> trips;
-  //#pragma omp parallel for
+  #pragma omp parallel for
   for (int i = 0; i < nframes_; ++i) {
     Aloc_[i] = dd_dx_[i] * H_(i) * dd_dx_[i].transpose();
     sim::simple_psd_fix(Aloc_[i]);
-    for (int j = 0; j < 3; ++j) {
-      int id1 = collision_frames_[i].E_(j);
-      for (int k = 0; k < 3; ++k) {
-        int id2 = collision_frames_[i].E_(k);
-        for (int l = 0; l < 2; ++l) {
-          for (int m = 0; m < 2; ++m) {
-            double val = Aloc_[i](2*j+l, 2*k+m); 
-            double r = 2*id1 + l;
-            double c = 2*id2 + m;
-            trips.push_back(Eigen::Triplet<double>(r,c,val));
-          }
-        }
-      }
-    }
     //Eigen::VectorXx<Scalar> diag_eval = es.eigenvalues().real();
     //std::cout << " d_(i) : " << d_(i) << std::endl;
     //std::cout << " g_(i) : " << g_(i) << std::endl;
@@ -186,7 +181,6 @@ void Collision<DIM>::update_derivatives(double dt) {
   A_ = assembler_->A;
 // std::cout << "A1: \n " << MatrixXd(A_) << std::endl;
   // std::cout << "nframes: " << nframes_ << std::endl;
-  // A_.setFromTriplets(trips.begin(),trips.end());
   // saveMarket(assembler_->A, "lhs_c2.mkt");
 // std::cout << "A2: \n " << A_ << std::endl;
 std::cout << "E_ : " << collision_frames_[0].E_ << std::endl;
@@ -294,21 +288,11 @@ void Collision<DIM>::post_solve() {
 template<int DIM>
 double Collision<DIM>::max_possible_step(const VectorXd& x1,
     const VectorXd& x2) {
-    //static bool edgeEdgeCTCD(const Eigen::Vector3d &q0start,
-    //        const Eigen::Vector3d &p0start,
-    //        const Eigen::Vector3d &q1start,
-    //        const Eigen::Vector3d &p1start,
-    //        const Eigen::Vector3d &q0end,
-    //        const Eigen::Vector3d &p0end,
-    //        const Eigen::Vector3d &q1end,
-    //        const Eigen::Vector3d &p1end, double eta,
-    //        double &t);
-  // Check for intersections
-  // (p0 + t(p1-p0) - v0)
-  //
+
   double min_step = 1.0;
   double eta0 = 1e-8;
 
+  #pragma omp parallel for reduction(min:min_step)
   for (int i = 0; i < F_.rows(); ++i) {
     for (int j = 0; j < F_.rows(); ++j) {
 
@@ -342,19 +326,7 @@ double Collision<DIM>::max_possible_step(const VectorXd& x1,
       double eta = d_sqrt * eta0;
       if (CTCD::edgeEdgeCTCD(p0start,p1start,q0start,q1start,
             p0end,p1end,q0end,q1end,eta,t)) {
-      //std::cout << "p0 start: \n" << p0start << std::endl;
-      //std::cout << "p1 start: \n" << p1start << std::endl;
-      //std::cout << "q0 start: \n" << q0start << std::endl;
-      //std::cout << "q1 start: \n" << q1start << std::endl;
-
-      //std::cout << "p0 end: \n" << p0end << std::endl;
-      //std::cout << "p1 end: \n" << p1end << std::endl;
-      //std::cout << "q0 end: \n" << q0end << std::endl;
-      //std::cout << "q1 end: \n" << q1end << std::endl;
-      //TODO psi(s) can still be negative! Double check, then do exponential func or something
-      t = (t==0) ? 1 : t;
-
-        //std::cout << "t: " << t << " d_sqrt: " << d_sqrt << std::endl;
+        t = (t==0) ? 1 : t;
         min_step = std::min(min_step,t);
       }
     }
