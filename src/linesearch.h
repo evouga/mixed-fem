@@ -16,6 +16,52 @@ namespace {
     return alpha;
   }
 
+  // Cubic interopolation to find minimum alpha along an interval
+  //    Cubic has form g(alpha) = a alpha^3 + b alpha^2 + f'(x0) alpha + f(x0)
+  //    Solve for [a b] then use quadratic equation to find the minimum.
+  //
+  // f(x) = f(x + alpha*d) where d is the descent direction
+  //
+  // Params
+  //    fx0    - f(x) 
+  //    gTd    - f'(x0)^T d
+  //    fx1    - f(x + a1*d)
+  //    fx2    - f(x + a2*d)
+  //    a1 - newest step size in interval (alpha_1)
+  //    a2 - previous step size in interval (alpha_2)
+  template <typename Scalar>
+  static inline Scalar cubic2(Scalar fx0, Scalar gTd, Scalar fx1, Scalar fx2,
+      Scalar a1, Scalar a2){
+
+    // Determinant of coefficient fitting matrix
+    Scalar det = 1.0 / (a1*a1*a2*a2*(a1-a2));
+    
+    // Adjugate matrix (for 2x2 inverse)
+    Eigen::Matrix<Scalar,2,2> A;
+    A <<     a2*a2,   -a1*a1,
+         -a2*a2*a2, a1*a1*a1;
+
+    // Right hand side of interpolation system 
+    Eigen::Matrix<Scalar,2,1> B;
+    B(0) = fx1 - a1*gTd - fx0;
+    B(1) = fx2 - a2*gTd - fx1;
+    
+    // Solve cubic coefficients c = [a b]
+    Eigen::Matrix<Scalar,2,1> c = det * A * B; 
+
+    // If the cubic coefficient is 0, use solution for quadratic
+    // i.e. g(alpha) = b * alpha^2 + f'(x0) * alpha + f(x0)
+    //      g'(alpha) = (2b * alpha + f'(x0))
+    //      Set equal to zero and solve for alpha.
+    if (std::abs(c(0)) < 1e-12) {
+      return -gTd / (2.0*c(1));
+    } else {
+      // Otherwise use quadratic formula to find the minimum of the cubic
+      Scalar d = std::sqrt(c(1)*c(1) - 3*c(0)*gTd);
+      return (-c(1) + d) / (3.0 * c(0));
+    }
+  }
+  //
   // Cubic interpolation
   // fx0 = f(x0)
   // gtp = f'(x0)^T p
@@ -24,7 +70,7 @@ namespace {
   // fxp = previous fxa
   // alphap = previous alpha
   template <typename Scalar>
-  static inline Scalar cubic( Scalar fx0, Scalar gtp, Scalar fxa, Scalar alpha, Scalar fxp, Scalar alphap ){
+  static inline Scalar cubic( Scalar fx0, Scalar gTd, Scalar fx, Scalar alpha, Scalar fxp, Scalar alphap ){
     typedef Eigen::Matrix<Scalar,2,1> Vec2;
     typedef Eigen::Matrix<Scalar,2,2> Mat2;
 
@@ -33,10 +79,10 @@ namespace {
     A(0,0) = alphap*alphap;   A(0,1) = -alpha*alpha;
     A(1,0) = -alphap*alphap*alphap; A(1,1) = alpha*alpha*alpha; 
     Vec2 B;
-    B[0] = fxa - fx0 - alpha*gtp; B[1] = fxp - fx0 - alphap*gtp;
+    B[0] = fx - fx0 - alpha*gTd; B[1] = fxp - fx0 - alphap*gTd;
     Vec2 r = mult * A * B;
-    if( std::abs(r[0]) <= 0.0 ){ return -gtp / (2.0*r[1]); } // if quadratic
-    Scalar d = std::sqrt( r[1]*r[1] - 3.0*r[0]*gtp ); // discrim
+    if( std::abs(r[0]) <= 0.0 ){ return -gTd / (2.0*r[1]); } // if quadratic
+    Scalar d = std::sqrt( r[1]*r[1] - 3.0*r[0]*gTd ); // discrim
     return (-r[1] + d) / (3.0*r[0]);
   }
 }
