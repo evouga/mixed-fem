@@ -1,0 +1,44 @@
+Measure "actual gradient" for output
+Get a "standard" ipc working
+Check for convergence - test "actual" newton decrement , check out chenfanfu PD collision
+Set up unit tests 
+
+Add 2D mass-spring (maybe)
+
+Drop smaller cube on larger cube on platform
+
+Drop heavy cube on trampoline
+
+Sequence of cubes on trampoline (check rigid-ipc for references)`
+
+
+{
+  "optimizer": "mixed-sqp",
+  "time_integrator": "bdf1",
+  "linear_solver": "eigen-llt",
+  "timestep": 0.034,
+  "body_force": [0.0, -9.8, 0.0],
+  "print_stats": true,
+  "print_timing": true,
+  "max_iterations": 5,
+  "max_linesearch_iterations":, 20
+  "kappa": 10
+  "objects": [
+  {
+    "shit"
+
+    
+
+  }
+  ]
+
+
+  // BC are per object
+  // Material model, params are per ELEMENT
+
+}
+
+
+---
+TODO - cmake openmp
+

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "optimizers/mixed_sqp_optimizer.h"
+#include "optimizers/optimizer.h"
 #include "variables/stretch.h"
 #include "variables/displacement.h"
 #include "linear_solvers/linear_solver.h"
