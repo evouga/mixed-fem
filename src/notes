@@ -16,21 +16,23 @@ Sequence of cubes on trampoline (check rigid-ipc for references)`
   "optimizer": "mixed-sqp",
   "time_integrator": "bdf1",
   "linear_solver": "eigen-llt",
+  "linesearch": backtracking-cubic-ccd
   "timestep": 0.034,
   "body_force": [0.0, -9.8, 0.0],
   "print_stats": true,
   "print_timing": true,
   "max_iterations": 5,
-  "max_linesearch_iterations":, 20
+  "max_linesearch_iterations": 20,
   "kappa": 10
   "objects": [
   {
     "shit"
-
-    
-
-  }
+  }],
+  "mixed_variables": 
+    "stretch",
+    "collision"
   ]
+  "enable_collision":true,
 
 
   // BC are per object
@@ -41,4 +43,26 @@ Sequence of cubes on trampoline (check rigid-ipc for references)`
 
 ---
 TODO - cmake openmp
+---
+
+
+
+1. SQP general optimizer used by both newtons & mixed
+  - right now assume displacement is "primal"
+  - take in vector of shared_ptrs as constructor
+2. Variable factory
+  - displacement
+  - stretch
+  - collision
+  - bending
+3. Linesearch factory
+4. Remove mass matrix from displacement. Use templated call to mass_matrix() to select which version one wants
+5. ADMM optimizer 
+6. Uzawa iteration
+
+
+
+
+
+
 

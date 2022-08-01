@@ -83,6 +83,8 @@ find_package(CHOLMOD)
 find_package(SuiteSparse)
 
 add_subdirectory("deps/amgcl")
+#add_subdirectory("deps/enoki")
+add_subdirectory("deps/fcpw")
 #add_subdirectory("deps/collisiondetection")
 include(${PROJECT_SOURCE_DIR}/cmake/ccd.cmake)
 
@@ -166,7 +168,6 @@ if(LAPACK_FOUND)
   target_link_libraries(mixed_fem_lib ${LAPACK_LIBRARIES})
 endif()
 if(CHOLMOD_FOUND AND BLAS_FOUND AND LAPACK_FOUND)
-message(CHOL INCLUDES ${CHOLMOD_INCLUDE_DIR})
   include_directories(${CHOLMOD_INCLUDE_DIR})
   target_link_libraries(mixed_fem_lib ${CHOLMOD_LIBRARIES})
   target_compile_definitions(mixed_fem_lib PUBLIC -DSIM_USE_CHOLMOD)
@@ -199,10 +200,13 @@ target_include_directories(mixed_fem_lib SYSTEM PUBLIC
 #   #"${CMAKE_CURRENT_SOURCE_DIR}/deps/nasoq/include"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope/deps/args"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope/deps/json/include")
+#target_include_directories(mixed_fem_lib SYSTEM PUBLIC ${FCPW_EIGEN_INCLUDES})
+target_include_directories(mixed_fem_lib SYSTEM PUBLIC ${FCPW_ENOKI_INCLUDES})
 
 # Link settings
 target_link_libraries(mixed_fem_lib polyscope Eigen3::Eigen amgcl::amgcl 
   collisiondetection)
+target_link_libraries(mixed_fem_lib fcpw)
 
 # Create an executable
 add_executable(tet_sim apps/tet_sim.cpp ${SOURCES})

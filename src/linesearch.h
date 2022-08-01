@@ -23,12 +23,12 @@ namespace {
   // f(x) = f(x + alpha*d) where d is the descent direction
   //
   // Params
-  //    fx0    - f(x) 
-  //    gTd    - f'(x0)^T d
-  //    fx1    - f(x + a1*d)
-  //    fx2    - f(x + a2*d)
-  //    a1 - newest step size in interval (alpha_1)
-  //    a2 - previous step size in interval (alpha_2)
+  //    fx0   - f(x)
+  //    gTd   - f'(x0)^T d
+  //    fx1   - f(x + a1*d)
+  //    fx2   - f(x + a2*d)
+  //    a1    - newest step size in interval (alpha_1)
+  //    a2    - previous step size in interval (alpha_2)
   template <typename Scalar>
   static inline Scalar cubic2(Scalar fx0, Scalar gTd, Scalar fx1, Scalar fx2,
       Scalar a1, Scalar a2){

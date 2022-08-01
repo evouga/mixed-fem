@@ -12,15 +12,6 @@ namespace mfem {
 
   class Mesh;
   class SimConfig;
-
-  static Eigen::Vector6d I_vec = (Eigen::Vector6d() <<
-      1, 1, 1, 0, 0, 0).finished();
-
-  static Eigen::Matrix6d Sym = (Eigen::Vector6d() <<
-      1, 1, 1, 2, 2, 2).finished().asDiagonal();
-
-  static Eigen::Matrix6d Syminv = (Eigen::Vector6d() <<
-    1, 1, 1, .5, .5, .5).finished().asDiagonal();
   
   template <int DIM>
   class Optimizer {
@@ -49,9 +40,7 @@ namespace mfem {
     std::vector<Eigen::MatrixXd> step_x;
     Eigen::VectorXd step_x0;
     Eigen::VectorXd step_v;
-    Eigen::SparseMatrixd P_;          // pinning constraint (for vertices)
 
-    double wx_, wx0_, wx1_, wx2_, wdt_;
     std::function<void(const std::vector<std::shared_ptr<Variable<DIM>>>&)> callback;
 
   protected:

@@ -19,7 +19,6 @@ void Optimizer<DIM>::reset() {
   BCs_.set_script(config_->bc_type);
   BCs_.init_script(mesh_);
 
-  P_ = pinning_matrix(mesh_->V_, mesh_->T_, mesh_->is_fixed_, false);
   mesh_->update_free_map();
   mesh_->init();
 }
