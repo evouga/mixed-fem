@@ -55,7 +55,8 @@ void Mesh::init() {
   mass_matrix(M_, vols_);
   std::cout << "Mesh::init() " << M_.rows() << ", " << M_.cols() << std::endl;
 
-  PMP_ = P_ * M_ * P_.transpose();
+  PM_ = P_ * M_;
+  PMP_ = PM_ * P_.transpose();
 }
 
 void Mesh::clear_fixed_vertices() {

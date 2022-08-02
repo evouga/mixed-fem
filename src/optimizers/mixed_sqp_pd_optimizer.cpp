@@ -66,6 +66,7 @@ void MixedSQPPDOptimizer<DIM>::step() {
     data_.print_data(config_->show_timing);
   }
 
+  this->BCs_.step_script(mesh_, config_->h);
   xvar_->post_solve();
   svar_->post_solve();
   cvar_->post_solve();
@@ -113,7 +114,7 @@ void MixedSQPPDOptimizer<DIM>::substep(double& decrement) {
   data_.timer.stop("local");
 
   data_.timer.start("local-c");
-  cvar_->solve(xvar_->projection_matrix().transpose() * xvar_->delta());
+  cvar_->solve(mesh_->projection_matrix().transpose() * xvar_->delta());
   data_.timer.stop("local-c");
 
   data_.add("||x delta||", xvar_->delta().norm());

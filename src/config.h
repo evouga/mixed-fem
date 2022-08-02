@@ -14,6 +14,12 @@ namespace mfem {
     lambda = (E*nu)/((1.0+nu)*(1.0-2.0*nu));
   }
 
+  enum VariableType {
+    VAR_DISPLACEMENT,
+    VAR_STRETCH,
+    VAR_COLLISION
+  };
+
   enum OptimizerType {
       OPTIMIZER_ALM,
       OPTIMIZER_ADMM,

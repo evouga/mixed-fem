@@ -18,6 +18,11 @@ namespace mfem {
     Stretch(std::shared_ptr<Mesh> mesh) : MixedVariable<DIM>(mesh)
     {}
 
+    static std::string name() {
+      return "stretch";
+    }
+
+
     double energy(const Eigen::VectorXd& s) override;
     double constraint_value(const Eigen::VectorXd& x,
         const Eigen::VectorXd& s) override;

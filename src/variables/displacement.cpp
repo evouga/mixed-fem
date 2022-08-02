@@ -21,9 +21,11 @@ template<int DIM>
 double Displacement<DIM>::energy(const VectorXd& x) {
 
   double h = integrator_->dt();
-  VectorXd xt = P_.transpose()*x + b_;
+  const auto& P = mesh_->projection_matrix();
+  VectorXd xt = P.transpose()*x + b_;
   VectorXd diff = xt - integrator_->x_tilde() - h*h*f_ext_;
-  double e = 0.5*diff.transpose()*M_*diff;
+  const auto& MM = mesh_->template mass_matrix<FULL>();
+  double e = 0.5*diff.transpose()*MM*diff;
 
   if (!is_mixed_) {
     VectorXd def_grad;
@@ -42,9 +44,8 @@ double Displacement<DIM>::energy(const VectorXd& x) {
 
 template<int DIM>
 void Displacement<DIM>::post_solve() {
-  // Update boundary positions
-  BCs_.step_script(mesh_, config_->h);
-
+  // TODO b_,/BCs should not be here, boundary conditions
+  // probably should be owned by either optimizer or mesh
   #pragma omp parallel for
   for (int i = 0; i < mesh_->V_.rows(); ++i) {
     if (mesh_->is_fixed_(i)) {
@@ -52,7 +53,8 @@ void Displacement<DIM>::post_solve() {
     }
   }
 
-  VectorXd x = P_.transpose()*x_ + b_;
+  const auto& P = mesh_->projection_matrix();
+  VectorXd x = P.transpose()*x_ + b_;
   integrator_->update(x);
 
   // Update mesh vertices
@@ -68,7 +70,8 @@ void Displacement<DIM>::update(const Eigen::VectorXd&, double) {
     double h2 = h*h;
 
     VectorXd def_grad;
-    mesh_->deformation_gradient(P_.transpose()*x_+b_, def_grad);
+    const auto& P = mesh_->projection_matrix();
+    mesh_->deformation_gradient(P.transpose()*x_+b_, def_grad);
 
     const std::vector<MatrixXd>& Jloc = mesh_->local_jacobians();
 
@@ -83,7 +86,9 @@ void Displacement<DIM>::update(const Eigen::VectorXd&, double) {
       g_[i] = Jloc[i].transpose() * mesh_->material_->gradient(F) * vol * h2;
     }
     assembler_->update_matrix(H_);
-    lhs_ = PMP_ + assembler_->A;
+
+    const auto& PMP = mesh_->template mass_matrix<PROJECTED>();
+    lhs_ = PMP + assembler_->A;
   }
 }
 
@@ -99,9 +104,12 @@ template<int DIM>
 VectorXd Displacement<DIM>::gradient() {
   double h = integrator_->dt();
   double h2 = h*h;
-  VectorXd xt = P_.transpose()*x_ + b_;
+  const auto& P = mesh_->projection_matrix();
+  VectorXd xt = P.transpose()*x_ + b_;
   VectorXd diff = xt - integrator_->x_tilde() - h*h*f_ext_;
-  grad_ = PM_ * diff;
+
+  const auto& PM = mesh_->template mass_matrix<PROJECT_ROWS>();
+  grad_ = PM * diff;
 
   if (!is_mixed_) {
     // Assuming update() was called to update per-element gradients, g_
@@ -131,35 +139,21 @@ void Displacement<DIM>::reset() {
     g_[i].setZero();
   }
 
-  mesh_->V_ = mesh_->V0_;
-  mesh_->clear_fixed_vertices();
-
-  BoundaryConditions<DIM>::init_boundary_groups(mesh_->V0_,
-      mesh_->bc_groups_, 0.01); // .01, hang for astronaut
-
-  BCs_.set_script(config_->bc_type);
-  BCs_.init_script(mesh_);
-  P_ = pinning_matrix(mesh_->V_, mesh_->T_, mesh_->is_fixed_, false);
-
-  mesh_->mass_matrix(M_, mesh_->volumes());
-
   MatrixXd tmp = mesh_->V_.transpose();
   x_ = Map<VectorXd>(tmp.data(), mesh_->V_.size());
 
   IntegratorFactory factory;
   integrator_ = factory.create(config_->ti_type, x_, 0*x_, config_->h);  
   
-  b_ = x_ - P_.transpose()*P_*x_;
-  x_ = P_ * x_;
+  // Project out Dirichlet boundary conditions
+  const auto& P = mesh_->projection_matrix();
+  b_ = x_ - P.transpose()*P*x_;
+  x_ = P * x_;
   dx_ = 0*x_;
-
-  // Project out mass matrix pinned point
-  PMP_ = P_ * M_ * P_.transpose();
-  PM_ = P_ * M_;
 
   // If mixed, lhs_ is not modified, otherwise in unmixed systems
   // the LHS is changed each step.
-  lhs_ = PMP_;
+  lhs_ = mesh_->template mass_matrix<mfem::MatrixType::PROJECTED>();
 
   // External gravity force
   VecD ext = Map<Matrix<float,DIM,1>>(config_->ext).template cast<double>();

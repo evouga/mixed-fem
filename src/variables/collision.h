@@ -76,6 +76,10 @@ namespace mfem {
         : MixedVariable<DIM>(mesh), config_(config)
     {}
 
+    static std::string name() {
+      return "collision";
+    }
+
     double energy(const Eigen::VectorXd& d) override;
     double constraint_value(const Eigen::VectorXd& x,
         const Eigen::VectorXd& d) override;
