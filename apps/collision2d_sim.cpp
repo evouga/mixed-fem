@@ -16,6 +16,7 @@
 #include <algorithm>
 #include "variables/collision.h"
 #include "variables/displacement.h"
+#include "variables/stretch.h"
 
 using namespace Eigen;
 using namespace mfem;
@@ -105,15 +106,13 @@ struct PolyscopeTriApp : public PolyscopeApp<2> {
     }
   }
 
-  void collision_callback(const std::vector<std::shared_ptr<Variable<2>>>& var)
-  {
+  void collision_callback(const SimState<2>& state) {
     std::shared_ptr<Collision<2>> c;
-    std::shared_ptr<Displacement<2>> x;
+    std::shared_ptr<Displacement<2>> x = state.x_;
 
     // Determine if variables include the required displacement and collision
-    for (size_t i = 0; i < var.size(); ++i) {
-      if(!c) c = std::dynamic_pointer_cast<Collision<2>>(var[i]);
-      if(!x) x = std::dynamic_pointer_cast<Displacement<2>>(var[i]);
+    for (size_t i = 0; i < state.vars_.size(); ++i) {
+      if(!c) c = std::dynamic_pointer_cast<Collision<2>>(state.vars_[i]);
     }
 
     if (!x || !c) {
@@ -180,8 +179,19 @@ struct PolyscopeTriApp : public PolyscopeApp<2> {
     config->bc_type = BC_HANGENDS;
     config->solver_type = SOLVER_EIGEN_LU;
 
+    state.mesh_ = mesh;
+    state.config_ = config;
+    state.x_ = std::make_shared<Displacement<2>>(mesh, config);
+    state.vars_ = {
+      std::make_shared<Stretch<2>>(mesh),
+      std::make_shared<Collision<2>>(mesh, config)
+    };
+
+    SolverFactory solver_factory;
+    state.solver_ = solver_factory.create(config->solver_type, mesh, config);
+
     //config->optimizer = OptimizerType::OPTIMIZER_NEWTON;
-    optimizer = optimizer_factory.create(config->optimizer, mesh, config);
+    optimizer = optimizer_factory.create(config->optimizer, state);
     optimizer->reset();
 
     BoundaryConditions<2>::get_script_names(bc_list);

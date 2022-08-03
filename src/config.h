@@ -101,7 +101,7 @@ namespace mfem {
     double newton_tol = 1e-10;
     double ls_tol = 1e-4;
     int ls_iters = 20;
-    OptimizerType optimizer = OPTIMIZER_SQP_PD;
+    OptimizerType optimizer = OPTIMIZER_NEWTON;
     int max_iterative_solver_iters = 500;
     double itr_tol = 1e-4;
     BCScriptType bc_type = BC_ONEPOINT;

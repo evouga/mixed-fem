@@ -1,39 +1,18 @@
 #include "optimizer_factory.h"
 #include "optimizers/optimizer.h"
-#include "optimizers/mixed_sqp_pd_optimizer.h"
 #include "optimizers/newton_optimizer.h"
 #include "mesh/mesh.h"
 
 using namespace mfem;
 using namespace Eigen;
 
-template<>
-OptimizerFactory<3>::OptimizerFactory() {
-  // SQP Positive-Definite
-  register_type(OptimizerType::OPTIMIZER_SQP_PD,MixedSQPPDOptimizer<3>::name(),
-      [](std::shared_ptr<Mesh> mesh, std::shared_ptr<SimConfig> config)
-      ->std::unique_ptr<Optimizer<3>>
-      {return std::make_unique<MixedSQPPDOptimizer<3>>(mesh, config);});
-
+template<int DIM>
+OptimizerFactory<DIM>::OptimizerFactory() {
   // Newton's
-  register_type(OptimizerType::OPTIMIZER_NEWTON, NewtonOptimizer<3>::name(),
-      [](std::shared_ptr<Mesh> mesh, std::shared_ptr<SimConfig> config)
-      ->std::unique_ptr<Optimizer<3>>
-      {return std::make_unique<NewtonOptimizer<3>>(mesh, config);});
-}
-
-template<>
-OptimizerFactory<2>::OptimizerFactory() {
-  // Newton's
-  register_type(OptimizerType::OPTIMIZER_NEWTON, NewtonOptimizer<2>::name(),
-      [](std::shared_ptr<Mesh> mesh, std::shared_ptr<SimConfig> config)
-      ->std::unique_ptr<Optimizer<2>>
-      {return std::make_unique<NewtonOptimizer<2>>(mesh, config);});
-
-  register_type(OptimizerType::OPTIMIZER_SQP_PD,MixedSQPPDOptimizer<2>::name(),
-      [](std::shared_ptr<Mesh> mesh, std::shared_ptr<SimConfig> config)
-      ->std::unique_ptr<Optimizer<2>>
-      {return std::make_unique<MixedSQPPDOptimizer<2>>(mesh, config);});
+  this->register_type(OptimizerType::OPTIMIZER_NEWTON,
+      NewtonOptimizer<3>::name(),
+      [](const SimState<DIM>& state)->std::unique_ptr<Optimizer<DIM>>
+      {return std::make_unique<NewtonOptimizer<DIM>>(state);});
 }
 
 template class mfem::OptimizerFactory<3>;

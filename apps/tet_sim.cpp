@@ -12,6 +12,7 @@
 #include <fstream>
 #include <functional>
 #include <string>
+#include "variables/stretch.h"
 
 using namespace Eigen;
 using namespace mfem;
@@ -112,7 +113,14 @@ struct PolyscopeTetApp : public PolyscopeApp<3> {
     mesh = std::make_shared<TetrahedralMesh>(meshV, meshT,
         material, material_config);
 
-    optimizer = optimizer_factory.create(config->optimizer, mesh, config);
+    state.mesh_ = mesh;
+    state.config_ = config;
+    state.x_ = std::make_shared<Displacement<3>>(mesh, config);
+    state.vars_ = {
+      std::make_shared<Stretch<3>>(mesh),
+    };
+
+    optimizer = optimizer_factory.create(config->optimizer, state);
     optimizer->reset();
 
     BoundaryConditions<3>::get_script_names(bc_list);

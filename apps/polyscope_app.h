@@ -190,7 +190,7 @@ namespace mfem {
 
         if (FactoryCombo<OptimizerFactory<DIM>, OptimizerType>(
             "Optimizer", config->optimizer)) {
-          optimizer = optimizer_factory.create(config->optimizer, mesh, config);
+          optimizer = optimizer_factory.create(config->optimizer, state);
           optimizer->reset();
         }
 
@@ -361,6 +361,7 @@ namespace mfem {
     std::shared_ptr<Mesh> mesh;
 
     std::vector<std::string> bc_list;
+    SimState<DIM> state;
 
   };
 

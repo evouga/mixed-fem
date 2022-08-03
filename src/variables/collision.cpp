@@ -67,7 +67,9 @@ double Collision<DIM>::constraint_value(const VectorXd& x,
 template<int DIM>
 void Collision<DIM>::update(const Eigen::VectorXd& x, double dt) {
   // Get collision frames
+  dt = 1.0;
   dt_ = dt;
+
 
 
   //std::cout << "d: " << d_ << std::endl;
@@ -272,7 +274,7 @@ void Collision<DIM>::solve(const VectorXd& dx) {
 
 template<int DIM>
 void Collision<DIM>::reset() {
-  h_ = 1e-2; // 1e-3 in ipc
+  h_ = 2e-2; // 1e-3 in ipc
   d_.resize(0);
   g_.resize(0);
   H_.resize(0);

@@ -10,7 +10,7 @@ namespace mfem {
 
   template<int DIM>
 	class OptimizerFactory : public Factory<OptimizerType,
-			Optimizer<DIM>, std::shared_ptr<Mesh>, std::shared_ptr<SimConfig>> {
+			Optimizer<DIM>, const SimState<DIM>&> {
 	public:
     OptimizerFactory();
 	};
