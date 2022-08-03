@@ -114,7 +114,7 @@ void MixedSQPPDOptimizer<DIM>::substep(double& decrement) {
   data_.timer.stop("local");
 
   data_.timer.start("local-c");
-  cvar_->solve(mesh_->projection_matrix().transpose() * xvar_->delta());
+  cvar_->solve(xvar_->delta());
   data_.timer.stop("local-c");
 
   data_.add("||x delta||", xvar_->delta().norm());

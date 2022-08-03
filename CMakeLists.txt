@@ -116,6 +116,7 @@ file(GLOB SOURCES
     ${PROJECT_SOURCE_DIR}/src/linear_solvers/*.cpp
     ${PROJECT_SOURCE_DIR}/src/time_integrators/*.cpp
     ${PROJECT_SOURCE_DIR}/src/factories/*.cpp
+    ${PROJECT_SOURCE_DIR}/src/utils/*.cpp
     ${PROJECT_SOURCE_DIR}/src/mesh/*.cpp)
 
 # message("SOURCES" ${SOURCES})

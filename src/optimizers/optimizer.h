@@ -12,6 +12,11 @@ namespace mfem {
 
   class Mesh;
   class SimConfig;
+
+  struct SimState {
+
+  };
+
   
   template <int DIM>
   class Optimizer {

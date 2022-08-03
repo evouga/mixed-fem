@@ -249,18 +249,21 @@ void Collision<DIM>::solve(const VectorXd& dx) {
   if (nframes_ == 0) {
     return;
   }
+  
+  VectorXd q = mesh_->projection_matrix().transpose() * dx;
 
   data_.timer.start("local");
   std::vector<VectorXd> g(nframes_);
   Gdx_.resize(d_.size());
+
   #pragma omp parallel for
   for (int i = 0; i < nframes_; ++i) {
-    Matrix<double,DIM*3,1> q;
+    Matrix<double,DIM*3,1> qi;
     const Vector3i& E = collision_frames_[i].E_;
-    // WRONG
-    q << dx.segment<DIM>(DIM*E(0)), dx.segment<DIM>(DIM*E(1)),
-         dx.segment<DIM>(DIM*E(2));
-    Gdx_(i) = -q.dot(dd_dx_[i]);
+    qi << q.segment<DIM>(DIM*E(0)),
+          q.segment<DIM>(DIM*E(1)),
+          q.segment<DIM>(DIM*E(2));
+    Gdx_(i) = -qi.dot(dd_dx_[i]);
   }
   la_ = -gl_.array() + (H_.array() * Gdx_.array());
   delta_ = -(la_ + g_).array() / H_.array();
@@ -269,7 +272,7 @@ void Collision<DIM>::solve(const VectorXd& dx) {
 
 template<int DIM>
 void Collision<DIM>::reset() {
-  h_ = 1e-1; // 1e-3 in ipc
+  h_ = 1e-2; // 1e-3 in ipc
   d_.resize(0);
   g_.resize(0);
   H_.resize(0);

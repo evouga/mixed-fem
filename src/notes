@@ -50,13 +50,7 @@ TODO - cmake openmp
 1. SQP general optimizer used by both newtons & mixed
   - right now assume displacement is "primal"
   - take in vector of shared_ptrs as constructor
-2. Variable factory
-  - displacement
-  - stretch
-  - collision
-  - bending
 3. Linesearch factory -- dont do for now, only one linesearch approach :/ 
-4. Remove mass matrix from displacement. Use templated call to mass_matrix() to select which version one wants
 5. Boundary condition factory
 6. ADMM optimizer 
 7. Uzawa iteration

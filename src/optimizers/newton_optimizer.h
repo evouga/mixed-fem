@@ -2,7 +2,6 @@
 
 #include "optimizers/optimizer.h"
 #include "variables/displacement.h"
-#include "sparse_utils.h"
 #include "linear_solvers/linear_solver.h"
 
 #if defined(SIM_USE_CHOLMOD)

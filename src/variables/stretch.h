@@ -2,7 +2,7 @@
 
 #include "mixed_variable.h"
 #include "optimizers/optimizer_data.h"
-#include "sparse_utils.h"
+#include "utils/sparse_utils.h"
 
 namespace mfem {
 

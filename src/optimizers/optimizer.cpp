@@ -1,5 +1,4 @@
 #include "optimizer.h"
-#include "pinning_matrix.h"
 #include "mesh/mesh.h"
 #include "time_integrators/BDF.h"
 

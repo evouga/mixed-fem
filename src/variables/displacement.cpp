@@ -3,7 +3,7 @@
 #include "mesh/mesh.h"
 #include "energies/material_model.h"
 #include "svd/newton_procrustes.h"
-#include "pinning_matrix.h"
+#include "utils/pinning_matrix.h"
 #include "config.h"
 #include "factories/integrator_factory.h"
 #include "time_integrators/implicit_integrator.h"

@@ -2,7 +2,7 @@
 #include "boundary_conditions.h"
 #include "energies/material_model.h"
 #include "config.h"
-#include "pinning_matrix.h"
+#include "utils/pinning_matrix.h"
 
 using namespace mfem;
 using namespace Eigen;

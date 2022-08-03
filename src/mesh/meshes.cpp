@@ -1,8 +1,8 @@
 #include "meshes.h"
 #include "config.h"
-#include "sparse_utils.h"
+#include "utils/sparse_utils.h"
 #include "boundary_conditions.h"
-#include "pinning_matrix.h"
+#include "utils/pinning_matrix.h"
 
 using namespace Eigen;
 using namespace mfem;
