@@ -183,6 +183,7 @@ struct PolyscopeTriApp : public PolyscopeApp<2> {
     config->solver_type = SOLVER_EIGEN_LU;
     config->enable_collisions = true;
 
+    SimState<2> state;
     state.mesh_ = mesh;
     state.config_ = config;
     state.x_ = std::make_shared<Displacement<2>>(mesh, config);

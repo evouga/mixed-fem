@@ -32,6 +32,8 @@ namespace mfem {
     MaterialModel(const std::shared_ptr<MaterialConfig>& config) 
         : config_(config) {}
 
+    virtual ~MaterialModel() = default;
+
     // Computes psi, the strain energy density value.
     // S - 6x1 symmetric deformation
     virtual double energy(const Eigen::Vector6d& S) = 0; 

@@ -53,6 +53,8 @@ namespace mfem {
     Optimizer(const SimState<DIM>& state) : state_(state) {
       callback = default_optimizer_callback;
     }
+
+    virtual ~Optimizer() = default;
           
     static std::string name() {
       return "base";

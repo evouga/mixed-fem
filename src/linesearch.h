@@ -281,7 +281,7 @@ namespace mfem {
 
     double h2 = std::pow(state.x_->integrator()->dt(), 2);
 
-    auto f = [=](double a)->Scalar {
+    auto f = [&](double a)->Scalar {
       Eigen::VectorXd x0 = state.x_->value() + a * state.x_->delta();
       Scalar val = state.x_->energy(x0);
       state.x_->unproject(x0);
