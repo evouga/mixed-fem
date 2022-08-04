@@ -3,6 +3,7 @@
 #include "energies/material_model.h"
 #include "config.h"
 #include "utils/pinning_matrix.h"
+#include "igl/boundary_facets.h"
 
 using namespace mfem;
 using namespace Eigen;
@@ -32,6 +33,9 @@ Mesh::Mesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
   }
   BoundaryConditions<3>::init_boundary_groups(V0_, bc_groups_, 0.01);
   P_ = pinning_matrix(V_, T_, is_fixed_);
+
+  igl::boundary_facets(T_, F_);
+  assert(F_.cols() == cols);
 }
 
 void Mesh::init() {

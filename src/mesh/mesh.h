@@ -63,7 +63,8 @@ namespace mfem {
     virtual bool fixed_jacobian() { return true; }
 
     // Defo gradients
-    virtual void deformation_gradient(const Eigen::VectorXd& x, Eigen::VectorXd& F) = 0;
+    virtual void deformation_gradient(const Eigen::VectorXd& x,
+        Eigen::VectorXd& F) = 0;
     virtual void init_jacobian() {};
     virtual void update_jacobian(const Eigen::VectorXd& x) {}
     virtual const Eigen::SparseMatrixdRowMajor& jacobian() {
@@ -102,6 +103,7 @@ namespace mfem {
     }
 
 
+    // I don't like this
     void clear_fixed_vertices();
 
     void free_vertex(int id);
@@ -124,6 +126,7 @@ namespace mfem {
     Eigen::MatrixXd V_;
     Eigen::MatrixXd V0_;
     Eigen::MatrixXi T_;
+    Eigen::MatrixXi F_;
 
     std::shared_ptr<MaterialModel> material_;
     std::shared_ptr<MaterialConfig> config_;

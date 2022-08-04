@@ -46,7 +46,7 @@ namespace mfem {
     SOLVER_AFFINE_PCG
   };
 
-  enum MaterialModelType {
+  enum MaterialModelType { 
       MATERIAL_SNH,   // Stable neohookean
       MATERIAL_NH,    // neohookean
       MATERIAL_COROT, // corotational
@@ -94,7 +94,8 @@ namespace mfem {
     double kappa = 10.0;
     double max_kappa = 1e6;
     double constraint_tol = 1e-2;
-    
+    bool enable_collisions = false;
+
     // update kappa and lambda if residual below this tolerance
     double update_zone_tol = 1e-1; 
 

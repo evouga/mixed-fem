@@ -178,6 +178,7 @@ struct PolyscopeTriApp : public PolyscopeApp<2> {
     //config->bc_type = BC_NULL;
     config->bc_type = BC_HANGENDS;
     config->solver_type = SOLVER_EIGEN_LU;
+    config->enable_collisions = true;
 
     state.mesh_ = mesh;
     state.config_ = config;

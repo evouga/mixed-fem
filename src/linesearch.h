@@ -283,19 +283,6 @@ namespace mfem {
 
     double h2 = std::pow(x->integrator()->dt(),2);
 
-    for (int i = 0; i < vars.size(); ++i) {
-      if (Collision<DIM>* c = dynamic_cast<Collision<DIM>*>(vars[i].get())) {
-        Eigen::VectorXd x1 = x->value();
-        Eigen::VectorXd x2 = x->value() + alpha * x->delta();
-        x->unproject(x1);
-        x->unproject(x2);
-        alpha = c->max_possible_step(x1,x2);
-        std::cout << std::setprecision(10) << "MAX STEP: " << alpha << std::endl;
-      //std::cout << std::setprecision(10) << "LS: i: " << iter << " f: " << fx << std::endl;
-      }
-
-    }
-
     auto f = [=](double a)->Scalar {
       Eigen::VectorXd x0 = x->value() + a * x->delta();
       Scalar val = x->energy(x0);

@@ -5,7 +5,6 @@
 using namespace mfem;
 using namespace Eigen;
 
-
 template <int DIM>
 void Optimizer<DIM>::reset() {
   state_.mesh_->V_ = state_.mesh_->V0_;

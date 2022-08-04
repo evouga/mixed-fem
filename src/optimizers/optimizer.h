@@ -29,9 +29,6 @@ namespace mfem {
     // Scene parameters
     std::shared_ptr<SimConfig> config_;
 
-    // Time Integrator
-    // std::shared_ptr<ImplicitIntegrator> integrator_;
-
     // Nodal displacement primal variable
     std::shared_ptr<Displacement<DIM>> x_;
 
@@ -42,9 +39,8 @@ namespace mfem {
     std::shared_ptr<LinearSolver<double, Eigen::RowMajor>> solver_;
   };
 
-  auto default_optimizer_callback = [](auto &state){};
+  auto default_optimizer_callback = [](auto& state){};
 
-  
   template <int DIM>
   class Optimizer {
   public:

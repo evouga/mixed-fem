@@ -4,6 +4,7 @@
 #include "mesh/mesh.h"
 #include "factories/solver_factory.h"
 #include <unsupported/Eigen/SparseExtra>
+#include "utils/max_possible_step.h"
 
 using namespace mfem;
 using namespace Eigen;
@@ -33,6 +34,18 @@ void NewtonOptimizer<DIM>::step() {
 
     // Linesearch on descent direction
     double alpha = 1.0;
+
+    // If collisions enabled truncate the initial step size to avoid
+    // intersections
+    if (state_.config_->enable_collisions) {
+      VectorXd x1 = state_.x_->value();
+      VectorXd x2 = state_.x_->value() + alpha * state_.x_->delta();
+      state_.x_->unproject(x1);
+      state_.x_->unproject(x2);
+      alpha = max_possible_step<DIM>(x1, x2, state_.mesh_->F_);
+      std::cout << std::setprecision(10) << "alpha0: " << alpha << std::endl;
+    }
+
     // SolverExitStatus status = linesearch_backtracking_cubic(x_,
     //    {svar_}, alpha, config_->ls_iters);
     SolverExitStatus status = linesearch_backtracking(state_.x_,
@@ -40,8 +53,8 @@ void NewtonOptimizer<DIM>::step() {
 
     // Record some data
     state_.data_.add(" Iteration", i+1);
-    state_.data_.add("mixed E", E);
-    state_.data_.add("mixed E res", res);
+    state_.data_.add("Energy", E);
+    state_.data_.add("Energy res", res);
     // state_.data_.add("mixed grad", grad_.norm());
     state_.data_.add("Newton dec", grad_norm);
     state_.data_.add("alpha ", alpha);
