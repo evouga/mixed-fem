@@ -45,11 +45,8 @@ Sequence of cubes on trampoline (check rigid-ipc for references)`
 TODO - cmake openmp
 ---
 
-
-
-1. SQP general optimizer used by both newtons & mixed
-  - right now assume displacement is "primal"
-  - take in vector of shared_ptrs as constructor
+1. Nodal IPC
+2. Dropdowns for selecting variables -- enable switching between
 3. Linesearch factory -- dont do for now, only one linesearch approach :/ 
 5. Boundary condition factory
 6. ADMM optimizer 

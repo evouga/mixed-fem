@@ -16,12 +16,14 @@
 #include "energies/material_model.h"
 
 #include "factories/solver_factory.h"
+#include "factories/variable_factory.h"
 #include "factories/optimizer_factory.h"
 #include "factories/integrator_factory.h"
 #include "factories/material_model_factory.h"
 
 namespace mfem {
 
+  // Create a combobox for all types in a given factory
   template <typename Factory, typename TypeEnum>
   bool FactoryCombo(const char* id, TypeEnum& type) {
     static Factory factory;
@@ -46,6 +48,33 @@ namespace mfem {
         }
       }
       ImGui::EndCombo();
+    }
+    return ret;
+  }
+
+  // Build a checkbox for each entry in a factory
+  template <typename Factory, typename TypeEnum>
+  bool FactoryCheckbox(const char* id, std::set<TypeEnum>& types) {
+    static Factory factory;
+    const std::vector<std::string>& names = factory.names();
+
+    bool ret = false;
+    ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+    if (ImGui::TreeNode(id)) {
+      for (int i = 0; i < names.size(); ++i) {
+        TypeEnum type_i = factory.type_by_name(names[i]);
+        bool is_selected = (types.find(type_i) != types.end());
+        if (ImGui::Checkbox(names[i].c_str(), &is_selected)) {
+          std::cout << "Changed: " << is_selected << std::endl;
+          ret = true;
+          if (is_selected) {
+            types.insert(type_i);
+          } else {
+            types.erase(type_i);
+          }
+        }
+      }
+      ImGui::TreePop();
     }
     return ret;
   }
@@ -176,6 +205,32 @@ namespace mfem {
           }
 
           ImGui::InputDouble("Density", &material_config->density);
+        }
+        ImGui::TreePop();
+      }
+
+      ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+      if (ImGui::TreeNode("Variables")) {
+
+        if (FactoryCheckbox<MixedVariableFactory<DIM>, VariableType>(
+            "Mixed Variables", config->mixed_variables)) {
+
+          auto& vars = optimizer->state().mixed_vars_;
+          vars.clear();
+          for (VariableType type : config->mixed_variables) {
+            vars.push_back(mixed_variable_factory.create(type, mesh, config));
+            vars.back()->reset();
+          }
+        }
+
+        if (FactoryCheckbox<VariableFactory<DIM>, VariableType>(
+            "Nodal Variables", config->variables)) {
+          auto& vars = optimizer->state().vars_;
+          vars.clear();
+          for (VariableType type : config->variables) {
+            vars.push_back(variable_factory.create(type, mesh, config));
+            vars.back()->reset();
+          }
         }
         ImGui::TreePop();
       }
@@ -339,8 +394,6 @@ namespace mfem {
     polyscope::SurfaceMesh* srf = nullptr;
     polyscope::SurfaceMesh* srf_skin = nullptr;
 
-//    std::function<void(const std::vector<std::shared_ptr<Variable<DIM>>>&)> callback;
-
     std::vector<std::function<void()>> callback_funcs;
 
     // The mesh, Eigen representation
@@ -351,6 +404,8 @@ namespace mfem {
     Eigen::VectorXd x0, v;
 
     MaterialModelFactory material_factory;
+    VariableFactory<DIM> variable_factory;
+    MixedVariableFactory<DIM> mixed_variable_factory;
     OptimizerFactory<DIM> optimizer_factory;
     SolverFactory solver_factory;
 

@@ -14,4 +14,11 @@ namespace mfem {
 	public:
     MixedVariableFactory();
 	};
+
+  template<int DIM>
+	class VariableFactory : public Factory<VariableType,
+			Variable<DIM>, std::shared_ptr<Mesh>, std::shared_ptr<SimConfig>> {
+	public:
+    VariableFactory();
+	};
 }

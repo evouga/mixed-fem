@@ -66,18 +66,19 @@ namespace mfem {
   };
 
   template<int DIM>
-  class Collision : public MixedVariable<DIM> {
+  class MixedCollision : public MixedVariable<DIM> {
 
     typedef MixedVariable<DIM> Base;
 
   public:
 
-    Collision(std::shared_ptr<Mesh> mesh, std::shared_ptr<SimConfig> config)
+    MixedCollision(std::shared_ptr<Mesh> mesh,
+        std::shared_ptr<SimConfig> config)
         : MixedVariable<DIM>(mesh), config_(config)
     {}
 
     static std::string name() {
-      return "collision";
+      return "mixed-collision";
     }
 
     double energy(const Eigen::VectorXd& d) override;

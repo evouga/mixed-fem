@@ -33,7 +33,13 @@ namespace mfem {
     std::shared_ptr<Displacement<DIM>> x_;
 
     // Mixed variables
-    std::vector<std::shared_ptr<MixedVariable<DIM>>> vars_;
+    std::vector<std::shared_ptr<MixedVariable<DIM>>> mixed_vars_;
+
+    // Displacement-based variables
+    // These don't maintain the state of the nodal displacements, but
+    // compute some energy (stretch, bending, contact) dependent on
+    // displacements.
+    std::vector<std::shared_ptr<Variable<DIM>>> vars_;
 
     // Linear solver to be used in substep of method
     std::shared_ptr<LinearSolver<double, Eigen::RowMajor>> solver_;
@@ -54,6 +60,7 @@ namespace mfem {
 
     virtual void reset();
     virtual void step() = 0;
+    
 
     virtual void update_vertices(const Eigen::MatrixXd& V) {
       std::cerr << "Update vertices not implemented!" << std::endl;
@@ -61,6 +68,10 @@ namespace mfem {
     virtual void set_state(const Eigen::VectorXd& x,
         const Eigen::VectorXd& v) {
       std::cerr << "Update state not implemented!" << std::endl;
+    }
+
+    SimState<DIM>& state() {
+      return state_;
     }
     
     // Temporary. Should be a part of a callback function instead.

@@ -37,6 +37,7 @@ void NewtonOptimizer<DIM>::step() {
 
     // If collisions enabled truncate the initial step size to avoid
     // intersections
+    // TODO move to linesearch
     if (state_.config_->enable_collisions) {
       VectorXd x1 = state_.x_->value();
       VectorXd x2 = state_.x_->value() + alpha * state_.x_->delta();
@@ -48,8 +49,9 @@ void NewtonOptimizer<DIM>::step() {
 
     // SolverExitStatus status = linesearch_backtracking_cubic(x_,
     //    {svar_}, alpha, config_->ls_iters);
-    SolverExitStatus status = linesearch_backtracking(state_.x_,
-        state_.vars_, alpha, state_.config_->ls_iters, 0.0, 0.9);
+    //SolverExitStatus status = linesearch_backtracking(state_.x_,
+    //    state_.mixed_vars_, alpha, state_.config_->ls_iters, 0.0, 0.9);
+    SolverExitStatus status = linesearch_backtracking(state_, alpha, 0.0, 0.9);
 
     // Record some data
     state_.data_.add(" Iteration", i+1);
@@ -73,7 +75,7 @@ void NewtonOptimizer<DIM>::step() {
 
   state_.BCs_.step_script(state_.mesh_, state_.config_->h);
   state_.x_->post_solve();
-  for (auto& var : state_.vars_) {
+  for (auto& var : state_.mixed_vars_) {
     var->post_solve();
   }
   state_.config_->kappa = kappa0;
@@ -92,8 +94,12 @@ void NewtonOptimizer<DIM>::update_system() {
   lhs_ = state_.x_->lhs();
   rhs_ = state_.x_->rhs();
 
-  // NOTE changed 1.0 -> dt() for cvar
   for (auto& var : state_.vars_) {
+    var->update(x, state_.x_->integrator()->dt());
+    lhs_ += var->lhs();
+    rhs_ += var->rhs();
+  }
+  for (auto& var : state_.mixed_vars_) {
     var->update(x, state_.x_->integrator()->dt());
     lhs_ += var->lhs();
     rhs_ += var->rhs();
@@ -109,7 +115,7 @@ void NewtonOptimizer<DIM>::substep(double& decrement) {
 
   decrement = state_.x_->delta().template lpNorm<Infinity>();
 
-  for (auto& var : state_.vars_) {
+  for (auto& var : state_.mixed_vars_) {
     var->solve(state_.x_->delta());
     decrement = std::max(decrement, var->delta().template lpNorm<Infinity>());
   }
@@ -124,6 +130,9 @@ void NewtonOptimizer<DIM>::reset() {
 
   state_.x_->reset();
   for (auto& var : state_.vars_) {
+    var->reset();
+  }
+  for (auto& var : state_.mixed_vars_) {
     var->reset();
   }
 

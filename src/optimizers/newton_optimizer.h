@@ -1,10 +1,7 @@
 #pragma once
 
 #include "optimizers/optimizer.h"
-#include "variables/stretch.h"
-#include "variables/displacement.h"
 #include "linear_solvers/linear_solver.h"
-#include "variables/collision.h"
 
 #if defined(SIM_USE_CHOLMOD)
 #include <Eigen/CholmodSupport>

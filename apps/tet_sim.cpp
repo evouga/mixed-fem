@@ -13,6 +13,7 @@
 #include <functional>
 #include <string>
 #include "variables/stretch.h"
+#include "variables/mixed_stretch.h"
 
 using namespace Eigen;
 using namespace mfem;
@@ -116,8 +117,11 @@ struct PolyscopeTetApp : public PolyscopeApp<3> {
     state.mesh_ = mesh;
     state.config_ = config;
     state.x_ = std::make_shared<Displacement<3>>(mesh, config);
+    state.mixed_vars_ = {
+      //std::make_shared<MixedStretch<3>>(mesh),
+    };
     state.vars_ = {
-      std::make_shared<Stretch<3>>(mesh),
+      std::make_shared<Stretch<3>>(mesh)
     };
 
     optimizer = optimizer_factory.create(config->optimizer, state);

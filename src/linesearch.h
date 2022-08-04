@@ -3,9 +3,7 @@
 #include <EigenTypes.h>
 #include "variables/mixed_variable.h"
 #include "variables/displacement.h"
-#include "variables/collision.h"
-
-  #include <iomanip>
+#include <iomanip>
 
 namespace {
   // Taken from https://github.com/mattoverby/mcloptlib
@@ -275,30 +273,44 @@ namespace mfem {
 
   template <int DIM, typename Scalar,
             class Callback = decltype(default_linesearch_callback)>
-  SolverExitStatus linesearch_backtracking(
-      std::shared_ptr<Displacement<DIM>> x,
-      std::vector<std::shared_ptr<MixedVariable<DIM>>> vars,
-      Scalar& alpha, unsigned int max_iterations, Scalar c=1e-4, Scalar p=0.5,
+  SolverExitStatus linesearch_backtracking(const SimState<DIM>& state,
+      Scalar& alpha, Scalar c=1e-4, Scalar p=0.5,
       const Callback func = default_linesearch_callback) {
+    
+    unsigned int max_iterations = state.config_->ls_iters;
 
-    double h2 = std::pow(x->integrator()->dt(),2);
+    double h2 = std::pow(state.x_->integrator()->dt(), 2);
 
     auto f = [=](double a)->Scalar {
-      Eigen::VectorXd x0 = x->value() + a * x->delta();
-      Scalar val = x->energy(x0);
-      x->unproject(x0);
-      for (int i = 0; i < vars.size(); ++i) {
-        const Eigen::VectorXd si = vars[i]->value() + a * vars[i]->delta();
-        val += h2*vars[i]->energy(si) - vars[i]->constraint_value(x0, si);  
+      Eigen::VectorXd x0 = state.x_->value() + a * state.x_->delta();
+      Scalar val = state.x_->energy(x0);
+      state.x_->unproject(x0);
+      for (const auto& var : state.mixed_vars_) {
+        const Eigen::VectorXd si = var->value() + a * var->delta();
+        val += h2 * var->energy(si) - var->constraint_value(x0, si);  
       }
+      for (const auto& var : state.vars_) {
+        val += h2 * var->energy(x0);  
+      }
+      //for (int i = 0; i < vars.size(); ++i) {
+      //  const Eigen::VectorXd si = vars[i]->value() + a * vars[i]->delta();
+      //  val += h2*vars[i]->energy(si) - vars[i]->constraint_value(x0, si);  
+      //}
       return val;
     };
 
     // Compute gradient dot descent direction
-    Scalar gTd = x->gradient().dot(x->delta());
-    for (int i = 0; i < vars.size(); ++i) {
-      gTd += vars[i]->gradient().dot(x->delta())
-        + vars[i]->gradient_mixed().dot(vars[i]->delta());
+    Scalar gTd = state.x_->gradient().dot(state.x_->delta());
+    //for (int i = 0; i < vars.size(); ++i) {
+    //  gTd += vars[i]->gradient().dot(x->delta())
+    //    + vars[i]->gradient_mixed().dot(vars[i]->delta());
+    //}
+    for (const auto& var : state.mixed_vars_) {
+      gTd += var->gradient().dot(state.x_->delta())
+           + var->gradient_mixed().dot(var->delta());
+    }
+    for (const auto& var : state.vars_) {
+      gTd += var->gradient().dot(state.x_->delta());
     }
 
     Scalar fx0 = f(0);
@@ -325,9 +337,9 @@ namespace mfem {
     }
 
     if(iter < max_iterations) {
-      x->value() += alpha * x->delta();
-      for (int i = 0; i < vars.size(); ++i) {
-        vars[i]->value() += alpha * vars[i]->delta();
+      state.x_->value() += alpha * state.x_->delta();
+      for (auto& var : state.mixed_vars_) {
+        var->value() += alpha * var->delta();
       }
     }
     return (iter == max_iterations 

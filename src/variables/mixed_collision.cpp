@@ -1,4 +1,4 @@
-#include "collision.h"
+#include "mixed_collision.h"
 #include "mesh/mesh.h"
 #include "igl/unique.h"
 #include "igl/boundary_facets.h"
@@ -36,7 +36,7 @@ namespace {
 }
 
 template<int DIM>
-double Collision<DIM>::energy(const VectorXd& d) {
+double MixedCollision<DIM>::energy(const VectorXd& d) {
 
   double e = 0;
   return e;
@@ -45,7 +45,7 @@ double Collision<DIM>::energy(const VectorXd& d) {
 
 
 template <int DIM>
-double Collision<DIM>::constraint_value(const VectorXd& x,
+double MixedCollision<DIM>::constraint_value(const VectorXd& x,
     const VectorXd& d) {
 
   //std::cout << "Energy() d: " << d << std::endl;
@@ -65,7 +65,7 @@ double Collision<DIM>::constraint_value(const VectorXd& x,
 }
 
 template<int DIM>
-void Collision<DIM>::update(const Eigen::VectorXd& x, double dt) {
+void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
   // Get collision frames
   dt = 1.0;
   dt_ = dt;
@@ -92,13 +92,13 @@ void Collision<DIM>::update(const Eigen::VectorXd& x, double dt) {
 }
 
 template<int DIM>
-void Collision<DIM>::update_collision_frames(const Eigen::VectorXd& x) {
+void MixedCollision<DIM>::update_collision_frames(const Eigen::VectorXd& x) {
   // Compute D_, dd_dx_
   // Update:
   // * Get boundary_facets
   // * Check all point-edge pairs
   //  - If less than h, create collision frame
-  //  - Collision frame just has vids
+  //  - MixedCollision frame just has vids
   //
   // Detect Collision Frames
   // Initialize distance variables 
@@ -152,7 +152,7 @@ void Collision<DIM>::update_collision_frames(const Eigen::VectorXd& x) {
 }
 
 template<int DIM>
-void Collision<DIM>::update_derivatives(double dt) {
+void MixedCollision<DIM>::update_derivatives(double dt) {
 
   double h2 = dt * dt;
 
@@ -209,7 +209,7 @@ std::cout << "E_ : " << collision_frames_[0].E_ << std::endl;
 }
 
 template<int DIM>
-VectorXd Collision<DIM>::rhs() {
+VectorXd MixedCollision<DIM>::rhs() {
   data_.timer.start("RHS - s");
 
   assert(D_.size() == d_.size());
@@ -230,7 +230,7 @@ VectorXd Collision<DIM>::rhs() {
 }
 
 template<int DIM>
-VectorXd Collision<DIM>::gradient() {
+VectorXd MixedCollision<DIM>::gradient() {
   if (nframes_ == 0) {
     grad_x_.resize(mesh_->jacobian().rows());
     grad_x_.setZero();
@@ -239,7 +239,7 @@ VectorXd Collision<DIM>::gradient() {
 }
 
 template<int DIM>
-VectorXd Collision<DIM>::gradient_mixed() {
+VectorXd MixedCollision<DIM>::gradient_mixed() {
   if (nframes_ == 0) {
     grad_.resize(0);
   }
@@ -247,7 +247,7 @@ VectorXd Collision<DIM>::gradient_mixed() {
 }
 
 template<int DIM>
-void Collision<DIM>::solve(const VectorXd& dx) {
+void MixedCollision<DIM>::solve(const VectorXd& dx) {
   if (nframes_ == 0) {
     return;
   }
@@ -273,7 +273,7 @@ void Collision<DIM>::solve(const VectorXd& dx) {
 }
 
 template<int DIM>
-void Collision<DIM>::reset() {
+void MixedCollision<DIM>::reset() {
   h_ = 2e-2; // 1e-3 in ipc
   d_.resize(0);
   g_.resize(0);
@@ -293,7 +293,7 @@ void Collision<DIM>::reset() {
 }
 
 template<int DIM>
-void Collision<DIM>::post_solve() {
+void MixedCollision<DIM>::post_solve() {
   la_.setZero();
   dd_dx_.clear();
   collision_frames_.clear();
@@ -301,7 +301,7 @@ void Collision<DIM>::post_solve() {
 }
 
 template<int DIM>
-double Collision<DIM>::max_possible_step(const VectorXd& x1,
+double MixedCollision<DIM>::max_possible_step(const VectorXd& x1,
     const VectorXd& x2) {
 
   double min_step = 1.0;
@@ -349,5 +349,5 @@ double Collision<DIM>::max_possible_step(const VectorXd& x1,
   return min_step;
 }
 
-template class mfem::Collision<3>; // 3D
-template class mfem::Collision<2>; // 2D
+template class mfem::MixedCollision<3>; // 3D
+template class mfem::MixedCollision<2>; // 2D
