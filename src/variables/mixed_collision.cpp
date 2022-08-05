@@ -4,8 +4,6 @@
 #include "igl/boundary_facets.h"
 #include "simple_psd_fix.h"
 #include "config.h"
-#include "CTCD.h"
-#include "Distance.h"
 
 using namespace Eigen;
 using namespace mfem;
@@ -107,6 +105,8 @@ void MixedCollision<DIM>::update_collision_frames(const Eigen::VectorXd& x) {
   std::vector<double> new_lambda;
   std::vector<CollisionFrame> new_frames;
   std::map<std::tuple<int,int,int>, int> new_ids;
+  dd_dx_.clear(); // NOTE Previously wasn't doing this!
+
   // For each boundary vertex find primitives within distance threshold
   for (int i = 0; i < C_.size(); ++i) {
 
@@ -195,7 +195,7 @@ void MixedCollision<DIM>::update_derivatives(double dt) {
   // std::cout << "nframes: " << nframes_ << std::endl;
   // saveMarket(assembler_->A, "lhs_c2.mkt");
 // std::cout << "A2: \n " << A_ << std::endl;
-std::cout << "E_ : " << collision_frames_[0].E_ << std::endl;
+//std::cout << "E_ : " << collision_frames_[0].E_ << std::endl;
 
   // Gradient with respect to x variable
   std::vector<VectorXd> g(nframes_);
@@ -298,55 +298,6 @@ void MixedCollision<DIM>::post_solve() {
   dd_dx_.clear();
   collision_frames_.clear();
   frame_ids_.clear();
-}
-
-template<int DIM>
-double MixedCollision<DIM>::max_possible_step(const VectorXd& x1,
-    const VectorXd& x2) {
-
-  double min_step = 1.0;
-  double eta0 = 1e-8;
-
-  #pragma omp parallel for reduction(min:min_step)
-  for (int i = 0; i < F_.rows(); ++i) {
-    for (int j = 0; j < F_.rows(); ++j) {
-
-      if (F_(i,0) == F_(j,0) || F_(i,0) == F_(j,1) || F_(i,1) == F_(j,0)
-          || F_(i,1) == F_(j,1)) {
-        continue;
-      }
-      const Vector2d& p0_2d_start = x1.segment<2>(2*F_(i,0));
-      const Vector2d& p1_2d_start = x1.segment<2>(2*F_(i,1));
-      const Vector2d& q0_2d_start = x1.segment<2>(2*F_(j,0));
-      const Vector2d& q1_2d_start = x1.segment<2>(2*F_(j,1));
-      const Vector2d& p0_2d_end = x2.segment<2>(2*F_(i,0));
-      const Vector2d& p1_2d_end = x2.segment<2>(2*F_(i,1));
-      const Vector2d& q0_2d_end = x2.segment<2>(2*F_(j,0));
-      const Vector2d& q1_2d_end = x2.segment<2>(2*F_(j,1));
-
-      Vector3d p0start(p0_2d_start(0), p0_2d_start(1), 0);
-      Vector3d p1start(p1_2d_start(0), p1_2d_start(1), 0);
-      Vector3d q0start(q0_2d_start(0), q0_2d_start(1), 0);
-      Vector3d q1start(q1_2d_start(0), q1_2d_start(1), 0);
-      Vector3d p0end(p0_2d_end(0), p0_2d_end(1), 0);
-      Vector3d p1end(p1_2d_end(0), p1_2d_end(1), 0);
-      Vector3d q0end(q0_2d_end(0), q0_2d_end(1), 0);
-      Vector3d q1end(q1_2d_end(0), q1_2d_end(1), 0);
-      double t = 1;
-
-      double d_sqrt;
-      double tmp;
-      d_sqrt = Distance::edgeEdgeDistance(p0start,p1start,q0start,
-          q1start,tmp,tmp,tmp,tmp).norm();
-      double eta = d_sqrt * eta0;
-      if (CTCD::edgeEdgeCTCD(p0start,p1start,q0start,q1start,
-            p0end,p1end,q0end,q1end,eta,t)) {
-        t = (t<1e-12) ? 1 : t;
-        min_step = std::min(min_step,t);
-      }
-    }
-  }
-  return min_step;
 }
 
 template class mfem::MixedCollision<3>; // 3D

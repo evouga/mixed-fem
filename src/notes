@@ -46,7 +46,6 @@ TODO - cmake openmp
 ---
 
 1. Nodal IPC
-2. Dropdowns for selecting variables -- enable switching between
 3. Linesearch factory -- dont do for now, only one linesearch approach :/ 
 5. Boundary condition factory
 6. ADMM optimizer 

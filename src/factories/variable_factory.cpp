@@ -2,6 +2,7 @@
 #include "variables/mixed_collision.h"
 #include "variables/mixed_stretch.h"
 #include "variables/stretch.h"
+#include "variables/collision.h"
 #include "mesh/mesh.h"
 
 using namespace mfem;
@@ -32,6 +33,13 @@ VariableFactory<DIM>::VariableFactory() {
       [](std::shared_ptr<Mesh> mesh, std::shared_ptr<SimConfig> config)
       ->std::unique_ptr<Variable<DIM>>
       {return std::make_unique<Stretch<DIM>>(mesh);});
+
+  // Log-barrier collisions
+  this->register_type(VariableType::VAR_COLLISION,
+      Collision<DIM>::name(),
+      [](std::shared_ptr<Mesh> mesh, std::shared_ptr<SimConfig> config)
+      ->std::unique_ptr<Variable<DIM>>
+      {return std::make_unique<Collision<DIM>>(mesh, config);});
 }
 
 template class mfem::MixedVariableFactory<3>;

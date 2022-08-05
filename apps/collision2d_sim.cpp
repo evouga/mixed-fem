@@ -187,13 +187,14 @@ struct PolyscopeTriApp : public PolyscopeApp<2> {
     state.mesh_ = mesh;
     state.config_ = config;
     state.x_ = std::make_shared<Displacement<2>>(mesh, config);
-    state.mixed_vars_ = {
-      std::make_shared<MixedStretch<2>>(mesh),
-      std::make_shared<MixedCollision<2>>(mesh, config)
-    };
-    state.vars_ = {
-      //std::make_shared<Stretch<2>>(mesh)
-    };
+
+    for (VariableType type : config->variables) {
+      state.vars_.push_back(variable_factory.create(type, mesh, config));
+    }
+    for (VariableType type : config->mixed_variables) {
+      state.mixed_vars_.push_back(
+          mixed_variable_factory.create(type, mesh, config));
+    }
 
     SolverFactory solver_factory;
     state.solver_ = solver_factory.create(config->solver_type, mesh, config);

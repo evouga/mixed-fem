@@ -42,8 +42,7 @@ namespace mfem {
     }
 
     Eigen::VectorXd& value() override {
-      std::cerr << "stretch::value()() unused" << std::endl;
-      Eigen::VectorXd tmp;
+      std::cerr << "stretch::value() unused" << std::endl;
       return grad_;
     }
 

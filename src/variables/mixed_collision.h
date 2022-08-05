@@ -130,10 +130,6 @@ namespace mfem {
       return collision_frames_;
     }
 
-    // Continuous
-    double max_possible_step(const Eigen::VectorXd& x1,
-        const Eigen::VectorXd& x2);
-
   protected:
 
     void update_rotations(const Eigen::VectorXd& x);

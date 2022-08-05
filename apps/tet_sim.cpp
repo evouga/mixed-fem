@@ -114,15 +114,21 @@ struct PolyscopeTetApp : public PolyscopeApp<3> {
     mesh = std::make_shared<TetrahedralMesh>(meshV, meshT,
         material, material_config);
 
+    SimState<3> state;
     state.mesh_ = mesh;
     state.config_ = config;
     state.x_ = std::make_shared<Displacement<3>>(mesh, config);
-    state.mixed_vars_ = {
-      //std::make_shared<MixedStretch<3>>(mesh),
-    };
-    state.vars_ = {
-      std::make_shared<Stretch<3>>(mesh)
-    };
+
+    config->mixed_variables = { VAR_MIXED_STRETCH };
+    config->variables = {};
+
+    for (VariableType type : config->variables) {
+      state.vars_.push_back(variable_factory.create(type, mesh, config));
+    }
+    for (VariableType type : config->mixed_variables) {
+      state.mixed_vars_.push_back(
+          mixed_variable_factory.create(type, mesh, config));
+    }
 
     optimizer = optimizer_factory.create(config->optimizer, state);
     optimizer->reset();
