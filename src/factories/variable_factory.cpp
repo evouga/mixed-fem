@@ -28,7 +28,7 @@ MixedVariableFactory<DIM>::MixedVariableFactory() {
 template<int DIM>
 VariableFactory<DIM>::VariableFactory() {
   // Volumetric stretch
-  this->register_type(VariableType::VAR_MIXED_STRETCH,
+  this->register_type(VariableType::VAR_STRETCH,
       Stretch<DIM>::name(),
       [](std::shared_ptr<Mesh> mesh, std::shared_ptr<SimConfig> config)
       ->std::unique_ptr<Variable<DIM>>
