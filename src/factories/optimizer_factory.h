@@ -6,12 +6,12 @@
 
 namespace mfem {
 
-	class Mesh;
+  class Mesh;
 
   template<int DIM>
-	class OptimizerFactory : public Factory<OptimizerType,
-			Optimizer<DIM>, const SimState<DIM>&> {
-	public:
+  class OptimizerFactory : public Factory<OptimizerType,
+      Optimizer<DIM>, const SimState<DIM>&> {
+  public:
     OptimizerFactory();
-	};
+  };
 }

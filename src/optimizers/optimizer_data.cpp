@@ -7,19 +7,11 @@ using namespace mfem;
 using namespace Eigen;
 
 void OptimizerData::clear() {
-  energy_residuals_.clear();
-  energies_.clear();
-  egrad_.clear();
-  egrad_x_.clear();
-  egrad_s_.clear();
-  egrad_la_.clear();
   timer.reset();
   map_.clear();
 }
 
 void OptimizerData::write() const {
-  int sz = energy_residuals_.size();
-  MatrixXd mat(sz,3);
 }
 
 void OptimizerData::add(const std::string& key, double value) {
@@ -34,9 +26,6 @@ void OptimizerData::add(const std::string& key, double value) {
 }
 
 void OptimizerData::print_data(bool print_timing) const {
-  int sz = energies_.size();
-
-  int total_len = 0;
 
   // Header Top
   std::cout << "┌─";

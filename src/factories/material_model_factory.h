@@ -5,11 +5,11 @@
 
 namespace mfem {
 
-	class MaterialModel;
+  class MaterialModel;
 
-	class MaterialModelFactory : public Factory<MaterialModelType,
-			MaterialModel, std::shared_ptr<MaterialConfig>> {
-	public:
+  class MaterialModelFactory : public Factory<MaterialModelType,
+      MaterialModel, std::shared_ptr<MaterialConfig>> {
+  public:
     MaterialModelFactory();
-	};
+  };
 }
