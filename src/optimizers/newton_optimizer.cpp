@@ -40,11 +40,16 @@ void NewtonOptimizer<DIM>::step() {
     // TODO move to linesearch
     if (state_.config_->enable_collisions) {
       VectorXd x1 = state_.x_->value();
-      VectorXd x2 = state_.x_->value() + alpha * state_.x_->delta();
+      // VectorXd x2 = state_.x_->value() + alpha * state_.x_->delta();
       state_.x_->unproject(x1);
-      state_.x_->unproject(x2);
-      alpha = max_possible_step<DIM>(x1, x2, state_.mesh_->F_);
-      std::cout << std::setprecision(10) << "alpha0: " << alpha << std::endl;
+      // state_.x_->unproject(x2);
+      // alpha = max_possible_step<DIM>(x1, x2, state_.mesh_->F_);
+
+      VectorXd p = state_.mesh_->projection_matrix().transpose() * state_.x_->delta();
+      alpha = additive_ccd<DIM>(x1, p, state_.mesh_->F_);
+      state_.data_.add("ACCD ", alpha);
+
+      // std::cout << std::setprecision(10) << "alpha0: " << alpha << std::endl;
     }
 
     // SolverExitStatus status = linesearch_backtracking_cubic(x_,

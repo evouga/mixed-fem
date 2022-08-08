@@ -68,12 +68,12 @@ void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
   dt = 1.0;
   dt_ = dt;
 
-
-
   //std::cout << "d: " << d_ << std::endl;
   //std::cout << "D: " << D_ << std::endl;
+  data_.timer.start("Update Coll frames");
   update_collision_frames(x);
-  
+  data_.timer.stop("Update Coll frames");
+
   nframes_ = collision_frames_.size();
   MatrixXi T(nframes_, 3);
   for (int i = 0; i < nframes_; ++i) {
@@ -83,9 +83,11 @@ void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
   }
   // Structure potentially changes each step, so just rebuild assembler :/
   // NOTE assuming each local jacobian has same size!
+  data_.timer.start("Create assemblers");
   assembler_ = std::make_shared<Assembler<double,DIM,-1>>(T, mesh_->free_map_);
   vec_assembler_ = std::make_shared<VecAssembler<double,DIM,-1>>(T,
       mesh_->free_map_);
+  data_.timer.stop("Create assemblers");
   update_derivatives(dt);
 }
 
@@ -177,10 +179,6 @@ void MixedCollision<DIM>::update_derivatives(double dt) {
   for (int i = 0; i < nframes_; ++i) {
     Aloc_[i] = dd_dx_[i] * H_(i) * dd_dx_[i].transpose();
     sim::simple_psd_fix(Aloc_[i]);
-    //Eigen::VectorXx<Scalar> diag_eval = es.eigenvalues().real();
-    //std::cout << " d_(i) : " << d_(i) << std::endl;
-    //std::cout << " g_(i) : " << g_(i) << std::endl;
-    //std::cout << " H_(i) : " << H_(i) << std::endl;
   }
   data_.timer.stop("Local H");
 
@@ -197,6 +195,8 @@ void MixedCollision<DIM>::update_derivatives(double dt) {
 // std::cout << "A2: \n " << A_ << std::endl;
 //std::cout << "E_ : " << collision_frames_[0].E_ << std::endl;
 
+  data_.timer.start("Update RHS");
+
   // Gradient with respect to x variable
   std::vector<VectorXd> g(nframes_);
   for (int i = 0; i < nframes_; ++i) {
@@ -206,6 +206,8 @@ void MixedCollision<DIM>::update_derivatives(double dt) {
 
   // Gradient with respect to mixed variable
   grad_ = g_ + la_;
+  data_.timer.stop("Update RHS");
+
 }
 
 template<int DIM>
