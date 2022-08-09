@@ -25,7 +25,12 @@ namespace mfem {
 
     std::shared_ptr<MaterialModel> material_;
     std::shared_ptr<MaterialConfig> config_;
-
+  };
+  
+  enum MatrixType {
+    FULL,         // Full matrix
+    PROJECT_ROWS, // Project BCs from row entries
+    PROJECTED     // Project out both row and columns
   };
 
   // Class to maintain the state and perform physics updates on an object,
@@ -72,7 +77,8 @@ namespace mfem {
     virtual bool fixed_jacobian() { return true; }
 
     // Defo gradients
-    virtual void deformation_gradient(const Eigen::VectorXd& x, Eigen::VectorXd& F) = 0;
+    virtual void deformation_gradient(const Eigen::VectorXd& x,
+        Eigen::VectorXd& F) = 0;
     virtual void init_jacobian() {};
     virtual void update_jacobian(const Eigen::VectorXd& x) {}
     virtual const Eigen::SparseMatrixdRowMajor& jacobian() {
@@ -95,15 +101,23 @@ namespace mfem {
       return P_ * (J_.transpose() * W_ * J_) * P_.transpose();
     }
 
+    template<MatrixType T = MatrixType::PROJECTED>
     const Eigen::SparseMatrixdRowMajor& mass_matrix() {
-      return PMP_;
+      if constexpr (T == MatrixType::PROJECTED) {
+        return PMP_;
+      } else if constexpr (T == MatrixType::PROJECT_ROWS) {
+        return PM_;
+      } else {
+        return M_;
+      }
     }
 
-    const Eigen::SparseMatrixdRowMajor& P() {
+    const Eigen::SparseMatrixdRowMajor& projection_matrix() {
       return P_;
     }
 
 
+    // I don't like this
     void clear_fixed_vertices();
 
     void free_vertex(int id);
@@ -116,16 +130,17 @@ namespace mfem {
 
   public:
 
+    // I don't like this
     std::vector<std::vector<int>> bc_groups_;
     std::vector<int> fixed_vertices_;
     Eigen::VectorXi is_fixed_;
     std::vector<int> free_map_;
     Eigen::Matrix23x<double> bbox;
-
   
     Eigen::MatrixXd V_;
     Eigen::MatrixXd V0_;
     Eigen::MatrixXi T_;
+    Eigen::MatrixXi F_;
 
     std::shared_ptr<MaterialModel> material_;
     std::shared_ptr<MaterialConfig> config_;
@@ -136,7 +151,8 @@ namespace mfem {
     Eigen::SparseMatrixdRowMajor PJW_;
     Eigen::SparseMatrixdRowMajor J_;   // Shape function jacobian
     Eigen::SparseMatrixdRowMajor PMP_; // Mass matrix (dirichlet BCs projected)
-    Eigen::SparseMatrixdRowMajor M_;   // Mass matrix
+    Eigen::SparseMatrixdRowMajor PM_;  // Mass matrix (rows projected)
+    Eigen::SparseMatrixdRowMajor M_;   // Mass matrix (full matrix)
     Eigen::SparseMatrixdRowMajor P_;   // pinning matrix (for dirichlet BCs) 
     //Eigen::SparseMatrixd P_;         // pinning constraint (for vertices)
     Eigen::SparseMatrixd W_;           // weight matrix

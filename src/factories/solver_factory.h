@@ -8,10 +8,10 @@ namespace mfem {
 
   class Mesh;
 
-	class SolverFactory : public Factory<SolverType,
-			LinearSolver<double,Eigen::RowMajor>, 
-			std::shared_ptr<Mesh>, std::shared_ptr<SimConfig>> {
-	public:
+  class SolverFactory : public Factory<SolverType,
+      LinearSolver<double,Eigen::RowMajor>, 
+      std::shared_ptr<Mesh>, std::shared_ptr<SimConfig>> {
+  public:
     SolverFactory();
-	};
+  };
 }

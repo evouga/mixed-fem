@@ -2,9 +2,9 @@
 
 #include "variable.h"
 #include "optimizers/optimizer_data.h"
-#include "sparse_utils.h"
 #include "time_integrators/implicit_integrator.h"
 #include "boundary_conditions.h"
+#include "utils/sparse_utils.h"
 
 namespace mfem {
 
@@ -47,10 +47,11 @@ namespace mfem {
 
     // "Unproject" out of reduced space with dirichlet BCs removed
     void unproject(Eigen::VectorXd& x) const {
-      assert(x.size() == P_.rows());
-      x = P_.transpose() * x + b_;
+      const auto& P = mesh_->projection_matrix();
+      assert(x.size() == P.rows());
+      x = P.transpose() * x + b_;
     }
-
+    
     void set_mixed(bool is_mixed) {
       is_mixed_ = is_mixed;
     }
@@ -86,13 +87,8 @@ namespace mfem {
     bool is_mixed_;
 
     std::shared_ptr<ImplicitIntegrator> integrator_;
-    BoundaryConditions<DIM> BCs_;
 
     Eigen::SparseMatrix<double, Eigen::RowMajor> lhs_;
-    Eigen::SparseMatrix<double, Eigen::RowMajor> P_;   // dirichlet projection
-    Eigen::SparseMatrix<double, Eigen::RowMajor> PMP_; // projected mass matrix
-    Eigen::SparseMatrix<double, Eigen::RowMajor> PM_;  // projected mass matrix
-    Eigen::SparseMatrix<double, Eigen::RowMajor> M_;   // mass matrix
     Eigen::SparseMatrix<double, Eigen::RowMajor> K_;   // stiffness matrix
 
     Eigen::VectorXd x_;       // displacement variables

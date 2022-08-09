@@ -15,6 +15,8 @@ namespace mfem {
     Variable(std::shared_ptr<Mesh> mesh) : mesh_(mesh) {
     }
 
+    virtual ~Variable() = default;
+
     // Evaluate the energy associated with the variable
     // x - variable value
     virtual double energy(const Eigen::VectorXd& x) = 0;
@@ -44,6 +46,10 @@ namespace mfem {
 
     // Returns variable values
     virtual Eigen::VectorXd& value() = 0;
+
+    const std::shared_ptr<Mesh> mesh() const {
+      return mesh_;
+    }
 
   protected:
 

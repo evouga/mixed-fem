@@ -1,8 +1,9 @@
 #include "meshes.h"
 #include "config.h"
-#include "sparse_utils.h"
+#include "utils/sparse_utils.h"
 #include "boundary_conditions.h"
-#include "pinning_matrix.h"
+#include "utils/pinning_matrix.h"
+#include "igl/boundary_facets.h"
 
 using namespace Eigen;
 using namespace mfem;
@@ -61,6 +62,8 @@ Meshes::Meshes(const std::vector<std::shared_ptr<Mesh>>& meshes,
   BoundaryConditions<3>::init_boundary_groups(V0_, bc_groups_, 0.01);
   P_ = pinning_matrix(V_, T_, is_fixed_);
 
+  igl::boundary_facets(T_, F_);
+  assert(F_.cols() == cols);
 }
 void Meshes::init() {
   std::cout << "Meshes::init()" << std::endl;

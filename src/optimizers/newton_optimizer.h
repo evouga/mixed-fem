@@ -1,8 +1,6 @@
 #pragma once
 
 #include "optimizers/optimizer.h"
-#include "variables/displacement.h"
-#include "sparse_utils.h"
 #include "linear_solvers/linear_solver.h"
 
 #if defined(SIM_USE_CHOLMOD)
@@ -11,7 +9,7 @@
 
 namespace mfem {
 
-  // Standard linear FEM 
+  // Mixed FEM Sequential Quadratic Program
   template <int DIM>
   class NewtonOptimizer : public Optimizer<DIM> {
 
@@ -19,40 +17,30 @@ namespace mfem {
 
   public:
     
-    NewtonOptimizer(std::shared_ptr<Mesh> mesh,
-        std::shared_ptr<SimConfig> config) : Optimizer<DIM>(mesh, config) {}
+    NewtonOptimizer(const SimState<DIM>& state)
+        : Optimizer<DIM>(state) {}
 
     static std::string name() {
       return "Newton";
     }
 
-    void reset() override;
     void step() override;
-    virtual void update_vertices(const Eigen::MatrixXd& V) override;
-    virtual void set_state(const Eigen::VectorXd& x,
-        const Eigen::VectorXd& v) override;
+    void reset() override;
 
   private:
 
-    using Base::mesh_;
-    using Base::data_;
-    using Base::config_;
+    using Base::state_;
 
-    // Simulation substep for this object
-    // init_guess - whether to initialize guess with a prefactor solve
-    // decrement  - newton decrement norm
-    virtual void substep(double& decrement);
+    // Update gradients, LHS, RHS for a new configuration
+    void update_system();
+
+    void substep(double& decrement);
+
+    // linear system left hand side
+    Eigen::SparseMatrix<double, Eigen::RowMajor> lhs_; 
 
     // linear system right hand side
     Eigen::VectorXd rhs_;       
-
-    // linear system left hand side
-    Eigen::SparseMatrix<double, Eigen::RowMajor> lhs_;
-
-    double E_prev_; // energy from last result of linesearch
-    std::shared_ptr<Displacement<DIM>> xvar_;
-
-    std::shared_ptr<LinearSolver<double, Eigen::RowMajor>> solver_;
 
   };
 }

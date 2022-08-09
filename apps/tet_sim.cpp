@@ -12,6 +12,8 @@
 #include <fstream>
 #include <functional>
 #include <string>
+#include "variables/stretch.h"
+#include "variables/mixed_stretch.h"
 
 using namespace Eigen;
 using namespace mfem;
@@ -112,7 +114,23 @@ struct PolyscopeTetApp : public PolyscopeApp<3> {
     mesh = std::make_shared<TetrahedralMesh>(meshV, meshT,
         material, material_config);
 
-    optimizer = optimizer_factory.create(config->optimizer, mesh, config);
+    SimState<3> state;
+    state.mesh_ = mesh;
+    state.config_ = config;
+    state.x_ = std::make_shared<Displacement<3>>(mesh, config);
+
+    config->mixed_variables = { VAR_MIXED_STRETCH };
+    config->variables = {};
+
+    for (VariableType type : config->variables) {
+      state.vars_.push_back(variable_factory.create(type, mesh, config));
+    }
+    for (VariableType type : config->mixed_variables) {
+      state.mixed_vars_.push_back(
+          mixed_variable_factory.create(type, mesh, config));
+    }
+
+    optimizer = optimizer_factory.create(config->optimizer, state);
     optimizer->reset();
 
     BoundaryConditions<3>::get_script_names(bc_list);

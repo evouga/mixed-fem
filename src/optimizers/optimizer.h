@@ -1,9 +1,13 @@
 #pragma once
 
-#include <EigenTypes.h>
 #include <memory>
+#include <functional>
+#include <EigenTypes.h>
 #include "optimizer_data.h"
 #include "boundary_conditions.h"
+#include "variables/displacement.h"
+#include "variables/mixed_variable.h"
+#include "linear_solvers/linear_solver.h"
 #include "time_integrators/implicit_integrator.h"
 
 namespace mfem {
@@ -11,21 +15,46 @@ namespace mfem {
   class Mesh;
   class SimConfig;
 
-  static Eigen::Vector6d I_vec = (Eigen::Vector6d() <<
-      1, 1, 1, 0, 0, 0).finished();
+  template <int DIM>
+  struct SimState {
+    // For reporting simulation data and timing
+    OptimizerData data_;
 
-  static Eigen::Matrix6d Sym = (Eigen::Vector6d() <<
-      1, 1, 1, 2, 2, 2).finished().asDiagonal();
+    // Tracks verticies and applies a selected dirichlet boundary condition
+    BoundaryConditions<DIM> BCs_;
 
-  static Eigen::Matrix6d Syminv = (Eigen::Vector6d() <<
-    1, 1, 1, .5, .5, .5).finished().asDiagonal();
-  
+    // Simulation mesh
+    std::shared_ptr<Mesh> mesh_;
+
+    // Scene parameters
+    std::shared_ptr<SimConfig> config_;
+
+    // Nodal displacement primal variable
+    std::shared_ptr<Displacement<DIM>> x_;
+
+    // Mixed variables
+    std::vector<std::shared_ptr<MixedVariable<DIM>>> mixed_vars_;
+
+    // Displacement-based variables
+    // These don't maintain the state of the nodal displacements, but
+    // compute some energy (stretch, bending, contact) dependent on
+    // displacements.
+    std::vector<std::shared_ptr<Variable<DIM>>> vars_;
+
+    // Linear solver to be used in substep of method
+    std::shared_ptr<LinearSolver<double, Eigen::RowMajor>> solver_;
+  };
+
+  auto default_optimizer_callback = [](auto& state){};
+
   template <int DIM>
   class Optimizer {
   public:
-    Optimizer(std::shared_ptr<Mesh> object,
-          std::shared_ptr<SimConfig> config)
-          : mesh_(object), config_(config) {}
+    Optimizer(const SimState<DIM>& state) : state_(state) {
+      callback = default_optimizer_callback;
+    }
+
+    virtual ~Optimizer() = default;
           
     static std::string name() {
       return "base";
@@ -33,6 +62,7 @@ namespace mfem {
 
     virtual void reset();
     virtual void step() = 0;
+    
 
     virtual void update_vertices(const Eigen::MatrixXd& V) {
       std::cerr << "Update vertices not implemented!" << std::endl;
@@ -41,31 +71,22 @@ namespace mfem {
         const Eigen::VectorXd& v) {
       std::cerr << "Update state not implemented!" << std::endl;
     }
+
+    SimState<DIM>& state() {
+      return state_;
+    }
     
     // Temporary. Should be a part of a callback function instead.
     // Used to save per substep vertices;
     std::vector<Eigen::MatrixXd> step_x;
     Eigen::VectorXd step_x0;
     Eigen::VectorXd step_v;
-    Eigen::SparseMatrixd P_;          // pinning constraint (for vertices)
 
-    double wx_, wx0_, wx1_, wx2_, wdt_;
-    
+    std::function<void(const SimState<DIM>& state)> callback;
+
   protected:
 
-    OptimizerData data_;
-    std::shared_ptr<Mesh> mesh_;
-    std::shared_ptr<SimConfig> config_;
-    std::shared_ptr<ImplicitIntegrator> integrator_;
-
-    // Debug timing variables (timings in milliseconds)
-    std::map<std::string, double> timings;
-
-    BoundaryConditions<DIM> BCs_;
-
-    // Eigen::SparseMatrixd P_;          // pinning constraint (for vertices)
-    int nelem_;             // number of elements
-
+    SimState<DIM> state_;
   };        
   
 }

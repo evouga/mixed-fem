@@ -50,12 +50,6 @@ namespace mfem {
     void add(const std::string& key, double value);
 
     std::string output_filename_;
-    std::vector<double> energy_residuals_;
-    std::vector<double> energies_;
-    std::vector<double> egrad_;
-    std::vector<double> egrad_x_;
-    std::vector<double> egrad_s_;
-    std::vector<double> egrad_la_;
     std::map<std::string, std::vector<double>> map_;	
     size_t min_length_ = 11;
     Timer timer;

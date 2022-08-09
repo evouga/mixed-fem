@@ -1,6 +1,7 @@
 #pragma once
 
 #include <EigenTypes.h>
+#include <set>
 
 namespace mfem {
 
@@ -14,13 +15,21 @@ namespace mfem {
     lambda = (E*nu)/((1.0+nu)*(1.0-2.0*nu));
   }
 
+  enum VariableType {
+    VAR_DISPLACEMENT,
+    VAR_STRETCH,
+    VAR_COLLISION,
+    VAR_MIXED_STRETCH,
+    VAR_MIXED_COLLISION
+  };
+
   enum OptimizerType {
-      OPTIMIZER_ALM,
-      OPTIMIZER_ADMM,
-      OPTIMIZER_SQP,
-      OPTIMIZER_SQP_PD,
-      OPTIMIZER_NEWTON,
-      OPTIMIZER_SQP_BENDING,
+    OPTIMIZER_ALM,
+    OPTIMIZER_ADMM,
+    OPTIMIZER_SQP,
+    OPTIMIZER_SQP_PD,
+    OPTIMIZER_NEWTON,
+    OPTIMIZER_SQP_BENDING,
   };
 
   enum TimeIntegratorType {
@@ -40,7 +49,7 @@ namespace mfem {
     SOLVER_AFFINE_PCG
   };
 
-  enum MaterialModelType {
+  enum MaterialModelType { 
       MATERIAL_SNH,   // Stable neohookean
       MATERIAL_NH,    // neohookean
       MATERIAL_COROT, // corotational
@@ -85,22 +94,29 @@ namespace mfem {
     int outer_steps = 5;
     int inner_steps = 7;
     double plane_d = 0;
-    double kappa = 1000.0;
+    double kappa = 10.0;
     double max_kappa = 1e6;
     double constraint_tol = 1e-2;
-    
+    bool enable_collisions = false;
+
     // update kappa and lambda if residual below this tolerance
     double update_zone_tol = 1e-1; 
 
     double newton_tol = 1e-10;
     double ls_tol = 1e-4;
     int ls_iters = 20;
-    OptimizerType optimizer = OPTIMIZER_SQP_PD;
+    OptimizerType optimizer = OPTIMIZER_NEWTON;
     int max_iterative_solver_iters = 500;
     double itr_tol = 1e-4;
     BCScriptType bc_type = BC_ONEPOINT;
     SolverType solver_type = SOLVER_EIGEN_LLT;
     TimeIntegratorType ti_type = TI_BDF1;
+    std::set<VariableType> variables = {};
+    std::set<VariableType> mixed_variables = {
+      VAR_MIXED_STRETCH,
+      VAR_MIXED_COLLISION
+    };
+
   };
 
   // Simple config for material parameters for a single object

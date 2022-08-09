@@ -47,7 +47,7 @@ namespace mfem {
         T0_.block<3,3>(3*ii, 9) = Eigen::Matrix3d::Identity();
       }
 
-      T0_ = mesh->P()*T0_;
+      T0_ = mesh->projection_matrix()*T0_;
     }
 
     void compute(const Eigen::SparseMatrix<Scalar, Ordering>& A) override {
