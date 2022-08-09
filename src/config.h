@@ -76,6 +76,7 @@ namespace mfem {
       BC_FALL,
   };
   
+  
   // Global parameters for the simulation
   struct SimConfig {
     double h = 0.034; 

@@ -21,7 +21,7 @@ namespace mfem {
         : Optimizer<DIM>(state) {}
 
     static std::string name() {
-      return "Newton";
+      return "newton";
     }
 
     void step() override;
