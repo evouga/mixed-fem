@@ -1,3 +1,8 @@
+# Mixed FEM
+
+<img src="imgs/teaser.jpg">
+
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 Open-source reference implementation of *Mixed Variational Finite Elements for Implicit Simulation of Deformables*
