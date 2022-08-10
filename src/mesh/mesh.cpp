@@ -10,11 +10,9 @@ using namespace mfem;
 using namespace Eigen;
 
 Mesh::Mesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
-    std::shared_ptr<MaterialConfig> material_config,
     const std::vector<VectorXi>& subsets,
     const std::vector<std::shared_ptr<MaterialModel>>& materials)
-    : V_(V), V0_(V), T_(T),
-      config_(material_config) {
+    : V_(V), V0_(V), T_(T) {
   assert(materials.size() > 0);
   assert(subsets.size() == materials.size());
   material_ = materials[0];
@@ -40,7 +38,7 @@ Mesh::Mesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
   P_ = pinning_matrix(V_, T_, is_fixed_);
 
   for (Eigen::Index i = 0; i < T_.rows(); ++i) {
-    elements_.push_back(Element(material_,config_));
+    elements_.push_back(Element(material_));
   }
 
   for (size_t i = 0; i < subsets.size(); ++i) {
@@ -54,10 +52,8 @@ Mesh::Mesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
 
 
 Mesh::Mesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
-    std::shared_ptr<MaterialModel> material,
-    std::shared_ptr<MaterialConfig> material_config)
-    : V_(V), V0_(V), T_(T), material_(material),
-      config_(material_config) {
+    std::shared_ptr<MaterialModel> material)
+    : V_(V), V0_(V), T_(T), material_(material) {
 
   is_fixed_.resize(V_.rows());
   is_fixed_.setZero();
@@ -80,7 +76,7 @@ Mesh::Mesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
   P_ = pinning_matrix(V_, T_, is_fixed_);
 
   for (size_t i = 0; i < T_.rows(); ++i) {
-    elements_.push_back(Element(material,material_config));
+    elements_.push_back(Element(material));
   }
 
   igl::boundary_facets(T_, F_);

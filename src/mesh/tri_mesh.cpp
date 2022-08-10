@@ -3,6 +3,7 @@
 #include "linear_tri3dmesh_dphi_dX.h"
 #include "svd/svd3x3_sse.h"
 #include "config.h"
+#include "energies/material_model.h"
 
 using namespace Eigen;
 using namespace mfem;
@@ -29,15 +30,14 @@ namespace {
 
 TriMesh::TriMesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
     const Eigen::MatrixXd& N,
-    std::shared_ptr<MaterialModel> material,
-    std::shared_ptr<MaterialConfig> material_config)
-    : Mesh(V,T,material,material_config), N_(N) {
+    std::shared_ptr<MaterialModel> material)
+    : Mesh(V,T,material), N_(N) {
   sim::linear_tri3dmesh_dphi_dX(dphidX_, V0_, T_);
 }
 
 void TriMesh::volumes(Eigen::VectorXd& vol) {
   igl::doublearea(V0_, T_, vol);
-  vol.array() *= (config_->thickness/2);
+  vol.array() *= (material_->config()->thickness/2);
 }
 
 void TriMesh::mass_matrix(Eigen::SparseMatrixdRowMajor& M,
@@ -65,7 +65,7 @@ void TriMesh::mass_matrix(Eigen::SparseMatrixdRowMajor& M,
   M.setFromTriplets(trips.begin(),trips.end());
 
   // note: assuming uniform density 
-  M = M * config_->density ; 
+  M = M * material_->config()->density ; 
 }
 
 void TriMesh::init_jacobian() {

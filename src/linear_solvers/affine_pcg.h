@@ -4,6 +4,7 @@
 #include "pcg.h"
 #include "igl/boundary_facets.h"
 #include "rigid_inertia_com.h"
+#include "energies/material_model.h"
 
 namespace mfem {
 
@@ -19,7 +20,7 @@ namespace mfem {
         std::shared_ptr<SimConfig> config) : config_(config) {
 
       double k = config->h * config->h;
-      k *= mesh->config_->mu;
+      k *= mesh->material_->config()->mu;
       Eigen::SparseMatrixdRowMajor lhs = mesh->mass_matrix()
           + k * mesh->laplacian();
       solver_.compute(lhs);

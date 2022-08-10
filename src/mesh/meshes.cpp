@@ -9,13 +9,9 @@ using namespace Eigen;
 using namespace mfem;
 
 
-Meshes::Meshes(const std::vector<std::shared_ptr<Mesh>>& meshes,
-    std::shared_ptr<MaterialModel> material,
-    std::shared_ptr<MaterialConfig> material_config)
+Meshes::Meshes(const std::vector<std::shared_ptr<Mesh>>& meshes)
   : meshes_(meshes) {
 
-  material_ = material;
-  config_ = material_config;
   size_t num_V = 0;
   size_t num_T = 0;
 
@@ -39,6 +35,9 @@ Meshes::Meshes(const std::vector<std::shared_ptr<Mesh>>& meshes,
     T_.block(start_T,0, sz_T,3).array() += start_V;
     start_V += sz_V;
     start_T += sz_T;
+
+    elements_.insert(elements_.end(), meshes_[i]->elements_.begin(),
+        meshes_[i]->elements_.end());
   }
   V0_ = V_;
 

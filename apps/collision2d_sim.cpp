@@ -50,8 +50,7 @@ std::shared_ptr<Mesh> load_mesh(const std::string& fn) {
   std::shared_ptr<MaterialModel> material = material_factory.create(
       material_config->material_model, material_config);
 
-  std::shared_ptr<Mesh> mesh = std::make_shared<Tri2DMesh>(V, T,
-      material, material_config);
+  std::shared_ptr<Mesh> mesh = std::make_shared<Tri2DMesh>(V, T, material);
   return mesh;
 }
 
@@ -172,7 +171,7 @@ struct PolyscopeTriApp : public PolyscopeApp<2> {
     std::shared_ptr<MaterialModel> material = material_factory.create(
         material_config->material_model, material_config);
 
-    mesh = std::make_shared<Meshes>(meshes,material,material_config);
+    mesh = std::make_shared<Meshes>(meshes);
     meshF = mesh->T_;
 
 

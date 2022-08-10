@@ -92,7 +92,8 @@ bool SimState<DIM>::load(const std::string& json_file) {
   MaterialModelFactory material_factory;
   std::vector<std::shared_ptr<MaterialModel>> materials;
   std::vector<std::shared_ptr<MaterialConfig>> mat_configs;
-  if (const auto& obj_it = args.find("objects"); obj_it != args.end()) {
+  if (const auto& obj_it = args.find("material_models"); obj_it != args.end())
+  {
     for (const auto& obj : *obj_it) {
       std::shared_ptr<MaterialConfig> cfg = std::make_shared<MaterialConfig>();
 
@@ -113,6 +114,7 @@ bool SimState<DIM>::load(const std::string& json_file) {
     materials = {material_factory.create(
         mat_configs[0]->material_model, mat_configs[0])};
   }
+  material_models_ = materials;
 
   // TODO mesh factory <DIM>
   std::vector<std::shared_ptr<Mesh>> meshes;
@@ -147,11 +149,10 @@ bool SimState<DIM>::load(const std::string& json_file) {
       for (int i = 0; i < V.cols(); ++i) {
         V.col(i).array() += offset[i];
       }
-      meshes.push_back(std::make_shared<Tri2DMesh>(V, T, materials[idx],
-          mat_configs[idx]));
+      meshes.push_back(std::make_shared<Tri2DMesh>(V, T, materials[idx]));
     }
   }
-  mesh_ = std::make_shared<Meshes>(meshes, materials[0], mat_configs[0]);
+  mesh_ = std::make_shared<Meshes>(meshes);
   x_ = std::make_shared<Displacement<DIM>>(mesh_, config_);
 
   MixedVariableFactory<DIM> mixed_variable_factory;
@@ -184,6 +185,18 @@ bool SimState<DIM>::load(const std::string& json_file) {
     config_->solver_type = solver_factory.type_by_name(name);
   }
   solver_ = solver_factory.create(config_->solver_type, mesh_, config_);
+
+  if (const auto& it = args.find("boundary_condition"); it != args.end()) {
+    std::vector<std::string> bc_list;
+    BoundaryConditions<DIM>::get_script_names(bc_list);
+    std::string name = it->get<std::string>();
+    for (size_t i = 0; i < bc_list.size(); ++i) {
+      if (name == bc_list[i]) {
+        config_->bc_type = static_cast<BCScriptType>(i);
+        break;
+      }
+    }
+  }
 
   return true;
 }

@@ -108,6 +108,10 @@ namespace mfem {
       return H;
     }
 
+    const std::shared_ptr<MaterialConfig>& config() const {
+      return config_;
+    }
+
   protected:
 
     std::shared_ptr<MaterialConfig> config_;     

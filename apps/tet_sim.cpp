@@ -109,8 +109,7 @@ struct PolyscopeTetApp : public PolyscopeApp<3> {
         material_config);
     config->kappa = material_config->mu;
 
-    mesh = std::make_shared<TetrahedralMesh>(meshV, meshT,
-        material, material_config);
+    mesh = std::make_shared<TetrahedralMesh>(meshV, meshT, material);
 
     SimState<3> state;
     state.mesh_ = mesh;

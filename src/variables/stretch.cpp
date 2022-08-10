@@ -21,7 +21,7 @@ double Stretch<DIM>::energy(const VectorXd& x) {
   for (int i = 0; i < nelem_; ++i) {
     double vol = mesh_->volumes()[i];
     const VecM& F = def_grad.segment<M()>(M()*i);
-    e_psi += mesh_->material_->energy(F) * vol;
+    e_psi += mesh_->elements_[i].material_->energy(F) * vol;
   }
   return e_psi;
 }
@@ -44,9 +44,9 @@ void Stretch<DIM>::update(const Eigen::VectorXd& x, double h) {
     const VecM& F = def_grad.segment<M()>(M()*i);
     double vol = mesh_->volumes()[i];
     
-    H_[i] = (Jloc[i].transpose() * mesh_->material_->hessian(F)
+    H_[i] = (Jloc[i].transpose() * mesh_->elements_[i].material_->hessian(F)
         * Jloc[i]) * vol * h2;
-    g_[i] = Jloc[i].transpose() * mesh_->material_->gradient(F) * vol * h2;
+    g_[i] = Jloc[i].transpose() * mesh_->elements_[i].material_->gradient(F) * vol * h2;
   }
   assembler_->update_matrix(H_);
   lhs_ = assembler_->A;

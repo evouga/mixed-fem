@@ -8,9 +8,7 @@ namespace mfem {
   class Meshes : public Mesh {
   public:
 
-    Meshes(const std::vector<std::shared_ptr<Mesh>>& meshes,
-        std::shared_ptr<MaterialModel> material,
-        std::shared_ptr<MaterialConfig> material_config);
+    Meshes(const std::vector<std::shared_ptr<Mesh>>& meshes);
 
     virtual void init() override;
     void volumes(Eigen::VectorXd& vol) override;

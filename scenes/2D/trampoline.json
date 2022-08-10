@@ -4,8 +4,8 @@
   "print_timing": true,
   "print_stats": true,
   "optimizer": "newton",
-  "time_integrator": "BDF2",
-  "linear_solver": "cholmod",
+  "time_integrator": "BDF1",
+  "linear_solver": "eigen-lu",
   "enable_ccd": true,
   "dhat": 0.01,
   "kappa": 1,
@@ -21,14 +21,20 @@
     {
       "path": "../models/obj/box_wide_145_thin_xy.obj",
       "offset": [0.0, 0.0, 0.0],
-      "material_index": 0
+      "material_index": 1
     }
   ],
   "material_models": [
     {
-      "youngs_modulus": 1e6,
+      "youngs_modulus": 79e9,
+      "poissons_ratio": 0.42,
+      "density": 2e5,
+      "energy": "Stable-Neohookean"
+    },
+    {
+      "youngs_modulus": 1e7,
       "poissons_ratio": 0.45,
-      "density": 1000,
+      "density": 1e3,
       "energy": "Stable-Neohookean"
     }
   ],

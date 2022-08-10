@@ -5,6 +5,7 @@
 #include "variables/displacement.h"
 #include "variables/mixed_variable.h"
 #include "linear_solvers/linear_solver.h"
+#include "energies/material_model.h"
 #include "time_integrators/implicit_integrator.h"
 #include "json/json.hpp"
 
@@ -24,6 +25,9 @@ namespace mfem {
 
     // Scene parameters
     std::shared_ptr<SimConfig> config_;
+
+    // Material models
+    std::vector<std::shared_ptr<MaterialModel>> material_models_;
 
     // Nodal displacement primal variable
     std::shared_ptr<Displacement<DIM>> x_;

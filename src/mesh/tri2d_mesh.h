@@ -9,8 +9,7 @@ namespace mfem {
   public:
 
     Tri2DMesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
-        std::shared_ptr<MaterialModel> material,
-        std::shared_ptr<MaterialConfig> material_config);
+        std::shared_ptr<MaterialModel> material);
 
     virtual void volumes(Eigen::VectorXd& vol) override;
     virtual void mass_matrix(Eigen::SparseMatrixdRowMajor& M,

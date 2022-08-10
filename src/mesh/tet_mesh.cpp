@@ -3,6 +3,7 @@
 #include "linear_tetmesh_mass_matrix.h"
 #include "linear_tet_mass_matrix.h"
 #include "linear_tetmesh_dphi_dX.h"
+#include "energies/material_model.h"
 #include "config.h"
 
 using namespace Eigen;
@@ -34,7 +35,8 @@ void TetrahedralMesh::volumes(Eigen::VectorXd& vol) {
 
 void TetrahedralMesh::mass_matrix(SparseMatrixdRowMajor& M,
     const VectorXd& vols) {
-  VectorXd densities = VectorXd::Constant(T_.rows(), config_->density);
+  VectorXd densities = VectorXd::Constant(T_.rows(),
+      material_->config()->density);
   sim::linear_tetmesh_mass_matrix(M, V0_, T_, densities, vols);
 }
 

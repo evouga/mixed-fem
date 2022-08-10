@@ -10,9 +10,8 @@ namespace mfem {
 
     RodMesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
         const Eigen::MatrixXd& N, const Eigen::MatrixXd& BN,
-        std::shared_ptr<MaterialModel> material,
-        std::shared_ptr<MaterialConfig> material_config)
-        : Mesh(V,T,material,material_config) {
+        std::shared_ptr<MaterialModel> material)
+        : Mesh(V,T,material) {
       
       NN_.resize(T_.rows());
       BN_.resize(T_.rows());

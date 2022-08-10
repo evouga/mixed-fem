@@ -19,12 +19,10 @@ namespace mfem {
 
   struct Element {
 
-    Element(std::shared_ptr<MaterialModel> material,
-        std::shared_ptr<MaterialConfig> config)
-        : material_(material), config_(config) {}
+    Element(std::shared_ptr<MaterialModel> material)
+        : material_(material) {}
 
     std::shared_ptr<MaterialModel> material_;
-    std::shared_ptr<MaterialConfig> config_;
   };
   
   enum MatrixType {
@@ -40,13 +38,11 @@ namespace mfem {
 
     Mesh() {}
     Mesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
-        std::shared_ptr<MaterialConfig> material_config,
         const std::vector<Eigen::VectorXi>& subsets,
         const std::vector<std::shared_ptr<MaterialModel>>& materials);
 
     Mesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
-        std::shared_ptr<MaterialModel> material,
-        std::shared_ptr<MaterialConfig> material_config);
+        std::shared_ptr<MaterialModel> material);
     
     virtual void init();
 
@@ -143,7 +139,6 @@ namespace mfem {
     Eigen::MatrixXi F_;
 
     std::shared_ptr<MaterialModel> material_;
-    std::shared_ptr<MaterialConfig> config_;
     std::vector<Element> elements_;
 
   protected:

@@ -1,6 +1,7 @@
 #include "rod_mesh.h"
 #include "svd/svd3x3_sse.h"
 #include "config.h"
+#include "energies/material_model.h"
 
 using namespace Eigen;
 using namespace mfem;
@@ -21,7 +22,7 @@ namespace {
 void RodMesh::volumes(VectorXd& vol) {
   vol.resize(T_.rows());
   for (int i = 0; i < T_.rows(); ++i) {
-    vol(i) = (V_.row(T_(i,0)) - V_.row(T_(i,1))).norm() * config_->thickness;
+    vol(i) = (V_.row(T_(i,0)) - V_.row(T_(i,1))).norm() * material_->config()->thickness;
   }
 }
 
@@ -49,7 +50,7 @@ void RodMesh::mass_matrix(SparseMatrixdRowMajor& M, const VectorXd& vols) {
   M.setFromTriplets(trips.begin(),trips.end());
 
   // note: assuming uniform density and thickness
-  M = M * config_->density; 
+  M = M * material_->config()->density; 
 }
 
 void RodMesh::jacobian(SparseMatrixdRowMajor& J, const VectorXd& vols,

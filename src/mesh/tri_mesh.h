@@ -9,9 +9,7 @@ namespace mfem {
   public:
 
     TriMesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
-        const Eigen::MatrixXd& N,
-        std::shared_ptr<MaterialModel> material,
-        std::shared_ptr<MaterialConfig> material_config);
+        const Eigen::MatrixXd& N, std::shared_ptr<MaterialModel> material);
 
     virtual void volumes(Eigen::VectorXd& vol) override;
     virtual void mass_matrix(Eigen::SparseMatrixdRowMajor& M,
