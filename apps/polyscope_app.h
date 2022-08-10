@@ -60,7 +60,7 @@ namespace mfem {
     bool ret = false;
     ImGui::SetNextItemOpen(true, ImGuiCond_Once);
     if (ImGui::TreeNode(id)) {
-      for (int i = 0; i < names.size(); ++i) {
+      for (size_t i = 0; i < names.size(); ++i) {
         TypeEnum type_i = factory.type_by_name(names[i]);
         bool is_selected = (types.find(type_i) != types.end());
         if (ImGui::Checkbox(names[i].c_str(), &is_selected)) {
@@ -303,10 +303,6 @@ namespace mfem {
               type = n;
               config->bc_type = static_cast<BCScriptType>(type);
               optimizer->reset();
-              //std::cout << "begin fixed" << std::endl;
-              //for (int i = 0; i < mesh->fixed_vertices_.size();++i) {
-              //  std::cout << mesh->fixed_vertices_[i] << std::endl;
-              //}
             }
 
             // Set the initial focus when opening the combo

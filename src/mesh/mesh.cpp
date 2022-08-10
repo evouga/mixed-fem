@@ -75,7 +75,7 @@ Mesh::Mesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
   BoundaryConditions<3>::init_boundary_groups(V0_, bc_groups_, 0.01);
   P_ = pinning_matrix(V_, T_, is_fixed_);
 
-  for (size_t i = 0; i < T_.rows(); ++i) {
+  for (int i = 0; i < T_.rows(); ++i) {
     elements_.push_back(Element(material));
   }
 

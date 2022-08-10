@@ -46,7 +46,8 @@ void Stretch<DIM>::update(const Eigen::VectorXd& x, double h) {
     
     H_[i] = (Jloc[i].transpose() * mesh_->elements_[i].material_->hessian(F)
         * Jloc[i]) * vol * h2;
-    g_[i] = Jloc[i].transpose() * mesh_->elements_[i].material_->gradient(F) * vol * h2;
+    g_[i] = Jloc[i].transpose() * mesh_->elements_[i].material_->gradient(F)
+        * vol * h2;
   }
   assembler_->update_matrix(H_);
   lhs_ = assembler_->A;

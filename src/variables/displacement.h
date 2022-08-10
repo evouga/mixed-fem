@@ -51,10 +51,6 @@ namespace mfem {
       assert(x.size() == P.rows());
       x = P.transpose() * x + b_;
     }
-    
-    void set_mixed(bool is_mixed) {
-      is_mixed_ = is_mixed;
-    }
 
   private:
 
@@ -81,15 +77,11 @@ namespace mfem {
     using Base::mesh_;
 
     OptimizerData data_;      // Stores timing results
-    int nelem_;               // number of elements
 
     std::shared_ptr<SimConfig> config_;
-    bool is_mixed_;
-
     std::shared_ptr<ImplicitIntegrator> integrator_;
 
     Eigen::SparseMatrix<double, Eigen::RowMajor> lhs_;
-    Eigen::SparseMatrix<double, Eigen::RowMajor> K_;   // stiffness matrix
 
     Eigen::VectorXd x_;       // displacement variables
     Eigen::VectorXd b_;       // dirichlet values
@@ -97,11 +89,5 @@ namespace mfem {
     Eigen::VectorXd rhs_;     // right-hand-side vector
     Eigen::VectorXd grad_;    // Gradient with respect to 's' variables
     Eigen::VectorXd f_ext_;   // body forces
-    std::vector<Eigen::VectorXd> g_;     // per-element gradients
-    std::vector<Eigen::MatrixXd> H_;     // per-element hessians
-    std::vector<Eigen::MatrixXd> Aloc_;
-    Eigen::SparseMatrix<double, Eigen::RowMajor> A_;
-    std::shared_ptr<Assembler<double,DIM,-1>> assembler_;
-    std::shared_ptr<VecAssembler<double,DIM,-1>> vec_assembler_;
   };
 }

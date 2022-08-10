@@ -86,7 +86,8 @@ double MixedStretch<DIM>::energy(const VectorXd& s) {
   #pragma omp parallel for reduction( + : e )
   for (int i = 0; i < nelem_; ++i) {
     const VecN& si = s.segment<N()>(N()*i);
-    double e_psi = mesh_->elements_[i].material_->energy(si) * mesh_->volumes()[i];
+    double e_psi = mesh_->elements_[i].material_->energy(si)
+        * mesh_->volumes()[i];
     e += e_psi;
   }
   return e;

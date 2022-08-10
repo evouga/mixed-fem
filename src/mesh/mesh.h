@@ -22,6 +22,8 @@ namespace mfem {
     Element(std::shared_ptr<MaterialModel> material)
         : material_(material) {}
 
+    
+
     std::shared_ptr<MaterialModel> material_;
   };
   
@@ -36,7 +38,8 @@ namespace mfem {
   class Mesh {
   public:
 
-    Mesh() {}
+    Mesh() = default;
+    
     Mesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
         const std::vector<Eigen::VectorXi>& subsets,
         const std::vector<std::shared_ptr<MaterialModel>>& materials);
