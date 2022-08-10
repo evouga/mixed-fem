@@ -6,6 +6,7 @@
 #include "variables/mixed_variable.h"
 #include "linear_solvers/linear_solver.h"
 #include "time_integrators/implicit_integrator.h"
+#include "json/json.hpp"
 
 namespace mfem {  
 
@@ -39,6 +40,14 @@ namespace mfem {
     // Linear solver to be used in substep of method
     std::shared_ptr<LinearSolver<double, Eigen::RowMajor>> solver_;
 
-    void load();
+    bool load(const std::string& json_file);
+  
+  private:
+    // Load triangle mesh
+    static void load_mesh(const std::string& path, Eigen::MatrixXd& V,
+        Eigen::MatrixXi& T);
+
+    // Loads simulation parameters
+    void load_params(const nlohmann::json& args);
   };
 }

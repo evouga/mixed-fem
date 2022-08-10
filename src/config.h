@@ -80,32 +80,33 @@ namespace mfem {
   // Global parameters for the simulation
   struct SimConfig {
     double h = 0.034; 
-    double h2 = h*h;
-    double ih2 = 1.0/h/h;
-    double grav = -9.8;
+    // double h2 = h*h;
+    // double ih2 = 1.0/h/h;
+    // double beta = 5.;
+    // double grav = -9.8;
+    // bool regularizer = false;
+    // bool local_global = true;
+    // int inner_steps = 7;
+    // double plane_d = 0;
+    // bool warm_start = false;
     float ext[3] = {0., -9.8, 0.};
-    double beta = 5.;
-    bool warm_start = false;
-    bool floor_collision = false;
-    bool regularizer = false;
-    bool local_global = true;
     bool show_timing = true;
     bool show_data = true;
     bool save_substeps = false;
     int outer_steps = 5;
-    int inner_steps = 7;
-    double plane_d = 0;
+    int ls_iters = 20;
+
     double kappa = 10.0;
     double max_kappa = 1e6;
     double constraint_tol = 1e-2;
-    bool enable_collisions = false;
+    bool enable_ccd = false;
+    double dhat = 1e-2;
 
     // update kappa and lambda if residual below this tolerance
     double update_zone_tol = 1e-1; 
 
     double newton_tol = 1e-10;
     double ls_tol = 1e-4;
-    int ls_iters = 20;
     OptimizerType optimizer = OPTIMIZER_NEWTON;
     int max_iterative_solver_iters = 500;
     double itr_tol = 1e-4;

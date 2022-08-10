@@ -23,6 +23,10 @@ namespace mfem {
         Eigen::VectorXd& F) override;
     void init_jacobian() override;
 
+    const std::vector<std::shared_ptr<Mesh>>& meshes() const {
+      return meshes_;
+    }
+
   protected:
 
     std::vector<std::shared_ptr<Mesh>> meshes_;

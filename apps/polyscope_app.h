@@ -9,7 +9,6 @@
 #include "polyscope/volume_mesh.h"
 #include "polyscope/surface_mesh.h"
 #include "args/args.hxx"
-#include "json/json.hpp"
 
 #include "mesh/mesh.h"
 #include "optimizers/optimizer.h"
@@ -258,10 +257,7 @@ namespace mfem {
       ImGui::SetNextItemOpen(true, ImGuiCond_Once);
       if (ImGui::TreeNode("Sim Params")) {
 
-        if (ImGui::InputDouble("Timestep", &config->h, 0,0,"%.5f")) {
-          config->h2 = config->h*config->h;
-          config->ih2 = 1.0/config->h/config->h;
-        }
+        ImGui::InputDouble("Timestep", &config->h, 0,0,"%.5f");
 
         if (FactoryCombo<OptimizerFactory<DIM>, OptimizerType>(
             "Optimizer", config->optimizer)) {

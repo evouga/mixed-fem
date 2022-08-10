@@ -38,7 +38,7 @@ void NewtonOptimizer<DIM>::step() {
     // If collisions enabled truncate the initial step size to avoid
     // intersections
     // TODO move to linesearch
-    if (state_.config_->enable_collisions) {
+    if (state_.config_->enable_ccd) {
       VectorXd x1 = state_.x_->value();
       // VectorXd x2 = state_.x_->value() + alpha * state_.x_->delta();
       state_.x_->unproject(x1);

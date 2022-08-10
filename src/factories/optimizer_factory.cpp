@@ -10,7 +10,7 @@ template<int DIM>
 OptimizerFactory<DIM>::OptimizerFactory() {
   // Newton's
   this->register_type(OptimizerType::OPTIMIZER_NEWTON,
-      NewtonOptimizer<3>::name(),
+      NewtonOptimizer<DIM>::name(),
       [](const SimState<DIM>& state)->std::unique_ptr<Optimizer<DIM>>
       {return std::make_unique<NewtonOptimizer<DIM>>(state);});
 }

@@ -216,17 +216,11 @@ target_link_libraries(tet_sim mixed_fem_lib)
 add_executable(cloth_sim apps/cloth_sim.cpp ${SOURCES})
 target_link_libraries(cloth_sim mixed_fem_lib)
 
-add_executable(rod_sim apps/rod_sim.cpp ${SOURCES})
-target_link_libraries(rod_sim mixed_fem_lib)
-
 add_executable(decrement apps/newton_decrement.cpp ${SOURCES})
 target_link_libraries(decrement mixed_fem_lib)
 
 add_executable(energy apps/energy.cpp ${SOURCES})
 target_link_libraries(energy mixed_fem_lib)
-
-add_executable(tri2d_sim apps/tri2d_sim.cpp ${SOURCES})
-target_link_libraries(tri2d_sim mixed_fem_lib)
 
 add_executable(coll_sim apps/collision2d_sim.cpp ${SOURCES})
 target_link_libraries(coll_sim mixed_fem_lib)
@@ -234,4 +228,6 @@ target_link_libraries(coll_sim mixed_fem_lib)
 add_executable(hetero_tet_sim apps/hetero_tet_sim.cpp ${SOURCES})
 target_link_libraries(hetero_tet_sim mixed_fem_lib)
 
+add_executable(sim2d apps/sim2d.cpp ${SOURCES})
+target_link_libraries(sim2d mixed_fem_lib)
 #add_subdirectory(tests)

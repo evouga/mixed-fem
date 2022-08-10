@@ -103,8 +103,6 @@ struct PolyscopeTetApp : public PolyscopeApp<3> {
 
     // Initial simulation setup
     config = std::make_shared<SimConfig>();
-    config->plane_d = a(1);
-    config->inner_steps=1;
 
     material_config = std::make_shared<MaterialConfig>();
     material = material_factory.create(material_config->material_model,

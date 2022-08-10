@@ -26,44 +26,11 @@ std::vector<MatrixXd> vertices;
 std::vector<MatrixXi> frame_faces;
 polyscope::SurfaceMesh* frame_srf = nullptr; // collision frame mesh
 
-std::shared_ptr<Mesh> load_mesh(const std::string& fn) {
-  MatrixXd V,NV;
-  MatrixXi T,NT;
-  igl::read_triangle_mesh(fn,V,T);
-  std::cout << "V size: " << V.size() << std::endl;
-  VectorXi VI,VJ;
-  igl::remove_unreferenced(V,T,NV,NT,VI,VJ);
-  V = NV;
-  T = NT;
-  // V.array() /= V.maxCoeff();
-
-  // Truncate z data
-  MatrixXd tmp;
-  tmp.resize(V.rows(),2);
-  tmp.col(0) = V.col(0);
-  tmp.col(1) = V.col(1);
-  V = tmp;
-
-  MaterialModelFactory material_factory;
-  std::shared_ptr<MaterialConfig> material_config =
-      std::make_shared<MaterialConfig>();
-  std::shared_ptr<MaterialModel> material = material_factory.create(
-      material_config->material_model, material_config);
-
-  std::shared_ptr<Mesh> mesh = std::make_shared<Tri2DMesh>(V, T,
-      material, material_config);
-  return mesh;
-}
-
-
-
 struct PolyscopeTriApp : public PolyscopeApp<2> {
 
   virtual void simulation_step() {
-    std::cout << "SIMULATION STEP " << std::endl;
     vertices.clear();
     frame_faces.clear();
-    std::cout << "vertices size: " << vertices.size() << std::endl;
 
     optimizer->step();
     meshV = mesh->vertices();
@@ -81,7 +48,6 @@ struct PolyscopeTriApp : public PolyscopeApp<2> {
     static int substep = 0;
     static bool show_frames = true;
     ImGui::Checkbox("Show Substeps",&show_substeps);
-
 
     if(!show_substeps) return;
     ImGui::InputInt("Substep", &substep);
@@ -151,60 +117,29 @@ struct PolyscopeTriApp : public PolyscopeApp<2> {
     }
   }
 
-  void init(const std::vector<std::string>& filenames) {
-
-    for (size_t i = 0; i < filenames.size(); ++i) {
-      mesh = load_mesh(filenames[i]);
-      mesh->V_.rowwise() += Eigen::RowVector2d(0,i*3);
-      mesh->V0_ = mesh->V_;
-      meshV = mesh->V_;
-      meshF = mesh->T_;
-      meshes.push_back(mesh);
-      // Register the mesh with Polyscope
-      std::string name = "tri2d_mesh_" + std::to_string(i);
-      polyscope::options::autocenterStructures = false;
-      srfs.push_back(polyscope::registerSurfaceMesh2D(name, meshV, meshF));
-    }
-
-    MaterialModelFactory material_factory;
-    material_config =
-        std::make_shared<MaterialConfig>();
-    std::shared_ptr<MaterialModel> material = material_factory.create(
-        material_config->material_model, material_config);
-
-    mesh = std::make_shared<Meshes>(meshes,material,material_config);
-    meshF = mesh->T_;
-
-
-    // Initial simulation setup
-    config = std::make_shared<SimConfig>();
-    //config->bc_type = BC_NULL;
-    config->bc_type = BC_HANGENDS;
-    config->solver_type = SOLVER_EIGEN_LU;
-    config->enable_ccd = true;
+  void init(const std::string& filename) {
 
     SimState<2> state;
-    state.mesh_ = mesh;
-    state.config_ = config;
-    state.x_ = std::make_shared<Displacement<2>>(mesh, config);
-
-    for (VariableType type : config->variables) {
-      state.vars_.push_back(variable_factory.create(type, mesh, config));
-    }
-    for (VariableType type : config->mixed_variables) {
-      state.mixed_vars_.push_back(
-          mixed_variable_factory.create(type, mesh, config));
-    }
-
-    SolverFactory solver_factory;
-    state.solver_ = solver_factory.create(config->solver_type, mesh, config);
-
-    //config->optimizer = OptimizerType::OPTIMIZER_NEWTON;
-    optimizer = optimizer_factory.create(config->optimizer, state);
-    optimizer->reset();
+    state.load(filename);
+    meshF = state.mesh_->T_;
 
     BoundaryConditions<2>::get_script_names(bc_list);
 
+    std::shared_ptr<Meshes> m = std::dynamic_pointer_cast<Meshes>(state.mesh_);
+    meshes = m->meshes();
+    for (int i = 0; i < meshes.size(); ++i) {
+      // Register the mesh with Polyscope
+      std::string name = "tri2d_mesh_" + std::to_string(i);
+      polyscope::options::autocenterStructures = false;
+      srfs.push_back(polyscope::registerSurfaceMesh2D(name,
+          meshes[i]->V_, meshes[i]->T_));
+    }
+    mesh = state.mesh_;
+    config = state.config_;
+    material_config = std::make_shared<MaterialConfig>();
+
+    optimizer = optimizer_factory.create(config->optimizer, state);
+    optimizer->reset();
     optimizer->callback = std::bind(&PolyscopeTriApp::collision_callback, this,
         std::placeholders::_1);
 
@@ -219,19 +154,10 @@ struct PolyscopeTriApp : public PolyscopeApp<2> {
 int main(int argc, char **argv) {
   // Configure the argument parser
   args::ArgumentParser parser("Mixed FEM");
-  // args::Positional<std::string> inFile(parser, "mesh", "input mesh");
-  args::PositionalList<std::string> pathsList(parser, "paths", "files to commit");
+  args::Positional<std::string> inFile(parser, "json", "input scene json file");
 
-  // Parse args
-  std::vector<std::string> files;
   try {
     parser.ParseCLI(argc, argv);
-    std::cout << "Paths: " << std::endl;
-    for (auto &&path : pathsList) {
-        std::cout << ' ' << path;
-        files.push_back(path);
-    }
-
   } catch (args::Help) {
     std::cout << parser;
     return 0;
@@ -250,7 +176,9 @@ int main(int argc, char **argv) {
   // Initialize polyscope
   polyscope::init();
 
-  app.init(files);
+  std::string filename = args::get(inFile);
+
+  app.init(filename);
 
   polyscope::view::style = polyscope::view::NavigateStyle::Planar;
 
