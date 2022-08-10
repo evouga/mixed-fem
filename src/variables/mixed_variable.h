@@ -15,6 +15,17 @@ namespace mfem {
     MixedVariable(std::shared_ptr<Mesh> mesh) : Variable<DIM>(mesh) {
     }
 
+    virtual double energy(const Eigen::VectorXd& x) {
+      std::cerr << "TODO: remove mixed variable energy()!" << std::endl;
+      return 0;
+    }
+
+    // Evaluate the energy associated with the variable
+    // x - Nodal displacements 
+    // y - Mixed variable
+    virtual double energy(const Eigen::VectorXd& x,
+        const Eigen::VectorXd& y) = 0;
+
     // Evaluate the energy associated with the mixed variable constraint
     // x - Nodal displacements 
     // y - Mixed variable

@@ -34,10 +34,47 @@ namespace {
 }
 
 template<int DIM>
-double MixedCollision<DIM>::energy(const VectorXd& d) {
+double MixedCollision<DIM>::energy(const VectorXd& x, const VectorXd& d) {
 
+  std::vector<double> new_d;
+  std::vector<CollisionFrame> new_frames;
+  // For each boundary vertex find primitives within distance threshold
+  for (int i = 0; i < C_.size(); ++i) {
+
+    // Currently brute force check all primitives
+    for (int j = 0; j < F_.rows(); ++j) {
+      if (C_(i) == F_(j,0) || C_(i) == F_(j,1)) {
+        continue;
+      }
+
+      // Use tuple of vertex ids for hashing
+      std::tuple<int,int,int> tup = std::make_tuple(F_(j,0),F_(j,1), C_(i));
+      auto it = frame_ids_.find(tup);
+
+      // Build a frame and compute distance for the primitive - point pair
+      CollisionFrame frame(F_(j,0), F_(j,1), C_(i));
+      double D = frame.distance(x);
+      double d = D; 
+
+      // Check if frame already exists and maintain its variable
+      // and lagrange multiplier values 
+      if (it != frame_ids_.end()) {
+        d = d_(it->second);
+      }
+
+      // If valid and within distance thresholds add new frame
+      if (frame.is_valid(x) && D > 0 && D < h_) {
+        new_d.push_back(d);
+        new_frames.push_back(frame);
+      }
+    }
+  }
+  double h2 = dt_*dt_;
   double e = 0;
-  return e;
+  #pragma omp parallel for reduction( + : e )
+  for (size_t i = 0; i < new_frames.size(); ++i) {
+    e += psi(new_d[i], h_, config_->kappa) / h2;
+  }
   return e;
 }
 
@@ -46,26 +83,17 @@ template <int DIM>
 double MixedCollision<DIM>::constraint_value(const VectorXd& x,
     const VectorXd& d) {
 
-  //std::cout << "Energy() d: " << d << std::endl;
-  //if ( (d.array() <= 0.0).any())
-  //  return 1e8;
   double e = 0;
   #pragma omp parallel for reduction( + : e )
   for (int i = 0; i < nframes_; ++i) {
-    e += dt_*dt_*(psi(d(i), h_, config_->kappa)
-      - la_(i) * (collision_frames_[i].distance(x) - d(i)));
+    e += la_(i) * (collision_frames_[i].distance(x) - d(i));
   }
-  //std::cout << "energy (e): " << e << std::endl;
-  // d - (p-x0)^T R(x) * N 
-  //std::cout << " e: " << e << std::endl;
-  //std::cout << " la norm: " << la_.norm() << std::endl;
-  return -e; // negating cause my dumb fuckin linesearch negates it.....
+  return e;
 }
 
 template<int DIM>
 void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
   // Get collision frames
-  dt = 1.0;
   dt_ = dt;
 
   //std::cout << "d: " << d_ << std::endl;
@@ -156,8 +184,6 @@ void MixedCollision<DIM>::update_collision_frames(const Eigen::VectorXd& x) {
 template<int DIM>
 void MixedCollision<DIM>::update_derivatives(double dt) {
 
-  double h2 = dt * dt;
-
   if (nframes_ == 0) {
     return;
   }
@@ -168,8 +194,8 @@ void MixedCollision<DIM>::update_derivatives(double dt) {
 
   #pragma omp parallel for
   for (int i = 0; i < nframes_; ++i) {
-    H_[i] = h2 * d2psi(d_(i),h_, config_->kappa);
-    g_[i] = h2 * dpsi(d_(i),h_, config_->kappa);
+    H_[i] = d2psi(d_(i), h_, config_->kappa);
+    g_[i] = dpsi(d_(i), h_, config_->kappa);
   }
   data_.timer.stop("Hinv");
   

@@ -81,7 +81,7 @@ namespace mfem {
       return "mixed-collision";
     }
 
-    double energy(const Eigen::VectorXd& d) override;
+    double energy(const Eigen::VectorXd& x, const Eigen::VectorXd& d) override;
     double constraint_value(const Eigen::VectorXd& x,
         const Eigen::VectorXd& d) override;
     void update(const Eigen::VectorXd& x, double dt) override;

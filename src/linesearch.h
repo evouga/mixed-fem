@@ -191,7 +191,7 @@ namespace mfem {
       state.x_->unproject(x0);
       for (const auto& var : state.mixed_vars_) {
         const Eigen::VectorXd si = var->value() + a * var->delta();
-        val += h2 * var->energy(si) - var->constraint_value(x0, si);  
+        val += h2 * var->energy(x0, si) - var->constraint_value(x0, si);  
       }
       for (const auto& var : state.vars_) {
         val += h2 * var->energy(x0);  

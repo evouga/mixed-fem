@@ -33,10 +33,33 @@ namespace {
 template<int DIM>
 double Collision<DIM>::energy(const VectorXd& x) {
   double e = 0;
+
+  // Build collision Frames
+  std::vector<double> new_D;
+  // For each boundary vertex find primitives within distance threshold
+  for (int i = 0; i < C_.size(); ++i) {
+
+    // Currently brute force check all primitives
+    for (int j = 0; j < F_.rows(); ++j) {
+      if (C_(i) == F_(j,0) || C_(i) == F_(j,1)) {
+        continue;
+      }
+
+      // Build a frame and compute distance for the primitive - point pair
+      CollisionFrame frame(F_(j,0), F_(j,1), C_(i));
+      double D = frame.distance(x);
+
+      // If valid and within distance thresholds add new frame
+      if (frame.is_valid(x) && D > 0 && D < h_) {
+        new_D.push_back(D);
+      }
+    }
+  }
+
   double h2 = dt_*dt_;
   #pragma omp parallel for reduction( + : e )
-  for (int i = 0; i < nframes_; ++i) {
-    e += psi(collision_frames_[i].distance(x), h_, config_->kappa) / h2;
+  for (size_t i = 0; i < new_D.size(); ++i) {
+    e += psi(new_D[i], h_, config_->kappa) / h2;
   }
   return e;
 }

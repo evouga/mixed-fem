@@ -79,7 +79,7 @@ namespace {
 }
 
 template<int DIM>
-double MixedStretch<DIM>::energy(const VectorXd& s) {
+double MixedStretch<DIM>::energy(const VectorXd& x, const VectorXd& s) {
 
   double e = 0;
 

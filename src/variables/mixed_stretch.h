@@ -22,7 +22,7 @@ namespace mfem {
       return "mixed-stretch";
     }
 
-    double energy(const Eigen::VectorXd& s) override;
+    double energy(const Eigen::VectorXd& x, const Eigen::VectorXd& s) override;
     double constraint_value(const Eigen::VectorXd& x,
         const Eigen::VectorXd& s) override;
     void update(const Eigen::VectorXd& x, double dt) override;
