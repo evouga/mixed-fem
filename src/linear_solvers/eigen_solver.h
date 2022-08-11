@@ -11,10 +11,10 @@ namespace mfem {
     EigenSolver() : has_init_(false) {}
 
     void compute(const Eigen::SparseMatrix<Scalar, Ordering>& A) override {
-      if (!has_init_) {
+      //if (!has_init_) { // Can't do this for collisions since pattern changes
         solver_.analyzePattern(A);
         has_init_ = true;
-      }
+      //}
       solver_.factorize(A);
       if (solver_.info() != Eigen::Success) {
        std::cerr << "prefactor failed! " << std::endl;

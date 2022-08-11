@@ -118,6 +118,7 @@ void NewtonOptimizer<DIM>::substep(double& decrement) {
   state_.x_->delta() = state_.solver_->solve(rhs_);
   state_.data_.timer.stop("global");
 
+  //saveMarket(lhs_, "lhs.mkt");
   decrement = state_.x_->delta().template lpNorm<Infinity>();
 
   for (auto& var : state_.mixed_vars_) {

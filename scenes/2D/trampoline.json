@@ -32,7 +32,7 @@
       "energy": "Stable-Neohookean"
     },
     {
-      "youngs_modulus": 1e9,
+      "youngs_modulus": 1e7,
       "poissons_ratio": 0.45,
       "density": 1e3,
       "energy": "Stable-Neohookean"

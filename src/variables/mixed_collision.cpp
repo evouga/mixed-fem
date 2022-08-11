@@ -4,6 +4,7 @@
 #include "igl/boundary_facets.h"
 #include "simple_psd_fix.h"
 #include "config.h"
+#include <unsupported/Eigen/SparseExtra>
 
 using namespace Eigen;
 using namespace mfem;
@@ -37,7 +38,6 @@ template<int DIM>
 double MixedCollision<DIM>::energy(const VectorXd& x, const VectorXd& d) {
 
   std::vector<double> new_d;
-  std::vector<CollisionFrame> new_frames;
   // For each boundary vertex find primitives within distance threshold
   for (int i = 0; i < C_.size(); ++i) {
 
@@ -54,25 +54,30 @@ double MixedCollision<DIM>::energy(const VectorXd& x, const VectorXd& d) {
       // Build a frame and compute distance for the primitive - point pair
       CollisionFrame frame(F_(j,0), F_(j,1), C_(i));
       double D = frame.distance(x);
-      double d = D; 
+      double di = D;
 
       // Check if frame already exists and maintain its variable
       // and lagrange multiplier values 
       if (it != frame_ids_.end()) {
-        d = d_(it->second);
+        di = d(it->second);
+        //std::cout << "energy : " << i << " D: " << D  << " d: "
+        //  << di << " frame still valid? : " << frame.is_valid(x) << std::endl;
       }
 
       // If valid and within distance thresholds add new frame
       if (frame.is_valid(x) && D > 0 && D < h_) {
-        new_d.push_back(d);
-        new_frames.push_back(frame);
+        new_d.push_back(di);
       }
     }
   }
+
+  //std::cout << "energy new_d: " << Map<VectorXd>(new_d.data(), new_d.size())
+  //    << "\n d_ : " << d_ << std::endl;
+  //std::cout << "x size & norm: " << x.size() << " norm: " << x.norm() << std::endl;
   double h2 = dt_*dt_;
   double e = 0;
   #pragma omp parallel for reduction( + : e )
-  for (size_t i = 0; i < new_frames.size(); ++i) {
+  for (size_t i = 0; i < new_d.size(); ++i) {
     e += psi(new_d[i], h_, config_->kappa) / h2;
   }
   return e;
@@ -174,6 +179,7 @@ void MixedCollision<DIM>::update_collision_frames(const Eigen::VectorXd& x) {
       }
     }
   }
+  //std::cout << "update_derivs before: \n" << d_ << std::endl;
   D_ = Map<VectorXd>(new_D.data(), new_D.size());
   d_ = Map<VectorXd>(new_d.data(), new_d.size());
   la_ = Map<VectorXd>(new_lambda.data(), new_lambda.size());
@@ -212,7 +218,8 @@ void MixedCollision<DIM>::update_derivatives(double dt) {
   assembler_->update_matrix(Aloc_);
   data_.timer.stop("Update LHS");
 
-  // saveMarket(assembler_->A, "lhs_c1.mkt");
+  //std::cout << "update_derivs: \n" << d_ << std::endl;
+  //saveMarket(assembler_->A, "lhs_c1.mkt");
 
   A_ = assembler_->A;
 // std::cout << "A1: \n " << MatrixXd(A_) << std::endl;
