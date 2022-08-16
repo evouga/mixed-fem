@@ -15,7 +15,7 @@ namespace mfem {
   template <int DIM>
   class Optimizer {
   public:
-    Optimizer(const SimState<DIM>& state) : state_(state) {
+    Optimizer(SimState<DIM>& state) : state_(std::move(state)) {
       callback = default_optimizer_callback;
     }
 

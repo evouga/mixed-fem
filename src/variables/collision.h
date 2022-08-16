@@ -79,7 +79,6 @@ namespace mfem {
     using Base::mesh_;
 
     OptimizerData data_;     // Stores timing results
-    double h_;
     double dt_;
     int nframes_;            // number of elements
     Eigen::VectorXd D_;      // per-frames distances

@@ -65,7 +65,7 @@ double MixedCollision<DIM>::energy(const VectorXd& x, const VectorXd& d) {
       }
 
       // If valid and within distance thresholds add new frame
-      if (frame.is_valid(x) && D > 0 && D < h_) {
+      if (frame.is_valid(x) && D >= 0 && D < config_->dhat) {
         new_d.push_back(di);
       }
     }
@@ -78,7 +78,7 @@ double MixedCollision<DIM>::energy(const VectorXd& x, const VectorXd& d) {
   double e = 0;
   #pragma omp parallel for reduction( + : e )
   for (size_t i = 0; i < new_d.size(); ++i) {
-    e += psi(new_d[i], h_, config_->kappa) / h2;
+    e += psi(new_d[i], config_->dhat, config_->kappa) / h2;
   }
   return e;
 }
@@ -169,7 +169,7 @@ void MixedCollision<DIM>::update_collision_frames(const Eigen::VectorXd& x) {
       }
 
       // If valid and within distance thresholds add new frame
-      if (frame.is_valid(x) && D > 0 && D < h_) {
+      if (frame.is_valid(x) && D > 0 && D < config_->dhat) {
         new_D.push_back(D);
         new_d.push_back(d);
         new_lambda.push_back(la);
@@ -200,8 +200,8 @@ void MixedCollision<DIM>::update_derivatives(double dt) {
 
   #pragma omp parallel for
   for (int i = 0; i < nframes_; ++i) {
-    H_[i] = d2psi(d_(i), h_, config_->kappa);
-    g_[i] = dpsi(d_(i), h_, config_->kappa);
+    H_[i] = d2psi(d_(i), config_->dhat, config_->kappa);
+    g_[i] = dpsi(d_(i), config_->dhat, config_->kappa);
   }
   data_.timer.stop("Hinv");
   
@@ -309,7 +309,6 @@ void MixedCollision<DIM>::solve(const VectorXd& dx) {
 
 template<int DIM>
 void MixedCollision<DIM>::reset() {
-  h_ = 2e-2; // 1e-3 in ipc
   d_.resize(0);
   g_.resize(0);
   H_.resize(0);

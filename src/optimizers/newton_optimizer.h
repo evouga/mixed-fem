@@ -17,7 +17,7 @@ namespace mfem {
 
   public:
     
-    NewtonOptimizer(const SimState<DIM>& state)
+    NewtonOptimizer(SimState<DIM>& state)
         : Optimizer<DIM>(state) {}
 
     static std::string name() {

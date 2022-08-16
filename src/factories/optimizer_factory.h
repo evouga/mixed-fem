@@ -10,7 +10,7 @@ namespace mfem {
 
   template<int DIM>
   class OptimizerFactory : public Factory<OptimizerType,
-      Optimizer<DIM>, const SimState<DIM>&> {
+      Optimizer<DIM>, SimState<DIM>&> {
   public:
     OptimizerFactory();
   };

@@ -50,7 +50,7 @@ double Collision<DIM>::energy(const VectorXd& x) {
       double D = frame.distance(x);
 
       // If valid and within distance thresholds add new frame
-      if (frame.is_valid(x) && D > 0 && D < h_) {
+      if (frame.is_valid(x) && D >= 0 && D < config_->dhat) {
         new_D.push_back(D);
       }
     }
@@ -59,7 +59,8 @@ double Collision<DIM>::energy(const VectorXd& x) {
   double h2 = dt_*dt_;
   #pragma omp parallel for reduction( + : e )
   for (size_t i = 0; i < new_D.size(); ++i) {
-    e += psi(new_D[i], h_, config_->kappa) / h2;
+    e += psi(new_D[i], config_->dhat, config_->kappa) / h2;
+    //e += psi(new_D[i], config_->dhat, config_->kappa);
   }
   return e;
 }
@@ -85,8 +86,7 @@ void Collision<DIM>::update(const Eigen::VectorXd& x, double dt) {
   assembler_ = std::make_shared<Assembler<double,DIM,-1>>(T, mesh_->free_map_);
   vec_assembler_ = std::make_shared<VecAssembler<double,DIM,-1>>(T,
       mesh_->free_map_);
-  //update_derivatives(dt);
-  update_derivatives(1.0);
+  update_derivatives(dt);
 }
 
 template<int DIM>
@@ -110,7 +110,7 @@ void Collision<DIM>::update_collision_frames(const Eigen::VectorXd& x) {
       double D = frame.distance(x);
 
       // If valid and within distance thresholds add new frame
-      if (frame.is_valid(x) && D > 0 && D < h_) {
+      if (frame.is_valid(x) && D > 0 && D < config_->dhat) {
         new_D.push_back(D);
         dd_dx_.push_back(frame.gradient(x));
         collision_frames_.push_back(frame);
@@ -118,6 +118,7 @@ void Collision<DIM>::update_collision_frames(const Eigen::VectorXd& x) {
     }
   }
   D_ = Map<VectorXd>(new_D.data(), new_D.size());
+  std::cout << "coll: D_: " << D_ << std::endl;
 }
 
 template<int DIM>
@@ -135,8 +136,8 @@ void Collision<DIM>::update_derivatives(double dt) {
 
   #pragma omp parallel for
   for (int i = 0; i < nframes_; ++i) {
-    H_[i] = h2 * d2psi(D_(i), h_, config_->kappa);
-    g_[i] = h2 * dpsi(D_(i), h_, config_->kappa);
+    H_[i] = /*h2 */ d2psi(D_(i), config_->dhat, config_->kappa);
+    g_[i] = /*h2 */ dpsi(D_(i), config_->dhat, config_->kappa);
   }
   data_.timer.stop("Hinv");
   
@@ -181,7 +182,6 @@ VectorXd Collision<DIM>::gradient() {
 
 template<int DIM>
 void Collision<DIM>::reset() {
-  h_ = 2e-2; // 1e-3 in ipc
   g_.resize(0);
   H_.resize(0);
   grad_.resize(0);

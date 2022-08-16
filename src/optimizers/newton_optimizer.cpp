@@ -21,6 +21,7 @@ void NewtonOptimizer<DIM>::step() {
   double kappa0 = state_.config_->kappa;
   do {
 
+    std::cout << " 1 " << std::endl;
     // Update gradient and hessian
     update_system();
 
@@ -29,12 +30,14 @@ void NewtonOptimizer<DIM>::step() {
     double res = std::abs((E - E_prev) / (E+1));
     E_prev = E;
 
+    std::cout << " 2 " << std::endl;
     // Solve system
     substep(grad_norm);
 
     // Linesearch on descent direction
     double alpha = 1.0;
 
+    std::cout << " 3 " << std::endl;
     // If collisions enabled truncate the initial step size to avoid
     // intersections
     // TODO move to linesearch
@@ -46,12 +49,13 @@ void NewtonOptimizer<DIM>::step() {
       // alpha = max_possible_step<DIM>(x1, x2, state_.mesh_->F_);
 
       VectorXd p = state_.mesh_->projection_matrix().transpose() * state_.x_->delta();
-      alpha = additive_ccd<DIM>(x1, p, state_.mesh_->F_);
+      alpha = 0.95 * additive_ccd<DIM>(x1, p, state_.mesh_->F_);
       state_.data_.add("ACCD ", alpha);
 
       // std::cout << std::setprecision(10) << "alpha0: " << alpha << std::endl;
     }
 
+    std::cout << " 4 " << std::endl;
     // SolverExitStatus status = linesearch_backtracking_cubic(x_,
     //    {svar_}, alpha, config_->ls_iters);
     //SolverExitStatus status = linesearch_backtracking(state_.x_,

@@ -153,7 +153,7 @@ bool SimState<DIM>::load(const std::string& json_file) {
     }
   }
   mesh_ = std::make_shared<Meshes>(meshes);
-  x_ = std::make_shared<Displacement<DIM>>(mesh_, config_);
+  x_ = std::make_unique<Displacement<DIM>>(mesh_, config_);
 
   MixedVariableFactory<DIM> mixed_variable_factory;
   std::set<VariableType> mixed_variables;

@@ -115,13 +115,13 @@ namespace mfem {
 
       if (x0.size() != 0) {
         optimizer->set_state(x0, v);
-        if (DIM == 3) {
+        if constexpr (DIM == 3) {
           srf->updateVertexPositions(mesh->V_);
         } else {
           srf->updateVertexPositions2D(mesh->V_);
         }          
       } else {
-        if (DIM == 3) {
+        if constexpr (DIM == 3) {
           srf->updateVertexPositions(mesh->V0_);
         } else {
           srf->updateVertexPositions2D(mesh->V0_);
@@ -258,10 +258,12 @@ namespace mfem {
       if (ImGui::TreeNode("Sim Params")) {
 
         ImGui::InputDouble("Timestep", &config->h, 0,0,"%.5f");
+        ImGui::InputDouble("dhat", &config->dhat, 0,0,"%.5g");
+        ImGui::Checkbox("enable_ccd", &config->enable_ccd);
 
         if (FactoryCombo<OptimizerFactory<DIM>, OptimizerType>(
             "Optimizer", config->optimizer)) {
-          SimState<DIM> state = optimizer->state();
+          SimState<DIM>& state = optimizer->state();
           optimizer = optimizer_factory.create(config->optimizer, state);
           optimizer->reset();
         }

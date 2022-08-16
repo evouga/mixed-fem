@@ -214,7 +214,7 @@ namespace mfem {
     Scalar alpha_prev = alpha;
 
     //std::cout << "LS: " << fx0 << std::endl;
-    alpha *= 0.9;
+    //alpha *= 0.9;
 
     int iter = 0;
     while (iter < max_iterations) {

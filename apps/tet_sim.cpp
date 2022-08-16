@@ -114,7 +114,7 @@ struct PolyscopeTetApp : public PolyscopeApp<3> {
     SimState<3> state;
     state.mesh_ = mesh;
     state.config_ = config;
-    state.x_ = std::make_shared<Displacement<3>>(mesh, config);
+    state.x_ = std::make_unique<Displacement<3>>(mesh, config);
 
     config->mixed_variables = { VAR_MIXED_STRETCH };
     config->variables = {};

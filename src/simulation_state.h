@@ -30,10 +30,10 @@ namespace mfem {
     std::vector<std::shared_ptr<MaterialModel>> material_models_;
 
     // Nodal displacement primal variable
-    std::shared_ptr<Displacement<DIM>> x_;
+    std::unique_ptr<Displacement<DIM>> x_;
 
     // Mixed variables
-    std::vector<std::shared_ptr<MixedVariable<DIM>>> mixed_vars_;
+    std::vector<std::unique_ptr<MixedVariable<DIM>>> mixed_vars_;
 
     // Displacement-based variables
     // These don't maintain the state of the nodal displacements, but
@@ -42,7 +42,7 @@ namespace mfem {
     std::vector<std::shared_ptr<Variable<DIM>>> vars_;
 
     // Linear solver to be used in substep of method
-    std::shared_ptr<LinearSolver<double, Eigen::RowMajor>> solver_;
+    std::unique_ptr<LinearSolver<double, Eigen::RowMajor>> solver_;
 
     bool load(const std::string& json_file);
   

@@ -19,6 +19,16 @@
       "material_index": 0
     },
     {
+      "path": "../models/obj/square_xy_145.obj",
+      "offset": [2.0, 8.0, 0.0],
+      "material_index": 0
+    },
+    {
+      "path": "../models/obj/square_xy_145.obj",
+      "offset": [1.0, 2.5, 0.0],
+      "material_index": 0
+    },
+    {
       "path": "../models/obj/box_wide_145_thin_xy.obj",
       "offset": [0.0, 0.0, 0.0],
       "material_index": 1

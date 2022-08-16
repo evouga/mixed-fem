@@ -16,6 +16,7 @@
 #include <algorithm>
 #include "variables/mixed_collision.h"
 #include "variables/mixed_stretch.h"
+#include "variables/collision.h"
 #include "variables/stretch.h"
 #include "variables/displacement.h"
 
@@ -73,21 +74,13 @@ struct PolyscopeTriApp : public PolyscopeApp<2> {
     }
   }
 
-  void collision_callback(const SimState<2>& state) {
-    std::shared_ptr<MixedCollision<2>> c;
-    std::shared_ptr<Displacement<2>> x = state.x_;
+  template <typename T, typename U>
+  bool add_collision_frames(const SimState<2>& state, const U* var) {
 
-    // Determine if variables include the required displacement and collision
-    for (size_t i = 0; i < state.mixed_vars_.size(); ++i) {
-      if(!c) {
-        c = std::dynamic_pointer_cast<MixedCollision<2>>(state.mixed_vars_[i]);
-      }
-    }
+    const auto& x = state.x_;
 
-    if (!x || !c) {
-      std::cout << "need displacement and collision yo" << std::endl;
-      return;
-    }
+    const T* c = dynamic_cast<const T*>(var);
+    if (!c) return false;
     int n = c->num_collision_frames();
     MatrixXi Fframe(n,3);
 
@@ -104,6 +97,21 @@ struct PolyscopeTriApp : public PolyscopeApp<2> {
     }
     vertices.push_back(V);
     frame_faces.push_back(Fframe);
+    return true;
+  }
+
+  void collision_callback(const SimState<2>& state) {
+    for (size_t i = 0; i < state.mixed_vars_.size(); ++i) {
+      if (add_collision_frames<MixedCollision<2>>(state,
+          state.mixed_vars_[i].get())) {
+        return;
+      }
+    }
+    for (size_t i = 0; i < state.vars_.size(); ++i) {
+      if (add_collision_frames<Collision<2>>(state, state.vars_[i].get())) {
+        return;
+      }
+    }
   }
 
   virtual void reset() {

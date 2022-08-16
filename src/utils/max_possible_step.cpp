@@ -131,7 +131,7 @@ double mfem::additive_ccd(const VectorXd& x, const VectorXd& p,
   double s = 0.1; // scaling factor
   double t_c = 1.0;
 
-  #pragma omp parallel for reduction(min:min_step)
+  //#pragma omp parallel for reduction(min:min_step)
   for (int i = 0; i < F.rows(); ++i) {
     for (int j = 0; j < F.rows(); ++j) {
 
@@ -164,14 +164,12 @@ double mfem::additive_ccd(const VectorXd& x, const VectorXd& p,
         continue;
       }
 
-      // std::cout << "(i,j): " << "(" << i << "," << j << ") " << std::endl;
-      // std::cout << " l_p : "<< l_p << " d: " << d << std::endl;
-
       double g = s * d;
       double t = 0.0;
       double t_l = (1.0 - s) * d / l_p;
 
       bool valid = true;
+      int cnt = 0;
       while (true) {
         x0 += t_l * p0;
         x1 += t_l * p1;
@@ -179,7 +177,8 @@ double mfem::additive_ccd(const VectorXd& x, const VectorXd& p,
         x3 += t_l * p3;
 
         d = dist_EE(x0, x1, x2, x3);
-        if (t >= 0.0 && d < g) {
+
+        if (t > 0.0 && d < g) {
           break;
         }
         t += t_l;
@@ -188,7 +187,17 @@ double mfem::additive_ccd(const VectorXd& x, const VectorXd& p,
           valid = false;
           break;
         }
+        ++cnt;
+        //if (cnt > 10) {
+        //  std::cout << "CNT: " << cnt << std::endl;
+        //  std::cout << "g: " << g << " t: " << t << " d: " << d << std::endl;
+        //  std::cout << " l_p : "<< l_p << " d: " << d << std::endl;
+        //}
         t_l = 0.9 * d / l_p;
+        //std::cout << "d: " << d << " l_p: " << l_p << std::endl;
+
+
+
       }
       if (valid) {
         // std::cout << "  t: " << t << " d: " << d << std::endl;
