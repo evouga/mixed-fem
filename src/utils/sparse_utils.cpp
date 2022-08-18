@@ -38,17 +38,19 @@ Assembler<Scalar,DIM,N>::Assembler(const MatrixXi& E,
   // Identify all node pairs for each element
   for (int i = 0; i < E.rows(); ++i) {
     for (int j = 0; j < cols; ++j) {
+      // Make sure indices are valid and unpinned
+      if (E(i,j) == -1 || free_map[E(i,j)] == -1) continue;
       int id1 = free_map[E(i,j)];
+
       for (int k = 0; k < cols; ++k) {
+        if (E(i,k) == -1 || free_map[E(i,k)] == -1) continue;
         int id2 = free_map[E(i,k)];
 
         // If both nodes are unpinned, insert the pair
-        if (id1 != -1 && id2 != -1) {
-          element_ids.push_back(i);
-          global_pairs.push_back(std::make_pair(id1,id2));
-          local_pairs.push_back(std::make_pair(j,k));
-          ids.push_back(cur_id++);
-        }
+        element_ids.push_back(i);
+        global_pairs.push_back(std::make_pair(id1,id2));
+        local_pairs.push_back(std::make_pair(j,k));
+        ids.push_back(cur_id++);
       }
     }
   }
@@ -220,14 +222,13 @@ VecAssembler<Scalar,DIM,N>::VecAssembler(const MatrixXi& E,
   // Identify all free nodes for each element
   for (int i = 0; i < E.rows(); ++i) {
     for (int j = 0; j < cols; ++j) {
+      // If node is unpinned, insert the pair
+      if (E(i,j) == -1 || free_map[E(i,j)] == -1) continue;
       int id = free_map[E(i,j)];
-      // If both nodes are unpinned, insert the pair
-      if (id != -1) {
-        element_ids.push_back(i);
-        local_vids.push_back(j);
-        global_vids.push_back(id);
-        ids.push_back(cur_id++);
-      }
+      element_ids.push_back(i);
+      local_vids.push_back(j);
+      global_vids.push_back(id);
+      ids.push_back(cur_id++);
     }
   }
 

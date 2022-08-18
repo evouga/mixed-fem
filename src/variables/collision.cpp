@@ -46,7 +46,7 @@ double Collision<DIM>::energy(const VectorXd& x) {
       }
 
       // Build a frame and compute distance for the primitive - point pair
-      CollisionFrame frame(F_(j,0), F_(j,1), C_(i));
+      CollisionFrame2 frame(F_(j,0), F_(j,1), C_(i));
       double D = frame.distance(x);
 
       // If valid and within distance thresholds add new frame
@@ -106,7 +106,7 @@ void Collision<DIM>::update_collision_frames(const Eigen::VectorXd& x) {
       }
 
       // Build a frame and compute distance for the primitive - point pair
-      CollisionFrame frame(F_(j,0), F_(j,1), C_(i));
+      CollisionFrame2 frame(F_(j,0), F_(j,1), C_(i));
       double D = frame.distance(x);
 
       // If valid and within distance thresholds add new frame

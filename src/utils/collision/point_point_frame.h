@@ -5,10 +5,17 @@
 namespace mfem {
   
   template<int DIM>
-  class PointEdgeFrame : public CollisionFrame<DIM> {
+  class PointPointFrame : public CollisionFrame<DIM> {
   
   public:
-    PointEdgeFrame(const Eigen::Vector3i& E) : E_(E) {}
+    PointPointFrame(int a, int b) {
+      if (b < a) {
+        int tmp = a;
+        a = b;
+        b = tmp;
+      }
+      E_ = Eigen::Vector2i(a,b);
+    }
 
     double distance(const Eigen::VectorXd& x) final;
     Eigen::VectorXd gradient(const Eigen::VectorXd& x) final;

@@ -55,7 +55,7 @@ namespace mfem {
       return nframes_;
     }
 
-    const std::vector<CollisionFrame>& frames() const {
+    const std::vector<CollisionFrame2>& frames() const {
       return collision_frames_;
     }
 
@@ -93,7 +93,8 @@ namespace mfem {
     std::vector<Eigen::VectorXd> dd_dx_; 
     std::vector<Eigen::MatrixXd> Aloc_;
     Eigen::SparseMatrix<double, Eigen::RowMajor> A_;
-    std::vector<CollisionFrame> collision_frames_;
+    std::vector<CollisionFrame2> collision_frames_;
+    //std::vector<CollisionFrame<DIM>> collision_frames_;
     std::shared_ptr<Assembler<double,DIM,-1>> assembler_;
     std::shared_ptr<VecAssembler<double,DIM,-1>> vec_assembler_;
   };

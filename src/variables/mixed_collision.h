@@ -2,6 +2,7 @@
 
 #include "mixed_variable.h"
 #include "optimizers/optimizer_data.h"
+#include "utils/collision/collision_frame.h"
 #include "utils/sparse_utils.h"
 #include <iostream>
 #include <set>
@@ -12,9 +13,9 @@ namespace mfem {
 
   // Make this an abstract class
   // and a folder with all the collision shit
-  struct CollisionFrame {
+  struct CollisionFrame2 {
 
-    CollisionFrame(int a, int b, int p) : E_(a,b,p) {
+    CollisionFrame2(int a, int b, int p) : E_(a,b,p) {
     }
 
     double is_valid(const Eigen::VectorXd& x) {
@@ -34,6 +35,10 @@ namespace mfem {
       Eigen::Vector2d e = b-a;
       Eigen::Vector2d normal(e(1),-e(0));
       normal.normalize();
+
+//template<> template<> std::unique_ptr<CollisionFrame<2>>
+//CollisionFrame<2>::make_collision_frame<Vector3i,POINT_EDGE>(
+
       return (p-a).dot(normal);
     }
 
@@ -126,8 +131,8 @@ namespace mfem {
       return nframes_;
     }
 
-    const std::vector<CollisionFrame>& frames() const {
-      return collision_frames_;
+    const std::vector<CollisionFrame2>& frames() const {
+      return collision_frames2_;
     }
 
   protected:
@@ -165,6 +170,7 @@ namespace mfem {
     Eigen::VectorXd Gdx_;     // tmp var: Jacobian multiplied by dx
 
     Eigen::MatrixXi F_;
+    Eigen::MatrixXi T_;
     Eigen::VectorXi C_;
 
     std::shared_ptr<SimConfig> config_;
@@ -172,7 +178,8 @@ namespace mfem {
     std::vector<Eigen::VectorXd> dd_dx_; 
     std::vector<Eigen::MatrixXd> Aloc_;
     Eigen::SparseMatrix<double, Eigen::RowMajor> A_;
-    std::vector<CollisionFrame> collision_frames_;
+    std::vector<CollisionFrame2> collision_frames2_;
+    std::map<std::unique_ptr<CollisionFrame<2>>, int, FrameLess<2>> frames_;
     std::shared_ptr<Assembler<double,DIM,-1>> assembler_;
     std::shared_ptr<VecAssembler<double,DIM,-1>> vec_assembler_;
   };

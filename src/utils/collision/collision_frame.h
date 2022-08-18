@@ -28,6 +28,29 @@ namespace mfem {
     virtual double distance(const Eigen::VectorXd& x) = 0;
     virtual Eigen::VectorXd gradient(const Eigen::VectorXd& x) = 0;
     virtual Eigen::MatrixXd hessian(const Eigen::VectorXd& x) = 0;
-    virtual Eigen::VectorXi& E() = 0;
+    virtual const Eigen::VectorXi& E() const = 0;
+
+  };
+
+  template<int DIM> 
+  struct FrameLess
+  {
+    template<typename T>
+    bool operator()(const T& a, const T& b) const {
+      const Eigen::VectorXi& E1 = a->E();
+      const Eigen::VectorXi& E2 = b->E();
+
+      // If different size sort according to whichever is smaller 
+      if (E1.size() != E2.size()) {
+        return E1.size() < E2.size();
+      } else {
+        // Otherwise sort alphabetically 
+        for (int i = 0; i < E1.size(); ++i) {
+          if (E1(i) < E2(i))
+            return true;
+        }
+        return false;
+      }
+    }
   };
 }

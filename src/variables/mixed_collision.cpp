@@ -37,6 +37,7 @@ namespace {
 template<int DIM>
 double MixedCollision<DIM>::energy(const VectorXd& x, const VectorXd& d) {
 
+  std::set<std::unique_ptr<CollisionFrame<2>>,FrameLess<2>> frames;
   std::vector<double> new_d;
   // For each boundary vertex find primitives within distance threshold
   for (int i = 0; i < C_.size(); ++i) {
@@ -47,26 +48,22 @@ double MixedCollision<DIM>::energy(const VectorXd& x, const VectorXd& d) {
         continue;
       }
 
-      // Use tuple of vertex ids for hashing
-      std::tuple<int,int,int> tup = std::make_tuple(F_(j,0),F_(j,1), C_(i));
-      auto it = frame_ids_.find(tup);
+      auto frame = CollisionFrame<2>::make_collision_frame<
+          Vector3i, POINT_EDGE>(x, Vector3i(F_(j,0), F_(j,1), C_(i)));
 
-      // Build a frame and compute distance for the primitive - point pair
-      CollisionFrame frame(F_(j,0), F_(j,1), C_(i));
-      double D = frame.distance(x);
-      double di = D;
-
-      // Check if frame already exists and maintain its variable
-      // and lagrange multiplier values 
-      if (it != frame_ids_.end()) {
-        di = d(it->second);
-        //std::cout << "energy : " << i << " D: " << D  << " d: "
-        //  << di << " frame still valid? : " << frame.is_valid(x) << std::endl;
-      }
-
-      // If valid and within distance thresholds add new frame
-      if (frame.is_valid(x) && D >= 0 && D < config_->dhat) {
-        new_d.push_back(di);
+      // Avoid duplicate entries
+      if (frame != nullptr && frames.find(frame) == frames.end()) {
+        double D = frame->distance(x);
+        double d = D; 
+        if (auto it = frames_.find(frame); it != frames_.end()) {
+          int idx = it->second;
+          d = d_(idx);
+        }
+        // If valid and within distance thresholds add new frame
+        if (D >= 0 && D < config_->dhat) {
+          new_d.push_back(d);
+          frames.insert(std::move(frame));
+        }
       }
     }
   }
@@ -89,10 +86,15 @@ double MixedCollision<DIM>::constraint_value(const VectorXd& x,
     const VectorXd& d) {
 
   double e = 0;
-  #pragma omp parallel for reduction( + : e )
-  for (int i = 0; i < nframes_; ++i) {
-    e += la_(i) * (collision_frames_[i].distance(x) - d(i));
+
+  for (const auto& it : frames_) {
+    int i = it.second;
+    e += la_(i) * (it.first->distance(x) - d(i));
   }
+  //#pragma omp parallel for reduction( + : e )
+  //for (int i = 0; i < nframes_; ++i) {
+  //  e += la_(i) * (collision_frames2_[i].distance(x) - d(i));
+  //}
   return e;
 }
 
@@ -107,18 +109,29 @@ void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
   update_collision_frames(x);
   data_.timer.stop("Update Coll frames");
 
-  nframes_ = collision_frames_.size();
-  MatrixXi T(nframes_, 3);
-  for (int i = 0; i < nframes_; ++i) {
-    T(i,0) = collision_frames_[i].E_(0);
-    T(i,1) = collision_frames_[i].E_(1);
-    T(i,2) = collision_frames_[i].E_(2);
+  //nframes_ = collision_frames2_.size();
+  //MatrixXi T(nframes_, 3);
+  //for (int i = 0; i < nframes_; ++i) {
+  //  T(i,0) = collision_frames2_[i].E_(0);
+  //  T(i,1) = collision_frames2_[i].E_(1);
+  //  T(i,2) = collision_frames2_[i].E_(2);
+  //}
+  nframes_ = frames_.size();
+  T_.resize(nframes_,3);
+  T_.setConstant(-1);
+  for (const auto& it : frames_) {
+    const VectorXi& E = it.first->E();
+    int idx = it.second;
+    for (int j = 0; j < E.size(); ++j) {
+      T_(idx,j) = E(j);
+    }
   }
+
   // Structure potentially changes each step, so just rebuild assembler :/
   // NOTE assuming each local jacobian has same size!
   data_.timer.start("Create assemblers");
-  assembler_ = std::make_shared<Assembler<double,DIM,-1>>(T, mesh_->free_map_);
-  vec_assembler_ = std::make_shared<VecAssembler<double,DIM,-1>>(T,
+  assembler_ = std::make_shared<Assembler<double,DIM,-1>>(T_, mesh_->free_map_);
+  vec_assembler_ = std::make_shared<VecAssembler<double,DIM,-1>>(T_,
       mesh_->free_map_);
   data_.timer.stop("Create assemblers");
   update_derivatives(dt);
@@ -126,65 +139,109 @@ void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
 
 template<int DIM>
 void MixedCollision<DIM>::update_collision_frames(const Eigen::VectorXd& x) {
-  // Compute D_, dd_dx_
-  // Update:
-  // * Get boundary_facets
-  // * Check all point-edge pairs
-  //  - If less than h, create collision frame
-  //  - MixedCollision frame just has vids
-  //
   // Detect Collision Frames
   // Initialize distance variables 
   std::vector<double> new_D;
   std::vector<double> new_d;
   std::vector<double> new_lambda;
-  std::vector<CollisionFrame> new_frames;
+  std::vector<CollisionFrame2> new_frames;
   std::map<std::tuple<int,int,int>, int> new_ids;
-  dd_dx_.clear(); // NOTE Previously wasn't doing this!
+  dd_dx_.clear();
 
-  // For each boundary vertex find primitives within distance threshold
+  std::map<std::unique_ptr<CollisionFrame<2>>,int,FrameLess<2>> frames;
+
   for (int i = 0; i < C_.size(); ++i) {
-
     // Currently brute force check all primitives
     for (int j = 0; j < F_.rows(); ++j) {
       if (C_(i) == F_(j,0) || C_(i) == F_(j,1)) {
         continue;
       }
 
-      // Use tuple of vertex ids for hashing
-      std::tuple<int,int,int> tup = std::make_tuple(F_(j,0),F_(j,1), C_(i));
-      auto it = frame_ids_.find(tup);
-
       // Build a frame and compute distance for the primitive - point pair
-      CollisionFrame frame(F_(j,0), F_(j,1), C_(i));
-      double D = frame.distance(x);
-      double la = 0;
-      double d = D; 
+      // NOTE won't work for DIM=3 right now
+      auto frame = CollisionFrame<2>::make_collision_frame<
+          Vector3i, POINT_EDGE>(x, Vector3i(F_(j,0), F_(j,1), C_(i)));
 
-      // Check if frame already exists and maintain its variable
-      // and lagrange multiplier values 
-      if (it != frame_ids_.end()) {
-        la = la_(it->second);
-        d = d_(it->second);
-      }
+      // Avoid duplicate entries
+      if (frame != nullptr && frames.find(frame) == frames.end()) {
+        double D = frame->distance(x);
+        double la = 0;
+        double d = D; 
+        if (auto it = frames_.find(frame); it != frames_.end()) {
+          int idx = it->second;
+          la = la_(idx);
+          d = d_(idx);
+        }
+        // If valid and within distance thresholds add new frame
+        if (D > 0 && D < config_->dhat) {
 
-      // If valid and within distance thresholds add new frame
-      if (frame.is_valid(x) && D > 0 && D < config_->dhat) {
-        new_D.push_back(D);
-        new_d.push_back(d);
-        new_lambda.push_back(la);
-        dd_dx_.push_back(frame.gradient(x));
-        new_frames.push_back(frame);
-        new_ids[tup] = new_frames.size() - 1;
+          new_D.push_back(D);
+          new_d.push_back(d);
+          new_lambda.push_back(la);
+          dd_dx_.push_back(frame->gradient(x));
+          frames.insert(std::make_pair(std::move(frame), new_D.size()-1));
+        }
       }
     }
   }
+
+  //VectorXd d0 = Map<VectorXd>(new_d.data(), new_d.size());
+  //new_D.clear();
+  //new_d.clear();
+  //dd_dx_.clear();
+  //new_lambda.clear();
+
+  //// For each boundary vertex find primitives within distance threshold
+  //for (int i = 0; i < C_.size(); ++i) {
+
+  //  // Currently brute force check all primitives
+  //  for (int j = 0; j < F_.rows(); ++j) {
+  //    if (C_(i) == F_(j,0) || C_(i) == F_(j,1)) {
+  //      continue;
+  //    }
+
+  //    // Use tuple of vertex ids for hashing
+  //    std::tuple<int,int,int> tup = std::make_tuple(F_(j,0),F_(j,1), C_(i));
+  //    auto it = frame_ids_.find(tup);
+
+  //    // Build a frame and compute distance for the primitive - point pair
+  //    CollisionFrame2 frame(F_(j,0), F_(j,1), C_(i));
+  //    double D = frame.distance(x);
+  //    double la = 0;
+  //    double d = D; 
+
+  //    // Check if frame already exists and maintain its variable
+  //    // and lagrange multiplier values 
+  //    if (it != frame_ids_.end()) {
+  //      la = la_(it->second);
+  //      d = d_(it->second);
+  //    }
+
+  //    // If valid and within distance thresholds add new frame
+  //    if (frame.is_valid(x) && D > 0 && D < config_->dhat) {
+  //      
+  //      Vector3i E_(F_(j,0), F_(j,1), C_(i));
+  //      //auto frame2 = CollisionFrame<2>::make_collision_frame<Vector3i,POINT_EDGE>(x, E_);
+  //      //std::cout << "orig: " << D << " new: " << frame2->distance(x) << std::endl;
+  //      //std::cout << "gradient: " << frame.gradient(x) << " new grad: " << frame2->gradient(x) << std::endl;
+  //      new_D.push_back(D);
+  //      new_d.push_back(d);
+  //      new_lambda.push_back(la);
+  //      dd_dx_.push_back(frame.gradient(x));
+  //      new_frames.push_back(frame);
+  //      new_ids[tup] = new_frames.size() - 1;
+  //    }
+  //  }
+  //}
+  //std::cout << "new_Frames size: " << new_frames.size() << std::endl;
   //std::cout << "update_derivs before: \n" << d_ << std::endl;
   D_ = Map<VectorXd>(new_D.data(), new_D.size());
   d_ = Map<VectorXd>(new_d.data(), new_d.size());
   la_ = Map<VectorXd>(new_lambda.data(), new_lambda.size());
+  std::swap(frames, frames_);
   std::swap(new_ids, frame_ids_);
-  std::swap(new_frames, collision_frames_);
+  std::swap(new_frames, collision_frames2_);
+  //std::cout << "d0\n: "<< d0 << " d: \n" << d_ << std::endl;
 }
 
 template<int DIM>
@@ -222,14 +279,8 @@ void MixedCollision<DIM>::update_derivatives(double dt) {
   //saveMarket(assembler_->A, "lhs_c1.mkt");
 
   A_ = assembler_->A;
-// std::cout << "A1: \n " << MatrixXd(A_) << std::endl;
-  // std::cout << "nframes: " << nframes_ << std::endl;
-  // saveMarket(assembler_->A, "lhs_c2.mkt");
-// std::cout << "A2: \n " << A_ << std::endl;
-//std::cout << "E_ : " << collision_frames_[0].E_ << std::endl;
 
   data_.timer.start("Update RHS");
-
   // Gradient with respect to x variable
   std::vector<VectorXd> g(nframes_);
   for (int i = 0; i < nframes_; ++i) {
@@ -293,13 +344,19 @@ void MixedCollision<DIM>::solve(const VectorXd& dx) {
   std::vector<VectorXd> g(nframes_);
   Gdx_.resize(d_.size());
 
+  //std::cout << "T: \n" << T_ << std::endl;
   #pragma omp parallel for
   for (int i = 0; i < nframes_; ++i) {
-    Matrix<double,DIM*3,1> qi;
-    const Vector3i& E = collision_frames_[i].E_;
-    qi << q.segment<DIM>(DIM*E(0)),
-          q.segment<DIM>(DIM*E(1)),
-          q.segment<DIM>(DIM*E(2));
+    //Matrix<double,DIM*3,1> qi;
+    //const Vector3i& E = collision_frames2_[i].E_;
+    //qi << q.segment<DIM>(DIM*E(0)),
+    //      q.segment<DIM>(DIM*E(1)),
+    //      q.segment<DIM>(DIM*E(2));
+    VectorXd qi(dd_dx_[i].size());
+    for (int j = 0; j < 3; ++j) {
+      if (T_(i,j) == -1) break;
+      qi.segment<DIM>(DIM*j) = q.segment<DIM>(DIM*T_(i,j));
+    }
     Gdx_(i) = -qi.dot(dd_dx_[i]);
   }
   la_ = -gl_.array() + (H_.array() * Gdx_.array());
@@ -319,7 +376,8 @@ void MixedCollision<DIM>::reset() {
   delta_.resize(0);
   dd_dx_.resize(0);
   grad_x_.resize(0);
-  collision_frames_.clear();
+  collision_frames2_.clear();
+  frames_.clear();
 
   igl::boundary_facets(mesh_->T_, F_);
   assert(F_.cols() == 2); // Only supports 2D right now
@@ -330,8 +388,9 @@ template<int DIM>
 void MixedCollision<DIM>::post_solve() {
   la_.setZero();
   dd_dx_.clear();
-  collision_frames_.clear();
+  collision_frames2_.clear();
   frame_ids_.clear();
+  frames_.clear();
 }
 
 template class mfem::MixedCollision<3>; // 3D
