@@ -115,6 +115,7 @@ void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
   // update_collision_frames(x);
   data_.timer.stop("Update Coll frames");
 
+std::cout << "la_: " << la_.norm() << std::endl;
   // std::cout << "d: " << d_.transpose() << std::endl;
   // std::cout << "D: " << D_.transpose() << std::endl;
   // std::cout << "num constraints: "<< constraint_set_.num_constraints() << std::endl;
@@ -144,6 +145,7 @@ void MixedCollision<DIM>::update_derivatives(const MatrixXd& V, double dt) {
   data_.timer.start("Hinv");
   H_.resize(nframes_);
   g_.resize(nframes_);
+  MatrixXi tmp;
 
   double dhat_sqr = config_->dhat * config_->dhat;
 
@@ -158,8 +160,13 @@ void MixedCollision<DIM>::update_derivatives(const MatrixXd& V, double dt) {
   Aloc_.resize(nframes_);
   #pragma omp parallel for
   for (int i = 0; i < nframes_; ++i) {
-    Aloc_[i] = dd_dx_[i] * H_(i) * dd_dx_[i].transpose();
+    const ipc::MatrixMax12d distance_hess = 
+        constraint_set_[i].compute_distance_hessian(V, E_, tmp);
+
+    Aloc_[i] = dd_dx_[i] * H_(i) * dd_dx_[i].transpose() 
+        - la_(i) * distance_hess; // TODO + sign??????
     sim::simple_psd_fix(Aloc_[i]);
+
   }
   data_.timer.stop("Local H");
 
@@ -290,7 +297,6 @@ void MixedCollision<DIM>::post_solve() {
   la_.setZero();
   dd_dx_.clear();
   collision_frames2_.clear();
-  frame_ids_.clear();
   frame_map_.clear();
 }
 

@@ -39,20 +39,25 @@ namespace {
 // TODO separate 3D or maybe even templated loading
 template <int DIM>
 void SimState<DIM>::load_mesh(const std::string& path, MatrixXd& V, MatrixXi& T) {
-  MatrixXd NV;
-  MatrixXi NT;
-  igl::read_triangle_mesh(path,V,T);
-  VectorXi VI,VJ;
-  igl::remove_unreferenced(V,T,NV,NT,VI,VJ);
-  V = NV;
-  T = NT;
+  if constexpr (DIM == 2) {
+    MatrixXd NV;
+    MatrixXi NT;
+    igl::read_triangle_mesh(path,V,T);
+    VectorXi VI,VJ;
+    igl::remove_unreferenced(V,T,NV,NT,VI,VJ);
+    V = NV;
+    T = NT;
 
-  // Truncate z data
-  MatrixXd tmp;
-  tmp.resize(V.rows(),2);
-  tmp.col(0) = V.col(0);
-  tmp.col(1) = V.col(1);
-  V = tmp;
+    // Truncate z data
+    MatrixXd tmp;
+    tmp.resize(V.rows(),2);
+    tmp.col(0) = V.col(0);
+    tmp.col(1) = V.col(1);
+    V = tmp;
+  } else {
+    MatrixXd F;
+    igl::readMESH(path, V, T, F);
+  }
 }
 
 
@@ -149,7 +154,11 @@ bool SimState<DIM>::load(const std::string& json_file) {
       for (int i = 0; i < V.cols(); ++i) {
         V.col(i).array() += offset[i];
       }
-      meshes.push_back(std::make_shared<Tri2DMesh>(V, T, materials[idx]));
+      if constexpr (DIM == 2) {
+        meshes.push_back(std::make_shared<Tri2DMesh>(V, T, materials[idx]));
+      } else {
+        meshes.push_back(std::make_shared<TetrahedralMesh>(V, T, materials[idx]));
+      }
     }
   }
   mesh_ = std::make_shared<Meshes>(meshes);

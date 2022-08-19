@@ -113,7 +113,7 @@ void Meshes::init_jacobian() {
   }
 
   std::vector<Triplet<double>> trips;
-
+std::cerr << "MESHES init_jacobian wrong" << std::endl;
   // #pragma omp parallel for
   for (int i = 0; i < T_.rows(); ++i) { 
 

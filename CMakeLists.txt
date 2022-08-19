@@ -241,4 +241,7 @@ target_link_libraries(hetero_tet_sim mixed_fem_lib)
 
 add_executable(sim2d apps/sim2d.cpp ${SOURCES})
 target_link_libraries(sim2d mixed_fem_lib)
+
+add_executable(sim3d apps/sim3d.cpp ${SOURCES})
+target_link_libraries(sim3d mixed_fem_lib)
 #add_subdirectory(tests)

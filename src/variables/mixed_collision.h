@@ -175,7 +175,6 @@ namespace mfem {
     Eigen::VectorXi C_;
 
     std::shared_ptr<SimConfig> config_;
-    std::map<std::tuple<int,int,int>, int> frame_ids_;
     std::vector<Eigen::VectorXd> dd_dx_; 
     std::vector<Eigen::MatrixXd> Aloc_;
     Eigen::SparseMatrix<double, Eigen::RowMajor> A_;
