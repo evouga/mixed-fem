@@ -27,7 +27,7 @@ std::vector<MatrixXd> vertices;
 std::vector<MatrixXi> frame_faces;
 polyscope::SurfaceMesh* frame_srf = nullptr; // collision frame mesh
 
-struct PolyscopeTriApp : public PolyscopeApp<3> {
+struct PolyscopTetApp : public PolyscopeApp<3> {
 
   virtual void simulation_step() {
     vertices.clear();
@@ -65,7 +65,7 @@ struct PolyscopeTriApp : public PolyscopeApp<3> {
       size_t start = 0;
       for (size_t i = 0; i < srfs.size(); ++i) {
         size_t sz = meshes[i]->vertices().rows();
-        srfs[i]->updateVertexPositions(vertices[substep].block(start,0,sz,2));
+        srfs[i]->updateVertexPositions(vertices[substep].block(start,0,sz,3));
         start += sz;
       }
 
@@ -75,7 +75,7 @@ struct PolyscopeTriApp : public PolyscopeApp<3> {
   }
 
   template <typename T, typename U>
-  bool add_collision_frames(const SimState<2>& state, const U* var) {
+  bool add_collision_frames(const SimState<3>& state, const U* var) {
 
     const auto& x = state.x_;
 
@@ -101,7 +101,7 @@ struct PolyscopeTriApp : public PolyscopeApp<3> {
     return true;
   }
 
-  void collision_callback(const SimState<2>& state) {
+  void collision_callback(const SimState<3>& state) {
     for (size_t i = 0; i < state.mixed_vars_.size(); ++i) {
       if (add_collision_frames<MixedCollision<3>>(state,
           state.mixed_vars_[i].get())) {
@@ -118,7 +118,7 @@ struct PolyscopeTriApp : public PolyscopeApp<3> {
   virtual void reset() {
     optimizer->reset();
     for (size_t i = 0; i < srfs.size(); ++i) {
-      srfs[i]->updateVertexPositions2D(meshes[i]->V0_);
+      srfs[i]->updateVertexPositions(meshes[i]->V0_);
     }
     if (frame_srf != nullptr) {
       removeStructure(frame_srf);
@@ -142,7 +142,7 @@ struct PolyscopeTriApp : public PolyscopeApp<3> {
       MatrixXd F;
       igl::boundary_facets(meshes[i]->T_, F);
 
-      std::string name = "tri2d_mesh_" + std::to_string(i);
+      std::string name = "tet_mesh_" + std::to_string(i);
       polyscope::options::autocenterStructures = false;
       srfs.push_back(polyscope::registerSurfaceMesh(name,
           meshes[i]->V_, F));
@@ -192,8 +192,6 @@ int main(int argc, char **argv) {
   std::string filename = args::get(inFile);
 
   app.init(filename);
-
-  polyscope::view::style = polyscope::view::NavigateStyle::Planar;
 
   // Add the callback
   polyscope::state::userCallback = std::bind(&PolyscopeApp<3>::callback, app);

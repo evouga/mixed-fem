@@ -21,18 +21,20 @@ Meshes::Meshes(const std::vector<std::shared_ptr<Mesh>>& meshes)
     num_V += meshes_[i]->V_.rows();
     num_T += meshes_[i]->T_.rows();
   }
-
-  V_.resize(num_V, 2);
-  T_.resize(num_T, 3);
+  // TODO just template it with DIM
+  int m = meshes_[0]->V_.cols();
+  int n = meshes_[0]->T_.cols();
+  V_.resize(num_V, m);
+  T_.resize(num_T, n);
 
   size_t start_V = 0;
   size_t start_T = 0;
   for (size_t i = 0; i < meshes_.size(); ++i) {
     size_t sz_V = meshes_[i]->V_.rows();
     size_t sz_T = meshes_[i]->T_.rows();
-    V_.block(start_V,0, sz_V,2) = meshes_[i]->V_;
-    T_.block(start_T,0, sz_T,3) = meshes_[i]->T_;
-    T_.block(start_T,0, sz_T,3).array() += start_V;
+    V_.block(start_V,0, sz_V,m) = meshes_[i]->V_;
+    T_.block(start_T,0, sz_T,n) = meshes_[i]->T_;
+    T_.block(start_T,0, sz_T,n).array() += start_V;
     start_V += sz_V;
     start_T += sz_T;
 
@@ -113,25 +115,29 @@ void Meshes::init_jacobian() {
   }
 
   std::vector<Triplet<double>> trips;
-std::cerr << "MESHES init_jacobian wrong" << std::endl;
+// std::cerr << "MESHES init_jacobian wrong" << std::endl;
+
+  int m = V_.cols();
+  // std::cout << "M ::: " << m << std::endl;
+
   // #pragma omp parallel for
   for (int i = 0; i < T_.rows(); ++i) { 
 
     // Inserting triplets
-    for (int j = 0; j < 4; ++j) {
+    for (int j = 0; j < m*m; ++j) {
       // k-th vertex of the tetrahedra
-      for (int k = 0; k < 3; ++k) {
+      for (int k = 0; k < m+1; ++k) {
         int vid = T_(i,k); // vertex index
 
         // x,y,z index for the k-th vertex
-        for (int l = 0; l < 2; ++l) {
-          double val = Jloc_[i](j,2*k+l);
-          trips.push_back(Triplet<double>(4*i+j, 2*vid+l, val));
+        for (int l = 0; l < m; ++l) {
+          double val = Jloc_[i](j,m*k+l);
+          trips.push_back(Triplet<double>(m*m*i+j, m*vid+l, val));
         }
       }
     }
   }
-  J_.resize(4*T_.rows(), V_.size());
+  J_.resize(m*m*T_.rows(), V_.size());
   J_.setFromTriplets(trips.begin(),trips.end());
 }
 
