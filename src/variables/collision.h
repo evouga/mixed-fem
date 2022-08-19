@@ -4,6 +4,7 @@
 #include "optimizers/optimizer_data.h"
 #include "utils/sparse_utils.h"
 #include <iostream>
+#include "ipc/ipc.hpp"
 
 namespace mfem {
 
@@ -55,14 +56,14 @@ namespace mfem {
       return nframes_;
     }
 
-    const std::vector<CollisionFrame2>& frames() const {
-      return collision_frames_;
+    const ipc::Constraints& frames() const {
+      return constraint_set_;
     }
 
   protected:
 
     void update_rotations(const Eigen::VectorXd& x);
-    void update_derivatives(double dt);
+    void update_derivatives(const Eigen::MatrixXd& V, double dt);
     void update_collision_frames(const Eigen::VectorXd& x);
 
   private:
@@ -81,23 +82,20 @@ namespace mfem {
     OptimizerData data_;     // Stores timing results
     double dt_;
     int nframes_;            // number of elements
-    Eigen::VectorXd D_;      // per-frames distances
-    Eigen::VectorXd g_;      // per-frame gradients
-    Eigen::VectorXd H_;      // per-frame hessians
     Eigen::VectorXd grad_;   // Gradient with respect to 'd' variables
 
     Eigen::MatrixXi F_;
     Eigen::VectorXi C_;
+    Eigen::MatrixXi E_;
 
     std::shared_ptr<SimConfig> config_;
-    std::vector<Eigen::VectorXd> dd_dx_; 
     std::vector<Eigen::MatrixXd> Aloc_;
+    std::vector<Eigen::VectorXd> gloc_;
     Eigen::SparseMatrix<double, Eigen::RowMajor> A_;
-    std::vector<CollisionFrame2> collision_frames_;
-    //std::vector<CollisionFrame<DIM>> collision_frames_;
     std::shared_ptr<Assembler<double,DIM,-1>> assembler_;
     std::shared_ptr<VecAssembler<double,DIM,-1>> vec_assembler_;
+    ipc::CollisionMesh ipc_mesh_;
+    ipc::Constraints constraint_set_;
+
   };
-
-
 }

@@ -11,27 +11,6 @@
 using namespace Eigen;
 using namespace mfem;
 
-namespace {
-
-  // TODO move this shit to the thing
-  double psi(double d, double h, double k) {
-    if (d <= 0)
-      return std::numeric_limits<double>::max();
-    else if (d >= h)
-      return 0;
-    else
-      return -k*log(d/h)*pow(d-h,2.0);
-  }
-
-  double dpsi(double d, double h, double k) {
-    return -(k*pow(d-h,2.0))/d-k*log(d/h)*(d*2.0-h*2.0);
-  }
-
-  double d2psi(double d, double h, double k) {
-    return k*log(d/h)*-2.0-(k*(d*2.0-h*2.0)*2.0)/d+1.0/(d*d)*k*pow(d-h,2.0);
-  }
-}
-
 template<int DIM>
 double MixedCollision<DIM>::energy(const VectorXd& x, const VectorXd& d) {
 
@@ -153,57 +132,6 @@ void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
 
 template<int DIM>
 void MixedCollision<DIM>::update_collision_frames(const Eigen::VectorXd& x) {
-  // Detect Collision Frames
-  // Initialize distance variables 
-  std::vector<double> new_D;
-  std::vector<double> new_d;
-  std::vector<double> new_lambda;
-  std::vector<CollisionFrame2> new_frames;
-  std::map<std::tuple<int,int,int>, int> new_ids;
-  dd_dx_.clear();
-
-  std::map<std::unique_ptr<CollisionFrame<2>>,int,FrameLess<2>> frames;
-
-  for (int i = 0; i < C_.size(); ++i) {
-    // Currently brute force check all primitives
-    for (int j = 0; j < F_.rows(); ++j) {
-      if (C_(i) == F_(j,0) || C_(i) == F_(j,1)) {
-        continue;
-      }
-
-      // Build a frame and compute distance for the primitive - point pair
-      // NOTE won't work for DIM=3 right now
-      auto frame = CollisionFrame<2>::make_collision_frame<
-          Vector3i, POINT_EDGE>(x, Vector3i(F_(j,0), F_(j,1), C_(i)));
-
-      // Avoid duplicate entries
-      if (frame != nullptr && frames.find(frame) == frames.end()) {
-        double D = frame->distance(x);
-        double la = 0;
-        double d = D; 
-        if (auto it = frames_.find(frame); it != frames_.end()) {
-          int idx = it->second;
-          la = la_(idx);
-          d = d_(idx);
-        }
-        // If valid and within distance thresholds add new frame
-        if (D > 0 && D < config_->dhat) {
-
-          new_D.push_back(D);
-          new_d.push_back(d);
-          new_lambda.push_back(la);
-          dd_dx_.push_back(frame->gradient(x));
-          frames.insert(std::make_pair(std::move(frame), new_D.size()-1));
-        }
-      }
-    }
-  }
-  D_ = Map<VectorXd>(new_D.data(), new_D.size());
-  d_ = Map<VectorXd>(new_d.data(), new_d.size());
-  la_ = Map<VectorXd>(new_lambda.data(), new_lambda.size());
-  std::swap(frames, frames_);
-  std::swap(new_ids, frame_ids_);
-  std::swap(new_frames, collision_frames2_);
 }
 
 template<int DIM>
@@ -340,13 +268,12 @@ void MixedCollision<DIM>::reset() {
   dd_dx_.resize(0);
   grad_x_.resize(0);
   collision_frames2_.clear();
-  frames_.clear();
   frame_map_.clear();
 
-  igl::edges(mesh_->T_, E_);
   igl::boundary_facets(mesh_->T_, F_);
   assert(F_.cols() == 2); // Only supports 2D right now
   igl::unique(F_,C_); 
+  igl::edges(mesh_->T_, E_);
 
   if constexpr (DIM ==2) {
     // TODO use "include_vertex"
@@ -364,9 +291,7 @@ void MixedCollision<DIM>::post_solve() {
   dd_dx_.clear();
   collision_frames2_.clear();
   frame_ids_.clear();
-  frames_.clear();
   frame_map_.clear();
-
 }
 
 template class mfem::MixedCollision<3>; // 3D

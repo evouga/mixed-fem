@@ -180,16 +180,11 @@ namespace mfem {
     std::vector<Eigen::MatrixXd> Aloc_;
     Eigen::SparseMatrix<double, Eigen::RowMajor> A_;
     std::vector<CollisionFrame2> collision_frames2_;
-    std::map<std::unique_ptr<CollisionFrame<2>>, int, FrameLess<2>> frames_;
     std::shared_ptr<Assembler<double,DIM,-1>> assembler_;
     std::shared_ptr<VecAssembler<double,DIM,-1>> vec_assembler_;
 
     ipc::CollisionMesh ipc_mesh_;
     ipc::Constraints constraint_set_;
     std::map<std::array<long, 4>, int> frame_map_;
-
-
   };
-
-
 }

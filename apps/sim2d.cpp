@@ -91,12 +91,13 @@ struct PolyscopeTriApp : public PolyscopeApp<2> {
     V.transposeInPlace();
 
     // Add collision frames
-    const std::vector<CollisionFrame2>& frames = c->frames();
-    for (int i = 0; i < n; ++i) {
-      Fframe.row(i) = frames[i].E_.transpose();
-    }
-    vertices.push_back(V);
-    frame_faces.push_back(Fframe);
+    // const ipc::Constraints& frames = c->frames();
+    // for (int i = 0; i < n; ++i) {
+    //   std::array<long, 4> ids = constraint_set[i].vertex_indices(E_, tmp);
+    //   Fframe.row(i) = frames[i].E_.transpose();
+    // }
+    // vertices.push_back(V);
+    // frame_faces.push_back(Fframe);
     return true;
   }
 
