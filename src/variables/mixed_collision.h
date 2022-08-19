@@ -11,65 +11,6 @@ namespace mfem {
 
   class SimConfig;
 
-  // Make this an abstract class
-  // and a folder with all the collision shit
-  struct CollisionFrame2 {
-
-    CollisionFrame2(int a, int b, int p) : E_(a,b,p) {
-    }
-
-    double is_valid(const Eigen::VectorXd& x) {
-      const Eigen::Vector2d& a = x.segment<2>(2*E_(0));
-      const Eigen::Vector2d& b = x.segment<2>(2*E_(1));
-      const Eigen::Vector2d& p = x.segment<2>(2*E_(2));
-      Eigen::Vector2d e = b-a;
-      double l = e.norm();
-      double proj = (p-a).dot(e/l);
-      return (proj > 0 && proj < l);
-    }
-
-    double distance(const Eigen::VectorXd& x) {
-      const Eigen::Vector2d& a = x.segment<2>(2*E_(0));
-      const Eigen::Vector2d& b = x.segment<2>(2*E_(1));
-      const Eigen::Vector2d& p = x.segment<2>(2*E_(2));
-      Eigen::Vector2d e = b-a;
-      Eigen::Vector2d normal(e(1),-e(0));
-      normal.normalize();
-
-//template<> template<> std::unique_ptr<CollisionFrame<2>>
-//CollisionFrame<2>::make_collision_frame<Vector3i,POINT_EDGE>(
-
-      return (p-a).dot(normal);
-    }
-
-    Eigen::Vector6d gradient(const Eigen::VectorXd& x) {
-      // 0 -1  (b-a)  |  C (b-a)
-      // 1  0
-      //(p-a).dot( C*(b-a) / norm(C*(b-a)))
-      // dn/db  =
-      // C * (I/ ||l|| - (C*(b-a) * (C*b-a)T) 
-      Eigen::Matrix2d C;
-      C << 0, 1, -1, 0;
-      const Eigen::Vector2d& a = x.segment<2>(2*E_(0));
-      const Eigen::Vector2d& b = x.segment<2>(2*E_(1));
-      const Eigen::Vector2d& p = x.segment<2>(2*E_(2));
-      Eigen::Vector2d e = b-a;
-      Eigen::Vector2d normal(e(1),-e(0));
-      double l = normal.norm();
-      normal /= l;
-      Eigen::Vector6d g;
-      Eigen::Vector2d tmp = C*(b-a);
-      Eigen::Vector2d tmp2 = C*(Eigen::Matrix2d::Identity()/l
-          - (tmp*tmp.transpose())/std::pow(l,3))*(p-a);
-      g.segment<2>(0) = tmp2 - normal;
-      g.segment<2>(2) = -tmp2;
-      g.segment<2>(4) = normal;
-      return g;
-    }
-
-    Eigen::Vector3i E_;
-  };
-
   template<int DIM>
   class MixedCollision : public MixedVariable<DIM> {
 
@@ -172,13 +113,11 @@ namespace mfem {
     Eigen::MatrixXi F_;
     Eigen::MatrixXi E_;
     Eigen::MatrixXi T_;
-    Eigen::VectorXi C_;
 
     std::shared_ptr<SimConfig> config_;
     std::vector<Eigen::VectorXd> dd_dx_; 
     std::vector<Eigen::MatrixXd> Aloc_;
     Eigen::SparseMatrix<double, Eigen::RowMajor> A_;
-    std::vector<CollisionFrame2> collision_frames2_;
     std::shared_ptr<Assembler<double,DIM,-1>> assembler_;
     std::shared_ptr<VecAssembler<double,DIM,-1>> vec_assembler_;
 

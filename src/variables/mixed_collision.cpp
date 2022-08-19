@@ -19,7 +19,10 @@ double MixedCollision<DIM>::energy(const VectorXd& x, const VectorXd& d) {
       mesh_->V_.rows());
   V.transposeInPlace();
   
-  MatrixXi tmp;  
+  MatrixXi F; 
+  if constexpr (DIM == 3) {
+    F = F_;
+  }
   ipc::Constraints constraint_set;
   ipc::construct_constraint_set(ipc_mesh_, V, config_->dhat, constraint_set);
 
@@ -28,8 +31,8 @@ double MixedCollision<DIM>::energy(const VectorXd& x, const VectorXd& d) {
 
   #pragma omp parallel for reduction( + : e )
   for (size_t i = 0; i < constraint_set.size(); ++i) {
-    std::array<long, 4> ids = constraint_set[i].vertex_indices(E_, tmp);
-    double D = constraint_set[i].compute_distance(V, E_, tmp);
+    std::array<long, 4> ids = constraint_set[i].vertex_indices(E_, F);
+    double D = constraint_set[i].compute_distance(V, E_, F);
     double la = 0;
     double d = D;
     // Find if this frame already exists
@@ -53,14 +56,17 @@ double MixedCollision<DIM>::constraint_value(const VectorXd& x,
 
   double e = 0;
 
-  MatrixXi tmp;
+  MatrixXi F; 
+  if constexpr (DIM == 3) {
+    F = F_;
+  }
   MatrixXd V = Map<const MatrixXd>(x.data(), mesh_->V_.cols(),
       mesh_->V_.rows());
   V.transposeInPlace();
 
   #pragma omp parallel for reduction( + : e )
   for (int i = 0; i < nframes_; ++i) {
-    double D = constraint_set_[i].compute_distance(V, E_, tmp);
+    double D = constraint_set_[i].compute_distance(V, E_, F);
     e += la_(i) * (D - d(i));
   }
   return e;
@@ -75,7 +81,10 @@ void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
       mesh_->V_.rows());
   V.transposeInPlace();
   
-  MatrixXi tmp;  
+  MatrixXi F; 
+  if constexpr (DIM == 3) {
+    F = F_;
+  } 
   ipc::construct_constraint_set(ipc_mesh_, V, config_->dhat, constraint_set_);
 
   std::vector<double> new_D;
@@ -87,8 +96,8 @@ void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
   nframes_ = constraint_set_.size();
   T_.resize(nframes_,4);
   for (size_t i = 0; i < constraint_set_.size(); ++i) {
-    std::array<long, 4> ids = constraint_set_[i].vertex_indices(E_, tmp);
-    double D = constraint_set_[i].compute_distance(V, E_, tmp);
+    std::array<long, 4> ids = constraint_set_[i].vertex_indices(E_, F);
+    double D = constraint_set_[i].compute_distance(V, E_, F);
     double la = 0;
     double d = D;
     for (int j = 0; j < 4; ++j) {
@@ -104,7 +113,7 @@ void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
     new_D.push_back(D);
     new_d.push_back(d);
     new_lambda.push_back(la);
-    dd_dx_.push_back(constraint_set_[i].compute_distance_gradient(V,E_,tmp));
+    dd_dx_.push_back(constraint_set_[i].compute_distance_gradient(V,E_,F));
     new_frame_map[ids] = i;
   }
   D_ = Map<VectorXd>(new_D.data(), new_D.size());
@@ -145,7 +154,10 @@ void MixedCollision<DIM>::update_derivatives(const MatrixXd& V, double dt) {
   data_.timer.start("Hinv");
   H_.resize(nframes_);
   g_.resize(nframes_);
-  MatrixXi tmp;
+  MatrixXi F; 
+  if constexpr (DIM == 3) {
+    F = F_;
+  } 
 
   double dhat_sqr = config_->dhat * config_->dhat;
 
@@ -161,7 +173,7 @@ void MixedCollision<DIM>::update_derivatives(const MatrixXd& V, double dt) {
   #pragma omp parallel for
   for (int i = 0; i < nframes_; ++i) {
     const ipc::MatrixMax12d distance_hess = 
-        constraint_set_[i].compute_distance_hessian(V, E_, tmp);
+        constraint_set_[i].compute_distance_hessian(V, E_, F);
 
     Aloc_[i] = dd_dx_[i] * H_(i) * dd_dx_[i].transpose() 
         - la_(i) * distance_hess; // TODO + sign??????
@@ -274,12 +286,9 @@ void MixedCollision<DIM>::reset() {
   delta_.resize(0);
   dd_dx_.resize(0);
   grad_x_.resize(0);
-  collision_frames2_.clear();
   frame_map_.clear();
 
   igl::boundary_facets(mesh_->T_, F_);
-  assert(F_.cols() == 2); // Only supports 2D right now
-  igl::unique(F_,C_); 
   igl::edges(mesh_->T_, E_);
 
   if constexpr (DIM ==2) {
@@ -288,7 +297,7 @@ void MixedCollision<DIM>::reset() {
     MatrixXi tmp;
     ipc_mesh_ = ipc::CollisionMesh::build_from_full_mesh(mesh_->V_, E_, tmp);
   } else {
-    std::cerr << "SHIT BRUH" << std::endl;
+    ipc_mesh_ = ipc::CollisionMesh::build_from_full_mesh(mesh_->V_, E_, F_);
   } 
 }
 
@@ -296,7 +305,6 @@ template<int DIM>
 void MixedCollision<DIM>::post_solve() {
   la_.setZero();
   dd_dx_.clear();
-  collision_frames2_.clear();
   frame_map_.clear();
 }
 

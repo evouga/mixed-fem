@@ -1,0 +1,43 @@
+{
+  "dt": 0.0333,
+  "body_force": [0.0, -9.8, 0.0],
+  "print_timing": true,
+  "print_stats": true,
+  "optimizer": "newton",
+  "time_integrator": "BDF1",
+  "linear_solver": "cholmod",
+  "enable_ccd": false,
+  "dhat": 0.01,
+  "kappa": 1e5,
+  "boundary_condition": "hangends",
+  "max_newton_iterations": 10,
+  "max_linesearch_iterations": 20,
+  "objects": [
+    {
+      "path": "../models/coarse_bunny.mesh",
+      "offset": [0.0, 1.0, 0.0],
+      "material_index": 0
+    },
+    {
+      "path": "../models/bar.mesh",
+      "offset": [-0.5, 3.0, 0.0],
+      "material_index": 1
+    }
+  ],
+  "material_models": [
+    {
+      "youngs_modulus": 1e9,
+      "poissons_ratio": 0.45,
+      "density": 1e3,
+      "energy": "Stable-Neohookean"
+    },
+    {
+      "youngs_modulus": 1e5,
+      "poissons_ratio": 0.45,
+      "density": 1e3,
+      "energy": "Stable-Neohookean"
+    }
+  ],
+  "mixed_variables": ["mixed-stretch"],
+  "variables": []
+}

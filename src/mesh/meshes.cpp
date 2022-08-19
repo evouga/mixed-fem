@@ -60,7 +60,7 @@ Meshes::Meshes(const std::vector<std::shared_ptr<Mesh>>& meshes)
       }
     }
   }
-  BoundaryConditions<3>::init_boundary_groups(V0_, bc_groups_, 0.01);
+  BoundaryConditions<3>::init_boundary_groups(V0_, bc_groups_, 0.11);
   P_ = pinning_matrix(V_, T_, is_fixed_);
 
   igl::boundary_facets(T_, F_);

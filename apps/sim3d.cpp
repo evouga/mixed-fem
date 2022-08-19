@@ -126,6 +126,20 @@ struct PolyscopTetApp : public PolyscopeApp<3> {
     }
   }
 
+  void write_obj(int step) override {
+
+    meshV = mesh->vertices();
+    size_t start = 0;
+    for (size_t i = 0; i < srfs.size(); ++i) {
+      char buffer [50];
+      int n = sprintf(buffer, "../output/obj/tet_%ld_%04d.obj", i, step); 
+      buffer[n] = 0;
+      size_t sz = meshes[i]->vertices().rows();
+      igl::writeOBJ(std::string(buffer),meshV.block(start,0,sz,3),meshes[i]->F_);
+      start += sz;
+    }
+  }
+
   void init(const std::string& filename) {
 
     SimState<3> state;
