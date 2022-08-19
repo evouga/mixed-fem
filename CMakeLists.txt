@@ -140,6 +140,16 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(Catch2)
 
+include(FetchContent)
+FetchContent_Declare(
+    ipc_toolkit
+    GIT_REPOSITORY https://github.com/ipc-sim/ipc-toolkit.git
+    GIT_TAG f9d7c3c9e13a7481e1fb9f0fd95281caa872b2aa
+    GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(ipc_toolkit)
+target_link_libraries(mixed_fem_lib ipc::toolkit)
+
 # Add OMP library and includes
 if(OpenMP_CXX_FOUND)
 

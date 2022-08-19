@@ -5,6 +5,7 @@
 #include "simple_psd_fix.h"
 #include "config.h"
 #include <unsupported/Eigen/SparseExtra>
+#include "igl/edges.h"
 
 using namespace Eigen;
 using namespace mfem;
@@ -103,19 +104,61 @@ void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
   // Get collision frames
   dt_ = dt;
 
-  //std::cout << "d: " << d_ << std::endl;
-  //std::cout << "D: " << D_ << std::endl;
+  Eigen::MatrixXi E;
+  igl::edges(mesh_->T_, E);
+  MatrixXd V = Map<const MatrixXd>(x.data(), mesh_->V_.cols(),
+      mesh_->V_.rows());
+  V.transposeInPlace();
+  
+  // assert(E.size() == 0 || E.cols() == 2);
+  // assert(F.size() == 0 || F.cols() == 3);
+  MatrixXi tmp;
+  ipc::CollisionMesh ipc_mesh;
+  
+  if constexpr (DIM ==2) {
+    // TODO use "include_vertex"
+    // TODO use the boundary facets
+    ipc_mesh = ipc::CollisionMesh::build_from_full_mesh(V, E, tmp);
+  } else {
+    std::cerr << "SHIT BRUH WE NEED BOUNDARY EDGES TOO" << std::endl;
+  } 
+  // ipc::Constraints constraint_set_;
+  ipc::construct_constraint_set(ipc_mesh, V, config_->dhat, constraint_set_);
+
+  std::vector<double> new_D;
+  std::vector<double> new_d;
+  std::vector<double> new_lambda;
+  std::map<std::array<long, 4>, int> new_frame_map;
+  dd_dx_.clear();
+  for (size_t i = 0; i < constraint_set_.size(); ++i) {
+    std::array<long, 4> ids = constraint_set_[i].vertex_indices(E, tmp);
+    double D = constraint_set_[i].compute_distance(V, E, tmp);
+    double la = 0;
+    double d = D;
+    if (auto it = frame_map_.find(ids); it != frame_map_.end()) {
+      int idx = it->second;
+      la = la_(idx);
+      d = d_(idx);
+    }
+    // If valid and within distance thresholds add new frame
+    if (D > 0 && D < config_->dhat*config_->dhat) {
+      new_D.push_back(D);
+      new_d.push_back(d);
+      new_lambda.push_back(la);
+      dd_dx_.push_back(constraint_set_[i].compute_distance_gradient(V,E,tmp));
+      new_frame_map[ids] = new_D.size()-1;
+    }
+  }
+  D_ = Map<VectorXd>(new_D.data(), new_D.size());
+  // d_ = Map<VectorXd>(new_d.data(), new_d.size());
+  la_ = Map<VectorXd>(new_lambda.data(), new_lambda.size());
+  std::swap(frame_map_, new_frame_map);
+    // std::cout << "d: " << d_.transpose() << std::endl;
+  std::cout << "D: " << D_.transpose().array().sqrt() << std::endl;
   data_.timer.start("Update Coll frames");
   update_collision_frames(x);
   data_.timer.stop("Update Coll frames");
 
-  //nframes_ = collision_frames2_.size();
-  //MatrixXi T(nframes_, 3);
-  //for (int i = 0; i < nframes_; ++i) {
-  //  T(i,0) = collision_frames2_[i].E_(0);
-  //  T(i,1) = collision_frames2_[i].E_(1);
-  //  T(i,2) = collision_frames2_[i].E_(2);
-  //}
   nframes_ = frames_.size();
   T_.resize(nframes_,3);
   T_.setConstant(-1);
@@ -126,6 +169,10 @@ void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
       T_(idx,j) = E(j);
     }
   }
+    std::cout << "d: " << d_.transpose() << std::endl;
+  std::cout << "D: " << D_.transpose() << std::endl;
+  std::cout << "num constraints: "<< constraint_set_.num_constraints() << std::endl;
+  std::cout << "nframes_ : " << nframes_ << std::endl;
 
   // Structure potentially changes each step, so just rebuild assembler :/
   // NOTE assuming each local jacobian has same size!
@@ -184,64 +231,12 @@ void MixedCollision<DIM>::update_collision_frames(const Eigen::VectorXd& x) {
       }
     }
   }
-
-  //VectorXd d0 = Map<VectorXd>(new_d.data(), new_d.size());
-  //new_D.clear();
-  //new_d.clear();
-  //dd_dx_.clear();
-  //new_lambda.clear();
-
-  //// For each boundary vertex find primitives within distance threshold
-  //for (int i = 0; i < C_.size(); ++i) {
-
-  //  // Currently brute force check all primitives
-  //  for (int j = 0; j < F_.rows(); ++j) {
-  //    if (C_(i) == F_(j,0) || C_(i) == F_(j,1)) {
-  //      continue;
-  //    }
-
-  //    // Use tuple of vertex ids for hashing
-  //    std::tuple<int,int,int> tup = std::make_tuple(F_(j,0),F_(j,1), C_(i));
-  //    auto it = frame_ids_.find(tup);
-
-  //    // Build a frame and compute distance for the primitive - point pair
-  //    CollisionFrame2 frame(F_(j,0), F_(j,1), C_(i));
-  //    double D = frame.distance(x);
-  //    double la = 0;
-  //    double d = D; 
-
-  //    // Check if frame already exists and maintain its variable
-  //    // and lagrange multiplier values 
-  //    if (it != frame_ids_.end()) {
-  //      la = la_(it->second);
-  //      d = d_(it->second);
-  //    }
-
-  //    // If valid and within distance thresholds add new frame
-  //    if (frame.is_valid(x) && D > 0 && D < config_->dhat) {
-  //      
-  //      Vector3i E_(F_(j,0), F_(j,1), C_(i));
-  //      //auto frame2 = CollisionFrame<2>::make_collision_frame<Vector3i,POINT_EDGE>(x, E_);
-  //      //std::cout << "orig: " << D << " new: " << frame2->distance(x) << std::endl;
-  //      //std::cout << "gradient: " << frame.gradient(x) << " new grad: " << frame2->gradient(x) << std::endl;
-  //      new_D.push_back(D);
-  //      new_d.push_back(d);
-  //      new_lambda.push_back(la);
-  //      dd_dx_.push_back(frame.gradient(x));
-  //      new_frames.push_back(frame);
-  //      new_ids[tup] = new_frames.size() - 1;
-  //    }
-  //  }
-  //}
-  //std::cout << "new_Frames size: " << new_frames.size() << std::endl;
-  //std::cout << "update_derivs before: \n" << d_ << std::endl;
   D_ = Map<VectorXd>(new_D.data(), new_D.size());
   d_ = Map<VectorXd>(new_d.data(), new_d.size());
   la_ = Map<VectorXd>(new_lambda.data(), new_lambda.size());
   std::swap(frames, frames_);
   std::swap(new_ids, frame_ids_);
   std::swap(new_frames, collision_frames2_);
-  //std::cout << "d0\n: "<< d0 << " d: \n" << d_ << std::endl;
 }
 
 template<int DIM>

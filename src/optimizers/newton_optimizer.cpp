@@ -60,7 +60,9 @@ void NewtonOptimizer<DIM>::step() {
     //    {svar_}, alpha, config_->ls_iters);
     //SolverExitStatus status = linesearch_backtracking(state_.x_,
     //    state_.mixed_vars_, alpha, state_.config_->ls_iters, 0.0, 0.9);
+    state_.data_.timer.start("LS");
     SolverExitStatus status = linesearch_backtracking(state_, alpha, 0.0, 0.9);
+    state_.data_.timer.stop("LS");
 
     // Record some data
     state_.data_.add(" Iteration", i+1);
@@ -92,6 +94,7 @@ void NewtonOptimizer<DIM>::step() {
 
 template <int DIM>
 void NewtonOptimizer<DIM>::update_system() {
+  state_.data_.timer.start("update");
 
   VectorXd x = state_.x_->value();
   state_.x_->unproject(x);
@@ -113,6 +116,7 @@ void NewtonOptimizer<DIM>::update_system() {
     lhs_ += var->lhs();
     rhs_ += var->rhs();
   }
+  state_.data_.timer.stop("update");
 }
 
 template <int DIM>
@@ -125,10 +129,13 @@ void NewtonOptimizer<DIM>::substep(double& decrement) {
   //saveMarket(lhs_, "lhs.mkt");
   decrement = state_.x_->delta().template lpNorm<Infinity>();
 
+  state_.data_.timer.start("local");
   for (auto& var : state_.mixed_vars_) {
     var->solve(state_.x_->delta());
     decrement = std::max(decrement, var->delta().template lpNorm<Infinity>());
   }
+  state_.data_.timer.stop("local");
+
   // state_.data_.add("||x delta||", xvar_->delta().norm());
   // state_.data_.add("||s delta||", svar_->delta().norm());
   // state_.data_.add("||c delta||", cvar_->delta().norm());

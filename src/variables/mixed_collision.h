@@ -6,6 +6,7 @@
 #include "utils/sparse_utils.h"
 #include <iostream>
 #include <set>
+#include "ipc/ipc.hpp"
 
 namespace mfem {
 
@@ -182,6 +183,10 @@ namespace mfem {
     std::map<std::unique_ptr<CollisionFrame<2>>, int, FrameLess<2>> frames_;
     std::shared_ptr<Assembler<double,DIM,-1>> assembler_;
     std::shared_ptr<VecAssembler<double,DIM,-1>> vec_assembler_;
+    ipc::Constraints constraint_set_;
+    std::map<std::array<long, 4>, int> frame_map_;
+
+
   };
 
 
