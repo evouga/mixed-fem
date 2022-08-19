@@ -2,7 +2,6 @@
 
 #include "mixed_variable.h"
 #include "optimizers/optimizer_data.h"
-#include "utils/collision/collision_frame.h"
 #include "utils/sparse_utils.h"
 #include <iostream>
 #include <set>
@@ -132,14 +131,14 @@ namespace mfem {
       return nframes_;
     }
 
-    const std::vector<CollisionFrame2>& frames() const {
-      return collision_frames2_;
+    const ipc::Constraints& frames() const {
+      return constraint_set_;
     }
 
   protected:
 
     void update_rotations(const Eigen::VectorXd& x);
-    void update_derivatives(double dt);
+    void update_derivatives(const Eigen::MatrixXd& V, double dt);
     void update_collision_frames(const Eigen::VectorXd& x);
 
   private:
@@ -171,6 +170,7 @@ namespace mfem {
     Eigen::VectorXd Gdx_;     // tmp var: Jacobian multiplied by dx
 
     Eigen::MatrixXi F_;
+    Eigen::MatrixXi E_;
     Eigen::MatrixXi T_;
     Eigen::VectorXi C_;
 
@@ -183,6 +183,8 @@ namespace mfem {
     std::map<std::unique_ptr<CollisionFrame<2>>, int, FrameLess<2>> frames_;
     std::shared_ptr<Assembler<double,DIM,-1>> assembler_;
     std::shared_ptr<VecAssembler<double,DIM,-1>> vec_assembler_;
+
+    ipc::CollisionMesh ipc_mesh_;
     ipc::Constraints constraint_set_;
     std::map<std::array<long, 4>, int> frame_map_;
 

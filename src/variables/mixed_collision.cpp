@@ -6,14 +6,14 @@
 #include "config.h"
 #include <unsupported/Eigen/SparseExtra>
 #include "igl/edges.h"
+#include <ipc/barrier/barrier.hpp>
 
 using namespace Eigen;
 using namespace mfem;
 
 namespace {
 
-  //TODO psi(s) can still be negative!
-  // Log barrier energy
+  // TODO move this shit to the thing
   double psi(double d, double h, double k) {
     if (d <= 0)
       return std::numeric_limits<double>::max();
@@ -21,63 +21,49 @@ namespace {
       return 0;
     else
       return -k*log(d/h)*pow(d-h,2.0);
-    //return k*pow(d-h,2);
   }
 
   double dpsi(double d, double h, double k) {
     return -(k*pow(d-h,2.0))/d-k*log(d/h)*(d*2.0-h*2.0);
-    //return k*2*(d-h);
   }
 
   double d2psi(double d, double h, double k) {
     return k*log(d/h)*-2.0-(k*(d*2.0-h*2.0)*2.0)/d+1.0/(d*d)*k*pow(d-h,2.0);
-    //return 2*k;
   }
 }
 
 template<int DIM>
 double MixedCollision<DIM>::energy(const VectorXd& x, const VectorXd& d) {
 
-  std::set<std::unique_ptr<CollisionFrame<2>>,FrameLess<2>> frames;
-  std::vector<double> new_d;
-  // For each boundary vertex find primitives within distance threshold
-  for (int i = 0; i < C_.size(); ++i) {
 
-    // Currently brute force check all primitives
-    for (int j = 0; j < F_.rows(); ++j) {
-      if (C_(i) == F_(j,0) || C_(i) == F_(j,1)) {
-        continue;
-      }
+  MatrixXd V = Map<const MatrixXd>(x.data(), mesh_->V_.cols(),
+      mesh_->V_.rows());
+  V.transposeInPlace();
+  
+  MatrixXi tmp;  
+  ipc::Constraints constraint_set;
+  ipc::construct_constraint_set(ipc_mesh_, V, config_->dhat, constraint_set);
 
-      auto frame = CollisionFrame<2>::make_collision_frame<
-          Vector3i, POINT_EDGE>(x, Vector3i(F_(j,0), F_(j,1), C_(i)));
-
-      // Avoid duplicate entries
-      if (frame != nullptr && frames.find(frame) == frames.end()) {
-        double D = frame->distance(x);
-        double d = D; 
-        if (auto it = frames_.find(frame); it != frames_.end()) {
-          int idx = it->second;
-          d = d_(idx);
-        }
-        // If valid and within distance thresholds add new frame
-        if (D >= 0 && D < config_->dhat) {
-          new_d.push_back(d);
-          frames.insert(std::move(frame));
-        }
-      }
-    }
-  }
-
-  //std::cout << "energy new_d: " << Map<VectorXd>(new_d.data(), new_d.size())
-  //    << "\n d_ : " << d_ << std::endl;
-  //std::cout << "x size & norm: " << x.size() << " norm: " << x.norm() << std::endl;
   double h2 = dt_*dt_;
   double e = 0;
+
   #pragma omp parallel for reduction( + : e )
-  for (size_t i = 0; i < new_d.size(); ++i) {
-    e += psi(new_d[i], config_->dhat, config_->kappa) / h2;
+  for (size_t i = 0; i < constraint_set.size(); ++i) {
+    std::array<long, 4> ids = constraint_set[i].vertex_indices(E_, tmp);
+    double D = constraint_set[i].compute_distance(V, E_, tmp);
+    double la = 0;
+    double d = D;
+    // Find if this frame already exists
+    if (auto it = frame_map_.find(ids); it != frame_map_.end()) {
+      int idx = it->second;
+      d = d_(idx);
+    }
+    double dhat_sqr = config_->dhat * config_->dhat;
+    e += config_->kappa * ipc::barrier(d, dhat_sqr) / h2;
   }
+
+  // std::cout << "energy new_d: " << e << std::endl;
+  //std::cout << "x size & norm: " << x.size() << " norm: " << x.norm() << std::endl;
   return e;
 }
 
@@ -88,14 +74,16 @@ double MixedCollision<DIM>::constraint_value(const VectorXd& x,
 
   double e = 0;
 
-  for (const auto& it : frames_) {
-    int i = it.second;
-    e += la_(i) * (it.first->distance(x) - d(i));
+  MatrixXi tmp;
+  MatrixXd V = Map<const MatrixXd>(x.data(), mesh_->V_.cols(),
+      mesh_->V_.rows());
+  V.transposeInPlace();
+
+  #pragma omp parallel for reduction( + : e )
+  for (int i = 0; i < nframes_; ++i) {
+    double D = constraint_set_[i].compute_distance(V, E_, tmp);
+    e += la_(i) * (D - d(i));
   }
-  //#pragma omp parallel for reduction( + : e )
-  //for (int i = 0; i < nframes_; ++i) {
-  //  e += la_(i) * (collision_frames2_[i].distance(x) - d(i));
-  //}
   return e;
 }
 
@@ -104,75 +92,54 @@ void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
   // Get collision frames
   dt_ = dt;
 
-  Eigen::MatrixXi E;
-  igl::edges(mesh_->T_, E);
   MatrixXd V = Map<const MatrixXd>(x.data(), mesh_->V_.cols(),
       mesh_->V_.rows());
   V.transposeInPlace();
   
-  // assert(E.size() == 0 || E.cols() == 2);
-  // assert(F.size() == 0 || F.cols() == 3);
-  MatrixXi tmp;
-  ipc::CollisionMesh ipc_mesh;
-  
-  if constexpr (DIM ==2) {
-    // TODO use "include_vertex"
-    // TODO use the boundary facets
-    ipc_mesh = ipc::CollisionMesh::build_from_full_mesh(V, E, tmp);
-  } else {
-    std::cerr << "SHIT BRUH WE NEED BOUNDARY EDGES TOO" << std::endl;
-  } 
-  // ipc::Constraints constraint_set_;
-  ipc::construct_constraint_set(ipc_mesh, V, config_->dhat, constraint_set_);
+  MatrixXi tmp;  
+  ipc::construct_constraint_set(ipc_mesh_, V, config_->dhat, constraint_set_);
 
   std::vector<double> new_D;
   std::vector<double> new_d;
   std::vector<double> new_lambda;
   std::map<std::array<long, 4>, int> new_frame_map;
   dd_dx_.clear();
+
+  nframes_ = constraint_set_.size();
+  T_.resize(nframes_,4);
   for (size_t i = 0; i < constraint_set_.size(); ++i) {
-    std::array<long, 4> ids = constraint_set_[i].vertex_indices(E, tmp);
-    double D = constraint_set_[i].compute_distance(V, E, tmp);
+    std::array<long, 4> ids = constraint_set_[i].vertex_indices(E_, tmp);
+    double D = constraint_set_[i].compute_distance(V, E_, tmp);
     double la = 0;
     double d = D;
+    for (int j = 0; j < 4; ++j) {
+      T_(i,j) = ids[j];
+    }
+
+    // Find if this frame already exists
     if (auto it = frame_map_.find(ids); it != frame_map_.end()) {
       int idx = it->second;
       la = la_(idx);
       d = d_(idx);
     }
-    // If valid and within distance thresholds add new frame
-    if (D > 0 && D < config_->dhat*config_->dhat) {
-      new_D.push_back(D);
-      new_d.push_back(d);
-      new_lambda.push_back(la);
-      dd_dx_.push_back(constraint_set_[i].compute_distance_gradient(V,E,tmp));
-      new_frame_map[ids] = new_D.size()-1;
-    }
+    new_D.push_back(D);
+    new_d.push_back(d);
+    new_lambda.push_back(la);
+    dd_dx_.push_back(constraint_set_[i].compute_distance_gradient(V,E_,tmp));
+    new_frame_map[ids] = i;
   }
   D_ = Map<VectorXd>(new_D.data(), new_D.size());
-  // d_ = Map<VectorXd>(new_d.data(), new_d.size());
+  d_ = Map<VectorXd>(new_d.data(), new_d.size());
   la_ = Map<VectorXd>(new_lambda.data(), new_lambda.size());
   std::swap(frame_map_, new_frame_map);
-    // std::cout << "d: " << d_.transpose() << std::endl;
-  std::cout << "D: " << D_.transpose().array().sqrt() << std::endl;
   data_.timer.start("Update Coll frames");
-  update_collision_frames(x);
+  // update_collision_frames(x);
   data_.timer.stop("Update Coll frames");
 
-  nframes_ = frames_.size();
-  T_.resize(nframes_,3);
-  T_.setConstant(-1);
-  for (const auto& it : frames_) {
-    const VectorXi& E = it.first->E();
-    int idx = it.second;
-    for (int j = 0; j < E.size(); ++j) {
-      T_(idx,j) = E(j);
-    }
-  }
-    std::cout << "d: " << d_.transpose() << std::endl;
-  std::cout << "D: " << D_.transpose() << std::endl;
-  std::cout << "num constraints: "<< constraint_set_.num_constraints() << std::endl;
-  std::cout << "nframes_ : " << nframes_ << std::endl;
+  // std::cout << "d: " << d_.transpose() << std::endl;
+  // std::cout << "D: " << D_.transpose() << std::endl;
+  // std::cout << "num constraints: "<< constraint_set_.num_constraints() << std::endl;
+  // std::cout << "nframes_ : " << nframes_ << std::endl;
 
   // Structure potentially changes each step, so just rebuild assembler :/
   // NOTE assuming each local jacobian has same size!
@@ -181,7 +148,7 @@ void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
   vec_assembler_ = std::make_shared<VecAssembler<double,DIM,-1>>(T_,
       mesh_->free_map_);
   data_.timer.stop("Create assemblers");
-  update_derivatives(dt);
+  update_derivatives(V, dt);
 }
 
 template<int DIM>
@@ -240,7 +207,7 @@ void MixedCollision<DIM>::update_collision_frames(const Eigen::VectorXd& x) {
 }
 
 template<int DIM>
-void MixedCollision<DIM>::update_derivatives(double dt) {
+void MixedCollision<DIM>::update_derivatives(const MatrixXd& V, double dt) {
 
   if (nframes_ == 0) {
     return;
@@ -250,10 +217,12 @@ void MixedCollision<DIM>::update_derivatives(double dt) {
   H_.resize(nframes_);
   g_.resize(nframes_);
 
+  double dhat_sqr = config_->dhat * config_->dhat;
+
   #pragma omp parallel for
   for (int i = 0; i < nframes_; ++i) {
-    H_[i] = d2psi(d_(i), config_->dhat, config_->kappa);
-    g_[i] = dpsi(d_(i), config_->dhat, config_->kappa);
+    H_[i] = config_->kappa * ipc::barrier_hessian(d_(i), dhat_sqr);
+    g_[i] = config_->kappa * ipc::barrier_gradient(d_(i), dhat_sqr);
   }
   data_.timer.stop("Hinv");
   
@@ -286,7 +255,6 @@ void MixedCollision<DIM>::update_derivatives(double dt) {
   // Gradient with respect to mixed variable
   grad_ = g_ + la_;
   data_.timer.stop("Update RHS");
-
 }
 
 template<int DIM>
@@ -348,7 +316,7 @@ void MixedCollision<DIM>::solve(const VectorXd& dx) {
     //      q.segment<DIM>(DIM*E(1)),
     //      q.segment<DIM>(DIM*E(2));
     VectorXd qi(dd_dx_[i].size());
-    for (int j = 0; j < 3; ++j) {
+    for (int j = 0; j < 4; ++j) {
       if (T_(i,j) == -1) break;
       qi.segment<DIM>(DIM*j) = q.segment<DIM>(DIM*T_(i,j));
     }
@@ -373,10 +341,21 @@ void MixedCollision<DIM>::reset() {
   grad_x_.resize(0);
   collision_frames2_.clear();
   frames_.clear();
+  frame_map_.clear();
 
+  igl::edges(mesh_->T_, E_);
   igl::boundary_facets(mesh_->T_, F_);
   assert(F_.cols() == 2); // Only supports 2D right now
   igl::unique(F_,C_); 
+
+  if constexpr (DIM ==2) {
+    // TODO use "include_vertex"
+    // TODO use the boundary facets
+    MatrixXi tmp;
+    ipc_mesh_ = ipc::CollisionMesh::build_from_full_mesh(mesh_->V_, E_, tmp);
+  } else {
+    std::cerr << "SHIT BRUH" << std::endl;
+  } 
 }
 
 template<int DIM>
@@ -386,6 +365,8 @@ void MixedCollision<DIM>::post_solve() {
   collision_frames2_.clear();
   frame_ids_.clear();
   frames_.clear();
+  frame_map_.clear();
+
 }
 
 template class mfem::MixedCollision<3>; // 3D
