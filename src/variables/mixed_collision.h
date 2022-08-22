@@ -73,7 +73,7 @@ namespace mfem {
     }
 
     const ipc::Constraints& frames() const {
-      return constraint_set_;
+      return constraints_;
     }
 
   protected:
@@ -122,7 +122,7 @@ namespace mfem {
     std::shared_ptr<VecAssembler<double,DIM,-1>> vec_assembler_;
 
     ipc::CollisionMesh ipc_mesh_;
-    ipc::Constraints constraint_set_;
+    ipc::Constraints constraints_;
     std::map<std::array<long, 4>, int> frame_map_;
   };
 }

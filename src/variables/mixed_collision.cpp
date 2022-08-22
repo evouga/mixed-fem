@@ -6,6 +6,7 @@
 #include "config.h"
 #include <unsupported/Eigen/SparseExtra>
 #include "igl/edges.h"
+#include "igl/oriented_facets.h"
 #include <ipc/barrier/barrier.hpp>
 
 using namespace Eigen;
@@ -18,21 +19,29 @@ double MixedCollision<DIM>::energy(const VectorXd& x, const VectorXd& d) {
   MatrixXd V = Map<const MatrixXd>(x.data(), mesh_->V_.cols(),
       mesh_->V_.rows());
   V.transposeInPlace();
-  
-  MatrixXi F; 
-  if constexpr (DIM == 3) {
-    F = F_;
-  }
-  ipc::Constraints constraint_set;
-  ipc::construct_constraint_set(ipc_mesh_, V, config_->dhat, constraint_set);
+  MatrixXd V_srf = ipc_mesh_.vertices(V);
+
+  // MatrixXi F; 
+  // if constexpr (DIM == 3) {
+  //   F = F_;
+  // }
+  ipc::Constraints constraints;
+  ipc::construct_constraint_set(ipc_mesh_, V_srf, config_->dhat, constraints);
 
   double h2 = dt_*dt_;
   double e = 0;
+  // std::cout << "ENERGY \n V.rows: " << V.rows() << std::endl;
+  // std::cout << "mesh.num_vertices(): " << ipc_mesh_.num_vertices() << std::endl;
+  // std::cout << "vertices(): " << ipc_mesh_.vertices(V).rows() << std::endl;
+
+  const Eigen::MatrixXi& E = ipc_mesh_.edges();
+  const Eigen::MatrixXi& F = ipc_mesh_.faces();
+    // std::cout << "E1: \n" << E << "\n E2: \n" << E_ << std::endl;
 
   #pragma omp parallel for reduction( + : e )
-  for (size_t i = 0; i < constraint_set.size(); ++i) {
-    std::array<long, 4> ids = constraint_set[i].vertex_indices(E_, F);
-    double D = constraint_set[i].compute_distance(V, E_, F);
+  for (size_t i = 0; i < constraints.size(); ++i) {
+    std::array<long, 4> ids = constraints[i].vertex_indices(E, F);
+    double D = constraints[i].compute_distance(V_srf, E, F);
     double la = 0;
     double d = D;
     // Find if this frame already exists
@@ -63,10 +72,11 @@ double MixedCollision<DIM>::constraint_value(const VectorXd& x,
   MatrixXd V = Map<const MatrixXd>(x.data(), mesh_->V_.cols(),
       mesh_->V_.rows());
   V.transposeInPlace();
+  MatrixXd V_srf = ipc_mesh_.vertices(V);
 
   #pragma omp parallel for reduction( + : e )
   for (int i = 0; i < nframes_; ++i) {
-    double D = constraint_set_[i].compute_distance(V, E_, F);
+    double D = constraints_[i].compute_distance(V_srf, E_, F);
     e += la_(i) * (D - d(i));
   }
   return e;
@@ -85,7 +95,11 @@ void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
   if constexpr (DIM == 3) {
     F = F_;
   } 
-  ipc::construct_constraint_set(ipc_mesh_, V, config_->dhat, constraint_set_);
+  std::cout << "V.rows: " << V.rows() << std::endl;
+  std::cout << "mesh.num_vertices(): " << ipc_mesh_.num_vertices() << std::endl;
+  std::cout << "vertices(): " << ipc_mesh_.vertices(V).rows() << std::endl;
+  MatrixXd V_srf = ipc_mesh_.vertices(V);
+  ipc::construct_constraint_set(ipc_mesh_, V_srf, config_->dhat, constraints_);
 
   std::vector<double> new_D;
   std::vector<double> new_d;
@@ -93,11 +107,11 @@ void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
   std::map<std::array<long, 4>, int> new_frame_map;
   dd_dx_.clear();
 
-  nframes_ = constraint_set_.size();
+  nframes_ = constraints_.size();
   T_.resize(nframes_,4);
-  for (size_t i = 0; i < constraint_set_.size(); ++i) {
-    std::array<long, 4> ids = constraint_set_[i].vertex_indices(E_, F);
-    double D = constraint_set_[i].compute_distance(V, E_, F);
+  for (size_t i = 0; i < constraints_.size(); ++i) {
+    std::array<long, 4> ids = constraints_[i].vertex_indices(E_, F);
+    double D = constraints_[i].compute_distance(V_srf, E_, F);
     double la = 0;
     double d = D;
     for (int j = 0; j < 4; ++j) {
@@ -113,7 +127,7 @@ void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
     new_D.push_back(D);
     new_d.push_back(d);
     new_lambda.push_back(la);
-    dd_dx_.push_back(constraint_set_[i].compute_distance_gradient(V,E_,F));
+    dd_dx_.push_back(constraints_[i].compute_distance_gradient(V_srf,E_,F));
     new_frame_map[ids] = i;
   }
   D_ = Map<VectorXd>(new_D.data(), new_D.size());
@@ -124,10 +138,10 @@ void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
   // update_collision_frames(x);
   data_.timer.stop("Update Coll frames");
 
-std::cout << "la_: " << la_.norm() << std::endl;
+  std::cout << "la_: " << la_.norm() << std::endl;
   // std::cout << "d: " << d_.transpose() << std::endl;
   // std::cout << "D: " << D_.transpose() << std::endl;
-  // std::cout << "num constraints: "<< constraint_set_.num_constraints() << std::endl;
+  // std::cout << "num constraints: "<< constraints_.num_constraints() << std::endl;
   // std::cout << "nframes_ : " << nframes_ << std::endl;
 
   // Structure potentially changes each step, so just rebuild assembler :/
@@ -137,7 +151,7 @@ std::cout << "la_: " << la_.norm() << std::endl;
   vec_assembler_ = std::make_shared<VecAssembler<double,DIM,-1>>(T_,
       mesh_->free_map_);
   data_.timer.stop("Create assemblers");
-  update_derivatives(V, dt);
+  update_derivatives(V_srf, dt);
 }
 
 template<int DIM>
@@ -173,7 +187,7 @@ void MixedCollision<DIM>::update_derivatives(const MatrixXd& V, double dt) {
   #pragma omp parallel for
   for (int i = 0; i < nframes_; ++i) {
     const ipc::MatrixMax12d distance_hess = 
-        constraint_set_[i].compute_distance_hessian(V, E_, F);
+        constraints_[i].compute_distance_hessian(V, E_, F);
 
     Aloc_[i] = dd_dx_[i] * H_(i) * dd_dx_[i].transpose() 
         - la_(i) * distance_hess; // TODO + sign??????
@@ -288,16 +302,30 @@ void MixedCollision<DIM>::reset() {
   grad_x_.resize(0);
   frame_map_.clear();
 
-  igl::boundary_facets(mesh_->T_, F_);
-  igl::edges(mesh_->T_, E_);
 
   if constexpr (DIM ==2) {
     // TODO use "include_vertex"
     // TODO use the boundary facets
-    MatrixXi tmp;
-    ipc_mesh_ = ipc::CollisionMesh::build_from_full_mesh(mesh_->V_, E_, tmp);
-  } else {
+    // igl::boundary_facets(mesh_->T_, E_);
+    igl::oriented_facets(mesh_->T_, E_);
+    // igl::edges(mesh_->T_, E_);
     ipc_mesh_ = ipc::CollisionMesh::build_from_full_mesh(mesh_->V_, E_, F_);
+
+    const Eigen::MatrixXi& E = ipc_mesh_.edges();
+    const Eigen::MatrixXi& F = ipc_mesh_.faces();
+    E_ = E;
+    F_ = F;
+  } else {
+    igl::boundary_facets(mesh_->T_, F_);
+    // igl::edges(mesh_->T_, E_);
+    igl::edges(F_, E_);
+
+
+    ipc_mesh_ = ipc::CollisionMesh::build_from_full_mesh(mesh_->V_, E_, F_);
+    const Eigen::MatrixXi& E = ipc_mesh_.edges();
+    const Eigen::MatrixXi& F = ipc_mesh_.faces();
+    E_ = E;
+    F_ = F;
   } 
 }
 

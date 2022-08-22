@@ -51,6 +51,7 @@ void NewtonOptimizer<DIM>::step() {
       // alpha = max_possible_step<DIM>(x1, x2, state_.mesh_->F_);
 
       VectorXd p = state_.mesh_->projection_matrix().transpose() * state_.x_->delta();
+
       // alpha = 0.95 * additive_ccd<DIM>(x1, p, state_.mesh_->F_);
       // state_.data_.add("ACCD ", alpha);
 
