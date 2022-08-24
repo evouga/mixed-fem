@@ -7,6 +7,7 @@
 
 namespace {
   // Taken from https://github.com/mattoverby/mcloptlib
+  // TODO: std::clamp
   template <typename Scalar>
   static inline Scalar range( Scalar alpha, Scalar low, Scalar high ){
     if( alpha < low ){ return low; }

@@ -18,12 +18,8 @@ void NewtonOptimizer<DIM>::step() {
   int i = 0;
   double grad_norm;
   double E = 0, E_prev = 0;
-  // step_x.clear();
-  //config_->kappa = 1e0;
-  double kappa0 = state_.config_->kappa;
   do {
 
-    std::cout << " 1 " << std::endl;
     // Update gradient and hessian
     update_system();
 
@@ -32,53 +28,38 @@ void NewtonOptimizer<DIM>::step() {
     double res = std::abs((E - E_prev) / (E+1));
     E_prev = E;
 
-    std::cout << " 2 " << std::endl;
-    // Solve system
+    // Solve linear system
     substep(grad_norm);
 
-    // Linesearch on descent direction
     double alpha = 1.0;
 
-    std::cout << " 3 " << std::endl;
-    // If collisions enabled truncate the initial step size to avoid
-    // intersections
-    // TODO move to linesearch
+    // If collisions enabled, perform CCD
     if (state_.config_->enable_ccd) {
       VectorXd x1 = state_.x_->value();
-      // VectorXd x2 = state_.x_->value() + alpha * state_.x_->delta();
       state_.x_->unproject(x1);
-      // state_.x_->unproject(x2);
-      // alpha = max_possible_step<DIM>(x1, x2, state_.mesh_->F_);
-
-      VectorXd p = state_.mesh_->projection_matrix().transpose() * state_.x_->delta();
+      VectorXd p = state_.mesh_->projection_matrix().transpose() 
+          * state_.x_->delta();
 
       // alpha = 0.95 * additive_ccd<DIM>(x1, p, state_.mesh_->F_);
       // state_.data_.add("ACCD ", alpha);
 
-      MatrixXd V1 = Map<const MatrixXd>(x1.data(), state_.mesh_->V_.cols(),
+      MatrixXd V1 = Map<const MatrixXd>(x1.data(), DIM,
           state_.mesh_->V_.rows());
       V1.transposeInPlace();
       VectorXd x2 = x1 + p;
-      MatrixXd V2 = Map<const MatrixXd>(x2.data(), state_.mesh_->V_.cols(),
+      MatrixXd V2 = Map<const MatrixXd>(x2.data(), DIM,
           state_.mesh_->V_.rows());
       V2.transposeInPlace();
 
-      MatrixXi tmp;
-      MatrixXi E;
-      igl::edges(state_.mesh_->T_, E);
-      ipc::CollisionMesh ipc_mesh = ipc::CollisionMesh::build_from_full_mesh(V1, E, tmp);
+      V1 = state_.mesh_->collision_mesh().vertices(V1);
+      V2 = state_.mesh_->collision_mesh().vertices(V2);
 
-      alpha = 0.95 * ipc::compute_collision_free_stepsize(ipc_mesh, V1, V2);
+      alpha = 0.9 * ipc::compute_collision_free_stepsize(
+          state_.mesh_->collision_mesh(), V1, V2);
       state_.data_.add("ACCD ", alpha);
-
-      // std::cout << std::setprecision(10) << "alpha0: " << alpha << std::endl;
     }
 
-    std::cout << " 4 " << std::endl;
-    // SolverExitStatus status = linesearch_backtracking_cubic(x_,
-    //    {svar_}, alpha, config_->ls_iters);
-    //SolverExitStatus status = linesearch_backtracking(state_.x_,
-    //    state_.mixed_vars_, alpha, state_.config_->ls_iters, 0.0, 0.9);
+    // Linesearch on descent direction
     state_.data_.timer.start("LS");
     SolverExitStatus status = linesearch_backtracking(state_, alpha, 0.0, 0.9);
     state_.data_.timer.stop("LS");
@@ -87,11 +68,9 @@ void NewtonOptimizer<DIM>::step() {
     state_.data_.add(" Iteration", i+1);
     state_.data_.add("Energy", E);
     state_.data_.add("Energy res", res);
-    // state_.data_.add("mixed grad", grad_.norm());
     state_.data_.add("Newton dec", grad_norm);
     state_.data_.add("alpha ", alpha);
     state_.data_.add("kappa ", state_.config_->kappa);
-    //config_->kappa *= 2;
     ++i;
     Base::callback(state_);
 
@@ -103,18 +82,24 @@ void NewtonOptimizer<DIM>::step() {
     state_.data_.print_data(state_.config_->show_timing);
   }
 
+  // Update dirichlet boundary conditions
   state_.BCs_.step_script(state_.mesh_, state_.config_->h);
+
+  // Post solve update nodal and mixed variables
   state_.x_->post_solve();
   for (auto& var : state_.mixed_vars_) {
     var->post_solve();
   }
-  state_.config_->kappa = kappa0;
+ for (auto& var : state_.vars_) {
+    var->post_solve();
+  }
 }
 
 template <int DIM>
 void NewtonOptimizer<DIM>::update_system() {
   state_.data_.timer.start("update");
 
+  // Get full configuration vector
   VectorXd x = state_.x_->value();
   state_.x_->unproject(x);
 
@@ -122,6 +107,7 @@ void NewtonOptimizer<DIM>::update_system() {
     state_.mesh_->update_jacobian(x);
   }
 
+  // Add LHS and RHS from each variable
   lhs_ = state_.x_->lhs();
   rhs_ = state_.x_->rhs();
 
@@ -140,12 +126,14 @@ void NewtonOptimizer<DIM>::update_system() {
 
 template <int DIM>
 void NewtonOptimizer<DIM>::substep(double& decrement) {
+  // Solve linear system
   state_.data_.timer.start("global");
   state_.solver_->compute(lhs_);
   state_.x_->delta() = state_.solver_->solve(rhs_);
   state_.data_.timer.stop("global");
-
   //saveMarket(lhs_, "lhs.mkt");
+
+  // Use infinity norm of deltas as termination criteria
   decrement = state_.x_->delta().template lpNorm<Infinity>();
 
   state_.data_.timer.start("local");
@@ -154,10 +142,6 @@ void NewtonOptimizer<DIM>::substep(double& decrement) {
     decrement = std::max(decrement, var->delta().template lpNorm<Infinity>());
   }
   state_.data_.timer.stop("local");
-
-  // state_.data_.add("||x delta||", xvar_->delta().norm());
-  // state_.data_.add("||s delta||", svar_->delta().norm());
-  // state_.data_.add("||c delta||", cvar_->delta().norm());
 }
 
 template <int DIM>

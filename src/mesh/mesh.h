@@ -3,6 +3,7 @@
 #include <Eigen/Dense>
 #include <EigenTypes.h>
 #include <memory>
+#include "ipc/ipc.hpp"
 
 #if defined(SIM_USE_CHOLMOD)
 #include <Eigen/CholmodSupport>
@@ -21,9 +22,6 @@ namespace mfem {
 
     Element(std::shared_ptr<MaterialModel> material)
         : material_(material) {}
-
-    
-
     std::shared_ptr<MaterialModel> material_;
   };
   
@@ -115,6 +113,9 @@ namespace mfem {
       return P_;
     }
 
+    const ipc::CollisionMesh& collision_mesh() const {
+      return ipc_mesh_;
+    }
 
     // I don't like this
     void clear_fixed_vertices();
@@ -156,7 +157,7 @@ namespace mfem {
     Eigen::SparseMatrixd W_;           // weight matrix
     Eigen::VectorXd vols_;
     std::vector<Eigen::MatrixXd> Jloc_;
-
+    ipc::CollisionMesh ipc_mesh_;
   };
 }
 

@@ -78,20 +78,13 @@ namespace mfem {
 
   protected:
 
-    void update_rotations(const Eigen::VectorXd& x);
     void update_derivatives(const Eigen::MatrixXd& V, double dt);
-    void update_collision_frames(const Eigen::VectorXd& x);
 
   private:
 
     static constexpr int M() {
       return DIM * DIM;
     }
-
-    // Matrix and vector data types
-    //using MatD  = Eigen::Matrix<double, DIM, DIM>; // 3x3 or 2x2
-    //using VecM  = Eigen::Vector<double, M()>;      // 9x1
-    //using MatM  = Eigen::Matrix<double, M(), M()>; // 9x9
 
     using Base::mesh_;
 
@@ -110,18 +103,14 @@ namespace mfem {
     Eigen::VectorXd gl_;     // tmp var: g_\Lambda in the notes
     Eigen::VectorXd Gdx_;     // tmp var: Jacobian multiplied by dx
 
-    Eigen::MatrixXi F_;
-    Eigen::MatrixXi E_;
     Eigen::MatrixXi T_;
 
     std::shared_ptr<SimConfig> config_;
     std::vector<Eigen::VectorXd> dd_dx_; 
-    std::vector<Eigen::MatrixXd> Aloc_;
     Eigen::SparseMatrix<double, Eigen::RowMajor> A_;
     std::shared_ptr<Assembler<double,DIM,-1>> assembler_;
     std::shared_ptr<VecAssembler<double,DIM,-1>> vec_assembler_;
 
-    ipc::CollisionMesh ipc_mesh_;
     ipc::Constraints constraints_;
     std::map<std::array<long, 4>, int> frame_map_;
   };

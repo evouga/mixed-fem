@@ -1,4 +1,5 @@
 #include "polyscope_app.h"
+#include "polyscope/volume_mesh.h"
 
 #include "mesh/tri2d_mesh.h"
 #include "mesh/meshes.h"
@@ -25,7 +26,9 @@ using namespace mfem;
 
 std::vector<MatrixXd> vertices;
 std::vector<MatrixXi> frame_faces;
+std::vector<MatrixXi> frame_tets;
 polyscope::SurfaceMesh* frame_srf = nullptr; // collision frame mesh
+polyscope::VolumeMesh* frame_tet = nullptr; // collision frame tetrahedra
 
 struct PolyscopTetApp : public PolyscopeApp<3> {
 
@@ -52,25 +55,38 @@ struct PolyscopTetApp : public PolyscopeApp<3> {
 
     if(!show_substeps) return;
     ImGui::InputInt("Substep", &substep);
-
-    assert(vertices.size() == frame_faces.size());
-    if (show_frames && frame_faces.size() > 0) {
+    
+    // Update regular meshes
+    if (vertices.size() > 0) {
       substep = std::clamp(substep, 0, int(vertices.size()-1));
 
-      // Update frame mesh
-      frame_srf = polyscope::registerSurfaceMesh("frames", vertices[substep],
-          frame_faces[substep]);
-
-      // Update regular meshes
       size_t start = 0;
       for (size_t i = 0; i < srfs.size(); ++i) {
         size_t sz = meshes[i]->vertices().rows();
         srfs[i]->updateVertexPositions(vertices[substep].block(start,0,sz,3));
         start += sz;
       }
+    }
+
+    // Show triangle frames
+    if (show_frames && frame_faces.size() > 0) {
+
+      // Update frame mesh
+      frame_srf = polyscope::registerSurfaceMesh("frames", vertices[substep],
+          frame_faces[substep]);
 
     } else if (frame_srf) {
       frame_srf->setEnabled(false);
+    }
+
+    // Show tetrahedron frames
+    if (show_frames && frame_tets.size() > 0) {
+      // Update frame mesh
+      frame_tet = polyscope::registerTetMesh("tet_frames", vertices[substep],
+          frame_tets[substep]);
+
+    } else if (frame_tet) {
+      frame_tet->setEnabled(false);
     }
   }
 
@@ -82,22 +98,48 @@ struct PolyscopTetApp : public PolyscopeApp<3> {
     const T* c = dynamic_cast<const T*>(var);
     if (!c) return false;
     int n = c->num_collision_frames();
-    MatrixXi Fframe(n,3);
 
     // Get vertices at current iteration
     VectorXd xt = x->value();
     x->unproject(xt);
     MatrixXd V = Map<MatrixXd>(xt.data(), mesh->V_.cols(), mesh->V_.rows());
     V.transposeInPlace();
+    const auto& ipc_mesh = mesh->collision_mesh();
+    const Eigen::MatrixXi& E = ipc_mesh.edges();
+    const Eigen::MatrixXi& F = ipc_mesh.faces();
+    MatrixXd V_srf = ipc_mesh.vertices(V);
 
+    std::vector<std::vector<int>> faces;
+    std::vector<std::vector<int>> tets;
+    
     // Add collision frames
-    // const ipc::Constraints& frames = c->frames();
-    // for (int i = 0; i < n; ++i) {
-    //   std::array<long, 4> ids = constraint_set[i].vertex_indices(E_, tmp);
-    //   Fframe.row(i) = frames[i].E_.transpose();
-    // }
-    // vertices.push_back(V);
-    // frame_faces.push_back(Fframe);
+    const ipc::Constraints& frames = c->frames();
+    for (int i = 0; i < n; ++i) {
+      std::array<long, 4> ids = frames[i].vertex_indices(E, F);
+      std::vector<int> ids_full;
+      for (int j = 0; j < 4; ++j) {
+        if (ids[j] == -1) break;
+        ids_full.push_back(ipc_mesh.to_full_vertex_id(ids[j]));
+      }
+
+      // If 3 vertices, add to triangle frame list
+      if (ids_full.size() == 3) {
+        faces.push_back(ids_full);
+      } else if (ids_full.size() == 4) {
+        tets.push_back(ids_full);
+      }
+    }
+    MatrixXi Fframe(faces.size(), 3);
+    for (size_t i = 0; i < faces.size(); ++i) {
+      Fframe.row(i) = Map<RowVector3i>(faces[i].data());
+    }
+    MatrixXi Tframe(tets.size(), 4);
+    for (size_t i = 0; i < tets.size(); ++i) {
+      Tframe.row(i) = Map<RowVector4i>(tets[i].data());
+    }
+    vertices.push_back(V);
+    frame_faces.push_back(Fframe);
+    frame_tets.push_back(Tframe);
     return true;
   }
 
@@ -123,6 +165,10 @@ struct PolyscopTetApp : public PolyscopeApp<3> {
     if (frame_srf != nullptr) {
       removeStructure(frame_srf);
       frame_srf = nullptr;
+    }
+    if (frame_tet != nullptr) {
+      removeStructure(frame_tet);
+      frame_tet = nullptr;
     }
   }
 
@@ -167,10 +213,10 @@ struct PolyscopTetApp : public PolyscopeApp<3> {
 
     optimizer = optimizer_factory.create(config->optimizer, state);
     optimizer->reset();
-    // optimizer->callback = std::bind(&PolyscopeTriApp::collision_callback, this,
-    //     std::placeholders::_1);
+    optimizer->callback = std::bind(&PolyscopTetApp::collision_callback, this,
+        std::placeholders::_1);
 
-    // callback_funcs.push_back(std::bind(&PolyscopeTriApp::collision_gui, this));
+    callback_funcs.push_back(std::bind(&PolyscopTetApp::collision_gui, this));
   }
 
   std::vector<polyscope::SurfaceMesh*> srfs;

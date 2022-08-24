@@ -1,6 +1,7 @@
 #pragma once
 
 #include "EigenTypes.h"
+#include "ipc/ipc.hpp"
 
 namespace mfem {
 
@@ -13,4 +14,7 @@ namespace mfem {
   template <int DIM>
   double additive_ccd(const Eigen::VectorXd& x, const Eigen::VectorXd& p,
       const Eigen::MatrixXi& F);      
+  template <int DIM>
+  double additive_ccd2(const Eigen::VectorXd& x, const Eigen::VectorXd& p,
+      const Eigen::MatrixXi& F, const ipc::CollisionMesh& mesh);      
 }

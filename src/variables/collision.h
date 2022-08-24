@@ -57,25 +57,18 @@ namespace mfem {
     }
 
     const ipc::Constraints& frames() const {
-      return constraint_set_;
+      return constraints_;
     }
 
   protected:
 
-    void update_rotations(const Eigen::VectorXd& x);
     void update_derivatives(const Eigen::MatrixXd& V, double dt);
-    void update_collision_frames(const Eigen::VectorXd& x);
 
   private:
 
     static constexpr int M() {
       return DIM * DIM;
     }
-
-    // Matrix and vector data types
-    //using MatD  = Eigen::Matrix<double, DIM, DIM>; // 3x3 or 2x2
-    //using VecM  = Eigen::Vector<double, M()>;      // 9x1
-    //using MatM  = Eigen::Matrix<double, M(), M()>; // 9x9
 
     using Base::mesh_;
 
@@ -84,18 +77,11 @@ namespace mfem {
     int nframes_;            // number of elements
     Eigen::VectorXd grad_;   // Gradient with respect to 'd' variables
 
-    Eigen::MatrixXi F_;
-    Eigen::VectorXi C_;
-    Eigen::MatrixXi E_;
-
     std::shared_ptr<SimConfig> config_;
-    std::vector<Eigen::MatrixXd> Aloc_;
-    std::vector<Eigen::VectorXd> gloc_;
     Eigen::SparseMatrix<double, Eigen::RowMajor> A_;
     std::shared_ptr<Assembler<double,DIM,-1>> assembler_;
     std::shared_ptr<VecAssembler<double,DIM,-1>> vec_assembler_;
-    ipc::CollisionMesh ipc_mesh_;
-    ipc::Constraints constraint_set_;
+    ipc::Constraints constraints_;
 
   };
 }

@@ -34,6 +34,7 @@ namespace mfem {
     // Update gradients, LHS, RHS for a new configuration
     void update_system();
 
+    // Linear solve
     void substep(double& decrement);
 
     // linear system left hand side

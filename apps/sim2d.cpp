@@ -1,4 +1,5 @@
 #include "polyscope_app.h"
+#include "polyscope/curve_network.h"
 
 #include "mesh/tri2d_mesh.h"
 #include "mesh/meshes.h"
@@ -26,6 +27,7 @@ using namespace mfem;
 std::vector<MatrixXd> vertices;
 std::vector<MatrixXi> frame_faces;
 polyscope::SurfaceMesh* frame_srf = nullptr; // collision frame mesh
+polyscope::CurveNetwork* frame_crv = nullptr; // collision frame mesh
 
 struct PolyscopeTriApp : public PolyscopeApp<2> {
 
@@ -82,7 +84,6 @@ struct PolyscopeTriApp : public PolyscopeApp<2> {
     const T* c = dynamic_cast<const T*>(var);
     if (!c) return false;
     int n = c->num_collision_frames();
-    MatrixXi Fframe(n,3);
 
     // Get vertices at current iteration
     VectorXd xt = x->value();
@@ -90,14 +91,36 @@ struct PolyscopeTriApp : public PolyscopeApp<2> {
     MatrixXd V = Map<MatrixXd>(xt.data(), mesh->V_.cols(), mesh->V_.rows());
     V.transposeInPlace();
 
+    const auto& ipc_mesh = mesh->collision_mesh();
+    const Eigen::MatrixXi& E = ipc_mesh.edges();
+    const Eigen::MatrixXi& F = ipc_mesh.faces();
+    MatrixXd V_srf = ipc_mesh.vertices(V);
+
+
+    std::vector<std::vector<int>> faces;
+
+
     // Add collision frames
-    // const ipc::Constraints& frames = c->frames();
-    // for (int i = 0; i < n; ++i) {
-    //   std::array<long, 4> ids = constraint_set[i].vertex_indices(E_, tmp);
-    //   Fframe.row(i) = frames[i].E_.transpose();
-    // }
-    // vertices.push_back(V);
-    // frame_faces.push_back(Fframe);
+    const ipc::Constraints& frames = c->frames();
+    for (int i = 0; i < n; ++i) {
+      std::array<long, 4> ids = frames[i].vertex_indices(E, F);
+      std::vector<int> ids_full;
+      for (int j = 0; j < 4; ++j) {
+        if (ids[j] == -1) break;
+        ids_full.push_back(ipc_mesh.to_full_vertex_id(ids[j]));
+      }
+
+      // If 3 vertices, add to triangle frame list
+      if (ids_full.size() == 3) {
+        faces.push_back(ids_full);
+      }
+    }
+    MatrixXi Fframe(faces.size(), 3);
+    for (size_t i = 0; i < faces.size(); ++i) {
+      Fframe.row(i) = Map<RowVector3i>(faces[i].data());
+    }
+    vertices.push_back(V);
+    frame_faces.push_back(Fframe);
     return true;
   }
 
@@ -149,10 +172,10 @@ struct PolyscopeTriApp : public PolyscopeApp<2> {
 
     optimizer = optimizer_factory.create(config->optimizer, state);
     optimizer->reset();
-    // optimizer->callback = std::bind(&PolyscopeTriApp::collision_callback, this,
-    //     std::placeholders::_1);
+    optimizer->callback = std::bind(&PolyscopeTriApp::collision_callback, this,
+        std::placeholders::_1);
 
-    // callback_funcs.push_back(std::bind(&PolyscopeTriApp::collision_gui, this));
+    callback_funcs.push_back(std::bind(&PolyscopeTriApp::collision_gui, this));
   }
 
   std::vector<polyscope::SurfaceMesh*> srfs;

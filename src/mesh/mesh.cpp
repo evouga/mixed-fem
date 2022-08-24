@@ -5,6 +5,8 @@
 #include "energies/stable_neohookean.h"
 #include "utils/pinning_matrix.h"
 #include "igl/boundary_facets.h"
+#include "igl/oriented_facets.h"
+#include "igl/edges.h"
 
 using namespace mfem;
 using namespace Eigen;
@@ -102,10 +104,22 @@ void Mesh::init() {
   PJW_ = P_ * J_.transpose() * W_;
 
   mass_matrix(M_, vols_);
-  std::cout << "Mesh::init() " << M_.rows() << ", " << M_.cols() << std::endl;
 
   PM_ = P_ * M_;
   PMP_ = PM_ * P_.transpose();
+  
+  int dim = V_.cols();
+
+  MatrixXi E, F;
+  if (dim == 2) {
+    igl::oriented_facets(T_, E);
+  } else {
+    igl::boundary_facets(T_, F);
+    // igl::oriented_facets(F, E);
+    igl::edges(F, E);
+  }
+  ipc_mesh_ = ipc::CollisionMesh::build_from_full_mesh(V_, E, F);
+
 }
 
 void Mesh::clear_fixed_vertices() {

@@ -208,6 +208,105 @@ double mfem::additive_ccd(const VectorXd& x, const VectorXd& p,
   return min_step;
 }
 
+template <int DIM>
+double mfem::additive_ccd2(const VectorXd& x, const VectorXd& p,
+    const MatrixXi& F, const ipc::CollisionMesh& mesh) {
+    
+  using VecD = Vector<double,DIM>;
+  double min_step = 1.0;
+  double s = 0.1; // scaling factor
+  double t_c = 1.0;
+
+  MatrixXd V1 = Map<const MatrixXd>(x.data(), DIM, x.size() / DIM);
+  V1.transposeInPlace();
+
+  VectorXd x2 = x + p;
+  MatrixXd V2 = Map<const MatrixXd>(x2.data(), DIM, x.size() / DIM);
+  V2.transposeInPlace();
+
+  V1 = mesh.vertices(V1);
+  V2 = mesh.vertices(V2);
+
+  ipc::Candidates candidates;
+  ipc::construct_collision_candidates(mesh, V1, V2, candidates);
+
+  //#pragma omp parallel for reduction(min:min_step)
+  for (int i = 0; i < F.rows(); ++i) {
+    for (int j = 0; j < F.rows(); ++j) {
+
+      if (F(i,0) == F(j,0) || F(i,0) == F(j,1) || F(i,1) == F(j,0)
+          || F(i,1) == F(j,1)) {
+        continue;
+      }
+      // Edge pairs (x0,x1) and (x2,x3) with displacement pairs
+      // (p0,p1) and (p2,p3), respectively.
+      VecD x0 = x.segment<DIM>(DIM*F(i,0));
+      VecD x1 = x.segment<DIM>(DIM*F(i,1));
+      VecD x2 = x.segment<DIM>(DIM*F(j,0));
+      VecD x3 = x.segment<DIM>(DIM*F(j,1));
+      VecD p0 = p.segment<DIM>(DIM*F(i,0));
+      VecD p1 = p.segment<DIM>(DIM*F(i,1));
+      VecD p2 = p.segment<DIM>(DIM*F(j,0));
+      VecD p3 = p.segment<DIM>(DIM*F(j,1));
+
+      double d = dist_EE(x0, x1, x2, x3);
+      VecD p_bar = (p0 + p1 + p2 + p3) / 4.0;
+      p0 -= p_bar;
+      p1 -= p_bar;
+      p2 -= p_bar;
+      p3 -= p_bar;
+
+      double l_p = std::max(p0.norm(), p1.norm())
+                 + std::max(p2.norm(), p3.norm());
+
+      if (l_p <= 1e-16) {
+        continue;
+      }
+
+      double g = s * d;
+      double t = 0.0;
+      double t_l = (1.0 - s) * d / l_p;
+
+      bool valid = true;
+      int cnt = 0;
+      while (true) {
+        x0 += t_l * p0;
+        x1 += t_l * p1;
+        x2 += t_l * p2;
+        x3 += t_l * p3;
+
+        d = dist_EE(x0, x1, x2, x3);
+
+        if (t > 0.0 && d < g) {
+          break;
+        }
+        t += t_l;
+        if (t > t_c) {
+          // false
+          valid = false;
+          break;
+        }
+        ++cnt;
+        //if (cnt > 10) {
+        //  std::cout << "CNT: " << cnt << std::endl;
+        //  std::cout << "g: " << g << " t: " << t << " d: " << d << std::endl;
+        //  std::cout << " l_p : "<< l_p << " d: " << d << std::endl;
+        //}
+        t_l = 0.9 * d / l_p;
+        //std::cout << "d: " << d << " l_p: " << l_p << std::endl;
+
+
+
+      }
+      if (valid) {
+        // std::cout << "  t: " << t << " d: " << d << std::endl;
+        min_step = std::min(min_step,t);
+      }
+    }
+  }
+  return min_step;
+}
+
 // Explicit instantiation for 2D/3D
 template double mfem::max_possible_step<3>(const VectorXd& x1,
         const VectorXd& x2, const MatrixXi& F);
@@ -217,3 +316,7 @@ template double mfem::additive_ccd<3>(const VectorXd& x1,
         const VectorXd& x2, const MatrixXi& F);
 template double mfem::additive_ccd<2>(const VectorXd& x1,
         const VectorXd& x2, const MatrixXi& F);        
+template double mfem::additive_ccd2<3>(const VectorXd& x1,
+        const VectorXd& x2, const MatrixXi& F, const ipc::CollisionMesh& mesh);
+template double mfem::additive_ccd2<2>(const VectorXd& x1,
+        const VectorXd& x2, const MatrixXi& F, const ipc::CollisionMesh& mesh);        
