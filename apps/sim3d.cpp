@@ -243,6 +243,7 @@ int main(int argc, char **argv) {
 
   // Options
   polyscope::options::autocenterStructures = true;
+  polyscope::options::groundPlaneMode = polyscope::GroundPlaneMode::None;
   polyscope::view::windowWidth = 1024;
   polyscope::view::windowHeight = 1024;
 

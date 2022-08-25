@@ -119,6 +119,7 @@ void Mesh::init() {
     igl::edges(F, E);
   }
   ipc_mesh_ = ipc::CollisionMesh::build_from_full_mesh(V_, E, F);
+  // TODO can_collide
 
 }
 

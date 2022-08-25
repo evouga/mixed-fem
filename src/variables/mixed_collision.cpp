@@ -139,9 +139,9 @@ void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
   la_ = la_new;
   std::swap(new_frame_map, frame_map_);
 
-  // std::cout << "la_: " << la_.norm() << std::endl;
-  // std::cout << "d: " << d_.transpose() << std::endl;
-  // std::cout << "D: " << D_.transpose() << std::endl;
+  std::cout << "la_: " << la_.norm() << std::endl;
+  std::cout << "d: " << d_.transpose() << std::endl;
+  std::cout << "D: " << D_.transpose() << std::endl;
   // std::cout << "num constraints: "<< constraints_.num_constraints() << std::endl;
   // std::cout << "nframes_ : " << nframes_ << std::endl;
 

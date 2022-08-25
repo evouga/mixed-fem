@@ -4,7 +4,7 @@
 #include "mesh/mesh.h"
 #include "factories/solver_factory.h"
 #include <unsupported/Eigen/SparseExtra>
-#include "utils/max_possible_step.h"
+#include "utils/additive_ccd.h"
 #include "ipc/ipc.hpp"
 #include "igl/edges.h"
 
@@ -40,23 +40,24 @@ void NewtonOptimizer<DIM>::step() {
       VectorXd p = state_.mesh_->projection_matrix().transpose() 
           * state_.x_->delta();
 
-      // alpha = 0.95 * additive_ccd<DIM>(x1, p, state_.mesh_->F_);
-      // state_.data_.add("ACCD ", alpha);
-
-      MatrixXd V1 = Map<const MatrixXd>(x1.data(), DIM,
-          state_.mesh_->V_.rows());
-      V1.transposeInPlace();
-      VectorXd x2 = x1 + p;
-      MatrixXd V2 = Map<const MatrixXd>(x2.data(), DIM,
-          state_.mesh_->V_.rows());
-      V2.transposeInPlace();
-
-      V1 = state_.mesh_->collision_mesh().vertices(V1);
-      V2 = state_.mesh_->collision_mesh().vertices(V2);
-
-      alpha = 0.9 * ipc::compute_collision_free_stepsize(
-          state_.mesh_->collision_mesh(), V1, V2);
+      alpha = 0.9 * ipc::additive_ccd<DIM>(x1, p, state_.mesh_->collision_mesh());
       state_.data_.add("ACCD ", alpha);
+
+      // MatrixXd V1 = Map<const MatrixXd>(x1.data(), DIM,
+      //     state_.mesh_->V_.rows());
+      // V1.transposeInPlace();
+      // VectorXd x2 = x1 + p;
+      // MatrixXd V2 = Map<const MatrixXd>(x2.data(), DIM,
+      //     state_.mesh_->V_.rows());
+      // V2.transposeInPlace();
+
+      // V1 = state_.mesh_->collision_mesh().vertices(V1);
+      // V2 = state_.mesh_->collision_mesh().vertices(V2);
+
+      // alpha = 0.9 * ipc::compute_collision_free_stepsize(
+      //     state_.mesh_->collision_mesh(), V1, V2);
+      // state_.data_.add("ACCD ", alpha);
+      
     }
 
     // Linesearch on descent direction

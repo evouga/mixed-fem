@@ -9,7 +9,7 @@
   "enable_ccd": false,
   "dhat": 0.01,
   "kappa": 1e5,
-  "boundary_condition": "hangends",
+  "boundary_condition": "onepoint",
   "max_newton_iterations": 10,
   "max_linesearch_iterations": 20,
   "objects": [
@@ -21,7 +21,7 @@
   ],
   "material_models": [
     {
-      "youngs_modulus": 1e5,
+      "youngs_modulus": 3e4,
       "poissons_ratio": 0.45,
       "density": 1e3,
       "energy": "Stable-Neohookean"
