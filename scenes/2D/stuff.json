@@ -7,7 +7,7 @@
   "time_integrator": "BDF1",
   "linear_solver": "cholmod",
   "enable_ccd": true,
-  "dhat": 0.01,
+  "dhat": 0.005,
   "kappa": 1e10,
   "boundary_condition": "hang",
   "max_newton_iterations": 10,

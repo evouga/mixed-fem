@@ -139,9 +139,13 @@ void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
   la_ = la_new;
   std::swap(new_frame_map, frame_map_);
 
-  std::cout << "la_: " << la_.norm() << std::endl;
-  std::cout << "d: " << d_.transpose() << std::endl;
-  std::cout << "D: " << D_.transpose() << std::endl;
+  if (nframes_ > 0) {
+    std::cout << "la max: " << la_.maxCoeff() 
+              << " min: " << la_.minCoeff() << std::endl;
+    std::cout << "d min: " << d_.minCoeff() << std::endl;
+    std::cout << "D min: " << D_.minCoeff() << std::endl;
+  }
+
   // std::cout << "num constraints: "<< constraints_.num_constraints() << std::endl;
   // std::cout << "nframes_ : " << nframes_ << std::endl;
 
@@ -187,12 +191,18 @@ void MixedCollision<DIM>::update_derivatives(const MatrixXd& V, double dt) {
     H_[i] = h2 * config_->kappa * ipc::barrier_hessian(d_(i), dhat_sqr);
 
     // Schur complement hessian
-    const ipc::MatrixMax12d distance_hess = 
+    ipc::MatrixMax12d distance_hess = la_(i) * 
         constraints_[i].compute_distance_hessian(V, E, F);
+    // return hess_b * distance_grad * distance_grad.transpose()
+    //     + (project_hessian_to_psd
+    //            ? project_to_psd((grad_b * distance_hess).eval())
+    //            : (grad_b * distance_hess));
+    sim::simple_psd_fix(distance_hess, 0.0);
 
-    Aloc[i] = dd_dx_[i] * H_(i) * dd_dx_[i].transpose()
-        - la_(i) * distance_hess;
+    Aloc[i] = dd_dx_[i] * H_(i) * dd_dx_[i].transpose() + distance_hess;
+        // - la_(i) * distance_hess;
     sim::simple_psd_fix(Aloc[i]);
+    // Aloc[i] += std::max(la_(i), 0.0) * distance_hess;
 
     // Gradient with respect to x variable
     gloc[i] = -dd_dx_[i] * la_(i);

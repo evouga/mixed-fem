@@ -35,6 +35,8 @@ void NewtonOptimizer<DIM>::step() {
 
     // If collisions enabled, perform CCD
     if (state_.config_->enable_ccd) {
+      state_.data_.timer.start("ACCD");
+
       VectorXd x1 = state_.x_->value();
       state_.x_->unproject(x1);
       VectorXd p = state_.mesh_->projection_matrix().transpose() 
@@ -57,12 +59,12 @@ void NewtonOptimizer<DIM>::step() {
       // alpha = 0.9 * ipc::compute_collision_free_stepsize(
       //     state_.mesh_->collision_mesh(), V1, V2);
       // state_.data_.add("ACCD ", alpha);
-      
+      state_.data_.timer.stop("ACCD");
     }
 
     // Linesearch on descent direction
     state_.data_.timer.start("LS");
-    SolverExitStatus status = linesearch_backtracking(state_, alpha, 0.0, 0.9);
+    SolverExitStatus status = linesearch_backtracking(state_, alpha, 0.0, 0.5);
     state_.data_.timer.stop("LS");
 
     // Record some data

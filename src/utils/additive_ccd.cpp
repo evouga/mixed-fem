@@ -100,6 +100,7 @@ double ipc::additive_ccd(const VectorXd& x, const VectorXd& p,
   // std::cout << "EV candidates: " << candidates.ev_candidates.size() << std::endl;
 
   // Edge-vertex distance checks
+  #pragma omp parallel for reduction(min : min_step)
   for (size_t i = 0; i < candidates.ev_candidates.size(); ++i) {
     const auto& ev_candidate = candidates.ev_candidates[i];
     const auto& [ei, vi] = ev_candidate;
@@ -128,11 +129,11 @@ double ipc::additive_ccd(const VectorXd& x, const VectorXd& p,
     double t;
     if (accd_primitive(x_a, x_b, p_a, p_b, dist, t)) {
       min_step = std::min(min_step,t);
-      // std::cout << "ACCD PRIMITIVE: " << t << std::endl;
     }
   }
 
   // Edge-edge distance checks
+  #pragma omp parallel for reduction(min : min_step)
   for (size_t i = 0; i < candidates.ee_candidates.size(); ++i) {
     const auto& ee_candidate = candidates.ee_candidates[i];
     const auto& [eai, ebi] = ee_candidate;

@@ -27,6 +27,10 @@ void OptimizerData::add(const std::string& key, double value) {
 
 void OptimizerData::print_data(bool print_timing) const {
 
+  // Copy cout state so we can restore it later
+  std::ios cout_state(nullptr);
+  cout_state.copyfmt(std::cout);
+
   // Header Top
   std::cout << "┌─";
   for (auto it = map_.begin(); it != map_.end(); ) {
@@ -113,6 +117,9 @@ void OptimizerData::print_data(bool print_timing) const {
   if (print_timing) {
     timer.print();
   }
+  
+  // Restore cout format
+  std::cout.copyfmt(cout_state);
 }
 
 void Timer::start(const std::string& key) {
