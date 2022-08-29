@@ -5,6 +5,9 @@
 #include "factories/solver_factory.h"
 #include <unsupported/Eigen/SparseExtra>
 #include "utils/max_possible_step.h"
+#include "ipc/ipc.hpp"
+#include "igl/edges.h"
+#include "igl/oriented_facets.h"
 
 using namespace mfem;
 using namespace Eigen;
@@ -49,10 +52,25 @@ void NewtonOptimizer<DIM>::step() {
       // alpha = max_possible_step<DIM>(x1, x2, state_.mesh_->F_);
 
       VectorXd p = state_.mesh_->projection_matrix().transpose() * state_.x_->delta();
-      alpha = 0.95 * additive_ccd<DIM>(x1, p, state_.mesh_->F_);
+      // alpha = 0.95 * additive_ccd<DIM>(x1, p, state_.mesh_->F_);
+
+      MatrixXd V1 = Map<const MatrixXd>(x1.data(), state_.mesh_->V_.cols(), state_.mesh_->V_.rows());
+      V1.transposeInPlace();
+      VectorXd x2 = x1 + p;
+      MatrixXd V2 = Map<const MatrixXd>(x2.data(), state_.mesh_->V_.cols(), state_.mesh_->V_.rows());
+      V2.transposeInPlace();
+
+      MatrixXi tmp;
+      MatrixXi E;
+      igl::oriented_facets(state_.mesh_->T_, E);
+
+      ipc::CollisionMesh ipc_mesh = ipc::CollisionMesh::build_from_full_mesh(V1, E, tmp);
+      V1 = ipc_mesh.vertices(V1);
+      V2 = ipc_mesh.vertices(V2);
+
+      alpha = 0.9 * ipc::compute_collision_free_stepsize(ipc_mesh, V1, V2);
       state_.data_.add("ACCD ", alpha);
 
-      // std::cout << std::setprecision(10) << "alpha0: " << alpha << std::endl;
     }
 
     std::cout << " 4 " << std::endl;

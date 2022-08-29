@@ -91,7 +91,7 @@ struct PolyscopeTriApp : public PolyscopeApp<2> {
     V.transposeInPlace();
 
     // Add collision frames
-    const std::vector<CollisionFrame>& frames = c->frames();
+    const std::vector<CollisionFrame2>& frames = c->frames();
     for (int i = 0; i < n; ++i) {
       Fframe.row(i) = frames[i].E_.transpose();
     }
@@ -148,10 +148,10 @@ struct PolyscopeTriApp : public PolyscopeApp<2> {
 
     optimizer = optimizer_factory.create(config->optimizer, state);
     optimizer->reset();
-    optimizer->callback = std::bind(&PolyscopeTriApp::collision_callback, this,
-        std::placeholders::_1);
+    // optimizer->callback = std::bind(&PolyscopeTriApp::collision_callback, this,
+    //     std::placeholders::_1);
 
-    callback_funcs.push_back(std::bind(&PolyscopeTriApp::collision_gui, this));
+    // callback_funcs.push_back(std::bind(&PolyscopeTriApp::collision_gui, this));
   }
 
   std::vector<polyscope::SurfaceMesh*> srfs;

@@ -48,6 +48,8 @@ namespace mfem {
         for (int i = 0; i < E1.size(); ++i) {
           if (E1(i) < E2(i))
             return true;
+          else if (E1(i) > E2(i))
+            return false;
         }
         return false;
       }

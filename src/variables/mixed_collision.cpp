@@ -54,14 +54,14 @@ double MixedCollision<DIM>::energy(const VectorXd& x, const VectorXd& d) {
       // Avoid duplicate entries
       if (frame != nullptr && frames.find(frame) == frames.end()) {
         double D = frame->distance(x);
-        double d = D; 
+        double di = D; 
         if (auto it = frames_.find(frame); it != frames_.end()) {
           int idx = it->second;
-          d = d_(idx);
+          di = d(idx);
         }
         // If valid and within distance thresholds add new frame
         if (D >= 0 && D < config_->dhat) {
-          new_d.push_back(d);
+          new_d.push_back(di);
           frames.insert(std::move(frame));
         }
       }
@@ -119,9 +119,11 @@ void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
   nframes_ = frames_.size();
   T_.resize(nframes_,3);
   T_.setConstant(-1);
+  // std::cout << "nframes: " << nframes_ << std::endl;
   for (const auto& it : frames_) {
     const VectorXi& E = it.first->E();
     int idx = it.second;
+    // std::cout << "E: " << E.transpose() << " idx: " << idx << std::endl;
     for (int j = 0; j < E.size(); ++j) {
       T_(idx,j) = E(j);
     }
@@ -176,6 +178,8 @@ void MixedCollision<DIM>::update_collision_frames(const Eigen::VectorXd& x) {
         if (D > 0 && D < config_->dhat) {
 
           new_D.push_back(D);
+          // std::cout << "inserting :" << frame->E().transpose() << " with idx: " << new_D.size()-1 << std::endl;
+
           new_d.push_back(d);
           new_lambda.push_back(la);
           dd_dx_.push_back(frame->gradient(x));
@@ -184,6 +188,7 @@ void MixedCollision<DIM>::update_collision_frames(const Eigen::VectorXd& x) {
       }
     }
   }
+  // std::cout << "frames size: " << frames.size() << " new_d size: "<< new_d.size() << std::endl;
 
   //VectorXd d0 = Map<VectorXd>(new_d.data(), new_d.size());
   //new_D.clear();
