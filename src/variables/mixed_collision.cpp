@@ -66,14 +66,18 @@ double MixedCollision<DIM>::constraint_value(const VectorXd& x,
 
   // Convert to reduced (surface only) vertex set
   MatrixXd V_srf = ipc_mesh.vertices(V);
+  double dhat_sqr = config_->dhat * config_->dhat;
 
   // Only need to evaluate constraint value for existing frames.
   // New frames are initialized such that the mixed distance
   // equals the nodal distance, so the lagrange multipliers are zero.
   #pragma omp parallel for reduction( + : e )
   for (int i = 0; i < nframes_; ++i) {
+    // Make sure constraint is still valid
     double D = constraints_[i].compute_distance(V_srf, E, F);
-    e += la_(i) * (D - d(i));
+    if (D <= dhat_sqr) {
+      e += la_(i) * (D - d(i));
+    }
   }
   return e;
 }
@@ -108,8 +112,7 @@ void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
   VectorXd la_new(nframes_);
 
   // Rebuilding mixed variables for the new set of collision frames.
-  // #pragma omp parallel for
-  for (size_t i = 0; i < constraints_.size(); ++i) {
+  for (int i = 0; i < nframes_; ++i) {
     // Getting collision frame, and computing squared distance.
     std::array<long, 4> ids = constraints_[i].vertex_indices(E, F);
     double D = constraints_[i].compute_distance(V_srf, E, F);
@@ -191,18 +194,12 @@ void MixedCollision<DIM>::update_derivatives(const MatrixXd& V, double dt) {
     H_[i] = h2 * config_->kappa * ipc::barrier_hessian(d_(i), dhat_sqr);
 
     // Schur complement hessian
-    ipc::MatrixMax12d distance_hess = la_(i) * 
-        constraints_[i].compute_distance_hessian(V, E, F);
-    // return hess_b * distance_grad * distance_grad.transpose()
-    //     + (project_hessian_to_psd
-    //            ? project_to_psd((grad_b * distance_hess).eval())
-    //            : (grad_b * distance_hess));
-    sim::simple_psd_fix(distance_hess, 0.0);
+    // ipc::MatrixMax12d distance_hess = -la_(i) * 
+    //     constraints_[i].compute_distance_hessian(V, E, F);
+    // sim::simple_psd_fix(distance_hess, 0.0);
 
-    Aloc[i] = dd_dx_[i] * H_(i) * dd_dx_[i].transpose() + distance_hess;
-        // - la_(i) * distance_hess;
+    Aloc[i] = dd_dx_[i] * H_(i) * dd_dx_[i].transpose();// + distance_hess;
     sim::simple_psd_fix(Aloc[i]);
-    // Aloc[i] += std::max(la_(i), 0.0) * distance_hess;
 
     // Gradient with respect to x variable
     gloc[i] = -dd_dx_[i] * la_(i);

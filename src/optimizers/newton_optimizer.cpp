@@ -35,31 +35,33 @@ void NewtonOptimizer<DIM>::step() {
 
     // If collisions enabled, perform CCD
     if (state_.config_->enable_ccd) {
-      state_.data_.timer.start("ACCD");
+      // state_.data_.timer.start("ACCD");
 
       VectorXd x1 = state_.x_->value();
       state_.x_->unproject(x1);
       VectorXd p = state_.mesh_->projection_matrix().transpose() 
           * state_.x_->delta();
 
-      alpha = 0.9 * ipc::additive_ccd<DIM>(x1, p, state_.mesh_->collision_mesh());
-      state_.data_.add("ACCD ", alpha);
-
-      // MatrixXd V1 = Map<const MatrixXd>(x1.data(), DIM,
-      //     state_.mesh_->V_.rows());
-      // V1.transposeInPlace();
-      // VectorXd x2 = x1 + p;
-      // MatrixXd V2 = Map<const MatrixXd>(x2.data(), DIM,
-      //     state_.mesh_->V_.rows());
-      // V2.transposeInPlace();
-
-      // V1 = state_.mesh_->collision_mesh().vertices(V1);
-      // V2 = state_.mesh_->collision_mesh().vertices(V2);
-
-      // alpha = 0.9 * ipc::compute_collision_free_stepsize(
-      //     state_.mesh_->collision_mesh(), V1, V2);
+      // alpha = 0.9 * ipc::additive_ccd<DIM>(x1, p, state_.mesh_->collision_mesh());
       // state_.data_.add("ACCD ", alpha);
-      state_.data_.timer.stop("ACCD");
+      // state_.data_.timer.stop("ACCD");
+
+      state_.data_.timer.start("ACCD2");
+      MatrixXd V1 = Map<const MatrixXd>(x1.data(), DIM,
+          state_.mesh_->V_.rows());
+      V1.transposeInPlace();
+      VectorXd x2 = x1 + p;
+      MatrixXd V2 = Map<const MatrixXd>(x2.data(), DIM,
+          state_.mesh_->V_.rows());
+      V2.transposeInPlace();
+
+      V1 = state_.mesh_->collision_mesh().vertices(V1);
+      V2 = state_.mesh_->collision_mesh().vertices(V2);
+
+      alpha = 0.8 * ipc::compute_collision_free_stepsize(
+          state_.mesh_->collision_mesh(), V1, V2);
+      state_.data_.add("ACCD2 ", alpha);
+      state_.data_.timer.stop("ACCD2");
     }
 
     // Linesearch on descent direction
@@ -134,7 +136,7 @@ void NewtonOptimizer<DIM>::substep(double& decrement) {
   state_.solver_->compute(lhs_);
   state_.x_->delta() = state_.solver_->solve(rhs_);
   state_.data_.timer.stop("global");
-  //saveMarket(lhs_, "lhs.mkt");
+  // saveMarket(lhs_, "lhs.mkt");
 
   // Use infinity norm of deltas as termination criteria
   decrement = state_.x_->delta().template lpNorm<Infinity>();

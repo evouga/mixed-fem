@@ -30,7 +30,7 @@ namespace {
   //    a2    - previous step size in interval (alpha_2)
   template <typename Scalar>
   static inline Scalar cubic2(Scalar fx0, Scalar gTd, Scalar fx1, Scalar fx2,
-      Scalar a1, Scalar a2){
+      Scalar a1, Scalar a2) {
 
     // Determinant of coefficient fitting matrix
     Scalar det = 1.0 / (a1*a1*a2*a2*(a1-a2));
@@ -43,7 +43,7 @@ namespace {
     // Right hand side of interpolation system 
     Eigen::Matrix<Scalar,2,1> B;
     B(0) = fx1 - a1*gTd - fx0;
-    B(1) = fx2 - a2*gTd - fx1;
+    B(1) = fx2 - a2*gTd - fx0;
     
     // Solve cubic coefficients c = [a b]
     Eigen::Matrix<Scalar,2,1> c = det * A * B; 
@@ -80,6 +80,7 @@ namespace {
     Vec2 B;
     B[0] = fx - fx0 - alpha*gTd; B[1] = fxp - fx0 - alphap*gTd;
     Vec2 r = mult * A * B;
+    std::cout << "cubic1: " << r.transpose() << " mult:" << mult << std::endl;
     if( std::abs(r[0]) <= 0.0 ){ return -gTd / (2.0*r[1]); } // if quadratic
     Scalar d = std::sqrt( r[1]*r[1] - 3.0*r[0]*gTd ); // discrim
     return (-r[1] + d) / (3.0*r[0]);
@@ -229,6 +230,11 @@ namespace mfem {
         break;
       }
 
+      // Scalar alpha_tmp = (iter == 0) ? (gTd / (2.0 * (fx0 + gTd - fx)))
+          // : cubic(fx0, gTd, fx, alpha, fx_prev, alpha_prev);
+      // fx_prev = fx;
+      // alpha_prev = alpha;
+      // alpha = std::clamp(alpha_tmp, 0.1*alpha, p*alpha );
       alpha = alpha * p;
       ++iter;
     }
