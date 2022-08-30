@@ -84,9 +84,9 @@ find_package(SuiteSparse)
 
 add_subdirectory("deps/amgcl")
 #add_subdirectory("deps/enoki")
-add_subdirectory("deps/fcpw")
+# add_subdirectory("deps/fcpw")
 #add_subdirectory("deps/collisiondetection")
-include(${PROJECT_SOURCE_DIR}/cmake/ccd.cmake)
+# include(${PROJECT_SOURCE_DIR}/cmake/ccd.cmake)
 
 # Add polyscope
 message("\n\n == CMAKE recursively building Polyscope\n")
@@ -143,9 +143,9 @@ FetchContent_MakeAvailable(Catch2)
 include(FetchContent)
 FetchContent_Declare(
     ipc_toolkit
-    GIT_REPOSITORY https://github.com/ipc-sim/ipc-toolkit.git
-    GIT_TAG f9d7c3c9e13a7481e1fb9f0fd95281caa872b2aa
+    GIT_REPOSITORY https://github.com/tytrusty/ipc-toolkit
     GIT_SHALLOW TRUE
+    GIT_TAG main
 )
 FetchContent_MakeAvailable(ipc_toolkit)
 target_link_libraries(mixed_fem_lib ipc::toolkit)
@@ -208,7 +208,7 @@ target_include_directories(mixed_fem_lib SYSTEM PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/agmcl"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/Bartels/include"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/libigl/include" 
-  "${CMAKE_CURRENT_SOURCE_DIR}/deps/collisiondetection/include" 
+  # "${CMAKE_CURRENT_SOURCE_DIR}/deps/collisiondetection/include" 
 #   #"${CMAKE_CURRENT_SOURCE_DIR}/deps/nasoq/include"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope/deps/args"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope/deps/json/include")
@@ -216,9 +216,7 @@ target_include_directories(mixed_fem_lib SYSTEM PUBLIC
 target_include_directories(mixed_fem_lib SYSTEM PUBLIC ${FCPW_ENOKI_INCLUDES})
 
 # Link settings
-target_link_libraries(mixed_fem_lib polyscope Eigen3::Eigen amgcl::amgcl 
-  collisiondetection)
-target_link_libraries(mixed_fem_lib fcpw)
+target_link_libraries(mixed_fem_lib polyscope Eigen3::Eigen amgcl::amgcl)
 
 # Create an executable
 add_executable(tet_sim apps/tet_sim.cpp ${SOURCES})

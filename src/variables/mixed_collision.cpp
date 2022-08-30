@@ -23,9 +23,14 @@ double MixedCollision<DIM>::energy(const VectorXd& x, const VectorXd& d) {
 
   // Computing collision constraints
   ipc::Constraints constraints;
-  ipc::construct_constraint_set(ipc_mesh, V_srf, config_->dhat, constraints);
+  ipc::Candidates candidates;
+  ipc::construct_collision_candidates(
+      ipc_mesh, V_srf, candidates, config_->dhat * 1.1);
+  ipc::construct_constraint_set(candidates, ipc_mesh, V_srf, config_->dhat,
+      constraints);
 
-  double dhat_sqr = config_->dhat * config_->dhat;
+
+  double dhat = config_->dhat;
   double h2 = dt_*dt_;
   double e = 0;
 
@@ -41,9 +46,10 @@ double MixedCollision<DIM>::energy(const VectorXd& x, const VectorXd& d) {
     } else {
       // If mixed variable for this frame does not exist,
       // compute the distance based on nodal positions.
-      di = constraints[i].compute_distance(V_srf, E, F);
+      di = constraints[i].compute_distance(V_srf, E, F,
+          ipc::DistanceMode::SQRT);
     }
-    e += config_->kappa * ipc::barrier(di, dhat_sqr); // h2;
+    e += config_->kappa * ipc::barrier(di, dhat) / h2;
   }
   return e;
 }
@@ -66,7 +72,7 @@ double MixedCollision<DIM>::constraint_value(const VectorXd& x,
 
   // Convert to reduced (surface only) vertex set
   MatrixXd V_srf = ipc_mesh.vertices(V);
-  double dhat_sqr = config_->dhat * config_->dhat;
+  double dhat = config_->dhat;
 
   // Only need to evaluate constraint value for existing frames.
   // New frames are initialized such that the mixed distance
@@ -74,8 +80,9 @@ double MixedCollision<DIM>::constraint_value(const VectorXd& x,
   #pragma omp parallel for reduction( + : e )
   for (int i = 0; i < nframes_; ++i) {
     // Make sure constraint is still valid
-    double D = constraints_[i].compute_distance(V_srf, E, F);
-    if (D <= dhat_sqr) {
+    double D = constraints_[i].compute_distance(V_srf, E, F,
+        ipc::DistanceMode::SQRT);
+    if (D <= dhat) {
       e += la_(i) * (D - d(i));
     }
   }
@@ -100,7 +107,12 @@ void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
   MatrixXd V_srf = ipc_mesh.vertices(V);
 
   // Computing collision constraints
-  ipc::construct_constraint_set(ipc_mesh, V_srf, config_->dhat, constraints_);
+  // ipc::construct_constraint_set(ipc_mesh, V_srf, config_->dhat, constraints_)
+  ipc::Candidates candidates;
+  ipc::construct_collision_candidates(
+      ipc_mesh, V_srf, candidates, config_->dhat * 1.1);
+  ipc::construct_constraint_set(candidates, ipc_mesh, V_srf,
+      config_->dhat, constraints_);
 
   std::map<std::array<long, 4>, int> new_frame_map;
   nframes_ = constraints_.size();
@@ -115,7 +127,8 @@ void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
   for (int i = 0; i < nframes_; ++i) {
     // Getting collision frame, and computing squared distance.
     std::array<long, 4> ids = constraints_[i].vertex_indices(E, F);
-    double D = constraints_[i].compute_distance(V_srf, E, F);
+    double D = constraints_[i].compute_distance(V_srf, E, F,
+        ipc::DistanceMode::SQRT);
     double la = 0;
     double d = D;
 
@@ -135,13 +148,15 @@ void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
     D_(i) = D;
     d_new(i) = d;
     la_new(i) = la;
-    dd_dx_[i] = constraints_[i].compute_distance_gradient(V_srf,E,F);
+    dd_dx_[i] = constraints_[i].compute_distance_gradient(V_srf, E, F,
+        ipc::DistanceMode::SQRT);
     new_frame_map[ids] = i;
   }
   d_ = d_new;
   la_ = la_new;
   std::swap(new_frame_map, frame_map_);
 
+  // std::cout << "T\n: " << T_ << std::endl;
   if (nframes_ > 0) {
     std::cout << "la max: " << la_.maxCoeff() 
               << " min: " << la_.minCoeff() << std::endl;
@@ -184,18 +199,19 @@ void MixedCollision<DIM>::update_derivatives(const MatrixXd& V, double dt) {
   const Eigen::MatrixXi& E = ipc_mesh.edges();
   const Eigen::MatrixXi& F = ipc_mesh.faces();
 
-  double dhat_sqr = config_->dhat * config_->dhat;
-  double h2 = dt_*dt_;
+  double dhat = config_->dhat;// * config_->dhat;
+  // double h2 = dt_*dt_;
 
   #pragma omp parallel for
   for (int i = 0; i < nframes_; ++i) {
     // Mixed barrier energy gradients and hessians
-    g_[i] = h2 * config_->kappa * ipc::barrier_gradient(d_(i), dhat_sqr);
-    H_[i] = h2 * config_->kappa * ipc::barrier_hessian(d_(i), dhat_sqr);
+    g_[i] = config_->kappa * ipc::barrier_gradient(d_(i), dhat);
+    H_[i] = config_->kappa * ipc::barrier_hessian(d_(i), dhat);
 
     // Schur complement hessian
     // ipc::MatrixMax12d distance_hess = -la_(i) * 
-    //     constraints_[i].compute_distance_hessian(V, E, F);
+    //     constraints_[i].compute_distance_hessian(V, E, F,
+    //     ipc::DistanceMode::SQRT);
     // sim::simple_psd_fix(distance_hess, 0.0);
 
     Aloc[i] = dd_dx_[i] * H_(i) * dd_dx_[i].transpose();// + distance_hess;

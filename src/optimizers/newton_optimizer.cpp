@@ -58,7 +58,7 @@ void NewtonOptimizer<DIM>::step() {
       V1 = state_.mesh_->collision_mesh().vertices(V1);
       V2 = state_.mesh_->collision_mesh().vertices(V2);
 
-      alpha = 0.8 * ipc::compute_collision_free_stepsize(
+      alpha = 0.9 * ipc::compute_collision_free_stepsize(
           state_.mesh_->collision_mesh(), V1, V2);
       state_.data_.add("ACCD2 ", alpha);
       state_.data_.timer.stop("ACCD2");
@@ -66,7 +66,7 @@ void NewtonOptimizer<DIM>::step() {
 
     // Linesearch on descent direction
     state_.data_.timer.start("LS");
-    SolverExitStatus status = linesearch_backtracking(state_, alpha, 0.0, 0.5);
+    SolverExitStatus status = linesearch_backtracking(state_, alpha, 0.0, 0.9);
     state_.data_.timer.stop("LS");
 
     // Record some data

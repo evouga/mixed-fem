@@ -112,10 +112,12 @@ double ipc::additive_ccd(const VectorXd& x, const VectorXd& p,
       PointEdgeDistanceType dtype = point_edge_distance_type(
         a.row(0), b.row(0), b.row(1));
 
-      double distance_sqr = point_edge_distance(
-          a.row(0), b.row(0), b.row(1), dtype);
+      DistanceMode dmode = DistanceMode::SQRT;
 
-      return sqrt(distance_sqr);
+      double distance = point_edge_distance(
+          a.row(0), b.row(0), b.row(1), dtype, dmode);
+
+      return distance;
     };
 
     Matrix<double, 1, DIM> x_a, p_a;
@@ -145,10 +147,11 @@ double ipc::additive_ccd(const VectorXd& x, const VectorXd& p,
       EdgeEdgeDistanceType dtype = edge_edge_distance_type(
           a.row(0), a.row(1), b.row(0), b.row(1));
 
-      double distance_sqr = edge_edge_distance(
-          a.row(0), a.row(1), b.row(0), b.row(1), dtype);
+      DistanceMode dmode = DistanceMode::SQRT;
+      double distance = edge_edge_distance(
+          a.row(0), a.row(1), b.row(0), b.row(1), dtype, dmode);
 
-      return sqrt(distance_sqr);
+      return distance;
     };
 
     Matrix<double, 2, DIM> x_a, x_b, p_a, p_b;

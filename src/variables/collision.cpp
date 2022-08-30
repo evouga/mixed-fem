@@ -21,7 +21,12 @@ double Collision<DIM>::energy(const VectorXd& x) {
 
   // Computing collision constraints
   ipc::Constraints constraints;
-  ipc::construct_constraint_set(ipc_mesh, V, config_->dhat, constraints);
+  ipc::Candidates candidates;
+  ipc::construct_collision_candidates(
+      ipc_mesh, V, candidates, config_->dhat * 1.1);
+  ipc::construct_constraint_set(candidates, ipc_mesh, V,
+      config_->dhat, constraints);
+
 
   double dhat_sqr = config_->dhat * config_->dhat;
   double h2 = dt_ * dt_;
@@ -31,7 +36,7 @@ double Collision<DIM>::energy(const VectorXd& x) {
   #pragma omp parallel for reduction( + : e )
   for (size_t i = 0; i < constraints.size(); ++i) {
     double d = constraints[i].compute_distance(V, E, F);
-    e += config_->kappa * ipc::barrier(d, dhat_sqr) ;// h2;
+    e += config_->kappa * ipc::barrier(d, dhat_sqr) / h2;
   }
   return e;
 }
@@ -52,7 +57,12 @@ void Collision<DIM>::update(const Eigen::VectorXd& x, double dt) {
   V = ipc_mesh.vertices(V);
 
   // Computing collision constraints
-  ipc::construct_constraint_set(ipc_mesh, V, config_->dhat, constraints_);
+  // ipc::construct_constraint_set(ipc_mesh, V, config_->dhat, constraints_);
+  ipc::Candidates candidates;
+  ipc::construct_collision_candidates(
+      ipc_mesh, V, candidates, config_->dhat * 1.1);
+  ipc::construct_constraint_set(candidates, ipc_mesh, V,
+      config_->dhat, constraints_);
 
   nframes_ = constraints_.size();
 
@@ -77,8 +87,6 @@ void Collision<DIM>::update(const Eigen::VectorXd& x, double dt) {
 template<int DIM>
 void Collision<DIM>::update_derivatives(const MatrixXd& V, double dt) {
 
-  double h2 = dt * dt;
-
   if (nframes_ == 0) {
     return;
   }
@@ -96,9 +104,9 @@ void Collision<DIM>::update_derivatives(const MatrixXd& V, double dt) {
   data_.timer.start("g-H");
   #pragma omp parallel for
   for (int i = 0; i < nframes_; ++i) {
-    Aloc[i] = h2 * config_->kappa * constraints_[i].compute_potential_hessian(
+    Aloc[i] = config_->kappa * constraints_[i].compute_potential_hessian(
         V, E, F, config_->dhat, true);
-    gloc[i] = h2 * config_->kappa * constraints_[i].compute_potential_gradient(
+    gloc[i] = config_->kappa * constraints_[i].compute_potential_gradient(
         V, E, F, config_->dhat);
   }
   data_.timer.stop("g-H");
