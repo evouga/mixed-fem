@@ -83,10 +83,6 @@ find_package(CHOLMOD)
 find_package(SuiteSparse)
 
 add_subdirectory("deps/amgcl")
-#add_subdirectory("deps/enoki")
-# add_subdirectory("deps/fcpw")
-#add_subdirectory("deps/collisiondetection")
-# include(${PROJECT_SOURCE_DIR}/cmake/ccd.cmake)
 
 # Add polyscope
 message("\n\n == CMAKE recursively building Polyscope\n")
@@ -202,18 +198,13 @@ ENDIF()
 #target_include_directories(mixed_fem_lib PUBLIC 
 # "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
-# Shouldn't do this but the warnings aren't be suppressed and its making me insane
 target_include_directories(mixed_fem_lib SYSTEM PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}/src"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/agmcl"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/Bartels/include"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/libigl/include" 
-  # "${CMAKE_CURRENT_SOURCE_DIR}/deps/collisiondetection/include" 
-#   #"${CMAKE_CURRENT_SOURCE_DIR}/deps/nasoq/include"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope/deps/args"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope/deps/json/include")
-#target_include_directories(mixed_fem_lib SYSTEM PUBLIC ${FCPW_EIGEN_INCLUDES})
-target_include_directories(mixed_fem_lib SYSTEM PUBLIC ${FCPW_ENOKI_INCLUDES})
 
 # Link settings
 target_link_libraries(mixed_fem_lib polyscope Eigen3::Eigen amgcl::amgcl)

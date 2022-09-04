@@ -7,15 +7,6 @@
 [submodule "deps/Bartels"]
 	path = deps/Bartels
 	url = https://github.com/dilevin/Bartels.git
-[submodule "deps/nasoq"]
-	path = deps/nasoq
-	url = https://github.com/sympiler/nasoq
 [submodule "deps/amgcl"]
 	path = deps/amgcl
 	url = https://github.com/ddemidov/amgcl
-[submodule "deps/collisiondetection"]
-	path = deps/collisiondetection
-	url = https://github.com/evouga/collisiondetection
-[submodule "deps/fcpw"]
-	path = deps/fcpw
-	url = https://github.com/rohan-sawhney/fcpw
