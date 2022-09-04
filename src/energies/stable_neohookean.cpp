@@ -229,7 +229,7 @@ Matrix9d StableNeohookean::hessian(const Vector9d& F) {
   H(8,6) = la*(F1_1*F2_2-F1_2*F2_1)*(F2_1*F3_2-F2_2*F3_1);
   H(8,7) = -la*(F1_1*F2_2-F1_2*F2_1)*(F1_1*F3_2-F1_2*F3_1);
   H(8,8) = mu+la*pow(F1_1*F2_2-F1_2*F2_1,2.0);
-  sim::simple_psd_fix(H);
+  sim::simple_psd_fix(H, 0.0);
   return H;
 }
 

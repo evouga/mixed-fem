@@ -8,6 +8,8 @@
 #include <igl/IO>
 #include <igl/remove_unreferenced.h>
 #include <igl/per_face_normals.h>
+#include <igl/slice_mask.h>
+#include <igl/boundary_facets.h>
 
 #include "boundary_conditions.h"
 #include <sstream>
@@ -29,6 +31,7 @@ std::vector<MatrixXi> frame_faces;
 std::vector<MatrixXi> frame_tets;
 polyscope::SurfaceMesh* frame_srf = nullptr; // collision frame mesh
 polyscope::VolumeMesh* frame_tet = nullptr; // collision frame tetrahedra
+std::vector<MatrixXi> het_faces;
 
 struct PolyscopTetApp : public PolyscopeApp<3> {
 
@@ -174,7 +177,22 @@ struct PolyscopTetApp : public PolyscopeApp<3> {
 
   void write_obj(int step) override {
 
+    std::cout << "mesh mat ids: " << mesh->mat_ids_.size() << std::endl;
+
     meshV = mesh->vertices();
+
+    // Hack to export heterogeneous objects right now
+    if (het_faces.size() > 0) {
+
+      for (size_t i = 0; i < het_faces.size(); ++i) {
+        char buffer [50];
+        int n = sprintf(buffer, "../output/obj/tet_%ld_%04d.obj", i, step); 
+        buffer[n] = 0;
+        igl::writeOBJ(std::string(buffer),meshV,het_faces[i]);
+      }
+      return;
+    }
+
     size_t start = 0;
     for (size_t i = 0; i < srfs.size(); ++i) {
       char buffer [50];
@@ -211,6 +229,26 @@ struct PolyscopTetApp : public PolyscopeApp<3> {
     config = state.config_;
     material_config = std::make_shared<MaterialConfig>();
 
+    std::cout << "mesh mat ids: " << mesh->mat_ids_.size() << std::endl;
+    std::cout << "mesh: " << mesh->T_.rows() << std::endl;
+    if (mesh->mat_ids_.size() > 0) {
+      int i = 0;
+      while(true) {
+        MatrixXi T = igl::slice_mask(mesh->T_, mesh->mat_ids_.array() == i, 1);
+        std::cout << "T : " << T.rows() << " T cols: " << T.cols() << std::endl;
+        if (T.size() == 0) break;
+        // Expect the first material ID to be for the surface mesh
+        if (i == 0) {
+          T = mesh->T_;
+        }
+        MatrixXi F;
+        igl::boundary_facets(T,F);
+        het_faces.push_back(F);
+        ++i;
+      }
+
+    }
+
     optimizer = optimizer_factory.create(config->optimizer, state);
     optimizer->reset();
     optimizer->callback = std::bind(&PolyscopTetApp::collision_callback, this,
@@ -228,7 +266,6 @@ int main(int argc, char **argv) {
   // Configure the argument parser
   args::ArgumentParser parser("Mixed FEM");
   args::Positional<std::string> inFile(parser, "json", "input scene json file");
-
   try {
     parser.ParseCLI(argc, argv);
   } catch (args::Help) {

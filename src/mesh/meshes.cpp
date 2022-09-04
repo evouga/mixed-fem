@@ -26,6 +26,7 @@ Meshes::Meshes(const std::vector<std::shared_ptr<Mesh>>& meshes)
   int n = meshes_[0]->T_.cols();
   V_.resize(num_V, m);
   T_.resize(num_T, n);
+  mat_ids_.resize(num_T);
 
   size_t start_V = 0;
   size_t start_T = 0;
@@ -35,6 +36,9 @@ Meshes::Meshes(const std::vector<std::shared_ptr<Mesh>>& meshes)
     V_.block(start_V,0, sz_V,m) = meshes_[i]->V_;
     T_.block(start_T,0, sz_T,n) = meshes_[i]->T_;
     T_.block(start_T,0, sz_T,n).array() += start_V;
+    if (meshes_[i]->mat_ids_.size() > 0) {
+      mat_ids_.segment(start_T, sz_T) = meshes_[i]->mat_ids_;
+    }
     start_V += sz_V;
     start_T += sz_T;
 
@@ -65,6 +69,8 @@ Meshes::Meshes(const std::vector<std::shared_ptr<Mesh>>& meshes)
 
   igl::boundary_facets(T_, F_);
   assert(F_.cols() == cols);
+
+
 }
 void Meshes::init() {
   std::cout << "Meshes::init()" << std::endl;

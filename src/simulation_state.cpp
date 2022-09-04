@@ -18,6 +18,7 @@
 // libigl
 #include <igl/IO>
 #include <igl/remove_unreferenced.h>
+#include <igl/readDMAT.h>
 
 using json = nlohmann::json;
 using namespace mfem;
@@ -132,6 +133,8 @@ bool SimState<DIM>::load(const std::string& json_file) {
       std::string path;
       std::vector<double> offset = {0.0, 0.0, 0.0};
       uint idx = 0;
+      VectorXi material_ids;
+      bool has_material_ids = false;
 
       // Get File path
       if (const auto& it = obj.find("path"); it != obj.end()) {
@@ -146,10 +149,24 @@ bool SimState<DIM>::load(const std::string& json_file) {
         assert(offset.size() == 3);
       }
 
-      if (const auto& it = obj.find("material_index"); it != obj.end()) {
-        idx = it->get<uint>();
-        assert(idx < mat_configs.size());
+      // if (const auto& it = obj.find("material_index"); it != obj.end()) {
+      //   idx = it->get<uint>();
+      //   assert(idx < mat_configs.size());
+      // }
+      
+      if (const auto& it = obj.find("material_ids"); it != obj.end()) {
+        std::string mat_path = it->get<std::string>();
+        has_material_ids = true;
+        igl::readDMAT(mat_path, material_ids);
+      } else {
+        // If no per-tetrahedron material ids, look for material index for entire
+        // mesh
+        if (const auto& it = obj.find("material_index"); it != obj.end()) {
+          idx = it->get<uint>();
+          assert(idx < mat_configs.size());
+        }
       }
+
 
       MatrixXd V;
       MatrixXi T;
@@ -158,9 +175,21 @@ bool SimState<DIM>::load(const std::string& json_file) {
         V.col(i).array() += offset[i];
       }
       if constexpr (DIM == 2) {
-        meshes.push_back(std::make_shared<Tri2DMesh>(V, T, materials[idx]));
+        if (has_material_ids) {
+          std::cout << "Missing heterogeneous 2Dtrimesh support!" << std::endl;
+          meshes.push_back(std::make_shared<Tri2DMesh>(V, T, materials[idx]));
+        } else {
+          meshes.push_back(std::make_shared<Tri2DMesh>(V, T, materials[idx]));
+        }
       } else {
-        meshes.push_back(std::make_shared<TetrahedralMesh>(V, T, materials[idx]));
+        if (has_material_ids) {
+          meshes.push_back(std::make_shared<TetrahedralMesh>(V, T, material_ids, 
+              materials));
+        } else {
+          meshes.push_back(std::make_shared<TetrahedralMesh>(V, T,
+              materials[idx]));
+
+        }
       }
     }
   }

@@ -9,9 +9,9 @@ namespace mfem {
   public:
 
     TetrahedralMesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
-        const std::vector<Eigen::VectorXi>& subsets,
+        const Eigen::VectorXi& material_ids,
         const std::vector<std::shared_ptr<MaterialModel>>& materials)
-        : Mesh(V,T,subsets,materials) {
+        : Mesh(V,T,material_ids,materials) {
     }
 
     TetrahedralMesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,

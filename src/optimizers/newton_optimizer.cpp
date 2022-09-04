@@ -66,7 +66,7 @@ void NewtonOptimizer<DIM>::step() {
 
     // Linesearch on descent direction
     state_.data_.timer.start("LS");
-    SolverExitStatus status = linesearch_backtracking(state_, alpha, 0.0, 0.9);
+    SolverExitStatus status = linesearch_backtracking(state_, alpha, 0.0, 0.5);
     state_.data_.timer.stop("LS");
 
     // Record some data

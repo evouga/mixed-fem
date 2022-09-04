@@ -12,11 +12,10 @@ using namespace mfem;
 using namespace Eigen;
 
 Mesh::Mesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
-    const std::vector<VectorXi>& subsets,
+    const Eigen::VectorXi& material_ids,
     const std::vector<std::shared_ptr<MaterialModel>>& materials)
-    : V_(V), V0_(V), T_(T) {
+    : V_(V), V0_(V), T_(T), mat_ids_(material_ids) {
   assert(materials.size() > 0);
-  assert(subsets.size() == materials.size());
   material_ = materials[0];
 
   is_fixed_.resize(V_.rows());
@@ -40,16 +39,11 @@ Mesh::Mesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
   P_ = pinning_matrix(V_, T_, is_fixed_);
 
   for (Eigen::Index i = 0; i < T_.rows(); ++i) {
-    elements_.push_back(Element(material_));
+    elements_.push_back(Element(materials[material_ids(i)]));
   }
 
-  for (size_t i = 0; i < subsets.size(); ++i) {
-    for (int j = 0; j < subsets[i].size(); ++j) {
-      elements_[subsets[i](j)].material_ = materials[i];
-    }
-  }
-
-
+  igl::boundary_facets(T_, F_);
+  assert(F_.cols() == cols);
 }
 
 
