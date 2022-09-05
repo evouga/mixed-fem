@@ -35,38 +35,55 @@ void NewtonOptimizer<DIM>::step() {
 
     // If collisions enabled, perform CCD
     if (state_.config_->enable_ccd) {
-      // state_.data_.timer.start("ACCD");
+      state_.data_.timer.start("ACCD");
 
       VectorXd x1 = state_.x_->value();
       state_.x_->unproject(x1);
       VectorXd p = state_.mesh_->projection_matrix().transpose() 
           * state_.x_->delta();
 
-      // alpha = 0.9 * ipc::additive_ccd<DIM>(x1, p, state_.mesh_->collision_mesh());
-      // state_.data_.add("ACCD ", alpha);
-      // state_.data_.timer.stop("ACCD");
+      alpha = 0.9 * ipc::additive_ccd<DIM>(x1, p, state_.mesh_->collision_mesh());
+      state_.data_.add("ACCD ", alpha);
+      state_.data_.timer.stop("ACCD");
 
-      state_.data_.timer.start("ACCD2");
-      MatrixXd V1 = Map<const MatrixXd>(x1.data(), DIM,
-          state_.mesh_->V_.rows());
-      V1.transposeInPlace();
-      VectorXd x2 = x1 + p;
-      MatrixXd V2 = Map<const MatrixXd>(x2.data(), DIM,
-          state_.mesh_->V_.rows());
-      V2.transposeInPlace();
+      // state_.data_.timer.start("ACCD2");
+      // MatrixXd V1 = Map<const MatrixXd>(x1.data(), DIM,
+      //     state_.mesh_->V_.rows());
+      // V1.transposeInPlace();
+      // VectorXd x2 = x1 + p;
+      // MatrixXd V2 = Map<const MatrixXd>(x2.data(), DIM,
+      //     state_.mesh_->V_.rows());
+      // V2.transposeInPlace();
 
-      V1 = state_.mesh_->collision_mesh().vertices(V1);
-      V2 = state_.mesh_->collision_mesh().vertices(V2);
+      // V1 = state_.mesh_->collision_mesh().vertices(V1);
+      // V2 = state_.mesh_->collision_mesh().vertices(V2);
 
-      alpha = 0.9 * ipc::compute_collision_free_stepsize(
-          state_.mesh_->collision_mesh(), V1, V2);
-      state_.data_.add("ACCD2 ", alpha);
-      state_.data_.timer.stop("ACCD2");
+      // alpha = 0.9 * ipc::compute_collision_free_stepsize(
+      //     state_.mesh_->collision_mesh(), V1, V2);
+      // state_.data_.add("ACCD2 ", alpha);
+      // state_.data_.timer.stop("ACCD2");
     }
+
+    auto energy_func = [&state = state_](double a) {
+      double h2 = std::pow(state.x_->integrator()->dt(), 2);
+
+      Eigen::VectorXd x0 = state.x_->value() + a * state.x_->delta();
+      double val = state.x_->energy(x0);
+      state.x_->unproject(x0);
+      for (const auto& var : state.mixed_vars_) {
+        const Eigen::VectorXd si = var->value() + a * var->delta();
+        val += h2 * var->energy(x0, si) - var->constraint_value(x0, si);  
+      }
+      for (const auto& var : state.vars_) {
+        val += h2 * var->energy(x0);  
+      }
+      return val;
+    };
+
 
     // Linesearch on descent direction
     state_.data_.timer.start("LS");
-    SolverExitStatus status = linesearch_backtracking(state_, alpha, 0.0, 0.5);
+    auto status = linesearch_backtracking(state_, alpha, energy_func,0.0,0.9);
     state_.data_.timer.stop("LS");
 
     // Record some data
