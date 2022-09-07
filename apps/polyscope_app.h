@@ -122,9 +122,9 @@ namespace mfem {
         }          
       } else {
         if constexpr (DIM == 3) {
-          srf->updateVertexPositions(mesh->V0_);
+          srf->updateVertexPositions(mesh->Vinit_);
         } else {
-          srf->updateVertexPositions2D(mesh->V0_);
+          srf->updateVertexPositions2D(mesh->Vinit_);
         }
       }
     }
@@ -272,7 +272,9 @@ namespace mfem {
         ImGui::InputInt("Max LS Iters", &config->ls_iters);
         ImGui::InputDouble("Newton Tol", &config->newton_tol,0,0,"%.5g");
 
-        if (config->solver_type == SolverType::SOLVER_AFFINE_PCG) {
+        if (config->solver_type == SolverType::SOLVER_AFFINE_PCG
+            || config->solver_type == SolverType::SOLVER_EIGEN_CG_DIAG
+            || config->solver_type == SolverType::SOLVER_EIGEN_CG_IC) {
           ImGui::InputInt("Max CG Iters", &config->max_iterative_solver_iters);
           ImGui::InputDouble("CG Tol", &config->itr_tol,0,0,"%.5g");
         }
@@ -356,11 +358,22 @@ namespace mfem {
         if (config->save_substeps) {
           char buffer[50];
           int n;
-          Eigen::MatrixXd x(optimizer->step_x[0].size(),
-              optimizer->step_x.size());
-          for (size_t i = 0; i < optimizer->step_x.size(); ++i) {
-            x.col(i) = optimizer->step_x[i];
-          }
+
+          const SimState<DIM>& state = optimizer->state();
+          Eigen::VectorXd x0 = state.x_->integrator()->x_prev();
+          Eigen::VectorXd v0 = state.x_->integrator()->v_prev();
+          Eigen::MatrixXd X = Eigen::Map<Eigen::MatrixXd>(x0.data(), DIM,
+              state.mesh_->V_.rows());
+          X.transposeInPlace();
+          Eigen::MatrixXd V = Eigen::Map<Eigen::MatrixXd>(v0.data(), DIM,
+              state.mesh_->V_.rows());
+          V.transposeInPlace();
+
+          // Eigen::MatrixXd x(optimizer->step_x[0].size(),
+          //     optimizer->step_x.size());
+          // for (size_t i = 0; i < optimizer->step_x.size(); ++i) {
+          //   x.col(i) = optimizer->step_x[i];
+          // }
           // Save the file names
           // n = sprintf(buffer, "../output/sim_x_%04d.dmat", step); 
           // buffer[n] = 0;
@@ -368,11 +381,11 @@ namespace mfem {
 
           n = sprintf(buffer, "../output/sim_x0_%04d.dmat", step); 
           buffer[n] = 0;
-          igl::writeDMAT(std::string(buffer), optimizer->step_x0);
+          igl::writeDMAT(std::string(buffer), X);
 
           n = sprintf(buffer, "../output/sim_v_%04d.dmat", step); 
           buffer[n] = 0;
-          igl::writeDMAT(std::string(buffer), optimizer->step_v);
+          igl::writeDMAT(std::string(buffer), V);
         }
 
       }

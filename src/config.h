@@ -46,7 +46,9 @@ namespace mfem {
     SOLVER_EIGEN_LDLT,
     SOLVER_EIGEN_LU,
     SOLVER_CHOLMOD,
-    SOLVER_AFFINE_PCG
+    SOLVER_AFFINE_PCG,
+    SOLVER_EIGEN_CG_DIAG,
+    SOLVER_EIGEN_CG_IC,
   };
 
   enum MaterialModelType { 

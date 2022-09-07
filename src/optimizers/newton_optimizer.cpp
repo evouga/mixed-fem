@@ -80,10 +80,9 @@ void NewtonOptimizer<DIM>::step() {
       return val;
     };
 
-
     // Linesearch on descent direction
     state_.data_.timer.start("LS");
-    auto status = linesearch_backtracking(state_, alpha, energy_func,0.0,0.9);
+    auto status = linesearch_backtracking(state_, alpha, energy_func,0.0,0.5);
     state_.data_.timer.stop("LS");
 
     // Record some data

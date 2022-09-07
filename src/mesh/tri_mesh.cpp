@@ -32,11 +32,11 @@ TriMesh::TriMesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
     const Eigen::MatrixXd& N,
     std::shared_ptr<MaterialModel> material)
     : Mesh(V,T,material), N_(N) {
-  sim::linear_tri3dmesh_dphi_dX(dphidX_, V0_, T_);
+  sim::linear_tri3dmesh_dphi_dX(dphidX_, Vref_, T_);
 }
 
 void TriMesh::volumes(Eigen::VectorXd& vol) {
-  igl::doublearea(V0_, T_, vol);
+  igl::doublearea(Vref_, T_, vol);
   vol.array() *= (material_->config()->thickness/2);
 }
 

@@ -23,6 +23,7 @@
 using json = nlohmann::json;
 using namespace mfem;
 using namespace Eigen;
+namespace fs = std::filesystem;
 
 namespace {
 
@@ -64,7 +65,6 @@ void SimState<DIM>::load_mesh(const std::string& path, MatrixXd& V, MatrixXi& T)
   }
 }
 
-
 template <int DIM>
 bool SimState<DIM>::load(const std::string& json_file) {
   // Confirm file is .json
@@ -82,6 +82,11 @@ bool SimState<DIM>::load(const std::string& json_file) {
     std::cerr << "Unable to open file: " << json_file << std::endl;
     return false;
   }
+  return load(args);
+}
+
+template <int DIM>
+bool SimState<DIM>::load(const nlohmann::json& args) {
 
   config_ = std::make_shared<SimConfig>();
   load_params(args);
@@ -195,6 +200,37 @@ bool SimState<DIM>::load(const std::string& json_file) {
   }
   mesh_ = std::make_shared<Meshes>(meshes);
   x_ = std::make_unique<Displacement<DIM>>(mesh_, config_);
+
+  if (const auto& it = args.find("initial_state"); it != args.end()) {
+    
+    // Check for initial vertex positions
+    if (const auto& path_it = it->find("x_path"); path_it != it->end()) {
+      std::string x_path = path_it->get<std::string>();
+      if (fs::path(x_path).extension() == ".dmat") {
+        MatrixXd x;
+        igl::readDMAT(x_path, x);
+        mesh_->Vinit_ = x;
+        mesh_->V_ = x;
+        assert(mesh_->V_.rows() == x.rows() && mesh_->V_.cols() == x.cols());
+      } else {
+        std::cerr << "initial_state x_path must be a dmat file" << std::endl;
+      }
+    }
+
+    // Check for initial velocities
+    if (const auto& path_it = it->find("v_path"); path_it != it->end()) {
+      std::string v_path = path_it->get<std::string>();
+      if (fs::path(v_path).extension() == ".dmat") {
+        MatrixXd v;
+        igl::readDMAT(v_path, v);
+        mesh_->initial_velocity_ = v;
+        assert(mesh_->V_.rows() == v.rows() && mesh_->V_.cols() == v.cols());
+      } else {
+        std::cerr << "initial_state v_path must be a dmat file" << std::endl;
+      }
+    }
+  }
+
 
   MixedVariableFactory<DIM> mixed_variable_factory;
   std::set<VariableType> mixed_variables;

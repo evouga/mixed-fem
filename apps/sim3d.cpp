@@ -163,7 +163,7 @@ struct PolyscopTetApp : public PolyscopeApp<3> {
   virtual void reset() {
     optimizer->reset();
     for (size_t i = 0; i < srfs.size(); ++i) {
-      srfs[i]->updateVertexPositions(meshes[i]->V0_);
+      srfs[i]->updateVertexPositions(meshes[i]->Vinit_);
     }
     if (frame_srf != nullptr) {
       removeStructure(frame_srf);
@@ -210,7 +210,6 @@ struct PolyscopTetApp : public PolyscopeApp<3> {
     state.load(filename);
     igl::boundary_facets(state.mesh_->T_, meshF);
 
-
     BoundaryConditions<3>::get_script_names(bc_list);
 
     std::shared_ptr<Meshes> m = std::dynamic_pointer_cast<Meshes>(state.mesh_);
@@ -229,13 +228,11 @@ struct PolyscopTetApp : public PolyscopeApp<3> {
     config = state.config_;
     material_config = std::make_shared<MaterialConfig>();
 
-    std::cout << "mesh mat ids: " << mesh->mat_ids_.size() << std::endl;
-    std::cout << "mesh: " << mesh->T_.rows() << std::endl;
+    // Add export meshes for heterogeneous materials
     if (mesh->mat_ids_.size() > 0) {
       int i = 0;
       while(true) {
         MatrixXi T = igl::slice_mask(mesh->T_, mesh->mat_ids_.array() == i, 1);
-        std::cout << "T : " << T.rows() << " T cols: " << T.cols() << std::endl;
         if (T.size() == 0) break;
         // Expect the first material ID to be for the surface mesh
         if (i == 0) {

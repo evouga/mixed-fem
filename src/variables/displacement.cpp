@@ -76,11 +76,14 @@ VectorXd Displacement<DIM>::gradient() {
 template<int DIM>
 void Displacement<DIM>::reset() {
 
-  MatrixXd tmp = mesh_->V_.transpose();
+  MatrixXd tmp = mesh_->Vinit_.transpose();
   x_ = Map<VectorXd>(tmp.data(), mesh_->V_.size());
 
+  tmp = mesh_->initial_velocity_.transpose();
+  VectorXd v0 = Map<VectorXd>(tmp.data(), mesh_->V_.size());
+
   IntegratorFactory factory;
-  integrator_ = factory.create(config_->ti_type, x_, 0*x_, config_->h);  
+  integrator_ = factory.create(config_->ti_type, x_, v0, config_->h);  
   
   // Project out Dirichlet boundary conditions
   const auto& P = mesh_->projection_matrix();
@@ -88,13 +91,10 @@ void Displacement<DIM>::reset() {
   x_ = P * x_;
   dx_ = 0*x_;
 
-  // If mixed, lhs_ is not modified, otherwise in unmixed systems
-  // the LHS is changed each step.
   lhs_ = mesh_->template mass_matrix<mfem::MatrixType::PROJECTED>();
 
   // External gravity force
   VecD ext = Map<Matrix<float,DIM,1>>(config_->ext).template cast<double>();
-  //f_ext_ = P_.transpose()*P_*ext.replicate(mesh_->V_.rows(),1);
   f_ext_ = ext.replicate(mesh_->V_.rows(),1);
 }
 

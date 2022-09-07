@@ -267,12 +267,26 @@ void MixedStretch<DIM>::reset() {
 
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
-    R_[i].setIdentity();
     H_[i].setIdentity();
     Hinv_[i].setIdentity();
     g_[i].setZero();
-    S_[i] = Ivec();
-    s_.segment<N()>(N()*i) = Ivec();
+  }
+
+  MatrixXd tmp = mesh_->Vinit_.transpose();
+  VectorXd x = Map<VectorXd>(tmp.data(), mesh_->V_.size());
+  VectorXd def_grad;
+  mesh_->deformation_gradient(x, def_grad);
+
+  // Set initial rotation and stretch values based on the intial
+  // vertex positions.
+  #pragma omp parallel for 
+  for (int i = 0; i < nelem_; ++i) {
+    Matrix<double, N(), M()> Js;
+    VecN stmp;
+    R_[i].setIdentity();
+    polar_svd<DIM,N()>(R_[i], S_[i],
+        Map<MatD>(def_grad.segment<M()>(M()*i).data()), false, Js);
+    s_.segment<N()>(N()*i) = S_[i];
   }
 }
 

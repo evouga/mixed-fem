@@ -29,7 +29,7 @@ namespace {
 }
 
 void TetrahedralMesh::volumes(Eigen::VectorXd& vol) {
-  igl::volume(V0_, T_, vol);
+  igl::volume(Vref_, T_, vol);
   vol = vol.cwiseAbs();
 }
 
@@ -37,14 +37,14 @@ void TetrahedralMesh::mass_matrix(SparseMatrixdRowMajor& M,
     const VectorXd& vols) {
   VectorXd densities = VectorXd::Constant(T_.rows(),
       material_->config()->density);
-  sim::linear_tetmesh_mass_matrix(M, V0_, T_, densities, vols);
+  sim::linear_tetmesh_mass_matrix(M, Vref_, T_, densities, vols);
 }
 
 void TetrahedralMesh::jacobian(SparseMatrixdRowMajor& J, const VectorXd& vols,
       bool weighted) {
   // J matrix (big jacobian guy)
   MatrixXd dphidX;
-  sim::linear_tetmesh_dphi_dX(dphidX, V0_, T_);
+  sim::linear_tetmesh_dphi_dX(dphidX, Vref_, T_);
 
   std::vector<Triplet<double>> trips;
   for (int i = 0; i < T_.rows(); ++i) { 
@@ -80,7 +80,7 @@ void TetrahedralMesh::jacobian(std::vector<MatrixXd>& J) {
   J.resize(T_.rows());
 
   MatrixXd dphidX;
-  sim::linear_tetmesh_dphi_dX(dphidX, V0_, T_);
+  sim::linear_tetmesh_dphi_dX(dphidX, Vref_, T_);
 
   #pragma omp parallel for
   for (int i = 0; i < T_.rows(); ++i) { 
@@ -96,7 +96,7 @@ void TetrahedralMesh::init_jacobian() {
   Jloc_.resize(T_.rows());
 
   MatrixXd dphidX;
-  sim::linear_tetmesh_dphi_dX(dphidX, V0_, T_);
+  sim::linear_tetmesh_dphi_dX(dphidX, Vref_, T_);
   std::vector<Triplet<double>> trips;
 
   // #pragma omp parallel for

@@ -14,18 +14,18 @@ using namespace Eigen;
 Mesh::Mesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
     const Eigen::VectorXi& material_ids,
     const std::vector<std::shared_ptr<MaterialModel>>& materials)
-    : V_(V), V0_(V), T_(T), mat_ids_(material_ids) {
+    : V_(V), Vref_(V), Vinit_(V), T_(T), mat_ids_(material_ids) {
   assert(materials.size() > 0);
   material_ = materials[0];
 
   is_fixed_.resize(V_.rows());
   is_fixed_.setZero();
   bbox.setZero();
-  int cols = V0_.cols();
-  bbox.block(0,0,1,cols) = V0_.row(0);
-  bbox.block(1,0,1,cols) = V0_.row(0);
-  for(int i = 1; i < V0_.rows(); i++) {
-    const Eigen::RowVectorXd& v = V0_.row(i);
+  int cols = Vref_.cols();
+  bbox.block(0,0,1,cols) = Vref_.row(0);
+  bbox.block(1,0,1,cols) = Vref_.row(0);
+  for(int i = 1; i < Vref_.rows(); i++) {
+    const Eigen::RowVectorXd& v = Vref_.row(i);
     for(int d = 0; d < cols; d++) {
       if(v[d] < bbox(0, d)) {
           bbox(0, d) = v[d];
@@ -35,7 +35,7 @@ Mesh::Mesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
       }
     }
   }
-  BoundaryConditions<3>::init_boundary_groups(V0_, bc_groups_, 0.01);
+  BoundaryConditions<3>::init_boundary_groups(Vref_, bc_groups_, 0.01);
   P_ = pinning_matrix(V_, T_, is_fixed_);
 
   for (Eigen::Index i = 0; i < T_.rows(); ++i) {
@@ -44,21 +44,22 @@ Mesh::Mesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
 
   igl::boundary_facets(T_, F_);
   assert(F_.cols() == cols);
+  initial_velocity_ = 0 * V_;
 }
 
 
 Mesh::Mesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
     std::shared_ptr<MaterialModel> material)
-    : V_(V), V0_(V), T_(T), material_(material) {
+    : V_(V), Vref_(V), Vinit_(V), T_(T), material_(material) {
 
   is_fixed_.resize(V_.rows());
   is_fixed_.setZero();
   bbox.setZero();
-  int cols = V0_.cols();
-  bbox.block(0,0,1,cols) = V0_.row(0);
-  bbox.block(1,0,1,cols) = V0_.row(0);
-  for(int i = 1; i < V0_.rows(); i++) {
-    const Eigen::RowVectorXd& v = V0_.row(i);
+  int cols = Vref_.cols();
+  bbox.block(0,0,1,cols) = Vref_.row(0);
+  bbox.block(1,0,1,cols) = Vref_.row(0);
+  for(int i = 1; i < Vref_.rows(); i++) {
+    const Eigen::RowVectorXd& v = Vref_.row(i);
     for(int d = 0; d < cols; d++) {
       if(v[d] < bbox(0, d)) {
           bbox(0, d) = v[d];
@@ -68,7 +69,7 @@ Mesh::Mesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
       }
     }
   }
-  BoundaryConditions<3>::init_boundary_groups(V0_, bc_groups_, 0.01);
+  BoundaryConditions<3>::init_boundary_groups(Vref_, bc_groups_, 0.01);
   P_ = pinning_matrix(V_, T_, is_fixed_);
 
   for (int i = 0; i < T_.rows(); ++i) {
@@ -77,6 +78,7 @@ Mesh::Mesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
 
   igl::boundary_facets(T_, F_);
   assert(F_.cols() == cols);
+  initial_velocity_ = 0 * V_;
 }
 
 void Mesh::init() {

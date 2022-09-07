@@ -141,7 +141,7 @@ struct PolyscopeTriApp : public PolyscopeApp<2> {
   virtual void reset() {
     optimizer->reset();
     for (size_t i = 0; i < srfs.size(); ++i) {
-      srfs[i]->updateVertexPositions2D(meshes[i]->V0_);
+      srfs[i]->updateVertexPositions2D(meshes[i]->Vref_);
     }
     if (frame_srf != nullptr) {
       removeStructure(frame_srf);

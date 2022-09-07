@@ -26,11 +26,11 @@ Tri2DMesh::Tri2DMesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
     std::shared_ptr<MaterialModel> material)
     : Mesh(V,T,material) {
   assert(V.cols() == 2);
-  sim::linear_tri2dmesh_dphi_dX(dphidX_, V0_, T_);
+  sim::linear_tri2dmesh_dphi_dX(dphidX_, Vref_, T_);
 }
 
 void Tri2DMesh::volumes(Eigen::VectorXd& vol) {
-  igl::doublearea(V0_, T_, vol);
+  igl::doublearea(Vref_, T_, vol);
   vol.array() *= (material_->config()->thickness/2);
 }
 
@@ -39,7 +39,7 @@ void Tri2DMesh::mass_matrix(Eigen::SparseMatrixdRowMajor& M,
 
   VectorXd densities = VectorXd::Constant(T_.rows(),
       material_->config()->density);
-  sim::linear_tri2dmesh_mass_matrix(M, V0_, T_, densities, vols);
+  sim::linear_tri2dmesh_mass_matrix(M, Vref_, T_, densities, vols);
 }
 
 void Tri2DMesh::init_jacobian() {

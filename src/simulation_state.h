@@ -45,6 +45,7 @@ namespace mfem {
     std::unique_ptr<LinearSolver<double, Eigen::RowMajor>> solver_;
 
     bool load(const std::string& json_file);
+    bool load(const nlohmann::json& args);
   
   private:
     // Load triangle mesh

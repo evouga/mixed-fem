@@ -137,8 +137,10 @@ namespace mfem {
     std::vector<int> free_map_;
     Eigen::Matrix23x<double> bbox;
   
-    Eigen::MatrixXd V_;
-    Eigen::MatrixXd V0_;
+    Eigen::MatrixXd V_;     // Current deformed vertices
+    Eigen::MatrixXd Vref_;  // Reference vertex positions
+    Eigen::MatrixXd Vinit_; // Initial (deformed or undeformed) vertices
+    Eigen::MatrixXd initial_velocity_; // Temporary. Just expose integrator
     Eigen::MatrixXi T_;
     Eigen::MatrixXi F_;
     Eigen::VectorXi mat_ids_;

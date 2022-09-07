@@ -25,6 +25,8 @@ Meshes::Meshes(const std::vector<std::shared_ptr<Mesh>>& meshes)
   int m = meshes_[0]->V_.cols();
   int n = meshes_[0]->T_.cols();
   V_.resize(num_V, m);
+  Vref_.resize(num_V, m);
+  Vinit_.resize(num_V, m);
   T_.resize(num_T, n);
   mat_ids_.resize(num_T);
 
@@ -34,6 +36,8 @@ Meshes::Meshes(const std::vector<std::shared_ptr<Mesh>>& meshes)
     size_t sz_V = meshes_[i]->V_.rows();
     size_t sz_T = meshes_[i]->T_.rows();
     V_.block(start_V,0, sz_V,m) = meshes_[i]->V_;
+    Vref_.block(start_V,0, sz_V,m) = meshes_[i]->Vref_;
+    Vinit_.block(start_V,0, sz_V,m) = meshes_[i]->Vinit_;
     T_.block(start_T,0, sz_T,n) = meshes_[i]->T_;
     T_.block(start_T,0, sz_T,n).array() += start_V;
     if (meshes_[i]->mat_ids_.size() > 0) {
@@ -45,16 +49,15 @@ Meshes::Meshes(const std::vector<std::shared_ptr<Mesh>>& meshes)
     elements_.insert(elements_.end(), meshes_[i]->elements_.begin(),
         meshes_[i]->elements_.end());
   }
-  V0_ = V_;
 
   is_fixed_.resize(V_.rows());
   is_fixed_.setZero();
   bbox.setZero();
-  int cols = V0_.cols();
-  bbox.block(0,0,1,cols) = V0_.row(0);
-  bbox.block(1,0,1,cols) = V0_.row(0);
-  for(int i = 1; i < V0_.rows(); i++) {
-    const Eigen::RowVectorXd& v = V0_.row(i);
+  int cols = Vref_.cols();
+  bbox.block(0,0,1,cols) = Vref_.row(0);
+  bbox.block(1,0,1,cols) = Vref_.row(0);
+  for(int i = 1; i < Vref_.rows(); i++) {
+    const Eigen::RowVectorXd& v = Vref_.row(i);
     for(int d = 0; d < cols; d++) {
       if(v[d] < bbox(0, d)) {
           bbox(0, d) = v[d];
@@ -64,14 +67,14 @@ Meshes::Meshes(const std::vector<std::shared_ptr<Mesh>>& meshes)
       }
     }
   }
-  BoundaryConditions<3>::init_boundary_groups(V0_, bc_groups_, 0.11);
+  BoundaryConditions<3>::init_boundary_groups(Vref_, bc_groups_, 0.11);
   P_ = pinning_matrix(V_, T_, is_fixed_);
 
   igl::boundary_facets(T_, F_);
   assert(F_.cols() == cols);
-
-
+  initial_velocity_ = 0 * V_;
 }
+
 void Meshes::init() {
   std::cout << "Meshes::init()" << std::endl;
 

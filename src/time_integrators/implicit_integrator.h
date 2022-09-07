@@ -19,6 +19,12 @@ namespace mfem {
       x_prevs_.clear();
       v_prevs_.clear();
     }
+    virtual const Eigen::VectorXd& x_prev() const {
+      return x_prevs_.front();
+    }
+    virtual const Eigen::VectorXd& v_prev() const {
+      return v_prevs_.front();
+    }
   protected:
 
     double h_;

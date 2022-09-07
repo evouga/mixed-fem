@@ -109,10 +109,10 @@ namespace mfem {
       }
 
       // Scalar alpha_tmp = (iter == 0) ? (gTd / (2.0 * (fx0 + gTd - fx)))
-      //     : cubic2(fx0, gTd, fx, alpha, fx_prev, alpha_prev);
+      //     : cubic(fx0, gTd, fx, alpha, fx_prev, alpha_prev);
       // fx_prev = fx;
       // alpha_prev = alpha;
-      // alpha = std::clamp(alpha_tmp, 0.1*alpha, p*alpha );
+      // alpha = std::clamp(alpha_tmp, 0.1*alpha, 0.9*alpha );
       alpha = alpha * p;
       ++iter;
     }
