@@ -8,8 +8,8 @@
   "linear_solver": "cholmod",
   "enable_ccd": false,
   "boundary_condition": "hangends",
-  "max_newton_iterations": 30,
-  "max_linesearch_iterations": 20,
+  "max_newton_iterations": 100,
+  "max_linesearch_iterations": 50,
   "initial_state": {
     "x_path": "../models/mesh/gummy_bear/sim_x0_0013.dmat",
     "v_path": "../models/mesh/gummy_bear/sim_v_0013.dmat"

@@ -1,0 +1,47 @@
+{
+  "dt": 0.0333,
+  "body_force": [0.0, -9.8, 0.0],
+  "print_timing": true,
+  "print_stats": true,
+  "optimizer": "newton",
+  "time_integrator": "BDF2",
+  "linear_solver": "eigen-ldlt",
+  "enable_ccd": true,
+  "dhat": 0.002,
+  "kappa": 1e4,
+  "boundary_condition": "hangends",
+  "max_newton_iterations": 100,
+  "max_linesearch_iterations": 20,
+  "initial_state": {
+    "x_path": "../scenes/2D/data/diving_board/sim_x0_0001.dmat",
+    "v_path": "../scenes/2D/data/diving_board/sim_v_0001.dmat"
+  },
+  "objects": [
+    {
+      "path": "../models/obj/square_xy_145.obj",
+      "offset": [-3.0, 18.0, 0.0],
+      "material_index": 0
+    },
+    {
+      "path": "../models/obj/box_wide_145_thin_xy.obj",
+      "offset": [0.0, 0.0, 0.0],
+      "material_index": 1
+    }
+  ],
+  "material_models": [
+    {
+      "youngs_modulus": 1e6,
+      "poissons_ratio": 0.42,
+      "density": 1e4,
+      "energy": "Stable-Neohookean"
+    },
+    {
+      "youngs_modulus": 4e9,
+      "poissons_ratio": 0.45,
+      "density": 1e3,
+      "energy": "Stable-Neohookean"
+    }
+  ],
+  "mixed_variables": [],
+  "variables": ["stretch","collision"]
+}

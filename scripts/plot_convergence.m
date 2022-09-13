@@ -1,53 +1,42 @@
-ym = readDMAT('../output/ym_values.dmat');
-a = readDMAT('../output/finalconvergence_converge_fem.dmat');
+ym = readDMAT('../output/dhat_values.dmat');
+a1 = readDMAT('../output/finalconvergence_converge_fem_1e4.dmat');
+a2 = readDMAT('../output/finalconvergence_converge_fem_1e5.dmat');
+a3 = readDMAT('../output/finalconvergence_converge_fem_1e6.dmat');
 b = readDMAT('../output/finalconvergence_converge_mfem.dmat');
 figure(2); clf;
-loglog(ym,a);
+loglog(ym,a1);
 hold on;
+loglog(ym,a2);
+loglog(ym,a3);
 loglog(ym,b);
-xlabel("Young's Modulus (Pa)");
-ylabel("Final Gradient Norm");
-legend("Vanilla FEM", "Ours");
+xlabel("dhat");
+ylabel("||\delta x||");
+legend("Vanilla IPC (\kappa=1e4)","Vanilla IPC (\kappa=1e5)", "Vanilla IPC (\kappa=1e6)", "Ours");
+title("Convergence after 50 iterations")
 
 
 figure(1); clf;
 
-ym = readDMAT('../output/ym_values.dmat');
-a = readDMAT('../output/convergence_grad_1.dmat');
-b = readDMAT('../output/convergence_grad_2.dmat');
+a = readDMAT('../output/convergence_fem_1e6.dmat');
+b = readDMAT('../output/convergence_mfem.dmat');
 N = numel(ym);
 M = size(a,2);
 
-colormap(CustomColormap);
-cmap = CustomColormap6; 
+%colormap(CustomColormap);
+colormap(winter(1000))
+cmap = winter(N); 
 hold on;
 for i=1:N
-    semilogy(1:M,b(i,:),'--','Color',cmap(i,:));
     semilogy(1:M,a(i,:),'-','Color',cmap(i,:));
+    semilogy(1:M,b(i,:),'--','Color',cmap(i,:));
+
     if (i == 1)
-        legend("MFEM", "Vanilla FEM");
+        legend("Vanilla IPC", "Ours");
     end
 end
 set(gca, 'YScale', 'log');
 a= colorbar;
-a.Label.String = 'Youngs Modulus (Pa)';
+a.Label.String = "\hat d";
 xlabel("Iterations");
-ylabel("Newton Decrement");
-% legend("Vanilla FEM", "MFEM");
-
-% sqpf = fopen('conv_sqp.txt','r');
-% wraf = fopen('conv_wrapd.txt','r');
-% newton = fopen('conv_newton.txt','r');
-% formatSpec = '%f';
-% A = fscanf(sqpf,formatSpec);
-% B = fscanf(wraf,formatSpec);
-% C = fscanf(newton,formatSpec);
-% 
-% figure(1);clf; 
-% loglog(1:18,A(1:18),'LineWidth',1); hold on;
-% loglog(1:numel(B),B,'LineWidth',1);
-% loglog(1:numel(C),C,'LineWidth',1);
-% set(gca, 'YScale', 'log') % But you can explicitly force it to be logarithmic
-% legend('MFEM','WRAPD','Vanilla FEM')
-% xlabel('Iterations');
-% ylabel('ND')
+ylabel("||\delta x||");
+title("Convergence of Collision Simulation FEM vs MFEM")

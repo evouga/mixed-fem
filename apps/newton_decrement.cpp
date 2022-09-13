@@ -11,11 +11,11 @@
 using namespace Eigen;
 using namespace mfem;
 
-const int DIM = 3;
+const int DIM = 2;
 
 std::shared_ptr<Optimizer<DIM>> optimizer;
 std::shared_ptr<Optimizer<DIM>> newton_optimizer;
-std::shared_ptr<Mesh> mesh;
+std::vector<double> decrements;
 
 static double newton_decrement(const SimState<DIM>& state) {
   // Get full configuration vector
@@ -44,12 +44,14 @@ static double newton_decrement(const SimState<DIM>& state) {
   // Use infinity norm of deltas as termination criteria
   // double decrement = dx.lpNorm<Infinity>();
   double decrement = dx.norm();
+  // decrement = rhs.norm();
   return decrement;
 }
 
 void callback(const SimState<DIM>& state) {
   double decrement = newton_decrement(state);
   std::cout << "decrement: " << decrement << std::endl;
+  decrements.push_back(decrement);
 }
 
 int main(int argc, char **argv) {
@@ -83,7 +85,7 @@ int main(int argc, char **argv) {
   }
 
   
-  SimState<3> state;
+  SimState<DIM> state;
   state.load(args);
   optimizer = factory.create(state.config_->optimizer, state);
   optimizer->reset();
@@ -91,9 +93,8 @@ int main(int argc, char **argv) {
   
   // Switch to newton FEM
   // Note just supports stretch right now
-  // args["mixed_variables"] = {};
   args.erase("mixed_variables");
-  args["variables"] = {"stretch"};
+  args["variables"] = {"stretch"};//, "collision"};
 
   SimState<DIM> newton_state;
   newton_state.load(args);
@@ -103,6 +104,7 @@ int main(int argc, char **argv) {
   double decrement = newton_decrement(optimizer->state());
   std::cout << "decrement: " << decrement << std::endl;
   optimizer->step();
+  std::cout << "decrements: " << Map<VectorXd>(decrements.data(), decrements.size());
   return 0;
 }
 
