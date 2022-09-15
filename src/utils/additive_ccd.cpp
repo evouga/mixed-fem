@@ -1,6 +1,7 @@
 #include "additive_ccd.h"
 #include <ipc/distance/edge_edge.hpp>
 #include <ipc/distance/point_edge.hpp>
+#include <ipc/distance/point_triangle.hpp>
 
 using namespace Eigen;
 
@@ -71,7 +72,7 @@ namespace {
 
 template <int DIM>
 double ipc::additive_ccd(const VectorXd& x, const VectorXd& p,
-    const ipc::CollisionMesh& mesh) {
+    const ipc::CollisionMesh& mesh, double dhat) {
     
   double min_step = 1.0;
   double s = 0.1; // scaling factor
@@ -89,7 +90,8 @@ double ipc::additive_ccd(const VectorXd& x, const VectorXd& p,
   MatrixXd P = V2-V1;
 
   ipc::Candidates candidates;
-  ipc::construct_collision_candidates(mesh, V1, V2, candidates);
+  ipc::construct_collision_candidates(mesh, V1, V2, candidates, dhat * 1.1);
+
 
   const Eigen::MatrixXi& E = mesh.edges();
   const Eigen::MatrixXi& F = mesh.faces();
@@ -100,80 +102,123 @@ double ipc::additive_ccd(const VectorXd& x, const VectorXd& p,
   // std::cout << "EV candidates: " << candidates.ev_candidates.size() << std::endl;
 
   // Edge-vertex distance checks
-  #pragma omp parallel for reduction(min : min_step)
-  for (size_t i = 0; i < candidates.ev_candidates.size(); ++i) {
-    const auto& ev_candidate = candidates.ev_candidates[i];
-    const auto& [ei, vi] = ev_candidate;
-    long e0i = E(ei, 0), e1i = E(ei, 1);
+  if constexpr (DIM == 2) {
 
-    auto dist = [](const Matrix<double, 1, DIM>& a,
-                   const Matrix<double, 2, DIM>& b) {
+    #pragma omp parallel for reduction(min : min_step)
+    for (size_t i = 0; i < candidates.ev_candidates.size(); ++i) {
+      const auto& ev_candidate = candidates.ev_candidates[i];
+      const auto& [ei, vi] = ev_candidate;
+      long e0i = E(ei, 0), e1i = E(ei, 1);
 
-      PointEdgeDistanceType dtype = point_edge_distance_type(
-        a.row(0), b.row(0), b.row(1));
+      auto dist = [](const Matrix<double, 1, DIM>& a,
+                    const Matrix<double, 2, DIM>& b) {
 
-      DistanceMode dmode = DistanceMode::SQRT;
+        PointEdgeDistanceType dtype = point_edge_distance_type(
+          a.row(0), b.row(0), b.row(1));
 
-      double distance = point_edge_distance(
-          a.row(0), b.row(0), b.row(1), dtype, dmode);
+        DistanceMode dmode = DistanceMode::SQRT;
 
-      return distance;
-    };
+        double distance = point_edge_distance(
+            a.row(0), b.row(0), b.row(1), dtype, dmode);
 
-    Matrix<double, 1, DIM> x_a, p_a;
-    Matrix<double, 2, DIM> x_b, p_b;
-    x_a.row(0) = V1.row(vi);
-    x_b.row(0) = V1.row(e0i);
-    x_b.row(1) = V1.row(e1i);
-    p_a.row(0) = P.row(vi);
-    p_b.row(0) = P.row(e0i);
-    p_b.row(1) = P.row(e1i);
-    double t;
-    if (accd_primitive(x_a, x_b, p_a, p_b, dist, t)) {
-      min_step = std::min(min_step,t);
+        return distance;
+      };
+
+      Matrix<double, 1, DIM> x_a, p_a;
+      Matrix<double, 2, DIM> x_b, p_b;
+      x_a.row(0) = V1.row(vi);
+      x_b.row(0) = V1.row(e0i);
+      x_b.row(1) = V1.row(e1i);
+      p_a.row(0) = P.row(vi);
+      p_b.row(0) = P.row(e0i);
+      p_b.row(1) = P.row(e1i);
+      double t;
+
+      if (accd_primitive(x_a, x_b, p_a, p_b, dist, t)) {
+        min_step = std::min(min_step,t);
+      }
+    }
+
+  } else {
+
+    // Edge-edge distance checks
+    #pragma omp parallel for reduction(min : min_step)
+    for (size_t i = 0; i < candidates.ee_candidates.size(); ++i) {
+      const auto& ee_candidate = candidates.ee_candidates[i];
+      const auto& [eai, ebi] = ee_candidate;
+      long ea0i = E(eai, 0), ea1i = E(eai, 1);
+      long eb0i = E(ebi, 0), eb1i = E(ebi, 1);
+
+      auto dist = [](const Matrix<double, 2, DIM>& a,
+                    const Matrix<double, 2, DIM>& b) {
+        EdgeEdgeDistanceType dtype = edge_edge_distance_type(
+            a.row(0), a.row(1), b.row(0), b.row(1));
+
+        DistanceMode dmode = DistanceMode::SQRT;
+        double distance = edge_edge_distance(
+            a.row(0), a.row(1), b.row(0), b.row(1), dtype, dmode);
+
+        return distance;
+      };
+
+      Matrix<double, 2, DIM> x_a, x_b, p_a, p_b;
+      x_a.row(0) = V1.row(ea0i);
+      x_a.row(1) = V1.row(ea1i);
+      x_b.row(0) = V1.row(eb0i);
+      x_b.row(1) = V1.row(eb1i);
+      p_a.row(0) = P.row(ea0i);
+      p_a.row(1) = P.row(ea1i);
+      p_b.row(0) = P.row(eb0i);
+      p_b.row(1) = P.row(eb1i);
+      double t;
+      if (accd_primitive(x_a, x_b, p_a, p_b, dist, t)) {
+        min_step = std::min(min_step,t);
+      }
+    }
+
+    // Face-vertex distance checks
+    #pragma omp parallel for reduction(min : min_step)
+    for (size_t i = 0; i < candidates.fv_candidates.size(); ++i) {
+      const auto& fv_candidate = candidates.fv_candidates[i];
+      const auto& [fi, vi] = fv_candidate;
+      long f0i = F(fi, 0), f1i = F(fi, 1), f2i = F(fi, 2);
+
+      auto dist = [](const Matrix<double, 1, DIM>& a,
+                    const Matrix<double, 3, DIM>& b) {
+        // Compute distance type
+        PointTriangleDistanceType dtype = point_triangle_distance_type(
+            a.row(0), b.row(0), b.row(1), b.row(2));
+
+        DistanceMode dmode = DistanceMode::SQRT;
+
+        double distance = point_triangle_distance(
+            a.row(0), b.row(0), b.row(1), b.row(2), dtype, dmode);
+
+        return distance;
+      };
+
+      Matrix<double, 1, DIM> x_a, p_a;
+      Matrix<double, 3, DIM> x_b, p_b;
+      x_a.row(0) = V1.row(vi);
+      x_b.row(0) = V1.row(f0i);
+      x_b.row(1) = V1.row(f1i);
+      x_b.row(2) = V1.row(f2i);
+      p_a.row(0) = P.row(vi);
+      p_b.row(0) = P.row(f0i);
+      p_b.row(1) = P.row(f1i);
+      p_b.row(2) = P.row(f2i);
+      double t;
+      if (accd_primitive(x_a, x_b, p_a, p_b, dist, t)) {
+        min_step = std::min(min_step,t);
+      }
     }
   }
-
-  // Edge-edge distance checks
-  #pragma omp parallel for reduction(min : min_step)
-  for (size_t i = 0; i < candidates.ee_candidates.size(); ++i) {
-    const auto& ee_candidate = candidates.ee_candidates[i];
-    const auto& [eai, ebi] = ee_candidate;
-    long ea0i = E(eai, 0), ea1i = E(eai, 1);
-    long eb0i = E(ebi, 0), eb1i = E(ebi, 1);
-
-    auto dist = [](const Matrix<double, 2, DIM>& a,
-                   const Matrix<double, 2, DIM>& b) {
-      EdgeEdgeDistanceType dtype = edge_edge_distance_type(
-          a.row(0), a.row(1), b.row(0), b.row(1));
-
-      DistanceMode dmode = DistanceMode::SQRT;
-      double distance = edge_edge_distance(
-          a.row(0), a.row(1), b.row(0), b.row(1), dtype, dmode);
-
-      return distance;
-    };
-
-    Matrix<double, 2, DIM> x_a, x_b, p_a, p_b;
-    x_a.row(0) = V1.row(ea0i);
-    x_a.row(1) = V1.row(ea1i);
-    x_b.row(0) = V1.row(eb0i);
-    x_b.row(1) = V1.row(eb1i);
-    p_a.row(0) = P.row(ea0i);
-    p_a.row(1) = P.row(ea1i);
-    p_b.row(0) = P.row(eb0i);
-    p_b.row(1) = P.row(eb1i);
-    double t;
-    if (accd_primitive(x_a, x_b, p_a, p_b, dist, t)) {
-      min_step = std::min(min_step,t);
-      // std::cout << "ACCD PRIMITIVE: " << t << std::endl;
-    }
-  }
+  
   return min_step;
 }
 
 // Explicit instantiation for 2D/3D          
 template double ipc::additive_ccd<3>(const VectorXd& x1,
-        const VectorXd& x2, const ipc::CollisionMesh& mesh);
+        const VectorXd& x2, const ipc::CollisionMesh& mesh, double dhat);
 template double ipc::additive_ccd<2>(const VectorXd& x1,
-        const VectorXd& x2, const ipc::CollisionMesh& mesh);        
+        const VectorXd& x2, const ipc::CollisionMesh& mesh, double dhat);        

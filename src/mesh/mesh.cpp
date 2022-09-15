@@ -52,6 +52,7 @@ Mesh::Mesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
     std::shared_ptr<MaterialModel> material)
     : V_(V), Vref_(V), Vinit_(V), T_(T), material_(material) {
 
+  mat_ids_.resize(0);
   is_fixed_.resize(V_.rows());
   is_fixed_.setZero();
   bbox.setZero();
@@ -110,9 +111,10 @@ void Mesh::init() {
   if (dim == 2) {
     igl::oriented_facets(T_, E);
   } else {
-    igl::boundary_facets(T_, F);
+    // igl::boundary_facets(T_, F);
     // igl::oriented_facets(F, E);
-    igl::edges(F, E);
+    // igl::edges(F, E);
+    igl::edges(T_, E);
   }
   ipc_mesh_ = ipc::CollisionMesh::build_from_full_mesh(V_, E, F);
   // TODO can_collide

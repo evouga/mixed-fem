@@ -4,7 +4,8 @@
 
 namespace mfem {
 
-  // Standard neohookean material model
+  // Isotropic Fung-elastic material model
+  // https://en.wikipedia.org/wiki/Soft_tissue#Fung-elastic_material
   class Fung : public MaterialModel {
   public:
     
@@ -13,7 +14,9 @@ namespace mfem {
     }
 
     Fung(const std::shared_ptr<MaterialConfig>& config)
-        : MaterialModel(config) {}
+        : MaterialModel(config) {
+      std::cout << "Creating Fung Material Model" << std::endl;
+    }
 
     double energy(const Eigen::Vector6d& S) override; 
     Eigen::Vector6d gradient(const Eigen::Vector6d& S) override; 

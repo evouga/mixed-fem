@@ -42,24 +42,25 @@ void NewtonOptimizer<DIM>::step() {
       VectorXd p = state_.mesh_->projection_matrix().transpose() 
           * state_.x_->delta();
 
-      alpha = 0.9 * ipc::additive_ccd<DIM>(x1, p, state_.mesh_->collision_mesh());
+      alpha = 0.9 * ipc::additive_ccd<DIM>(x1, p,
+          state_.mesh_->collision_mesh(), state_.config_->dhat);
       state_.data_.add("ACCD ", alpha);
       state_.data_.timer.stop("ACCD");
 
       state_.data_.timer.start("ACCD2");
-      MatrixXd V1 = Map<const MatrixXd>(x1.data(), DIM,
-          state_.mesh_->V_.rows());
-      V1.transposeInPlace();
-      VectorXd x2 = x1 + p;
-      MatrixXd V2 = Map<const MatrixXd>(x2.data(), DIM,
-          state_.mesh_->V_.rows());
-      V2.transposeInPlace();
+      // MatrixXd V1 = Map<const MatrixXd>(x1.data(), DIM,
+      //     state_.mesh_->V_.rows());
+      // V1.transposeInPlace();
+      // VectorXd x2 = x1 + p;
+      // MatrixXd V2 = Map<const MatrixXd>(x2.data(), DIM,
+      //     state_.mesh_->V_.rows());
+      // V2.transposeInPlace();
 
-      V1 = state_.mesh_->collision_mesh().vertices(V1);
-      V2 = state_.mesh_->collision_mesh().vertices(V2);
+      // V1 = state_.mesh_->collision_mesh().vertices(V1);
+      // V2 = state_.mesh_->collision_mesh().vertices(V2);
 
-      alpha = 0.9 * ipc::compute_collision_free_stepsize(
-          state_.mesh_->collision_mesh(), V1, V2);
+      // alpha = 0.9 * ipc::compute_collision_free_stepsize(
+      //     state_.mesh_->collision_mesh(), V1, V2);
       state_.data_.add("ACCD2 ", alpha);
       state_.data_.timer.stop("ACCD2");
     }

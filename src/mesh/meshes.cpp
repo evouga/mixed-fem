@@ -29,6 +29,7 @@ Meshes::Meshes(const std::vector<std::shared_ptr<Mesh>>& meshes)
   Vinit_.resize(num_V, m);
   T_.resize(num_T, n);
   mat_ids_.resize(num_T);
+  mat_ids_.setZero();
 
   size_t start_V = 0;
   size_t start_T = 0;
@@ -67,7 +68,7 @@ Meshes::Meshes(const std::vector<std::shared_ptr<Mesh>>& meshes)
       }
     }
   }
-  BoundaryConditions<3>::init_boundary_groups(Vref_, bc_groups_, 0.11);
+  // BoundaryConditions<3>::init_boundary_groups(Vref_, bc_groups_, 0.11);
   P_ = pinning_matrix(V_, T_, is_fixed_);
 
   igl::boundary_facets(T_, F_);

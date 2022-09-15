@@ -6,5 +6,6 @@
 namespace ipc {
   template <int DIM>
   double additive_ccd(const Eigen::VectorXd& x, const Eigen::VectorXd& p,
-      const ipc::CollisionMesh& mesh);    
+      const ipc::CollisionMesh& mesh, double dhat);    
+
 }

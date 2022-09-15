@@ -1,20 +1,4 @@
-d=2;
-q = sym('q',[d*3,1]);
-assume(q,'real');
-
-% a = q(1:d);
-% b = q(d+1:2*d);
-% p = q(2*d+1:3*d);
-% 
-% v = b - a;
-% w = p - a;
-% 
-% c1 = dot(w,v);
-% c2 = dot(v,v);
-% assume(c2 > 0)
-% c = c1 / c2;
-% d = norm(p - (a + c*v));
-
+%% Point - 
 d=2;
 q = sym('q',[d*3,1]);
 assume(q,'real');

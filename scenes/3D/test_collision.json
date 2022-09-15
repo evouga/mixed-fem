@@ -6,8 +6,8 @@
   "optimizer": "newton",
   "time_integrator": "BDF1",
   "linear_solver": "cholmod",
-  "enable_ccd": false,
-  "dhat": 0.01,
+  "enable_ccd": true,
+  "dhat": 0.001,
   "kappa": 1e5,
   "boundary_condition": "hangends",
   "max_newton_iterations": 10,
@@ -38,6 +38,6 @@
       "energy": "Stable-Neohookean"
     }
   ],
-  "mixed_variables": ["mixed-stretch"],
+  "mixed_variables": ["mixed-stretch","mixed-collision"],
   "variables": []
 }
