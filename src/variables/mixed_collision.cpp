@@ -158,10 +158,10 @@ void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
 
   // std::cout << "T\n: " << T_ << std::endl;
   if (nframes_ > 0) {
-    std::cout << "la max: " << la_.maxCoeff() 
-              << " min: " << la_.minCoeff() << std::endl;
-    std::cout << "d min: " << d_.minCoeff() << std::endl;
-    std::cout << "D min: " << D_.minCoeff() << std::endl;
+    // std::cout << "la max: " << la_.maxCoeff() 
+    //           << " min: " << la_.minCoeff() << std::endl;
+    // std::cout << "d min: " << d_.minCoeff() << std::endl;
+    // std::cout << "D min: " << D_.minCoeff() << std::endl;
   }
 
   // std::cout << "num constraints: "<< constraints_.num_constraints() << std::endl;
@@ -214,8 +214,10 @@ void MixedCollision<DIM>::update_derivatives(const MatrixXd& V, double dt) {
     //     ipc::DistanceMode::SQRT);
     // sim::simple_psd_fix(distance_hess, 0.0);
 
+    H_(i) = std::max(H_(i), 1e-6);
+
     Aloc[i] = dd_dx_[i] * H_(i) * dd_dx_[i].transpose();// + distance_hess;
-    sim::simple_psd_fix(Aloc[i]);
+    // sim::simple_psd_fix(Aloc[i]);
 
     // Gradient with respect to x variable
     gloc[i] = -dd_dx_[i] * la_(i);
@@ -302,6 +304,13 @@ void MixedCollision<DIM>::solve(const VectorXd& dx) {
 
   // Compute mixed variable descent direction
   delta_ = -(la_ + g_).array() / H_.array();
+  if (delta_.hasNaN()) {
+    std::cout << "la_: " << la_ << std::endl;
+    std::cout << "g_: " << g_ << std::endl;
+    std::cout << "H_: " << H_ << std::endl;
+
+    exit(1);
+  }
   data_.timer.stop("local");
 }
 

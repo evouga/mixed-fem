@@ -111,7 +111,7 @@ void Mesh::init() {
   if (dim == 2) {
     igl::oriented_facets(T_, E);
   } else {
-    // igl::boundary_facets(T_, F);
+    igl::boundary_facets(T_, F);
     // igl::oriented_facets(F, E);
     // igl::edges(F, E);
     igl::edges(T_, E);

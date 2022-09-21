@@ -17,16 +17,11 @@ void NewtonOptimizer<DIM>::step() {
 
   int i = 0;
   double grad_norm;
-  double E = 0, E_prev = 0;
+  double E = 0, E_prev = 0, res = 0;
   do {
 
     // Update gradient and hessian
     update_system();
-
-    // Record initial energies
-    // E = energy(x_, s_, la_);
-    double res = std::abs((E - E_prev) / (E+1));
-    E_prev = E;
 
     // Solve linear system
     substep(grad_norm);
@@ -71,6 +66,7 @@ void NewtonOptimizer<DIM>::step() {
       Eigen::VectorXd x0 = state.x_->value() + a * state.x_->delta();
       double val = state.x_->energy(x0);
       state.x_->unproject(x0);
+
       for (const auto& var : state.mixed_vars_) {
         const Eigen::VectorXd si = var->value() + a * var->delta();
         val += h2 * var->energy(x0, si) - var->constraint_value(x0, si);  
@@ -80,6 +76,11 @@ void NewtonOptimizer<DIM>::step() {
       }
       return val;
     };
+
+    // Record initial energies
+    E = energy_func(0.0);
+    res = std::abs((E - E_prev) / (E+1e-6));
+    E_prev = E;
 
     // Linesearch on descent direction
     state_.data_.timer.start("LS");
@@ -98,7 +99,7 @@ void NewtonOptimizer<DIM>::step() {
 
   } while (i < state_.config_->outer_steps
       && grad_norm > state_.config_->newton_tol
-    /*`&& (res > 1e-12)*/);
+      && (res > 1e-16));
 
   if (state_.config_->show_data) {
     state_.data_.print_data(state_.config_->show_timing);

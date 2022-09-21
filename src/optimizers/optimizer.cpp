@@ -11,7 +11,8 @@ void Optimizer<DIM>::reset() {
   state_.mesh_->clear_fixed_vertices();
   
   BoundaryConditions<DIM>::init_boundary_groups(state_.mesh_->Vref_,
-      state_.mesh_->bc_groups_, 0.01); // .01, hang for astronaut
+      state_.mesh_->bc_groups_, 0.11); // .01, hang for astronaut
+      // state_.mesh_->bc_groups_, 0.01); // .01, hang for astronaut
 
   state_.BCs_.set_script(state_.config_->bc_type);
   state_.BCs_.init_script(state_.mesh_);

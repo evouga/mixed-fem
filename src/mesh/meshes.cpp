@@ -77,8 +77,6 @@ Meshes::Meshes(const std::vector<std::shared_ptr<Mesh>>& meshes)
 }
 
 void Meshes::init() {
-  std::cout << "Meshes::init()" << std::endl;
-
   // Initialize each individual mesh before initialize this object
   for (size_t i = 0; i < meshes_.size(); ++i) {
     meshes_[i]->init();
@@ -111,7 +109,6 @@ void Meshes::mass_matrix(SparseMatrixdRowMajor& M,
   for (size_t i = 0; i < meshes_.size(); ++i) {
     Ms[i] = meshes_[i]->mass_matrix();
   }
-  std::cout << "meshes size: " << meshes_.size() << std::endl;
   build_block_diagonal(M_, Ms);
   M = M_;
 }

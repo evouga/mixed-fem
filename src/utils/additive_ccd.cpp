@@ -100,6 +100,7 @@ double ipc::additive_ccd(const VectorXd& x, const VectorXd& p,
   // std::cout << "N canddiates: " << candidates.size() << std::endl;
   // std::cout << "EE candidates: " << candidates.ee_candidates.size() << std::endl;
   // std::cout << "EV candidates: " << candidates.ev_candidates.size() << std::endl;
+  // std::cout << "FV candidates: " << candidates.fv_candidates.size() << std::endl;
 
   // Edge-vertex distance checks
   if constexpr (DIM == 2) {

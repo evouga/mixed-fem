@@ -137,6 +137,7 @@ bool SimState<DIM>::load(const nlohmann::json& args) {
 
       std::string path;
       std::vector<double> offset = {0.0, 0.0, 0.0};
+      std::vector<double> transformation;
       uint idx = 0;
       VectorXi material_ids;
       bool has_material_ids = false;
@@ -154,10 +155,10 @@ bool SimState<DIM>::load(const nlohmann::json& args) {
         assert(offset.size() == 3);
       }
 
-      // if (const auto& it = obj.find("material_index"); it != obj.end()) {
-      //   idx = it->get<uint>();
-      //   assert(idx < mat_configs.size());
-      // }
+      if (const auto& it = obj.find("transformation"); it != obj.end()) {
+        transformation = it->get<std::vector<double>>();
+        assert(transformation.size() == DIM*DIM);
+      }
       
       if (const auto& it = obj.find("material_ids"); it != obj.end()) {
         std::string mat_path = it->get<std::string>();
@@ -179,6 +180,15 @@ bool SimState<DIM>::load(const nlohmann::json& args) {
       for (int i = 0; i < V.cols(); ++i) {
         V.col(i).array() += offset[i];
       }
+      if (transformation.size() > 0) {
+        Matrix<double,1,DIM> centroid = V.colwise().sum() / V.rows();
+        Matrix<double,DIM,DIM> T = Map<Matrix<double,DIM,DIM>>(
+            transformation.data());
+        V = ((V.rowwise()-centroid)*T.transpose()).rowwise() + centroid;
+
+        // V = V * T.transpose();
+      }
+
       if constexpr (DIM == 2) {
         if (has_material_ids) {
           std::cout << "Missing heterogeneous 2Dtrimesh support!" << std::endl;

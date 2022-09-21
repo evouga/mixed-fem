@@ -38,6 +38,7 @@ struct PolyscopTetApp : public PolyscopeApp<3> {
   virtual void simulation_step() {
     vertices.clear();
     frame_faces.clear();
+    frame_tets.clear();
 
     optimizer->step();
     meshV = mesh->vertices();
@@ -182,16 +183,16 @@ struct PolyscopTetApp : public PolyscopeApp<3> {
     meshV = mesh->vertices();
 
     // Hack to export heterogeneous objects right now
-    if (het_faces.size() > 0) {
+    // if (het_faces.size() > 0) {
 
-      for (size_t i = 0; i < het_faces.size(); ++i) {
-        char buffer [50];
-        int n = sprintf(buffer, "../output/obj/tet_%ld_%04d.obj", i, step); 
-        buffer[n] = 0;
-        igl::writeOBJ(std::string(buffer),meshV,het_faces[i]);
-      }
-      return;
-    }
+    //   for (size_t i = 0; i < het_faces.size(); ++i) {
+    //     char buffer [50];
+    //     int n = sprintf(buffer, "../output/obj/tet_%ld_%04d.obj", i, step); 
+    //     buffer[n] = 0;
+    //     igl::writeOBJ(std::string(buffer),meshV,het_faces[i]);
+    //   }
+    //   return;
+    // }
 
     size_t start = 0;
     for (size_t i = 0; i < srfs.size(); ++i) {
