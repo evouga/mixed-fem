@@ -31,7 +31,7 @@ double Collision<DIM>::energy(const VectorXd& x) {
   double dhat_sqr = config_->dhat * config_->dhat;
   double h2 = dt_ * dt_;
   double e = 0;
-
+  // TODO use IPC compute_potential
   // Computing barrier potential for all collision frames
   #pragma omp parallel for reduction( + : e )
   for (size_t i = 0; i < constraints.size(); ++i) {

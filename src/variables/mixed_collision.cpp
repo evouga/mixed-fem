@@ -4,6 +4,7 @@
 #include "config.h"
 #include <unsupported/Eigen/SparseExtra>
 #include <ipc/barrier/barrier.hpp>
+#include "utils/mixed_ipc.h"
 
 using namespace Eigen;
 using namespace mfem;
@@ -123,6 +124,13 @@ void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
   VectorXd d_new(nframes_);
   VectorXd la_new(nframes_);
 
+  // Mixed Constraints - each constraint has local distance mixed variable
+  //  - same compute potential, potential gradient interface but plugs in mixed variable
+  // When building constraint set first construct all mixed constraints in typical way
+  //  - maintain ev_candidates -> constraint map w
+
+
+
   // Rebuilding mixed variables for the new set of collision frames.
   for (int i = 0; i < nframes_; ++i) {
     // Getting collision frame, and computing squared distance.
@@ -207,16 +215,8 @@ void MixedCollision<DIM>::update_derivatives(const MatrixXd& V, double dt) {
     // Mixed barrier energy gradients and hessians
     g_[i] = config_->kappa * ipc::barrier_gradient(d_(i), dhat);
     H_[i] = config_->kappa * ipc::barrier_hessian(d_(i), dhat);
-
-    // Schur complement hessian
-    // ipc::MatrixMax12d distance_hess = -la_(i) * 
-    //     constraints_[i].compute_distance_hessian(V, E, F,
-    //     ipc::DistanceMode::SQRT);
-    // sim::simple_psd_fix(distance_hess, 0.0);
-
-    H_(i) = std::max(H_(i), 1e-6);
-
-    Aloc[i] = dd_dx_[i] * H_(i) * dd_dx_[i].transpose();// + distance_hess;
+    H_(i) = std::max(H_(i), 1e-8);
+    Aloc[i] = dd_dx_[i] * H_(i) * dd_dx_[i].transpose();
     // sim::simple_psd_fix(Aloc[i]);
 
     // Gradient with respect to x variable
