@@ -25,6 +25,9 @@ set( CMAKE_EXPORT_COMPILE_COMMANDS 1 ) # Emit a compile flags file to support co
 
 set(CMAKE_CXX_STANDARD 17)
 
+option(MFEM_WITH_BEANS "Enable Beans simulation" ON)
+
+# TODO separate warnings please
 if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
   # using Clang (linux or apple) or GCC
   message("Using clang/gcc compiler flags")
@@ -144,11 +147,38 @@ FetchContent_Declare(
     GIT_TAG main
 )
 FetchContent_MakeAvailable(ipc_toolkit)
+
 target_link_libraries(mixed_fem_lib ipc::toolkit)
+
+
+if (MFEM_WITH_BEANS)
+  # find_package(embree 3.0 REQUIRED)
+  include(FetchContent)
+  FetchContent_Declare(
+      embree
+      GIT_REPOSITORY https://github.com/embree/embree.git
+      GIT_TAG        v3.13.3
+      GIT_SHALLOW    TRUE
+  )
+
+  # Set Embree's default options
+  option(EMBREE_ISPC_SUPPORT "Build Embree with support for ISPC applications." OFF)
+  option(EMBREE_TUTORIALS    "Enable to build Embree tutorials"                 OFF)
+  option(EMBREE_STATIC_LIB   "Build Embree as a static library."                ON)
+  set(EMBREE_TESTING_INTENSITY 0          CACHE STRING "Intensity of testing (0 = no testing, 1 = verify and tutorials, 2 = light testing, 3 = intensive testing.")
+  set(EMBREE_TASKING_SYSTEM    "INTERNAL" CACHE STRING "Selects tasking system")
+  set(EMBREE_MAX_ISA           "DEFAULT"  CACHE STRING "Selects highest ISA to support.")
+
+  # Ready to include embree's atrocious CMake
+  FetchContent_MakeAvailable(embree)
+  find_package(Geogram REQUIRED)
+  find_package(CGAL REQUIRED)
+  target_link_libraries(mixed_fem_lib Geogram::geogram CGAL::CGAL embree)
+
+endif()
 
 # Add OMP library and includes
 if(OpenMP_CXX_FOUND)
-
     if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
         execute_process(
             COMMAND brew --prefix libomp 
@@ -194,10 +224,6 @@ elseif ()
   target_compile_definitions(mixed_fem_lib PUBLIC -DUSE_SSE_IMPLEMENTATION)
 ENDIF()
 
-# Include settings
-#target_include_directories(mixed_fem_lib PUBLIC 
-# "${CMAKE_CURRENT_SOURCE_DIR}/src")
-
 target_include_directories(mixed_fem_lib SYSTEM PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}/src"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/agmcl"
@@ -206,7 +232,6 @@ target_include_directories(mixed_fem_lib SYSTEM PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope/deps/args"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope/deps/json/include")
 
-# Link settings
 target_link_libraries(mixed_fem_lib polyscope Eigen3::Eigen amgcl::amgcl)
 
 # Create an executable
@@ -236,4 +261,5 @@ target_link_libraries(sim2d mixed_fem_lib)
 
 add_executable(sim3d apps/sim3d.cpp ${SOURCES})
 target_link_libraries(sim3d mixed_fem_lib)
+
 #add_subdirectory(tests)

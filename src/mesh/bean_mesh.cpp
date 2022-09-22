@@ -1,4 +1,4 @@
-#include "tri2d_mesh.h"
+#include "bean_mesh.h"
 #include <igl/doublearea.h>
 #include "linear_tri2dmesh_dphi_dX.h"
 #include "linear_tri2dmesh_mass_matrix.h"
@@ -22,26 +22,34 @@ namespace {
 
 }
 
-Tri2DMesh::Tri2DMesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
+template <int DIM>
+BeanMesh<DIM>::BeanMesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
     std::shared_ptr<MaterialModel> material)
     : Mesh(V,T,material) {
-  assert(V.cols() == 2);
-  sim::linear_tri2dmesh_dphi_dX(dphidX_, Vref_, T_);
+  assert(V.cols() == DIM);
+  // sim::linear_tri2dmesh_dphi_dX(dphidX_, Vref_, T_);
 }
 
-void Tri2DMesh::volumes(Eigen::VectorXd& vol) {
-  igl::doublearea(Vref_, T_, vol);
+template <int DIM>
+void BeanMesh<DIM>::volumes(Eigen::VectorXd& vol) {
+  // igl::doublearea(Vref_, T_, vol);
+  vol = Eigen::VectorXd::Constant(Vref_.rows(), 1.0);
 }
 
-void Tri2DMesh::mass_matrix(Eigen::SparseMatrixdRowMajor& M,
+template <int DIM>
+void BeanMesh<DIM>::mass_matrix(Eigen::SparseMatrixdRowMajor& M,
     const VectorXd& vols) {
+
+  // f(x) = \sum_i = w_i(x) u_i 
+  // w_i(x) = phi_i(x) / \sum_j phi_j(x)
 
   VectorXd densities = VectorXd::Constant(T_.rows(),
       material_->config()->density);
   sim::linear_tri2dmesh_mass_matrix(M, Vref_, T_, densities, vols);
 }
 
-void Tri2DMesh::init_jacobian() {
+template <int DIM>
+void BeanMesh<DIM>::init_jacobian() {
   Jloc_.resize(T_.rows());
 
   std::vector<Triplet<double>> trips;
@@ -72,17 +80,23 @@ void Tri2DMesh::init_jacobian() {
   J_.setFromTriplets(trips.begin(),trips.end());  
 }
 
-
-void Tri2DMesh::jacobian(SparseMatrixdRowMajor& J, const VectorXd& vols,
+template <int DIM>
+void BeanMesh<DIM>::jacobian(SparseMatrixdRowMajor& J, const VectorXd& vols,
       bool weighted) {
-  std::cerr << "Tri2DMesh::jacobian(J, vols, weighted) unimplemented" << std::endl;
+  std::cerr << "BeanMesh::jacobian(J, vols, weighted) unimplemented" << std::endl;
 }
 
-void Tri2DMesh::jacobian(std::vector<MatrixXd>& J) {
-  std::cerr << "Tri2DMesh::jacobian(J) unimplemented" << std::endl;
+template <int DIM>
+void BeanMesh<DIM>::jacobian(std::vector<MatrixXd>& J) {
+  std::cerr << "BeanMesh::jacobian(J) unimplemented" << std::endl;
 }
 
-void Tri2DMesh::deformation_gradient(const VectorXd& x, VectorXd& F) {
+template <int DIM>
+void BeanMesh<DIM>::deformation_gradient(const VectorXd& x, VectorXd& F) {
   assert(x.size() == J_.cols());
   F = J_ * x;
 }
+
+
+template class mfem::BeanMesh<3>;
+template class mfem::BeanMesh<2>;
