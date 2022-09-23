@@ -58,6 +58,49 @@ namespace ipc {
     throw std::out_of_range("Constraint index is out of range!");
   }
 
+  double& MixedConstraints::lambda(size_t idx) {
+    if (idx < ev_constraints.size()) {
+        return ev_lambdas[idx];
+    }
+    idx -= ev_constraints.size();
+    if (idx < ee_constraints.size()) {
+        return ee_lambdas[idx];
+    }
+    idx -= ee_constraints.size();
+    if (idx < fv_constraints.size()) {
+        return fv_lambdas[idx];
+    }
+    throw std::out_of_range("Constraint index is out of range!");
+  }
+
+  const double& MixedConstraints::lambda(size_t idx) const {
+    if (idx < ev_constraints.size()) {
+        return ev_lambdas[idx];
+    }
+    idx -= ev_constraints.size();
+    if (idx < ee_constraints.size()) {
+        return ee_lambdas[idx];
+    }
+    idx -= ee_constraints.size();
+    if (idx < fv_constraints.size()) {
+        return fv_lambdas[idx];
+    }
+    throw std::out_of_range("Constraint index is out of range!");
+  }
+
+  void MixedConstraints::update_distances(const Eigen::VectorXd& distances) {
+    assert(distances.size() == size());
+    for (size_t i = 0; i < distances.size(); ++i) {
+      distance(i) = distances(i);
+    }
+  }
+  
+  void MixedConstraints::update_lambdas(const Eigen::VectorXd& lambdas) {
+    assert(lambdas.size() == size());
+    for (size_t i = 0; i < lambdas.size(); ++i) {
+      lambda(i) = lambdas(i);
+    }
+  }
 
   template <typename Hash>
   void add_vertex_vertex_constraint(
@@ -81,36 +124,15 @@ namespace ipc {
     }
   }
 
-  template <typename Hash>
-  void add_edge_vertex_constraint(
-      std::vector<EdgeVertexConstraint> &ev_constraints,
-      unordered_map<EdgeVertexConstraint, long, Hash> &ev_to_index,
-      const long ei,
-      const long vi)
-  {
-    EdgeVertexConstraint ev_constraint(ei, vi);
-    auto found_item = ev_to_index.find(ev_constraint);
-    if (found_item != ev_to_index.end())
-    {
-      // Constraint already exists, so increase multiplicity
-      ev_constraints[found_item->second].multiplicity++;
-    }
-    else
-    {
-      // New constraint, so add it to the end of vv_constraints
-      ev_to_index.emplace(ev_constraint, ev_constraints.size());
-      ev_constraints.push_back(ev_constraint);
-    }
-  }
-
   template <typename T>
   void create_constraint_map(const std::vector<T>& constraints,
-      const std::vector<double>& distances, unordered_map<T,double>& map) {
+      const std::vector<double>& distances, 
+      const std::vector<double>& lambdas, 
+      unordered_map<T,std::pair<double,double>>& map) {
 
     for (size_t i = 0; i < constraints.size(); ++i) {
-      map.emplace(constraints[i], distances[i]);
+      map.emplace(constraints[i], std::make_pair(distances[i], lambdas[i]));
     }  
-
   }
 
   void construct_constraint_set(
@@ -138,15 +160,15 @@ namespace ipc {
       return distance_sqr < offset_sqr;
     };
 
-    unordered_map<EdgeVertexConstraint, double> ev_map;
-    unordered_map<EdgeEdgeConstraint, double> ee_map;
-    unordered_map<FaceVertexConstraint, double> fv_map;
+    unordered_map<EdgeVertexConstraint, std::pair<double,double>> ev_map;
+    unordered_map<EdgeEdgeConstraint, std::pair<double,double>> ee_map;
+    unordered_map<FaceVertexConstraint, std::pair<double,double>> fv_map;
     create_constraint_map(constraint_set.ev_constraints,
-        constraint_set.ev_distances, ev_map);
+        constraint_set.ev_distances, constraint_set.ev_lambdas, ev_map);
     create_constraint_map(constraint_set.ee_constraints,
-        constraint_set.ee_distances, ee_map);
+        constraint_set.ee_distances, constraint_set.ee_lambdas, ee_map);
     create_constraint_map(constraint_set.fv_constraints,
-        constraint_set.fv_distances, fv_map); 
+        constraint_set.fv_distances, constraint_set.fv_lambdas, fv_map); 
     // TODO create ev,ee,fv_map from mixed constraint set
 
     std::mutex vv_mutex, ev_mutex, ee_mutex, fv_mutex;
@@ -179,11 +201,13 @@ namespace ipc {
 
               auto found_item = ev_map.find(constraint);
               if (found_item != ev_map.end()) {
-                double dist = constraint_set.distance(found_item->second);
+                auto& [dist, lambda] = found_item->second;
                 ev_map.erase(constraint);
                 new_constraints.ev_distances.emplace_back(dist);
+                new_constraints.ev_lambdas.emplace_back(lambda);
               } else {
                 new_constraints.ev_distances.emplace_back(std::sqrt(distance_sqr));
+                new_constraints.ev_lambdas.emplace_back(0.0);
               }
             }
           }
@@ -219,12 +243,13 @@ namespace ipc {
 
               auto found_item = ee_map.find(constraint);
               if (found_item != ee_map.end()) {
-                double dist = constraint_set.distance(found_item->second);
+                auto& [dist, lambda] = found_item->second;
                 new_constraints.ee_distances.emplace_back(dist);
+                new_constraints.ee_lambdas.emplace_back(lambda);
                 ee_map.erase(constraint);
-
               } else {
                 new_constraints.ee_distances.emplace_back(std::sqrt(distance_sqr));
+                new_constraints.ee_lambdas.emplace_back(0.0);
               }    
             }
           }
@@ -259,11 +284,13 @@ namespace ipc {
 
               auto found_item = fv_map.find(constraint);
               if (found_item != fv_map.end()) {
-                double dist = constraint_set.distance(found_item->second);
+                auto& [dist, lambda] = found_item->second;
                 fv_map.erase(constraint);
                 new_constraints.fv_distances.emplace_back(dist);
+                new_constraints.fv_lambdas.emplace_back(lambda);
               } else {
                 new_constraints.fv_distances.emplace_back(std::sqrt(distance_sqr));
+                new_constraints.fv_lambdas.emplace_back(0.0);
               }    
             }
           }

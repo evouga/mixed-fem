@@ -4,7 +4,6 @@
 #include "config.h"
 #include <unsupported/Eigen/SparseExtra>
 #include <ipc/barrier/barrier.hpp>
-#include "utils/mixed_ipc.h"
 
 using namespace Eigen;
 using namespace mfem;

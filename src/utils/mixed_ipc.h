@@ -22,10 +22,18 @@ namespace ipc {
 
       double& distance(size_t idx);
       const double& distance(size_t idx) const;
+      double& lambda(size_t idx);
+      const double& lambda(size_t idx) const;
+
+      void update_distances(const Eigen::VectorXd& distances);
+      void update_lambdas(const Eigen::VectorXd& lambdas);
 
       std::vector<double> ev_distances;
       std::vector<double> ee_distances;
       std::vector<double> fv_distances;
+      std::vector<double> ev_lambdas;
+      std::vector<double> ee_lambdas;
+      std::vector<double> fv_lambdas;
 
   };
 

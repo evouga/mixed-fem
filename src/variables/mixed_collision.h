@@ -6,6 +6,7 @@
 #include <iostream>
 #include <set>
 #include "ipc/ipc.hpp"
+#include "utils/mixed_ipc.h"
 
 namespace mfem {
 
@@ -111,7 +112,8 @@ namespace mfem {
     std::shared_ptr<Assembler<double,DIM,-1>> assembler_;
     std::shared_ptr<VecAssembler<double,DIM,-1>> vec_assembler_;
 
-    ipc::Constraints constraints_;
+    ipc::MixedConstraints constraints_;
+    // ipc::Constraints constraints_;
     std::map<std::array<long, 4>, int> frame_map_;
   };
 }
