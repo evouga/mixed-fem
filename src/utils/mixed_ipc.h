@@ -7,14 +7,36 @@
 
 namespace ipc {
 
+  struct MixedConstraints : public Constraints {
+      // std::vector<EdgeVertexConstraint> ev_constraints;
+      // std::vector<EdgeEdgeConstraint> ee_constraints;
+      // std::vector<FaceVertexConstraint> fv_constraints;
+      // // std::vector<
+      // size_t size() const;
+
+      // size_t num_constraints() const;
+
+      // bool empty() const;
+
+      void clear();
+
+      double& distance(size_t idx);
+      const double& distance(size_t idx) const;
+
+      std::vector<double> ev_distances;
+      std::vector<double> ee_distances;
+      std::vector<double> fv_distances;
+
+  };
+
   ///////////////////////////////////////////////////////////////////////////////
 
   struct MixedState {
-    Constraints constraint_set;
-    unordered_map<EdgeVertexCandidate, long> ev_map;
-    unordered_map<EdgeEdgeCandidate, long> ee_map;
-    unordered_map<FaceVertexCandidate, long> fe_map;
-    Eigen::VectorXd d;
+    MixedConstraints constraint_set;
+    // unordered_map<EdgeVertexConstraint, long> ev_map;
+    // unordered_map<EdgeEdgeConstraint, long> ee_map;
+    // unordered_map<FaceVertexConstraint, long> fv_map;
+    // Eigen::VectorXd d;
   };
 
   /// @brief Construct a set of constraints used to compute the barrier potential.
@@ -29,8 +51,7 @@ namespace ipc {
       const CollisionMesh& mesh,
       const Eigen::MatrixXd& V,
       const double dhat,
-      Constraints& constraint_set,
-      MixedState& state,
+      MixedConstraints& constraint_set,
       const double dmin = 0);
 
 

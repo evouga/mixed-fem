@@ -31,7 +31,6 @@ Tri2DMesh::Tri2DMesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
 
 void Tri2DMesh::volumes(Eigen::VectorXd& vol) {
   igl::doublearea(Vref_, T_, vol);
-  vol.array() *= (material_->config()->thickness/2);
 }
 
 void Tri2DMesh::mass_matrix(Eigen::SparseMatrixdRowMajor& M,
