@@ -26,6 +26,9 @@ namespace ipc {
       ev_distances.clear();
       ee_distances.clear();
       fv_distances.clear();
+      ev_lambdas.clear();
+      ee_lambdas.clear();
+      fv_lambdas.clear();
   }
 
   double& MixedConstraints::distance(size_t idx) {

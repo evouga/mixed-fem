@@ -36,7 +36,7 @@ void NewtonOptimizer<DIM>::step() {
       state_.x_->unproject(x1);
       VectorXd p = state_.mesh_->projection_matrix().transpose() 
           * state_.x_->delta();
-
+      // std::cout << "x1 norm: " << x1.norm() << " p norm: " << p.norm() << std::endl;
       alpha = 0.9 * ipc::additive_ccd<DIM>(x1, p,
           state_.mesh_->collision_mesh(), state_.config_->dhat);
       state_.data_.add("ACCD ", alpha);

@@ -26,7 +26,7 @@
   ],
   "material_models": [
     {
-      "youngs_modulus": 79e9,
+      "youngs_modulus": 79e5,
       "poissons_ratio": 0.42,
       "density": 1e5,
       "energy": "Stable-Neohookean"

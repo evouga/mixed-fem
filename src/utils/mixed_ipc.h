@@ -28,6 +28,22 @@ namespace ipc {
       void update_distances(const Eigen::VectorXd& distances);
       void update_lambdas(const Eigen::VectorXd& lambdas);
 
+      Eigen::VectorXd get_distances() const {
+        Eigen::VectorXd x(size());
+        for (int i = 0; i < x.size(); ++i) {
+          x(i) = distance(i);
+        }
+        return x;
+      }
+
+      Eigen::VectorXd get_lambdas() const {
+        Eigen::VectorXd x(size());
+        for (int i = 0; i < x.size(); ++i) {
+          x(i) = lambda(i);
+        }
+        return x;
+      }
+
       std::vector<double> ev_distances;
       std::vector<double> ee_distances;
       std::vector<double> fv_distances;

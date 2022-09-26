@@ -17,39 +17,24 @@ double MixedCollision<DIM>::energy(const VectorXd& x, const VectorXd& d) {
   
   // Get IPC mesh and face/edge/vertex data
   const auto& ipc_mesh = mesh_->collision_mesh();
-  const Eigen::MatrixXi& E = ipc_mesh.edges();
-  const Eigen::MatrixXi& F = ipc_mesh.faces();
   MatrixXd V_srf = ipc_mesh.vertices(V); // surface vertex set
 
   // Computing collision constraints
-  ipc::Constraints constraints;
+  ipc::MixedConstraints constraints = constraints_;
+  constraints.update_distances(d);
   ipc::Candidates candidates;
   ipc::construct_collision_candidates(
       ipc_mesh, V_srf, candidates, config_->dhat * 1.1);
   ipc::construct_constraint_set(candidates, ipc_mesh, V_srf, config_->dhat,
       constraints);
 
-
-  double dhat = config_->dhat;
   double h2 = dt_*dt_;
   double e = 0;
 
   #pragma omp parallel for reduction( + : e )
   for (size_t i = 0; i < constraints.size(); ++i) {
-    double di = 0;
-    // Find if this frame already exists, and use the mixed distance
-    // variable if found.
-    std::array<long, 4> ids = constraints[i].vertex_indices(E, F);
-    if (auto it = frame_map_.find(ids); it != frame_map_.end()) {
-      int idx = it->second;
-      di = d(idx);
-    } else {
-      // If mixed variable for this frame does not exist,
-      // compute the distance based on nodal positions.
-      di = constraints[i].compute_distance(V_srf, E, F,
-          ipc::DistanceMode::SQRT);
-    }
-    e += config_->kappa * ipc::barrier(di, dhat) / h2;
+    double di = constraints.distance(i);
+    e += config_->kappa * ipc::barrier(di, config_->dhat) / h2;
   }
   return e;
 }
@@ -82,7 +67,7 @@ double MixedCollision<DIM>::constraint_value(const VectorXd& x,
     // Make sure constraint is still valid
     double D = constraints_[i].compute_distance(V_srf, E, F,
         ipc::DistanceMode::SQRT);
-    if (D <= dhat) {
+    if (D <= dhat || d(i) <= dhat) {
       e += la_(i) * (D - d(i));
     }
   }
@@ -108,6 +93,8 @@ void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
 
   // Computing collision constraints
   // ipc::construct_constraint_set(ipc_mesh, V_srf, config_->dhat, constraints_)
+  constraints_.update_distances(d_);
+  constraints_.update_lambdas(la_);
   ipc::Candidates candidates;
   ipc::construct_collision_candidates(
       ipc_mesh, V_srf, candidates, config_->dhat * 1.1);
@@ -123,52 +110,32 @@ void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
   VectorXd d_new(nframes_);
   VectorXd la_new(nframes_);
 
-  // Mixed Constraints - each constraint has local distance mixed variable
-  //  - same compute potential, potential gradient interface but plugs in mixed variable
-  // When building constraint set first construct all mixed constraints in typical way
-  //  - maintain ev_candidates -> constraint map w
-
-
-
   // Rebuilding mixed variables for the new set of collision frames.
   for (int i = 0; i < nframes_; ++i) {
     // Getting collision frame, and computing squared distance.
     std::array<long, 4> ids = constraints_[i].vertex_indices(E, F);
-    double D = constraints_[i].compute_distance(V_srf, E, F,
-        ipc::DistanceMode::SQRT);
-    double la = 0;
-    double d = D;
 
     // Add entry in element matrix. Used for assembly.
     for (int j = 0; j < 4; ++j) {
       T_(i,j) = ids[j];
     }
-
-    // Find if this frame already exists. If so, set the mixed variable
-    // and lagrange multiplier value to their values from the previous
-    // step.
-    if (auto it = frame_map_.find(ids); it != frame_map_.end()) {
-      int idx = it->second;
-      la = la_(idx);
-      d = d_(idx);
-    }
-    D_(i) = D;
-    d_new(i) = d;
-    la_new(i) = la;
+  // TODO compute_distance_gradient
+  // SHOULD be doing dtype
+    D_(i) = constraints_[i].compute_distance(V_srf, E, F,
+        ipc::DistanceMode::SQRT);
     dd_dx_[i] = constraints_[i].compute_distance_gradient(V_srf, E, F,
         ipc::DistanceMode::SQRT);
-    new_frame_map[ids] = i;
   }
-  d_ = d_new;
-  la_ = la_new;
-  std::swap(new_frame_map, frame_map_);
+  d_ = constraints_.get_distances();
+  la_ = constraints_.get_lambdas();
 
-  // std::cout << "T\n: " << T_ << std::endl;
   if (nframes_ > 0) {
-    // std::cout << "la max: " << la_.maxCoeff() 
-    //           << " min: " << la_.minCoeff() << std::endl;
-    // std::cout << "d min: " << d_.minCoeff() << std::endl;
-    // std::cout << "D min: " << D_.minCoeff() << std::endl;
+    std::cout << "T\n: " << T_ << std::endl;
+
+    std::cout << "la max: " << la_.maxCoeff() 
+              << " min: " << la_.minCoeff() << std::endl;
+    std::cout << "d min: " << d_.minCoeff() << std::endl;
+    std::cout << "D min: " << D_.minCoeff() << std::endl;
   }
 
   // std::cout << "num constraints: "<< constraints_.num_constraints() << std::endl;
@@ -330,9 +297,12 @@ void MixedCollision<DIM>::reset() {
 
 template<int DIM>
 void MixedCollision<DIM>::post_solve() {
+  d_.resize(0);
+  la_.resize(0);
   la_.setZero();
   dd_dx_.clear();
   frame_map_.clear();
+  constraints_.clear();
 }
 
 template class mfem::MixedCollision<3>; // 3D
