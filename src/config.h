@@ -52,30 +52,30 @@ namespace mfem {
   };
 
   enum MaterialModelType { 
-      MATERIAL_SNH,   // Stable neohookean
-      MATERIAL_NH,    // neohookean
-      MATERIAL_COROT, // corotational
-      MATERIAL_ARAP,  // as-rigid-as possible
-      MATERIAL_FUNG   // exponential
+    MATERIAL_SNH,   // Stable neohookean
+    MATERIAL_NH,    // neohookean
+    MATERIAL_COROT, // corotational
+    MATERIAL_ARAP,  // as-rigid-as possible
+    MATERIAL_FUNG   // exponential
   };
 
   enum BCScriptType {
-      BC_NULL,
-      BC_SCALEF,
-      BC_HANG,
-      BC_HANGENDS,
-      BC_STRETCH,
-      BC_SQUASH,
-      BC_STRETCHNSQUASH,
-      BC_BEND,
-      BC_TWIST,
-      BC_TWISTNSTRETCH,
-      BC_TWISTNSNS,
-      BC_TWISTNSNS_OLD,
-      BC_RUBBERBANDPULL,
-      BC_ONEPOINT,
-      BC_RANDOM,
-      BC_FALL,
+    BC_NULL,
+    BC_SCALEF,
+    BC_HANG,
+    BC_HANGENDS,
+    BC_STRETCH,
+    BC_SQUASH,
+    BC_STRETCHNSQUASH,
+    BC_BEND,
+    BC_TWIST,
+    BC_TWISTNSTRETCH,
+    BC_TWISTNSNS,
+    BC_TWISTNSNS_OLD,
+    BC_RUBBERBANDPULL,
+    BC_ONEPOINT,
+    BC_RANDOM,
+    BC_FALL,
   };
   
   
@@ -132,6 +132,13 @@ namespace mfem {
     double la = (ym*pr)/((1.0+pr)*(1.0-2.0*pr));
     double density = 1000.0;
     double thickness = 1e-3;
+  };
+
+  struct BoundaryConditionConfig {
+    BCScriptType type;
+    double ratio;
+    int axis;
+
   };
 
 }

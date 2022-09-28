@@ -106,6 +106,7 @@ add_subdirectory("deps/polyscope")
 file(GLOB SOURCES 
     ${PROJECT_SOURCE_DIR}/src/*.cpp 
     ${PROJECT_SOURCE_DIR}/src/svd/*.cpp 
+    ${PROJECT_SOURCE_DIR}/src/boundary_conditions/*.cpp 
     ${PROJECT_SOURCE_DIR}/src/energies/*.cpp
     ${PROJECT_SOURCE_DIR}/src/optimizers/*.cpp
     ${PROJECT_SOURCE_DIR}/src/variables/*.cpp
