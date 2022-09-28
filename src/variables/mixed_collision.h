@@ -73,7 +73,7 @@ namespace mfem {
       return nframes_;
     }
 
-    const ipc::Constraints& frames() const {
+    const ipc::MixedConstraints& frames() const {
       return constraints_;
     }
 

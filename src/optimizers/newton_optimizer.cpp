@@ -99,7 +99,7 @@ void NewtonOptimizer<DIM>::step() {
 
   } while (i < state_.config_->outer_steps
       && grad_norm > state_.config_->newton_tol
-      && (res > 1e-16));
+      && (res > 1e-12));
 
   if (state_.config_->show_data) {
     state_.data_.print_data(state_.config_->show_timing);

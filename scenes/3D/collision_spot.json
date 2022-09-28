@@ -50,7 +50,7 @@
     {
       "youngs_modulus": 1e9,
       "poissons_ratio": 0.45,
-      "density": 3e3,
+      "density": 2e4,
       "energy": "Stable-Neohookean"
     }
   ],

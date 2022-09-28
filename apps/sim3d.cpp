@@ -117,7 +117,7 @@ struct PolyscopTetApp : public PolyscopeApp<3> {
     std::vector<std::vector<int>> tets;
     
     // Add collision frames
-    const ipc::Constraints& frames = c->frames();
+    const auto& frames = c->frames();
     for (int i = 0; i < n; ++i) {
       std::array<long, 4> ids = frames[i].vertex_indices(E, F);
       std::vector<int> ids_full;

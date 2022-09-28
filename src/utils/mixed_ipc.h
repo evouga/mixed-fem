@@ -7,19 +7,87 @@
 
 namespace ipc {
 
-  struct MixedConstraints : public Constraints {
-      // std::vector<EdgeVertexConstraint> ev_constraints;
-      // std::vector<EdgeEdgeConstraint> ee_constraints;
-      // std::vector<FaceVertexConstraint> fv_constraints;
-      // // std::vector<
-      // size_t size() const;
+  struct MixedConstraint {
+    double distance;
+    double lambda;
+  };
+
+  struct EdgeVertexMixedConstraint : EdgeVertexConstraint, MixedConstraint {
+    EdgeVertexMixedConstraint(long edge_index, long vertex_index);
+    EdgeVertexMixedConstraint(const EdgeVertexCandidate& candidate);
+
+    double compute_distance(
+        const Eigen::MatrixXd& V,
+        const Eigen::MatrixXi& E,
+        const Eigen::MatrixXi& F,
+        const DistanceMode dmode = DistanceMode::SQUARED) const override;
+
+    VectorMax12d compute_distance_gradient(
+        const Eigen::MatrixXd& V,
+        const Eigen::MatrixXi& E,
+        const Eigen::MatrixXi& F,
+        const DistanceMode dmode = DistanceMode::SQUARED) const override;
+
+    MatrixMax12d compute_distance_hessian(
+        const Eigen::MatrixXd& V,
+        const Eigen::MatrixXi& E,
+        const Eigen::MatrixXi& F,
+        const DistanceMode dmode = DistanceMode::SQUARED) const override;
+
+    PointEdgeDistanceType dtype;
+  };
+
+  ///////////////////////////////////////////////////////////////////////////////
+
+  struct FaceVertexMixedConstraint : FaceVertexConstraint, MixedConstraint {
+    FaceVertexMixedConstraint(long face_index, long vertex_index);
+    FaceVertexMixedConstraint(const FaceVertexCandidate& candidate);
+
+    double compute_distance(
+        const Eigen::MatrixXd& V,
+        const Eigen::MatrixXi& E,
+        const Eigen::MatrixXi& F,
+        const DistanceMode dmode = DistanceMode::SQUARED) const override;
+
+    VectorMax12d compute_distance_gradient(
+        const Eigen::MatrixXd& V,
+        const Eigen::MatrixXi& E,
+        const Eigen::MatrixXi& F,
+        const DistanceMode dmode = DistanceMode::SQUARED) const override;
+
+    MatrixMax12d compute_distance_hessian(
+        const Eigen::MatrixXd& V,
+        const Eigen::MatrixXi& E,
+        const Eigen::MatrixXi& F,
+        const DistanceMode dmode = DistanceMode::SQUARED) const override;
+    
+    PointTriangleDistanceType dtype;
+  };
+
+  ///////////////////////////////////////////////////////////////////////////////
+
+  struct EdgeEdgeMixedConstraint : EdgeEdgeConstraint, MixedConstraint {
+    EdgeEdgeMixedConstraint(long edge0_index, long edge1_index, double eps_x);
+    EdgeEdgeMixedConstraint(const EdgeEdgeCandidate& candidate, double eps_x);
+  };
+
+  ///////////////////////////////////////////////////////////////////////////////
+
+  struct MixedConstraints {
+      std::vector<EdgeVertexMixedConstraint> ev_constraints;
+      std::vector<EdgeEdgeMixedConstraint> ee_constraints;
+      std::vector<FaceVertexMixedConstraint> fv_constraints;
+
+      void clear();
+      size_t size() const;
 
       // size_t num_constraints() const;
 
-      // bool empty() const;
+      bool empty() const;
 
-      void clear();
 
+      CollisionConstraint& operator[](size_t idx);
+      const CollisionConstraint& operator[](size_t idx) const;
       double& distance(size_t idx);
       const double& distance(size_t idx) const;
       double& lambda(size_t idx);
@@ -43,24 +111,6 @@ namespace ipc {
         }
         return x;
       }
-
-      std::vector<double> ev_distances;
-      std::vector<double> ee_distances;
-      std::vector<double> fv_distances;
-      std::vector<double> ev_lambdas;
-      std::vector<double> ee_lambdas;
-      std::vector<double> fv_lambdas;
-
-  };
-
-  ///////////////////////////////////////////////////////////////////////////////
-
-  struct MixedState {
-    MixedConstraints constraint_set;
-    // unordered_map<EdgeVertexConstraint, long> ev_map;
-    // unordered_map<EdgeEdgeConstraint, long> ee_map;
-    // unordered_map<FaceVertexConstraint, long> fv_map;
-    // Eigen::VectorXd d;
   };
 
   /// @brief Construct a set of constraints used to compute the barrier potential.

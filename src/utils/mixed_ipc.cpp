@@ -17,76 +17,223 @@
 
 namespace ipc {
 
-  void MixedConstraints::clear() {
-      vv_constraints.clear();
-      ev_constraints.clear();
-      ee_constraints.clear();
-      fv_constraints.clear();
-      pv_constraints.clear();
-      ev_distances.clear();
-      ee_distances.clear();
-      fv_distances.clear();
-      ev_lambdas.clear();
-      ee_lambdas.clear();
-      fv_lambdas.clear();
+  ///////////////////////////////////////////////////////////////////////////////
+  
+  EdgeVertexMixedConstraint::EdgeVertexMixedConstraint(long edge_index, long vertex_index)
+    : EdgeVertexConstraint(edge_index, vertex_index)
+  {}
+
+  EdgeVertexMixedConstraint::EdgeVertexMixedConstraint(const EdgeVertexCandidate& candidate)
+      : EdgeVertexConstraint(candidate)
+  {}
+
+  double EdgeVertexMixedConstraint::compute_distance(
+      const Eigen::MatrixXd& V,
+      const Eigen::MatrixXi& E,
+      const Eigen::MatrixXi& F,
+      const DistanceMode dmode) const
+  {
+    return point_edge_distance(
+        V.row(vertex_index), V.row(E(edge_index, 0)), V.row(E(edge_index, 1)),
+        dtype, dmode);
   }
 
-  double& MixedConstraints::distance(size_t idx) {
+  VectorMax12d EdgeVertexMixedConstraint::compute_distance_gradient(
+      const Eigen::MatrixXd& V,
+      const Eigen::MatrixXi& E,
+      const Eigen::MatrixXi& F,
+      const DistanceMode dmode) const
+  {
+    VectorMax9d distance_grad;
+    point_edge_distance_gradient(
+        V.row(vertex_index), V.row(E(edge_index, 0)), V.row(E(edge_index, 1)),
+        dtype, dmode, distance_grad);
+    return distance_grad;
+  }
+
+  MatrixMax12d EdgeVertexMixedConstraint::compute_distance_hessian(
+      const Eigen::MatrixXd& V,
+      const Eigen::MatrixXi& E,
+      const Eigen::MatrixXi& F,
+      const DistanceMode dmode) const 
+  {
+    MatrixMax9d distance_hess;
+    point_edge_distance_hessian(
+        V.row(vertex_index), V.row(E(edge_index, 0)), V.row(E(edge_index, 1)),
+        dtype, dmode, distance_hess);
+    return distance_hess;      
+  }
+
+  ///////////////////////////////////////////////////////////////////////////////
+
+  FaceVertexMixedConstraint::FaceVertexMixedConstraint(long face_index,
+      long vertex_index) : FaceVertexConstraint(face_index, vertex_index)
+  {
+  }
+
+  FaceVertexMixedConstraint::FaceVertexMixedConstraint(
+      const FaceVertexCandidate& candidate) : FaceVertexConstraint(candidate)
+  {
+  }
+
+  double FaceVertexMixedConstraint::compute_distance(
+      const Eigen::MatrixXd& V,
+      const Eigen::MatrixXi& E,
+      const Eigen::MatrixXi& F,
+      const DistanceMode dmode) const
+  {
+      // The distance type is known because of construct_constraint_set()
+      return point_triangle_distance(
+          V.row(vertex_index), V.row(F(face_index, 0)), V.row(F(face_index, 1)),
+          V.row(F(face_index, 2)), dtype, dmode);
+  }
+
+  VectorMax12d FaceVertexMixedConstraint::compute_distance_gradient(
+      const Eigen::MatrixXd& V,
+      const Eigen::MatrixXi& E,
+      const Eigen::MatrixXi& F,
+      const DistanceMode dmode) const
+  {
+      VectorMax12d distance_grad;
+      point_triangle_distance_gradient(
+          V.row(vertex_index), V.row(F(face_index, 0)), V.row(F(face_index, 1)),
+          V.row(F(face_index, 2)), dtype, dmode, distance_grad);
+      return distance_grad;
+  }
+
+  MatrixMax12d FaceVertexMixedConstraint::compute_distance_hessian(
+      const Eigen::MatrixXd& V,
+      const Eigen::MatrixXi& E,
+      const Eigen::MatrixXi& F,
+      const DistanceMode dmode) const
+  {
+      MatrixMax12d distance_hess;
+      point_triangle_distance_hessian(
+          V.row(vertex_index), V.row(F(face_index, 0)), V.row(F(face_index, 1)),
+          V.row(F(face_index, 2)), dtype, dmode, distance_hess);
+      return distance_hess;
+  }
+  ///////////////////////////////////////////////////////////////////////////////
+
+  EdgeEdgeMixedConstraint::EdgeEdgeMixedConstraint(
+      long edge0_index, long edge1_index, double eps_x)
+      : EdgeEdgeConstraint(edge0_index, edge1_index, eps_x)
+  {}
+
+  EdgeEdgeMixedConstraint::EdgeEdgeMixedConstraint(
+      const EdgeEdgeCandidate& candidate, double eps_x)
+      : EdgeEdgeConstraint(candidate, eps_x)
+  {}
+
+  ///////////////////////////////////////////////////////////////////////////////
+
+  size_t MixedConstraints::size() const
+  {
+      return ev_constraints.size() + ee_constraints.size()
+          + fv_constraints.size();
+  }
+
+  bool MixedConstraints::empty() const
+  {
+      return ev_constraints.empty()
+          && ee_constraints.empty() && fv_constraints.empty();
+  }
+
+  void MixedConstraints::clear() {
+    ev_constraints.clear();
+    ee_constraints.clear();
+    fv_constraints.clear();
+  }
+
+  CollisionConstraint& MixedConstraints::operator[](size_t idx)
+  {
     if (idx < ev_constraints.size()) {
-        return ev_distances[idx];
+        return ev_constraints[idx];
     }
     idx -= ev_constraints.size();
     if (idx < ee_constraints.size()) {
-        return ee_distances[idx];
+        return ee_constraints[idx];
     }
     idx -= ee_constraints.size();
     if (idx < fv_constraints.size()) {
-        return fv_distances[idx];
+        return fv_constraints[idx];
+    }
+    throw std::out_of_range("Constraint index is out of range!");
+  }
+
+  const CollisionConstraint& MixedConstraints::operator[](size_t idx) const
+  {
+    if (idx < ev_constraints.size()) {
+        return ev_constraints[idx];
+    }
+    idx -= ev_constraints.size();
+    if (idx < ee_constraints.size()) {
+        return ee_constraints[idx];
+    }
+    idx -= ee_constraints.size();
+    if (idx < fv_constraints.size()) {
+        return fv_constraints[idx];
+    }
+    throw std::out_of_range("Constraint index is out of range!");
+  }
+
+
+  double& MixedConstraints::distance(size_t idx) {
+    if (idx < ev_constraints.size()) {
+      return ev_constraints[idx].distance;
+    }
+    idx -= ev_constraints.size();
+    if (idx < ee_constraints.size()) {
+      return ee_constraints[idx].distance;
+    }
+    idx -= ee_constraints.size();
+    if (idx < fv_constraints.size()) {
+      return fv_constraints[idx].distance;
     }
     throw std::out_of_range("Constraint index is out of range!");
   }
 
   const double& MixedConstraints::distance(size_t idx) const {
     if (idx < ev_constraints.size()) {
-        return ev_distances[idx];
+      return ev_constraints[idx].distance;
     }
     idx -= ev_constraints.size();
     if (idx < ee_constraints.size()) {
-        return ee_distances[idx];
+      return ee_constraints[idx].distance;
     }
     idx -= ee_constraints.size();
     if (idx < fv_constraints.size()) {
-        return fv_distances[idx];
+      return fv_constraints[idx].distance;
     }
     throw std::out_of_range("Constraint index is out of range!");
   }
 
   double& MixedConstraints::lambda(size_t idx) {
     if (idx < ev_constraints.size()) {
-        return ev_lambdas[idx];
+      return ev_constraints[idx].lambda;
     }
     idx -= ev_constraints.size();
     if (idx < ee_constraints.size()) {
-        return ee_lambdas[idx];
+      return ee_constraints[idx].lambda;
     }
     idx -= ee_constraints.size();
     if (idx < fv_constraints.size()) {
-        return fv_lambdas[idx];
+      return fv_constraints[idx].lambda;
     }
     throw std::out_of_range("Constraint index is out of range!");
   }
 
   const double& MixedConstraints::lambda(size_t idx) const {
     if (idx < ev_constraints.size()) {
-        return ev_lambdas[idx];
+      return ev_constraints[idx].lambda;
     }
     idx -= ev_constraints.size();
     if (idx < ee_constraints.size()) {
-        return ee_lambdas[idx];
+      return ee_constraints[idx].lambda;
     }
     idx -= ee_constraints.size();
     if (idx < fv_constraints.size()) {
-        return fv_lambdas[idx];
+      return fv_constraints[idx].lambda;
     }
     throw std::out_of_range("Constraint index is out of range!");
   }
@@ -104,37 +251,12 @@ namespace ipc {
       lambda(i) = lambdas(i);
     }
   }
-
-  template <typename Hash>
-  void add_vertex_vertex_constraint(
-      std::vector<VertexVertexConstraint> &vv_constraints,
-      unordered_map<VertexVertexConstraint, long, Hash> &vv_to_index,
-      const long v0i,
-      const long v1i)
-  {
-    VertexVertexConstraint vv_constraint(v0i, v1i);
-    auto found_item = vv_to_index.find(vv_constraint);
-    if (found_item != vv_to_index.end())
-    {
-      // Constraint already exists, so increase multiplicity
-      vv_constraints[found_item->second].multiplicity++;
-    }
-    else
-    {
-      // New constraint, so add it to the end of vv_constraints
-      vv_to_index.emplace(vv_constraint, vv_constraints.size());
-      vv_constraints.push_back(vv_constraint);
-    }
-  }
-
+  
   template <typename T>
   void create_constraint_map(const std::vector<T>& constraints,
-      const std::vector<double>& distances, 
-      const std::vector<double>& lambdas, 
-      unordered_map<T,std::pair<double,double>>& map) {
-
+      unordered_set<T>& set) {
     for (size_t i = 0; i < constraints.size(); ++i) {
-      map.emplace(constraints[i], std::make_pair(distances[i], lambdas[i]));
+      set.emplace(constraints[i]);
     }  
   }
 
@@ -163,16 +285,12 @@ namespace ipc {
       return distance_sqr < offset_sqr;
     };
 
-    unordered_map<EdgeVertexConstraint, std::pair<double,double>> ev_map;
-    unordered_map<EdgeEdgeConstraint, std::pair<double,double>> ee_map;
-    unordered_map<FaceVertexConstraint, std::pair<double,double>> fv_map;
-    create_constraint_map(constraint_set.ev_constraints,
-        constraint_set.ev_distances, constraint_set.ev_lambdas, ev_map);
-    create_constraint_map(constraint_set.ee_constraints,
-        constraint_set.ee_distances, constraint_set.ee_lambdas, ee_map);
-    create_constraint_map(constraint_set.fv_constraints,
-        constraint_set.fv_distances, constraint_set.fv_lambdas, fv_map); 
-    // TODO create ev,ee,fv_map from mixed constraint set
+    unordered_set<EdgeVertexMixedConstraint> ev_map;
+    unordered_set<EdgeEdgeMixedConstraint> ee_map;
+    unordered_set<FaceVertexMixedConstraint> fv_map;
+    create_constraint_map(constraint_set.ev_constraints, ev_map);
+    create_constraint_map(constraint_set.ee_constraints, ee_map);
+    create_constraint_map(constraint_set.fv_constraints, fv_map); 
 
     std::mutex vv_mutex, ev_mutex, ee_mutex, fv_mutex;
 
@@ -197,21 +315,19 @@ namespace ipc {
               std::lock_guard<std::mutex> lock(ev_mutex);
               // ev_candidates is a set, so no duplicate EV
               // constraints
-              EdgeVertexConstraint constraint(ev_candidate);
-
-              new_constraints.ev_constraints.emplace_back(
-                  ev_candidate);
+              EdgeVertexMixedConstraint constraint(ev_candidate);
 
               auto found_item = ev_map.find(constraint);
               if (found_item != ev_map.end()) {
-                auto& [dist, lambda] = found_item->second;
+                constraint.distance = found_item->distance;
+                constraint.lambda = found_item->lambda;
                 ev_map.erase(constraint);
-                new_constraints.ev_distances.emplace_back(dist);
-                new_constraints.ev_lambdas.emplace_back(lambda);
               } else {
-                new_constraints.ev_distances.emplace_back(std::sqrt(distance_sqr));
-                new_constraints.ev_lambdas.emplace_back(0.0);
+                constraint.distance = std::sqrt(distance_sqr);
+                constraint.lambda = 0.0;
               }
+              constraint.dtype = dtype;
+              new_constraints.ev_constraints.emplace_back(constraint);
             }
           }
         });
@@ -241,19 +357,18 @@ namespace ipc {
                   V_rest.row(eb0i), V_rest.row(eb1i));
               std::lock_guard<std::mutex> lock(ee_mutex);
 
-              EdgeEdgeConstraint constraint(ee_candidate, eps_x);
-              new_constraints.ee_constraints.emplace_back(constraint);
+              EdgeEdgeMixedConstraint constraint(ee_candidate, eps_x);
 
               auto found_item = ee_map.find(constraint);
               if (found_item != ee_map.end()) {
-                auto& [dist, lambda] = found_item->second;
-                new_constraints.ee_distances.emplace_back(dist);
-                new_constraints.ee_lambdas.emplace_back(lambda);
+                constraint.distance = found_item->distance;
+                constraint.lambda = found_item->lambda;
                 ee_map.erase(constraint);
               } else {
-                new_constraints.ee_distances.emplace_back(std::sqrt(distance_sqr));
-                new_constraints.ee_lambdas.emplace_back(0.0);
-              }    
+                constraint.distance = std::sqrt(distance_sqr);
+                constraint.lambda = 0.0;
+              }
+              new_constraints.ee_constraints.emplace_back(constraint);
             }
           }
         });
@@ -282,19 +397,19 @@ namespace ipc {
             {
               std::lock_guard<std::mutex> lock(fv_mutex);
               
-              FaceVertexConstraint constraint(fv_candidate);
-              new_constraints.fv_constraints.emplace_back(constraint);
+              FaceVertexMixedConstraint constraint(fv_candidate);
 
               auto found_item = fv_map.find(constraint);
               if (found_item != fv_map.end()) {
-                auto& [dist, lambda] = found_item->second;
+                constraint.distance = found_item->distance;
+                constraint.lambda = found_item->lambda;
                 fv_map.erase(constraint);
-                new_constraints.fv_distances.emplace_back(dist);
-                new_constraints.fv_lambdas.emplace_back(lambda);
               } else {
-                new_constraints.fv_distances.emplace_back(std::sqrt(distance_sqr));
-                new_constraints.fv_lambdas.emplace_back(0.0);
-              }    
+                constraint.distance = std::sqrt(distance_sqr);
+                constraint.lambda = 0.0;
+              } 
+              constraint.dtype = dtype;
+              new_constraints.fv_constraints.emplace_back(constraint);
             }
           }
         });

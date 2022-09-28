@@ -130,8 +130,7 @@ void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
   la_ = constraints_.get_lambdas();
 
   if (nframes_ > 0) {
-    std::cout << "T\n: " << T_ << std::endl;
-
+    // std::cout << "T\n: " << T_ << std::endl;
     std::cout << "la max: " << la_.maxCoeff() 
               << " min: " << la_.minCoeff() << std::endl;
     std::cout << "d min: " << d_.minCoeff() << std::endl;
