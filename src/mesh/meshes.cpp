@@ -104,10 +104,9 @@ void Meshes::volumes(Eigen::VectorXd& vol) {
 
 void Meshes::mass_matrix(SparseMatrixdRowMajor& M,
     const VectorXd& vols) {
-  std::cout << "NOTE! mass_matrix() may be projected!" << std::endl;
   std::vector<Eigen::SparseMatrixdRowMajor> Ms(meshes_.size());
   for (size_t i = 0; i < meshes_.size(); ++i) {
-    Ms[i] = meshes_[i]->mass_matrix();
+    Ms[i] = meshes_[i]->mass_matrix<MatrixType::FULL>();
   }
   build_block_diagonal(M_, Ms);
   M = M_;
@@ -151,13 +150,4 @@ void Meshes::init_jacobian() {
 void Meshes::deformation_gradient(const VectorXd& x, VectorXd& F) {
   assert(x.size() == J_.cols());
   F = J_ * x;
-}
-
-void Meshes::jacobian(SparseMatrixdRowMajor& J, const VectorXd& vols,
-      bool weighted) {
-  std::cerr << "Tri2DMesh::jacobian(J, vols, weighted) unimplemented" << std::endl;
-}
-
-void Meshes::jacobian(std::vector<MatrixXd>& J) {
-  std::cerr << "Tri2DMesh::jacobian(J) unimplemented" << std::endl;
 }

@@ -101,61 +101,6 @@ void TriMesh::init_jacobian() {
   Jloc0_ = Jloc_;
 }
 
-
-void TriMesh::jacobian(SparseMatrixdRowMajor& J, const VectorXd& vols,
-      bool weighted) {
-
-  std::vector<Triplet<double>> trips;
-  for (int i = 0; i < T_.rows(); ++i) { 
-
-    // Local block
-    Matrix9d B;
-    Matrix3d dX = sim::unflatten<3,3>(dphidX_.row(i));
-    local_jacobian(B, dX);
-
-    // Assembly for the i-th lagrange multiplier matrix which
-    // is associated with 3 vertices (for tetrahedra)
-    for (int j = 0; j < 9; ++j) {
-
-      // k-th vertex of the tetrahedra
-      for (int k = 0; k < 3; ++k) {
-        int vid = T_(i,k); // vertex index
-
-        // x,y,z index for the k-th vertex
-        for (int l = 0; l < 3; ++l) {
-          double val = B(j,3*k+l);
-          if (weighted)
-            val *= vols(i);
-          trips.push_back(Triplet<double>(9*i+j, 3*vid+l, val));
-        }
-      }
-    }
-  }
-  J.resize(9*T_.rows(), V_.size());
-  J.setFromTriplets(trips.begin(),trips.end());
-}
-
-void TriMesh::jacobian(std::vector<MatrixXd>& J) {
-  J.resize(T_.rows());
-
-  auto cross_product_mat = [](const RowVector3d& v)-> Matrix3d {
-    Matrix3d mat;
-    mat <<     0, -v(2),  v(1),
-            v(2),     0, -v(0),
-           -v(1),  v(0),     0;
-    return mat;
-  };
-
-  #pragma omp parallel for
-  for (int i = 0; i < T_.rows(); ++i) { 
-    // Local block
-    Matrix9d B;
-    Matrix3d dX = sim::unflatten<3,3>(dphidX_.row(i));
-    local_jacobian(B, dX);
-    J[i] = B;
-  }
-}
-
 void TriMesh::deformation_gradient(const VectorXd& x, VectorXd& F) {
   assert(x.size() == J_.cols());
   F = J0_ * x;

@@ -40,58 +40,6 @@ void TetrahedralMesh::mass_matrix(SparseMatrixdRowMajor& M,
   sim::linear_tetmesh_mass_matrix(M, Vref_, T_, densities, vols);
 }
 
-void TetrahedralMesh::jacobian(SparseMatrixdRowMajor& J, const VectorXd& vols,
-      bool weighted) {
-  // J matrix (big jacobian guy)
-  MatrixXd dphidX;
-  sim::linear_tetmesh_dphi_dX(dphidX, Vref_, T_);
-
-  std::vector<Triplet<double>> trips;
-  for (int i = 0; i < T_.rows(); ++i) { 
-
-    // Local block
-    Matrix<double,9,12> B;
-    Matrix<double, 4,3> dX = sim::unflatten<4,3>(dphidX.row(i));
-    local_jacobian(B, dX);
-
-    // Assembly for the i-th lagrange multiplier matrix which
-    // is associated with 4 vertices (for tetrahedra)
-    for (int j = 0; j < 9; ++j) {
-
-      // k-th vertex of the tetrahedra
-      for (int k = 0; k < 4; ++k) {
-        int vid = T_(i,k); // vertex index
-
-        // x,y,z index for the k-th vertex
-        for (int l = 0; l < 3; ++l) {
-          double val = B(j,3*k+l) ;//* vols(i); 
-          if (weighted)
-            val *= vols(i);
-          trips.push_back(Triplet<double>(9*i+j, 3*vid+l, val));
-        }
-      }
-    }
-  }
-  J.resize(9*T_.rows(), V_.size());
-  J.setFromTriplets(trips.begin(),trips.end());
-}
-
-void TetrahedralMesh::jacobian(std::vector<MatrixXd>& J) {
-  J.resize(T_.rows());
-
-  MatrixXd dphidX;
-  sim::linear_tetmesh_dphi_dX(dphidX, Vref_, T_);
-
-  #pragma omp parallel for
-  for (int i = 0; i < T_.rows(); ++i) { 
-    // Local block
-    Matrix<double,9,12> B;
-    Matrix<double, 4,3> dX = sim::unflatten<4,3>(dphidX.row(i));
-    local_jacobian(B, dX);
-    J[i] = B;
-  }
-}
-
 void TetrahedralMesh::init_jacobian() {
   Jloc_.resize(T_.rows());
 

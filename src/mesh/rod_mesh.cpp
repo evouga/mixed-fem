@@ -53,47 +53,47 @@ void RodMesh::mass_matrix(SparseMatrixdRowMajor& M, const VectorXd& vols) {
   M = M * material_->config()->density; 
 }
 
-void RodMesh::jacobian(SparseMatrixdRowMajor& J, const VectorXd& vols,
-      bool weighted) {
+// void RodMesh::jacobian(SparseMatrixdRowMajor& J, const VectorXd& vols,
+//       bool weighted) {
 
-  std::vector<Triplet<double>> trips;
-  for (int i = 0; i < T_.rows(); ++i) { 
+//   std::vector<Triplet<double>> trips;
+//   for (int i = 0; i < T_.rows(); ++i) { 
 
-    Matrix<double,2,3> dX; 
-    linear_rod3d_dphi_dX(dX, V_, T_.row(i));
+//     Matrix<double,2,3> dX; 
+//     linear_rod3d_dphi_dX(dX, V_, T_.row(i));
 
-    // Local block
-    std::cerr << "wrong" << std::endl;
-    Matrix<double,9,6> B;
-    B  << 
-      dX(0,0), 0      , 0      , dX(1,0), 0      , 0,     
-      dX(0,1), 0      , 0      , dX(1,1), 0      , 0,     
-      dX(0,2), 0      , 0      , dX(1,2), 0      , 0,     
-      0      , dX(0,0), 0      , 0      , dX(1,0), 0,     
-      0      , dX(0,1), 0      , 0      , dX(1,1), 0,     
-      0      , dX(0,2), 0      , 0      , dX(1,2), 0,     
-      0      , 0      , dX(0,0), 0      , 0      , dX(1,0),
-      0      , 0      , dX(0,1), 0      , 0      , dX(1,1),
-      0      , 0      , dX(0,2), 0      , 0      , dX(1,2);
+//     // Local block
+//     std::cerr << "wrong" << std::endl;
+//     Matrix<double,9,6> B;
+//     B  << 
+//       dX(0,0), 0      , 0      , dX(1,0), 0      , 0,     
+//       dX(0,1), 0      , 0      , dX(1,1), 0      , 0,     
+//       dX(0,2), 0      , 0      , dX(1,2), 0      , 0,     
+//       0      , dX(0,0), 0      , 0      , dX(1,0), 0,     
+//       0      , dX(0,1), 0      , 0      , dX(1,1), 0,     
+//       0      , dX(0,2), 0      , 0      , dX(1,2), 0,     
+//       0      , 0      , dX(0,0), 0      , 0      , dX(1,0),
+//       0      , 0      , dX(0,1), 0      , 0      , dX(1,1),
+//       0      , 0      , dX(0,2), 0      , 0      , dX(1,2);
 
-    // Assembly for the i-th lagrange multiplier matrix which
-    // is associated with 3 vertices (for tetrahedra)
-    for (int j = 0; j < 9; ++j) {
+//     // Assembly for the i-th lagrange multiplier matrix which
+//     // is associated with 3 vertices (for tetrahedra)
+//     for (int j = 0; j < 9; ++j) {
 
-      // k-th vertex of the tetrahedra
-      for (int k = 0; k < 2; ++k) {
-        int vid = T_(i,k); // vertex index
+//       // k-th vertex of the tetrahedra
+//       for (int k = 0; k < 2; ++k) {
+//         int vid = T_(i,k); // vertex index
 
-        // x,y,z index for the k-th vertex
-        for (int l = 0; l < 3; ++l) {
-          double val = B(j,3*k+l);
-          if (weighted)
-            val *= vols(i);
-          trips.push_back(Triplet<double>(9*i+j, 3*vid+l, val));
-        }
-      }
-    }
-  }
-  J.resize(9*T_.rows(), V_.size());
-  J.setFromTriplets(trips.begin(),trips.end());
-}
+//         // x,y,z index for the k-th vertex
+//         for (int l = 0; l < 3; ++l) {
+//           double val = B(j,3*k+l);
+//           if (weighted)
+//             val *= vols(i);
+//           trips.push_back(Triplet<double>(9*i+j, 3*vid+l, val));
+//         }
+//       }
+//     }
+//   }
+//   J.resize(9*T_.rows(), V_.size());
+//   J.setFromTriplets(trips.begin(),trips.end());
+// }

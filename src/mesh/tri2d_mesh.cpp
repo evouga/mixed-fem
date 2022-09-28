@@ -72,16 +72,6 @@ void Tri2DMesh::init_jacobian() {
   J_.setFromTriplets(trips.begin(),trips.end());  
 }
 
-
-void Tri2DMesh::jacobian(SparseMatrixdRowMajor& J, const VectorXd& vols,
-      bool weighted) {
-  std::cerr << "Tri2DMesh::jacobian(J, vols, weighted) unimplemented" << std::endl;
-}
-
-void Tri2DMesh::jacobian(std::vector<MatrixXd>& J) {
-  std::cerr << "Tri2DMesh::jacobian(J) unimplemented" << std::endl;
-}
-
 void Tri2DMesh::deformation_gradient(const VectorXd& x, VectorXd& F) {
   assert(x.size() == J_.cols());
   F = J_ * x;
