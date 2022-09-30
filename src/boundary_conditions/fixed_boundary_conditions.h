@@ -28,7 +28,7 @@ namespace mfem {
       Eigen::RowVectorXd bmin = V.colwise().minCoeff();
       Eigen::RowVectorXd bmax = V.colwise().maxCoeff();
       Eigen::RowVectorXd offset = 0.5 * (bmin + bmax);
-      V = (V.rowwise() - offset) * 2;
+      V = (V.rowwise() - offset) * 1.5;
       V.rowwise() += offset;
     }
   };

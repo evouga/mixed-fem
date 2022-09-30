@@ -31,7 +31,12 @@
     {
       "path": "../models/obj/box_wide_145_thin_xy.obj",
       "offset": [0.0, 0.0, 0.0],
-      "material_index": 1
+      "material_index": 1,
+      "boundary_condition": {
+        "type": "hang",
+        "ratio": 0.1,
+        "axis": 0
+      }
     }
   ],
   "material_models": [

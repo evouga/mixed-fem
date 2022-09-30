@@ -7,8 +7,6 @@
   "time_integrator": "BDF1",
   "linear_solver": "cholmod",
   "enable_ccd": false,
-  "dhat": 0.005,
-  "boundary_condition": "hang",
   "max_newton_iterations": 10,
   "max_linesearch_iterations": 20,
   "objects": [

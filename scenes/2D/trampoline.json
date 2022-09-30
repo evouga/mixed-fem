@@ -9,7 +9,6 @@
   "enable_ccd": true,
   "dhat": 0.01,
   "kappa": 1e10,
-  "boundary_condition": "hang",
   "max_newton_iterations": 10,
   "max_linesearch_iterations": 20,
   "objects": [
@@ -21,7 +20,12 @@
     {
       "path": "../models/obj/box_wide_145_thin_xy.obj",
       "offset": [0.0, 0.0, 0.0],
-      "material_index": 1
+      "material_index": 1,
+      "boundary_condition": {
+        "type": "hang",
+        "ratio": 0.1,
+        "axis": 0
+      }
     }
   ],
   "material_models": [

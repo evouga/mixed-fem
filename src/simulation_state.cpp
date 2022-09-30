@@ -234,6 +234,15 @@ bool SimState<DIM>::load(const nlohmann::json& args) {
         igl::readDMAT(x_path, x);
         mesh_->Vinit_ = x;
         mesh_->V_ = x;
+
+        size_t start_V = 0;
+        for (size_t i = 0; i < meshes.size(); ++i) {
+          size_t sz_V = meshes[i]->V_.rows();
+          meshes[i]->V_ = x.block(start_V, 0, sz_V, x.cols());
+          meshes[i]->Vinit_ = meshes[i]->V_;
+          start_V += sz_V;
+        }
+
         assert(mesh_->V_.rows() == x.rows() && mesh_->V_.cols() == x.cols());
       } else {
         std::cerr << "initial_state x_path must be a dmat file" << std::endl;
@@ -247,6 +256,14 @@ bool SimState<DIM>::load(const nlohmann::json& args) {
         MatrixXd v;
         igl::readDMAT(v_path, v);
         mesh_->initial_velocity_ = v;
+        
+        size_t start_V = 0;
+        for (size_t i = 0; i < meshes.size(); ++i) {
+          size_t sz_V = meshes[i]->V_.rows();
+          meshes[i]->initial_velocity_ = v.block(start_V, 0, sz_V, v.cols());
+          start_V += sz_V;
+        }
+
         assert(mesh_->V_.rows() == v.rows() && mesh_->V_.cols() == v.cols());
       } else {
         std::cerr << "initial_state v_path must be a dmat file" << std::endl;
@@ -285,19 +302,6 @@ bool SimState<DIM>::load(const nlohmann::json& args) {
     config_->solver_type = solver_factory.type_by_name(name);
   }
   solver_ = solver_factory.create(config_->solver_type, mesh_, config_);
-
-  if (const auto& it = args.find("boundary_condition"); it != args.end()) {
-    std::vector<std::string> bc_list;
-    BoundaryConditions<DIM>::get_script_names(bc_list);
-    std::string name = it->get<std::string>();
-    for (size_t i = 0; i < bc_list.size(); ++i) {
-      if (name == bc_list[i]) {
-        config_->bc_type = static_cast<BCScriptType>(i);
-        break;
-      }
-    }
-  }
-
   return true;
 }
 

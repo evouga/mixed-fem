@@ -75,13 +75,10 @@ void Mesh::init() {
     igl::oriented_facets(T_, E);
   } else {
     igl::boundary_facets(T_, F);
-    // igl::oriented_facets(F, E);
-    // igl::edges(F, E);
     igl::edges(T_, E);
   }
   ipc_mesh_ = ipc::CollisionMesh::build_from_full_mesh(V_, E, F);
   // TODO can_collide
-
 }
 
 void Mesh::init_bcs() {

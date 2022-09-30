@@ -106,7 +106,6 @@ void NewtonOptimizer<DIM>::step() {
   }
 
   // Update dirichlet boundary conditions
-  state_.BCs_.step_script(state_.mesh_, state_.config_->h);
   state_.mesh_->update_bcs(state_.config_->h);
 
   // Post solve update nodal and mixed variables

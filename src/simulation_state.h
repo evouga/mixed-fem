@@ -1,7 +1,6 @@
 #pragma once
 
 #include "optimizers/optimizer_data.h"
-#include "boundary_conditions.h"
 #include "variables/displacement.h"
 #include "variables/mixed_variable.h"
 #include "linear_solvers/linear_solver.h"
@@ -16,9 +15,6 @@ namespace mfem {
   struct SimState {
     // For reporting simulation data and timing
     OptimizerData data_;
-
-    // Tracks verticies and applies a selected dirichlet boundary condition
-    BoundaryConditions<DIM> BCs_;
 
     // Simulation mesh
     std::shared_ptr<Mesh> mesh_;
