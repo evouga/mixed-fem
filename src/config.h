@@ -135,9 +135,10 @@ namespace mfem {
   };
 
   struct BoundaryConditionConfig {
-    BCScriptType type;
-    double ratio;
-    int axis;
+    BCScriptType type = BCScriptType::BC_NULL;
+    double ratio = 0.1;
+    int axis = 0;
+    double velocity = 0.1;
 
   };
 
