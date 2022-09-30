@@ -4,6 +4,7 @@
 #include <EigenTypes.h>
 #include <memory>
 #include "ipc/ipc.hpp"
+#include "boundary_conditions/boundary_condition.h"
 
 #if defined(SIM_USE_CHOLMOD)
 #include <Eigen/CholmodSupport>
@@ -108,26 +109,19 @@ namespace mfem {
       return ipc_mesh_;
     }
 
-    // I don't like this
-    void clear_fixed_vertices();
-
-    void free_vertex(int id);
-
-    void set_fixed(int id);
-
-    void set_fixed(const std::vector<int>& ids);
-
-    void update_free_map();
+    // Update boundary conditions
+    virtual void init_bcs();
+    virtual void update_bcs(double dt) {
+      bc_->step(V_, dt);
+    }
 
   public:
 
-    // I don't like this
-    std::vector<std::vector<int>> bc_groups_;
-    std::vector<int> fixed_vertices_;
-    Eigen::VectorXi is_fixed_;
     std::vector<int> free_map_;
-    Eigen::Matrix23x<double> bbox;
-  
+    Eigen::VectorXi is_fixed_;
+    BoundaryConditionConfig bc_config_;
+    std::unique_ptr<BoundaryCondition> bc_;
+
     Eigen::MatrixXd V_;     // Current deformed vertices
     Eigen::MatrixXd Vref_;  // Reference vertex positions
     Eigen::MatrixXd Vinit_; // Initial (deformed or undeformed) vertices
@@ -140,6 +134,7 @@ namespace mfem {
     std::vector<Element> elements_;
 
   protected:
+
     // Weighted jacobian matrix with dirichlet BCs projected out
     Eigen::SparseMatrixdRowMajor PJW_;
     Eigen::SparseMatrixdRowMajor J_;   // Shape function jacobian
@@ -147,7 +142,6 @@ namespace mfem {
     Eigen::SparseMatrixdRowMajor PM_;  // Mass matrix (rows projected)
     Eigen::SparseMatrixdRowMajor M_;   // Mass matrix (full matrix)
     Eigen::SparseMatrixdRowMajor P_;   // pinning matrix (for dirichlet BCs) 
-    //Eigen::SparseMatrixd P_;         // pinning constraint (for vertices)
     Eigen::SparseMatrixd W_;           // weight matrix
     Eigen::VectorXd vols_;
     std::vector<Eigen::MatrixXd> Jloc_;

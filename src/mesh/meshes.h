@@ -17,6 +17,8 @@ namespace mfem {
     void deformation_gradient(const Eigen::VectorXd& x,
         Eigen::VectorXd& F) override;
     void init_jacobian() override;
+    void init_bcs() override;
+    void update_bcs(double dt) override;
 
     const std::vector<std::shared_ptr<Mesh>>& meshes() const {
       return meshes_;

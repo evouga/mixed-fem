@@ -8,9 +8,9 @@ namespace mfem {
   // default BCs when none are specified.
   class NullBC : public BoundaryCondition {
   public:
-    NullBC(std::shared_ptr<Mesh> mesh, const BoundaryConditionConfig& config)
-        : BoundaryCondition(mesh, config) {
-      int N = mesh->V_.rows();
+    NullBC(const Eigen::MatrixXd& V, const BoundaryConditionConfig& config)
+        : BoundaryCondition(V, config) {
+      int N = V.rows();
       is_fixed_ = Eigen::VectorXi::Zero(N);
       free_map_ = Eigen::VectorXi::LinSpaced(N, 0, N-1);
     }
@@ -20,43 +20,47 @@ namespace mfem {
   // an initial deformation.
   class ScaleBC : public NullBC {
   public:
-    ScaleBC(std::shared_ptr<Mesh> mesh, const BoundaryConditionConfig& config)
-        : NullBC(mesh, config) {
+    ScaleBC(const Eigen::MatrixXd& V, const BoundaryConditionConfig& config)
+        : NullBC(V, config) {}
 
-      int N = mesh->V_.cols();
-      Eigen::MatrixXd T(N, N);
-      T.setZero();
-      T.diagonal().array() = 1.5;
-      mesh->V_ = mesh->V_ * T;
+    void init(Eigen::MatrixXd& V) override {
+      int N = V.cols();
+      Eigen::RowVectorXd bmin = V.colwise().minCoeff();
+      Eigen::RowVectorXd bmax = V.colwise().maxCoeff();
+      Eigen::RowVectorXd offset = 0.5 * (bmin + bmax);
+      V = (V.rowwise() - offset) * 2;
+      V.rowwise() += offset;
     }
   };
 
   // BC with no fixed points, but randomizes the vertex positions.
   class RandomizeBC : public NullBC {
   public:
-    RandomizeBC(std::shared_ptr<Mesh> mesh,
+    RandomizeBC(const Eigen::MatrixXd& V,
         const BoundaryConditionConfig& config)
-        : NullBC(mesh, config) {
+        : NullBC(V, config) {}
 
-      Eigen::RowVectorXd bmin = mesh->V_.colwise().minCoeff();
-      Eigen::RowVectorXd bmax = mesh->V_.colwise().maxCoeff();
+    void init(Eigen::MatrixXd& V) override {
+      Eigen::RowVectorXd bmin = V.colwise().minCoeff();
+      Eigen::RowVectorXd bmax = V.colwise().maxCoeff();
       Eigen::RowVectorXd offset = 0.5 * (bmin + bmax);
       Eigen::RowVectorXd scale = (bmax-bmin);
-      mesh->V_.setRandom();
-      mesh->V_ = (mesh->V_.array() + 1.0) * 0.5;
-      mesh->V_ *= scale.asDiagonal();
-      mesh->V_.rowwise() += offset;
+      V.setRandom();
+      V = (V.array() + 1.0) * 0.5;
+      V *= scale.asDiagonal();
+      V.rowwise() += offset;
     }
   };
 
   // BC for pinning a single point.
   class OnePointBC : public BoundaryCondition {
   public:
-    OnePointBC(std::shared_ptr<Mesh> mesh,
+    OnePointBC(const Eigen::MatrixXd& V,
         const BoundaryConditionConfig& config)
-        : BoundaryCondition(mesh, config) {
-      int N = mesh->V_.rows();
+        : BoundaryCondition(V, config) {
+      int N = V.rows();
       is_fixed_ = Eigen::VectorXi::Zero(N);
+      is_fixed_(0) = 1;
       update_free_map();
     }
   };
@@ -64,10 +68,10 @@ namespace mfem {
   // Pins two points at opposing ends of the mesh.
   class HangBC : public BoundaryCondition {
   public:
-    HangBC(std::shared_ptr<Mesh> mesh, const BoundaryConditionConfig& config)
-        : BoundaryCondition(mesh, config) {
+    HangBC(const Eigen::MatrixXd& V, const BoundaryConditionConfig& config)
+        : BoundaryCondition(V, config) {
       
-      is_fixed_ = Eigen::VectorXi::Zero(mesh->V_.rows());
+      is_fixed_ = Eigen::VectorXi::Zero(V.rows());
       for (const auto& group : groups_) {
         is_fixed_(group.back()) = 1;
       }
@@ -78,10 +82,10 @@ namespace mfem {
   // Pins one end of the mesh
   class HangEndsBC : public BoundaryCondition {
   public:
-    HangEndsBC(std::shared_ptr<Mesh> mesh,
+    HangEndsBC(const Eigen::MatrixXd& V,
         const BoundaryConditionConfig& config)
-        : BoundaryCondition(mesh, config) {
-      is_fixed_ = Eigen::VectorXi::Zero(mesh->V_.rows());
+        : BoundaryCondition(V, config) {
+      is_fixed_ = Eigen::VectorXi::Zero(V.rows());
 
       for (int i : groups_[group_id_]) {
         is_fixed_(i) = 1;

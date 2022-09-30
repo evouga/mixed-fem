@@ -4,19 +4,19 @@
 
 namespace mfem {
 
-  // Pins both ends along specified axis, and squash or stretches along
-  // this axis.
-  class TwistBC : BoundaryCondition {
+  // Pins both ends along specified axis, and twists along axis
+  class TwistBC : public BoundaryCondition {
   public:
-    TwistBC(std::shared_ptr<Mesh> mesh,
+    TwistBC(const Eigen::MatrixXd& V,
         const BoundaryConditionConfig& config)
-        : BoundaryCondition(mesh, config) {
+        : BoundaryCondition(V, config) {}
 
-      is_fixed_ = Eigen::VectorXi::Zero(mesh->V_.rows());
+    void init(Eigen::MatrixXd& V) override {
+      is_fixed_ = Eigen::VectorXi::Zero(V.rows());
       group_velocity_.resize(groups_.size());
 
-      Eigen::RowVectorXd bmin = mesh->V_.colwise().minCoeff();
-      Eigen::RowVectorXd bmax = mesh->V_.colwise().maxCoeff();
+      Eigen::RowVectorXd bmin = V.colwise().minCoeff();
+      Eigen::RowVectorXd bmax = V.colwise().maxCoeff();
       center_ = 0.5 * (bmin + bmax);
 
       for (size_t i = 0; i < groups_.size(); ++i) {
@@ -24,7 +24,7 @@ namespace mfem {
         for (int j : groups_[i]) {
           is_fixed_(j) = 1;
         }
-        group_velocity_[i] = std::pow(-1.0, i) * config.velocity * M_PI;
+        group_velocity_[i] = std::pow(-1.0, i) * config_.velocity * M_PI;
       }
       update_free_map();
     }
@@ -38,7 +38,7 @@ namespace mfem {
         Eigen::MatrixXd R;
         double a = group_velocity_[i];
 
-        if (V.cols() == 2) {
+        if (V.cols() == 3) {
           Eigen::Vector3d axis = Eigen::Vector3d::UnitX();
           R = Eigen::AngleAxis<double>(a * dt, axis).toRotationMatrix();
         } else {

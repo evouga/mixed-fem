@@ -76,7 +76,7 @@ VectorXd Displacement<DIM>::gradient() {
 template<int DIM>
 void Displacement<DIM>::reset() {
 
-  MatrixXd tmp = mesh_->Vinit_.transpose();
+  MatrixXd tmp = mesh_->V_.transpose();
   x_ = Map<VectorXd>(tmp.data(), mesh_->V_.size());
 
   tmp = mesh_->initial_velocity_.transpose();

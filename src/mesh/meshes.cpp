@@ -51,28 +51,7 @@ Meshes::Meshes(const std::vector<std::shared_ptr<Mesh>>& meshes)
         meshes_[i]->elements_.end());
   }
 
-  is_fixed_.resize(V_.rows());
-  is_fixed_.setZero();
-  bbox.setZero();
-  int cols = Vref_.cols();
-  bbox.block(0,0,1,cols) = Vref_.row(0);
-  bbox.block(1,0,1,cols) = Vref_.row(0);
-  for(int i = 1; i < Vref_.rows(); i++) {
-    const Eigen::RowVectorXd& v = Vref_.row(i);
-    for(int d = 0; d < cols; d++) {
-      if(v[d] < bbox(0, d)) {
-          bbox(0, d) = v[d];
-      }
-      if(v[d] > bbox(1, d)) {
-          bbox(1, d) = v[d];
-      }
-    }
-  }
-  // BoundaryConditions<3>::init_boundary_groups(Vref_, bc_groups_, 0.11);
-  P_ = pinning_matrix(V_, T_, is_fixed_);
-
   igl::boundary_facets(T_, F_);
-  assert(F_.cols() == cols);
   initial_velocity_ = 0 * V_;
 }
 
@@ -150,4 +129,40 @@ void Meshes::init_jacobian() {
 void Meshes::deformation_gradient(const VectorXd& x, VectorXd& F) {
   assert(x.size() == J_.cols());
   F = J_ * x;
+}
+
+void Meshes::init_bcs() {
+
+  size_t start_V = 0;
+  int dim = V_.cols();
+  for (size_t i = 0; i < meshes_.size(); ++i) {
+    size_t sz_V = meshes_[i]->V_.rows();
+    is_fixed_.conservativeResize(start_V + sz_V);
+    is_fixed_.segment(start_V, sz_V) = meshes_[i]->is_fixed_;
+    V_.block(start_V, 0, sz_V, dim) = meshes_[i]->V_;
+
+    start_V += sz_V;
+  }
+  P_ = pinning_matrix(V_, T_, is_fixed_);
+  free_map_.resize(is_fixed_.size(), -1);
+  int curr = 0;
+  for (int i = 0; i < is_fixed_.size(); ++i) {
+    if (is_fixed_(i) == 0) {
+      free_map_[i] = curr++;
+    }
+  }  
+}
+
+void Meshes::update_bcs(double dt) {
+  size_t start_V = 0;
+  int dim = V_.cols();
+  for (size_t i = 0; i < meshes_.size(); ++i) {
+    size_t sz_V = meshes_[i]->V_.rows();
+
+    // Ugh!
+    MatrixXd tmp = V_.block(start_V, 0, sz_V, dim);
+    meshes_[i]->bc_->step(tmp, dt);
+    V_.block(start_V, 0, sz_V, dim) = tmp;
+    start_V += sz_V;
+  }
 }

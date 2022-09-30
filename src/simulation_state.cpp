@@ -14,6 +14,7 @@
 #include "factories/optimizer_factory.h"
 #include "factories/integrator_factory.h"
 #include "factories/material_model_factory.h"
+#include "factories/boundary_condition_factory.h"
 
 // libigl
 #include <igl/IO>
@@ -173,7 +174,6 @@ bool SimState<DIM>::load(const nlohmann::json& args) {
         }
       }
 
-
       MatrixXd V;
       MatrixXi T;
       load_mesh(path, V, T);
@@ -185,8 +185,6 @@ bool SimState<DIM>::load(const nlohmann::json& args) {
         Matrix<double,DIM,DIM> T = Map<Matrix<double,DIM,DIM>>(
             transformation.data());
         V = ((V.rowwise()-centroid)*T.transpose()).rowwise() + centroid;
-
-        // V = V * T.transpose();
       }
 
       if constexpr (DIM == 2) {
@@ -198,13 +196,28 @@ bool SimState<DIM>::load(const nlohmann::json& args) {
         }
       } else {
         if (has_material_ids) {
-          meshes.push_back(std::make_shared<TetrahedralMesh>(V, T, material_ids, 
+          meshes.push_back(std::make_shared<TetrahedralMesh>(V, T, material_ids,
               materials));
         } else {
           meshes.push_back(std::make_shared<TetrahedralMesh>(V, T,
               materials[idx]));
-
         }
+      }
+
+      // After loading and creating mesh, check if any boundary conditions
+      // are specified.
+      if (const auto& it = obj.find("boundary_condition"); it != obj.end()) {
+        BoundaryConditionFactory factory;
+        BoundaryConditionConfig cfg;
+
+        std::string name;
+        read_and_assign(*it, "type", name);
+        cfg.type = factory.type_by_name(name);
+
+        read_and_assign(*it, "axis", cfg.axis);
+        read_and_assign(*it, "ratio", cfg.ratio);
+        read_and_assign(*it, "velocity", cfg.velocity);
+        meshes.back()->bc_config_ = cfg;
       }
     }
   }

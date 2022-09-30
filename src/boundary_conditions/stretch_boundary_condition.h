@@ -6,22 +6,24 @@ namespace mfem {
 
   // Pins both ends along specified axis, and squash or stretches along
   // this axis.
-  class StretchBC : BoundaryCondition {
+  class StretchBC : public BoundaryCondition {
   public:
-    StretchBC(std::shared_ptr<Mesh> mesh,
+    StretchBC(const Eigen::MatrixXd& V,
         const BoundaryConditionConfig& config)
-        : BoundaryCondition(mesh, config) {
+        : BoundaryCondition(V, config) {}
 
-      is_fixed_ = Eigen::VectorXi::Zero(mesh->V_.rows());
+    void init(Eigen::MatrixXd& V) override {
+
+      is_fixed_ = Eigen::VectorXi::Zero(V.rows());
       group_velocity_.resize(groups_.size());
       for (size_t i = 0; i < groups_.size(); ++i) {
 
         for (int j : groups_[i]) {
           is_fixed_(j) = 1;
         }
-        Eigen::RowVectorXd vel(mesh->V_.cols());
+        Eigen::RowVectorXd vel(V.cols());
         vel.setZero();
-        vel(config.axis) = std::pow(-1.0, i) * config.velocity;
+        vel(config_.axis) = std::pow(-1.0, i) * config_.velocity;
         group_velocity_[i] = vel;
       }
       update_free_map();

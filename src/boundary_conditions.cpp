@@ -67,6 +67,7 @@ BoundaryConditions<DIM>::BoundaryConditions(BCScriptType script_type) : script_t
 template <int DIM>
 void BoundaryConditions<DIM>::init_script(std::shared_ptr<Mesh> &mesh)
 {
+  /*
 
   switch (script_type_)
   {
@@ -364,6 +365,7 @@ void BoundaryConditions<DIM>::init_script(std::shared_ptr<Mesh> &mesh)
     assert(0 && "invalid script_type_");
     break;
   }
+  */
 }
 
 template <int DIM>
@@ -372,6 +374,7 @@ int BoundaryConditions<DIM>::step_script(std::shared_ptr<Mesh> &mesh, double dt)
   VectorXd searchDir(mesh->V_.rows() * DIM);
   searchDir.setZero();
   int returnFlag = 0;
+  /*
   switch (script_type_)
   {
   case BC_NULL:
@@ -543,7 +546,7 @@ int BoundaryConditions<DIM>::step_script(std::shared_ptr<Mesh> &mesh, double dt)
   {
     mesh->V_.row(vI) += stepSize * searchDir.segment<DIM>(vI * DIM).transpose();
   }
-
+  */
   return returnFlag;
 }
 

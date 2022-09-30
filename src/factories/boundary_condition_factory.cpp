@@ -2,6 +2,7 @@
 #include "boundary_conditions/fixed_boundary_conditions.h"
 #include "boundary_conditions/bend_boundary_condition.h"
 #include "boundary_conditions/stretch_boundary_condition.h"
+#include "boundary_conditions/twist_boundary_condition.h"
 
 using namespace mfem;
 using namespace Eigen;
@@ -9,36 +10,47 @@ using namespace Eigen;
 BoundaryConditionFactory::BoundaryConditionFactory() {
 
   register_type(BCScriptType::BC_NULL, "null", 
-      [](std::shared_ptr<Mesh> m, BoundaryConditionConfig cfg)
+      [](Eigen::MatrixXd V, BoundaryConditionConfig cfg)
       ->std::unique_ptr<BoundaryCondition>
-      {return std::make_unique<NullBC>(m, cfg);});
+      {return std::make_unique<NullBC>(V, cfg);});
 
   register_type(BCScriptType::BC_SCALEF, "scale", 
-      [](std::shared_ptr<Mesh> m, BoundaryConditionConfig cfg)
+      [](Eigen::MatrixXd V, BoundaryConditionConfig cfg)
       ->std::unique_ptr<BoundaryCondition>
-      {return std::make_unique<ScaleBC>(m, cfg);});
+      {return std::make_unique<ScaleBC>(V, cfg);});
 
   register_type(BCScriptType::BC_RANDOM, "randomize", 
-      [](std::shared_ptr<Mesh> m, BoundaryConditionConfig cfg)
+      [](Eigen::MatrixXd V, BoundaryConditionConfig cfg)
       ->std::unique_ptr<BoundaryCondition>
-      {return std::make_unique<RandomizeBC>(m, cfg);});
+      {return std::make_unique<RandomizeBC>(V, cfg);});
 
   register_type(BCScriptType::BC_ONEPOINT, "onepoint", 
-      [](std::shared_ptr<Mesh> m, BoundaryConditionConfig cfg)
+      [](Eigen::MatrixXd V, BoundaryConditionConfig cfg)
       ->std::unique_ptr<BoundaryCondition>
-      {return std::make_unique<OnePointBC>(m, cfg);});
+      {return std::make_unique<OnePointBC>(V, cfg);});
 
   register_type(BCScriptType::BC_HANG, "hang", 
-      [](std::shared_ptr<Mesh> m, BoundaryConditionConfig cfg)
+      [](Eigen::MatrixXd V, BoundaryConditionConfig cfg)
       ->std::unique_ptr<BoundaryCondition>
-      {return std::make_unique<HangBC>(m, cfg);});
+      {return std::make_unique<HangBC>(V, cfg);});
 
   register_type(BCScriptType::BC_HANGENDS, "hangends", 
-      [](std::shared_ptr<Mesh> m, BoundaryConditionConfig cfg)
+      [](Eigen::MatrixXd V, BoundaryConditionConfig cfg)
       ->std::unique_ptr<BoundaryCondition>
-      {return std::make_unique<HangEndsBC>(m, cfg);});
+      {return std::make_unique<HangEndsBC>(V, cfg);});
   
+  register_type(BCScriptType::BC_BEND, "bend", 
+      [](Eigen::MatrixXd V, BoundaryConditionConfig cfg)
+      ->std::unique_ptr<BoundaryCondition>
+      {return std::make_unique<BendBC>(V, cfg);});
 
-
-
+  register_type(BCScriptType::BC_STRETCH, "stretch", 
+      [](Eigen::MatrixXd V, BoundaryConditionConfig cfg)
+      ->std::unique_ptr<BoundaryCondition>
+      {return std::make_unique<StretchBC>(V, cfg);});
+  
+  register_type(BCScriptType::BC_TWIST, "twist", 
+      [](Eigen::MatrixXd V, BoundaryConditionConfig cfg)
+      ->std::unique_ptr<BoundaryCondition>
+      {return std::make_unique<TwistBC>(V, cfg);});  
 }

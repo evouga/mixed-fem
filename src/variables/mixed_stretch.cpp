@@ -272,7 +272,7 @@ void MixedStretch<DIM>::reset() {
     g_[i].setZero();
   }
 
-  MatrixXd tmp = mesh_->Vinit_.transpose();
+  MatrixXd tmp = mesh_->V_.transpose();
   VectorXd x = Map<VectorXd>(tmp.data(), mesh_->V_.size());
   VectorXd def_grad;
   mesh_->deformation_gradient(x, def_grad);

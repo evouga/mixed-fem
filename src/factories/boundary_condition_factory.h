@@ -7,7 +7,7 @@
 namespace mfem {
   
   class BoundaryConditionFactory : public Factory<BCScriptType,
-      BoundaryCondition, std::shared_ptr<Mesh>, BoundaryConditionConfig> {
+      BoundaryCondition, Eigen::MatrixXd, BoundaryConditionConfig> {
   public:
     BoundaryConditionFactory();
   };

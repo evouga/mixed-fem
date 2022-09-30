@@ -1,20 +1,24 @@
 #pragma once
 
 #include "config.h"
-#include "mesh/mesh.h"
 
 namespace mfem {
 
   class BoundaryCondition {
   public:
-    BoundaryCondition(std::shared_ptr<Mesh> mesh,
+    BoundaryCondition(const Eigen::MatrixXd& V,
         const BoundaryConditionConfig& config) : config_(config) {
-      init_boundary_groups(mesh->Vref_, groups_, config.ratio, config.axis);
+      init_boundary_groups(V, groups_, config.ratio, config.axis);
     }
 
     virtual ~BoundaryCondition() = default;
 
+    virtual void init(Eigen::MatrixXd& V) {}
     virtual void step(Eigen::MatrixXd& V, double dt) {}
+
+    const Eigen::VectorXi fixed() const { 
+      return is_fixed_;
+    }
 
   protected:
     

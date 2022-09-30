@@ -6,13 +6,14 @@ namespace mfem {
 
   // Pins both ends along specified axis, and squash or stretches along
   // this axis.
-  class BendBC : BoundaryCondition {
+  class BendBC : public BoundaryCondition {
   public:
-    BendBC(std::shared_ptr<Mesh> mesh,
+    BendBC(const Eigen::MatrixXd& V,
         const BoundaryConditionConfig& config)
-        : BoundaryCondition(mesh, config) {
+        : BoundaryCondition(V, config) {}
 
-      is_fixed_ = Eigen::VectorXi::Zero(mesh->V_.rows());
+    void init(Eigen::MatrixXd& V) override {
+      is_fixed_ = Eigen::VectorXi::Zero(V.rows());
       group_centers_.resize(groups_.size());
       group_velocity_.resize(groups_.size());
 
@@ -22,8 +23,8 @@ namespace mfem {
           is_fixed_(j) = 1;
         }
 
-        group_centers_[i] = mesh->V_.row(groups_[i].back());
-        group_velocity_[i] = std::pow(-1.0, i) * config.velocity * M_PI;
+        group_centers_[i] = V.row(groups_[i].back());
+        group_velocity_[i] = std::pow(-1.0, i) * config_.velocity * M_PI;
       }
       update_free_map();
     }
@@ -37,7 +38,7 @@ namespace mfem {
         Eigen::MatrixXd R;
         double a = group_velocity_[i];
 
-        if (V.cols() == 2) {
+        if (V.cols() == 3) {
           Eigen::Vector3d axis = Eigen::Vector3d::UnitZ();
           R = Eigen::AngleAxis<double>(a * dt, axis).toRotationMatrix();
         } else {
