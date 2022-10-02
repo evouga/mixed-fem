@@ -12,9 +12,16 @@
   "max_linesearch_iterations": 20,
   "objects": [
     {
-      "path": "../models/beam_20k.mesh",
+      "path": "../models/beam_5k.mesh",
+      "path_2": "../models/beam_20k.mesh",
       "offset": [0.0, 0.0, 0.0],
-      "material_index": 0
+      "material_index": 0,
+      "boundary_condition": {
+        "type": "twist",
+        "ratio": 0.01,
+        "velocity": -0.1,
+        "axis": 0
+      }
     }
   ],
   "material_models": [

@@ -16,8 +16,13 @@
     {
       "path": "../models/cube_8.mesh",
       "offset": [0.0, 1.0, 0.0],
-      "material_index": 0
-    },
+      "material_index": 0,
+      "boundary_condition": {
+        "type": "hangends",
+        "ratio": 0.9,
+        "axis": 0
+      }
+   },
     {
       "path": "../models/spot.mesh",
       "offset": [-0.2, 3.0, 0.0],

@@ -14,8 +14,14 @@
     {
       "path": "../models/beam_5k.mesh",
       "offset": [0.0, 0.0, 0.0],
-      "material_index": 0
-    }
+      "material_index": 0,
+      "boundary_condition": {
+        "type": "stretch",
+        "ratio": 0.01,
+        "velocity": -0.1,
+        "axis": 0
+      }
+   }
   ],
   "material_models": [
     {

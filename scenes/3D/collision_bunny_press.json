@@ -8,15 +8,20 @@
   "linear_solver": "cholmod",
   "enable_ccd": true,
   "dhat": 0.001,
-  "kappa": 1e4,
+  "kappa": 1e5,
   "boundary_condition": "hangends",
-  "max_newton_iterations": 10,
+  "max_newton_iterations": 30,
   "max_linesearch_iterations": 20,
   "objects": [
     {
       "path": "../models/cube_8.mesh",
       "offset": [0.0, 1.0, 0.0],
-      "material_index": 0
+      "material_index": 0,
+      "boundary_condition": {
+        "type": "hangends",
+        "ratio": 0.9,
+        "axis": 0
+      }
     },
     {
       "path": "../models/coarse_bunny.mesh",

@@ -16,7 +16,12 @@
     {
       "path": "../models/coarse_bunny.mesh",
       "offset": [0.0, 1.0, 0.0],
-      "material_index": 0
+      "material_index": 0,
+      "boundary_condition": {
+        "type": "hangends",
+        "ratio": 0.1,
+        "axis": 0
+      }
     },
     {
       "path": "../models/bar.mesh",
