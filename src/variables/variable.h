@@ -29,7 +29,11 @@ namespace mfem {
     // Resets the state
     virtual void reset() = 0;
 
-    virtual void post_solve() = 0;
+    // Pre-solve procedures
+    virtual void pre_solve() {}
+
+    // Pre-solve procedures
+    virtual void post_solve() {}
 
     // Build and return the right-hand-side of schur-complement
     // reduced system of equations

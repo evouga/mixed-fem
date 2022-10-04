@@ -259,6 +259,8 @@ namespace mfem {
 
         ImGui::InputDouble("Timestep", &config->h, 0,0,"%.5f");
         ImGui::InputDouble("dhat", &config->dhat, 0,0,"%.5g");
+        ImGui::InputDouble("mu", &config->mu, 0,0,"%.5g");
+        ImGui::InputDouble("espv", &config->espv, 0,0,"%.5g");
         ImGui::Checkbox("enable_ccd", &config->enable_ccd);
 
         if (FactoryCombo<OptimizerFactory<DIM>, OptimizerType>(
@@ -296,26 +298,6 @@ namespace mfem {
         }
         // ImGui::Checkbox("floor collision",&config->floor_collision);
         // ImGui::Checkbox("warm start",&config->warm_start);
-
-
-        int type = config->bc_type;
-        const char* combo_preview_value = bc_list[type].c_str(); 
-        if (ImGui::BeginCombo("Boundary Condition", combo_preview_value)) {
-          for (int n = 0; n < bc_list.size(); ++n) {
-            const bool is_selected = (type == n);
-            if (ImGui::Selectable(bc_list[n].c_str(), is_selected)) {
-              type = n;
-              config->bc_type = static_cast<BCScriptType>(type);
-              optimizer->reset();
-            }
-
-            // Set the initial focus when opening the combo
-            // (scrolling + keyboard navigation focus)
-            if (is_selected)
-              ImGui::SetItemDefaultFocus();
-        }
-          ImGui::EndCombo();
-        }
 
         if (FactoryCombo<SolverFactory, SolverType>(
             "Linear Solver", config->solver_type)) {
@@ -428,7 +410,4 @@ namespace mfem {
 
     std::vector<std::string> bc_list;
   };
-
-  
-  
 }

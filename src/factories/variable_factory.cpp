@@ -3,6 +3,7 @@
 #include "variables/mixed_stretch.h"
 #include "variables/stretch.h"
 #include "variables/collision.h"
+#include "variables/friction.h"
 #include "mesh/mesh.h"
 
 using namespace mfem;
@@ -40,6 +41,13 @@ VariableFactory<DIM>::VariableFactory() {
       [](std::shared_ptr<Mesh> mesh, std::shared_ptr<SimConfig> config)
       ->std::unique_ptr<Variable<DIM>>
       {return std::make_unique<Collision<DIM>>(mesh, config);});
+
+  // IPC Friction
+  this->register_type(VariableType::VAR_FRICTION,
+      Friction<DIM>::name(),
+      [](std::shared_ptr<Mesh> mesh, std::shared_ptr<SimConfig> config)
+      ->std::unique_ptr<Variable<DIM>>
+      {return std::make_unique<Friction<DIM>>(mesh, config);});
 }
 
 template class mfem::MixedVariableFactory<3>;

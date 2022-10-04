@@ -142,8 +142,5 @@ void Collision<DIM>::reset() {
   grad_.resize(0);
 }
 
-template<int DIM>
-void Collision<DIM>::post_solve() {}
-
 template class mfem::Collision<3>; // 3D
 template class mfem::Collision<2>; // 2D

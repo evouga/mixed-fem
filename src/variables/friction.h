@@ -5,30 +5,32 @@
 #include "utils/sparse_utils.h"
 #include <iostream>
 #include "ipc/ipc.hpp"
+#include "ipc/friction/friction.hpp"
 
 namespace mfem {
 
   class SimConfig;
 
   template<int DIM>
-  class Collision : public Variable<DIM> {
+  class Friction : public Variable<DIM> {
 
     typedef Variable<DIM> Base;
 
   public:
 
-    Collision(std::shared_ptr<Mesh> mesh,
+    Friction(std::shared_ptr<Mesh> mesh,
         std::shared_ptr<SimConfig> config)
         : Variable<DIM>(mesh), config_(config)
     {}
 
     static std::string name() {
-      return "collision";
+      return "friction";
     }
 
     double energy(const Eigen::VectorXd& x) override;
     void update(const Eigen::VectorXd& x, double dt) override;
     void reset() override;
+    void pre_solve() override;
 
     Eigen::VectorXd rhs() override;
     Eigen::VectorXd gradient() override;
@@ -42,21 +44,13 @@ namespace mfem {
     }
 
     Eigen::VectorXd& delta() override {
-      std::cerr << "stretch::delta() unused" << std::endl;
+      std::cerr << "friction::delta() unused" << std::endl;
       return grad_;
     }
 
     Eigen::VectorXd& value() override {
-      std::cerr << "stretch::value() unused" << std::endl;
+      std::cerr << "friction::value() unused" << std::endl;
       return grad_;
-    }
-
-    int num_collision_frames() const {
-      return nframes_;
-    }
-
-    const ipc::Constraints& frames() const {
-      return constraints_;
     }
 
   protected:
@@ -65,22 +59,19 @@ namespace mfem {
 
   private:
 
-    static constexpr int M() {
-      return DIM * DIM;
-    }
-
     using Base::mesh_;
 
     OptimizerData data_;     // Stores timing results
     double dt_;
     int nframes_;            // number of elements
     Eigen::VectorXd grad_;   // Gradient with respect to 'd' variables
+    Eigen::MatrixXd V0_;
 
     std::shared_ptr<SimConfig> config_;
     Eigen::SparseMatrix<double, Eigen::RowMajor> A_;
     std::shared_ptr<Assembler<double,DIM,-1>> assembler_;
     std::shared_ptr<VecAssembler<double,DIM,-1>> vec_assembler_;
-    ipc::Constraints constraints_;
-
+    // ipc::Constraints constraints_; // TODO cache these somewhere else -- share them
+    ipc::FrictionConstraints constraints_;
   };
 }

@@ -19,6 +19,7 @@ namespace mfem {
     VAR_DISPLACEMENT,
     VAR_STRETCH,
     VAR_COLLISION,
+    VAR_FRICTION,
     VAR_MIXED_STRETCH,
     VAR_MIXED_COLLISION
   };
@@ -82,15 +83,6 @@ namespace mfem {
   // Global parameters for the simulation
   struct SimConfig {
     double h = 0.034; 
-    // double h2 = h*h;
-    // double ih2 = 1.0/h/h;
-    // double beta = 5.;
-    // double grav = -9.8;
-    // bool regularizer = false;
-    // bool local_global = true;
-    // int inner_steps = 7;
-    // double plane_d = 0;
-    // bool warm_start = false;
     float ext[3] = {0., -9.8, 0.};
     bool show_timing = true;
     bool show_data = true;
@@ -98,6 +90,8 @@ namespace mfem {
     int outer_steps = 5;
     int ls_iters = 20;
 
+    double mu = 0.5;
+    double espv = 1e-3;
     double kappa = 10.0;
     double max_kappa = 1e6;
     double constraint_tol = 1e-2;
@@ -112,7 +106,6 @@ namespace mfem {
     OptimizerType optimizer = OPTIMIZER_NEWTON;
     int max_iterative_solver_iters = 500;
     double itr_tol = 1e-4;
-    BCScriptType bc_type = BC_ONEPOINT;
     SolverType solver_type = SOLVER_EIGEN_LLT;
     TimeIntegratorType ti_type = TI_BDF1;
     std::set<VariableType> variables = {};
@@ -139,7 +132,6 @@ namespace mfem {
     double ratio = 0.1;
     int axis = 0;
     double velocity = 0.1;
-
   };
 
 }

@@ -15,6 +15,15 @@ template <int DIM>
 void NewtonOptimizer<DIM>::step() {
   state_.data_.clear();
 
+  // Pre operations for variables
+  state_.x_->pre_solve();
+  for (auto& var : state_.mixed_vars_) {
+    var->pre_solve();
+  }
+  for (auto& var : state_.vars_) {
+    var->pre_solve();
+  }
+
   int i = 0;
   double grad_norm;
   double E = 0, E_prev = 0, res = 0;
@@ -113,7 +122,7 @@ void NewtonOptimizer<DIM>::step() {
   for (auto& var : state_.mixed_vars_) {
     var->post_solve();
   }
- for (auto& var : state_.vars_) {
+  for (auto& var : state_.vars_) {
     var->post_solve();
   }
 }
