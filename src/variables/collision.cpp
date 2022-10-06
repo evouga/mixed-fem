@@ -68,12 +68,18 @@ void Collision<DIM>::update(const Eigen::VectorXd& x, double dt) {
   nframes_ = constraints_.size();
 
   // Create element matrix for assemblers
+  VectorXd D(nframes_);
   MatrixXi T(nframes_, 4);
   for (size_t i = 0; i < constraints_.size(); ++i) {
     std::array<long, 4> ids = constraints_[i].vertex_indices(E, F);
     for (int j = 0; j < 4; ++j) {
       T(i,j) = ids[j];
     }
+    D(i) = constraints_[i].compute_distance(V, E, F, ipc::DistanceMode::SQRT);
+  }
+  if (nframes_ > 0) {
+    std::cout << "D min: " << D.minCoeff() << std::endl;
+    std::cout << "D max: " << D.maxCoeff() << std::endl;
   }
 
   // Remaking assemblers since collision frames change.

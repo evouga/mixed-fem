@@ -34,7 +34,8 @@ double MixedCollision<DIM>::energy(const VectorXd& x, const VectorXd& d) {
   #pragma omp parallel for reduction( + : e )
   for (size_t i = 0; i < constraints.size(); ++i) {
     double di = constraints.distance(i);
-    e += config_->kappa * ipc::barrier(di, config_->dhat) / h2;
+    //e += config_->kappa * ipc::barrier(di, config_->dhat) / h2;
+    e += config_->kappa * ipc::barrier(di*di, config_->dhat*config_->dhat) / h2;
   }
   return e;
 }
@@ -174,12 +175,16 @@ void MixedCollision<DIM>::update_derivatives(const MatrixXd& V, double dt) {
 
   double dhat = config_->dhat;// * config_->dhat;
   // double h2 = dt_*dt_;
-
+ 
   #pragma omp parallel for
   for (int i = 0; i < nframes_; ++i) {
     // Mixed barrier energy gradients and hessians
-    g_[i] = config_->kappa * ipc::barrier_gradient(d_(i), dhat);
-    H_[i] = config_->kappa * ipc::barrier_hessian(d_(i), dhat);
+    // dphi(d^2)/d = 2d g(d^2)
+    // dphi2(d^2)/d^2 = 2g(d^2) + 4d^2 H(d^2)
+    //g_[i] = config_->kappa * ipc::barrier_gradient(d_(i), dhat);
+    //H_[i] = config_->kappa * ipc::barrier_hessian(d_(i), dhat);
+    g_[i] = config_->kappa * (ipc::barrier_gradient(d_(i)*d_(i), dhat*dhat) * d_(i) * 2);
+    H_[i] = config_->kappa * (ipc::barrier_hessian(d_(i)*d_(i), dhat*dhat)*4*d_(i)*d_(i) + 2*ipc::barrier_gradient(d_(i)*d_(i), dhat*dhat));
     H_(i) = std::max(H_(i), 1e-8);
     Aloc[i] = dd_dx_[i] * H_(i) * dd_dx_[i].transpose();
     // sim::simple_psd_fix(Aloc[i]);

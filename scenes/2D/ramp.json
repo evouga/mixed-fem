@@ -34,7 +34,7 @@
         "ratio": 0.1,
         "axis": 0
       },
-      "transformation_0": [
+      "transformation": [
         -1.8476, 0.38268,
         -0.76536, -0.9238
       ]
