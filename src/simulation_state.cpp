@@ -139,6 +139,7 @@ bool SimState<DIM>::load(const nlohmann::json& args) {
       std::string path;
       std::vector<double> offset = {0.0, 0.0, 0.0};
       std::vector<double> transformation;
+      std::vector<double> initial_velocity;
       uint idx = 0;
       VectorXi material_ids;
       bool has_material_ids = false;
@@ -160,6 +161,12 @@ bool SimState<DIM>::load(const nlohmann::json& args) {
         transformation = it->get<std::vector<double>>();
         assert(transformation.size() == DIM*DIM);
       }
+
+      if (const auto& it = obj.find("initial_velocity"); it != obj.end()) {
+        initial_velocity = it->get<std::vector<double>>();
+        assert(initial_velocity.size() == 3);
+      }
+
       
       if (const auto& it = obj.find("material_ids"); it != obj.end()) {
         std::string mat_path = it->get<std::string>();
@@ -202,6 +209,15 @@ bool SimState<DIM>::load(const nlohmann::json& args) {
           meshes.push_back(std::make_shared<TetrahedralMesh>(V, T,
               materials[idx]));
         }
+      }
+
+      if (initial_velocity.size() > 0) {
+        RowVector<double,DIM> v;
+        for (int i = 0; i < DIM; ++i) {
+          v(i) = initial_velocity[i];
+        }
+        meshes.back()->initial_velocity_ = v.replicate(V.rows(),1);
+        std::cout << " meshes.back()->initial_velocity_: " << meshes.back()->initial_velocity_ << std::endl;
       }
 
       // After loading and creating mesh, check if any boundary conditions

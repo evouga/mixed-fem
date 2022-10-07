@@ -77,10 +77,10 @@ void Collision<DIM>::update(const Eigen::VectorXd& x, double dt) {
     }
     D(i) = constraints_[i].compute_distance(V, E, F, ipc::DistanceMode::SQRT);
   }
-  if (nframes_ > 0) {
-    std::cout << "D min: " << D.minCoeff() << std::endl;
-    std::cout << "D max: " << D.maxCoeff() << std::endl;
-  }
+  // if (nframes_ > 0) {
+  //   std::cout << "D min: " << D.minCoeff() << std::endl;
+  //   std::cout << "D max: " << D.maxCoeff() << std::endl;
+  // }
 
   // Remaking assemblers since collision frames change.
   assembler_ = std::make_shared<Assembler<double,DIM,-1>>(T, mesh_->free_map_);

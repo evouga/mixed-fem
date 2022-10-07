@@ -13,14 +13,39 @@ using namespace mfem;
 
 const int DIM = 2;
 
+std::shared_ptr<Optimizer<DIM>> newton_optimizer;
 std::shared_ptr<Optimizer<DIM>> optimizer;
 std::vector<double> curr_decrements;
 double final_decrement;
 
 static double newton_decrement(const SimState<DIM>& state) {
   // Get full configuration vector
-  // return state.x_->energy(state.x_->value());
-  return state.x_->delta().norm();
+  VectorXd x = state.x_->value();
+  state.x_->unproject(x);
+
+  SparseMatrix<double, RowMajor> lhs;
+  VectorXd rhs;
+
+  const SimState<DIM>& newton_state = newton_optimizer->state();
+
+  newton_state.x_->value() = state.x_->value();
+  // Add LHS and RHS from each variable
+  lhs = newton_state.x_->lhs();
+  rhs = newton_state.x_->rhs();
+
+  for (auto& var : newton_state.vars_) {
+    var->update(x, state.x_->integrator()->dt());
+    lhs += var->lhs();
+    rhs += var->rhs();
+  }
+
+  newton_state.solver_->compute(lhs);
+  VectorXd dx = newton_state.solver_->solve(rhs);
+
+  // Use infinity norm of deltas as termination criteria
+  // double decrement = dx.norm();
+  double decrement = rhs.norm();
+  return decrement;
 }
 
 void callback(const SimState<DIM>& state) {
@@ -68,7 +93,6 @@ int main(int argc, char **argv) {
   MatrixXd decrements(N,M);
   VectorXd final_decrements(N);
 
-std::cout << "1" << std::endl;
   for (int i = 0; i < N; ++i) {
     // Read and parse file
     std::ifstream input(filename);
@@ -82,14 +106,21 @@ std::cout << "1" << std::endl;
     optimizer->reset();
     optimizer->callback = callback;
 
+    // Switch to newton FEM
+    // Note just supports stretch right now
+    args.erase("mixed_variables");
+    args["variables"] = {"stretch", "collision"};
+
+    SimState<DIM> newton_state;
+    newton_state.load(args);
+    newton_optimizer = factory.create(newton_state.config_->optimizer, newton_state);
+    newton_optimizer->reset();
+
     // Do one dummy step
     optimizer->step();
-    curr_decrements.clear();
+    // curr_decrements.clear();
+    // optimizer->step();
 
-    // Record decrements at second time step
-    double decrement = newton_decrement(optimizer->state());
-    // curr_decrements.push_back(decrement);
-    optimizer->step();
     final_decrements(i) = final_decrement;
     decrements.row(i) = Map<RowVectorXd>(curr_decrements.data(), M);
   }
