@@ -139,7 +139,6 @@ bool SimState<DIM>::load(const nlohmann::json& args) {
     for (const auto& obj : *obj_it) {
 
       std::string path;
-      std::string skinning_path;
       std::vector<double> offset = {0.0, 0.0, 0.0};
       std::vector<double> transformation;
       std::vector<double> initial_velocity;
@@ -184,23 +183,10 @@ bool SimState<DIM>::load(const nlohmann::json& args) {
         }
       }
 
-      MatrixXd V;
+      MatrixXd V, V0;
       MatrixXi T;
       load_mesh(path, V, T);
-
-      // Skinning mesh
-      if (const auto& it = obj.find("skinning_mesh"); it != obj.end()) {
-        skinning_path = it->get<std::string>();
-        MatrixXd skinV;
-        MatrixXi skinF;
-        SkinningData sd;
-        sd.empty_ = false;
-        igl::readOBJ(skinning_path,
-            sd.V_, sd.TC_, sd.N_, sd.F_, sd.FTC_, sd.FN_);
-        Eigen::SparseMatrix<double, Eigen::RowMajor> W;
-        linear_blend_skinning(V, T, skinV, sd.W_); 
-        meshes.back()->skinning_data_ = sd;
-      }
+      V0 = V;
 
       // Apply translation offset
       for (int i = 0; i < V.cols(); ++i) {
@@ -232,17 +218,27 @@ bool SimState<DIM>::load(const nlohmann::json& args) {
         }
       }
 
-<<<<<<< HEAD
-=======
       if (initial_velocity.size() > 0) {
         RowVector<double,DIM> v;
         for (int i = 0; i < DIM; ++i) {
           v(i) = initial_velocity[i];
         }
         meshes.back()->initial_velocity_ = v.replicate(V.rows(),1);
-        std::cout << " meshes.back()->initial_velocity_: " << meshes.back()->initial_velocity_ << std::endl;
       }
->>>>>>> 9c60836194a65c20097fe35ec05511791a2585a9
+
+      // Skinning mesh
+      if (const auto& it = obj.find("skinning_mesh"); it != obj.end()) {
+        std::string skinning_path = it->get<std::string>();
+        SkinningData sd;
+        sd.empty_ = false;
+        igl::readOBJ(skinning_path,
+            sd.V_, sd.TC_, sd.N_, sd.F_, sd.FTC_, sd.FN_);
+        double fac = sd.V_.maxCoeff();
+        sd.V_.array() /= fac;
+
+        linear_blend_skinning(V0, T, sd.V_, sd.W_); 
+        meshes.back()->skinning_data_ = sd;
+      }
 
       // After loading and creating mesh, check if any boundary conditions
       // are specified.
