@@ -8,8 +8,8 @@
   "linear_solver": "eigen-ldlt",
   "enable_ccd": true,
   "dhat": 0.002,
-  "kappa": 1e5,
-  "max_newton_iterations": 100,
+  "kappa": 1e8,
+  "max_newton_iterations": 50,
   "max_linesearch_iterations": 20,
   "initial_state": {
     "x_path": "../scenes/2D/data/diving_board/sim_x0_0001.dmat",

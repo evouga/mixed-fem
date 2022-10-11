@@ -1,0 +1,52 @@
+{
+  "dt": 0.016,
+  "body_force": [0.0, 0.0, 0.0],
+  "print_timing": true,
+  "print_stats": true,
+  "optimizer": "newton",
+  "kappa": 1e10,
+  "dhat": 0.001,
+  "time_integrator": "BDF1",
+  "linear_solver": "cholmod",
+  "enable_ccd": true,
+  "max_newton_iterations": 25,
+  "max_linesearch_iterations": 20,
+  "objects": [
+    {
+      "path": "../models/mask.mesh",
+      "offset": [0.0, 0.0, 0.0],
+      "material_index": 0,
+      "boundary_condition": {
+        "type": "hangends",
+        "ratio": 0.7,
+        "axis": 2
+      }
+    },
+    {
+      "path": "../models/corona_lo.mesh",
+      "offset": [0.0, 0.0, 10.0],
+      "material_index": 1,
+      "transformation": [
+        0.5, 0.0, 0.0,
+        0.0, 0.5, 0.0,
+        0.0, 0.0, 0.5
+      ],
+      "initial_velocity": [0.0, 0.0, -15.0]
+    }
+  ],
+  "material_models": [
+    {
+      "youngs_modulus": 1e10,
+      "poissons_ratio": 0.45,
+      "density": 1e3,
+      "energy": "Stable-Neohookean"
+    },
+    {
+      "youngs_modulus": 5e4,
+      "poissons_ratio": 0.45,
+      "density": 1e3,
+      "energy": "Stable-Neohookean"
+    }
+  ],
+  "mixed_variables": ["mixed-stretch", "mixed-collision"]
+}

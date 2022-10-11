@@ -25,6 +25,7 @@ Meshes::Meshes(const std::vector<std::shared_ptr<Mesh>>& meshes)
   int m = meshes_[0]->V_.cols();
   int n = meshes_[0]->T_.cols();
   V_.resize(num_V, m);
+  initial_velocity_.resize(num_V, m);
   Vref_.resize(num_V, m);
   Vinit_.resize(num_V, m);
   T_.resize(num_T, n);
@@ -37,6 +38,7 @@ Meshes::Meshes(const std::vector<std::shared_ptr<Mesh>>& meshes)
     size_t sz_V = meshes_[i]->V_.rows();
     size_t sz_T = meshes_[i]->T_.rows();
     V_.block(start_V,0, sz_V,m) = meshes_[i]->V_;
+    initial_velocity_.block(start_V,0, sz_V,m) = meshes_[i]->initial_velocity_;
     Vref_.block(start_V,0, sz_V,m) = meshes_[i]->Vref_;
     Vinit_.block(start_V,0, sz_V,m) = meshes_[i]->Vinit_;
     T_.block(start_T,0, sz_T,n) = meshes_[i]->T_;
@@ -50,9 +52,8 @@ Meshes::Meshes(const std::vector<std::shared_ptr<Mesh>>& meshes)
     elements_.insert(elements_.end(), meshes_[i]->elements_.begin(),
         meshes_[i]->elements_.end());
   }
-
   igl::boundary_facets(T_, F_);
-  initial_velocity_ = 0 * V_;
+  // initial_velocity_ = 0 * V_;
 }
 
 void Meshes::init() {

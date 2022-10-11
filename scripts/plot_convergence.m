@@ -1,34 +1,30 @@
 ym = readDMAT('../output/dhat_values.dmat');
-a1 = readDMAT('../output/finalconvergence_converge_fem_1e4.dmat');
-a2 = readDMAT('../output/finalconvergence_converge_fem_1e5.dmat');
-a3 = readDMAT('../output/finalconvergence_converge_fem_1e6.dmat');
+a = readDMAT('../output/finalconvergence_converge_fem.dmat');
 b = readDMAT('../output/finalconvergence_converge_mfem.dmat');
 figure(2); clf;
-loglog(ym,a1);
+loglog(ym,a,'.-','MarkerSize',15);
 hold on;
-loglog(ym,a2);
-loglog(ym,a3);
-loglog(ym,b);
+loglog(ym,b,'.-','MarkerSize',15);
 xlabel("dhat");
-ylabel("||\delta x||");
-legend("Vanilla IPC (\kappa=1e4)","Vanilla IPC (\kappa=1e5)", "Vanilla IPC (\kappa=1e6)", "Ours");
+ylabel("Gradient Norm");
+legend("Vanilla IPC", "Mixed IPC");
 title("Convergence after 50 iterations")
 
 
 figure(1); clf;
 
-a = readDMAT('../output/convergence_fem_1e6.dmat');
+a = readDMAT('../output/convergence_fem.dmat');
 b = readDMAT('../output/convergence_mfem.dmat');
 N = numel(ym);
-M = size(a,2);
+M = size(b,2);
 
 %colormap(CustomColormap);
 colormap(winter(1000))
 cmap = winter(N); 
 hold on;
 for i=1:N
-    semilogy(1:M,a(i,:),'-','Color',cmap(i,:));
-    semilogy(1:M,b(i,:),'--','Color',cmap(i,:));
+    semilogy(1:M,a(i,1:M),'-','Color',cmap(i,:));
+    semilogy(1:M,b(i,1:M),'--','Color',cmap(i,:));
 
     if (i == 1)
         legend("Vanilla IPC", "Ours");

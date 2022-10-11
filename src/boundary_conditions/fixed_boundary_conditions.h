@@ -44,10 +44,11 @@ namespace mfem {
       Eigen::RowVectorXd bmin = V.colwise().minCoeff();
       Eigen::RowVectorXd bmax = V.colwise().maxCoeff();
       Eigen::RowVectorXd offset = 0.5 * (bmin + bmax);
-      Eigen::RowVectorXd scale = (bmax-bmin);
+      Eigen::MatrixXd tmp = V;
       V.setRandom();
-      V = (V.array() + 1.0) * 0.5;
-      V *= scale.asDiagonal();
+      V /= 2.0;
+      offset(1) += (bmax(1) - bmin(1)) * 0.5;
+      offset -= V.row(0);
       V.rowwise() += offset;
     }
   };
