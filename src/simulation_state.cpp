@@ -7,6 +7,7 @@
 #include "mesh/mesh.h"
 #include "mesh/tri2d_mesh.h"
 #include "mesh/meshes.h"
+#include "utils/linear_blend_skinning.h"
 
 // Factories
 #include "factories/solver_factory.h"
@@ -20,6 +21,7 @@
 #include <igl/IO>
 #include <igl/remove_unreferenced.h>
 #include <igl/readDMAT.h>
+#include <igl/readOBJ.h>
 
 using json = nlohmann::json;
 using namespace mfem;
@@ -137,6 +139,7 @@ bool SimState<DIM>::load(const nlohmann::json& args) {
     for (const auto& obj : *obj_it) {
 
       std::string path;
+      std::string skinning_path;
       std::vector<double> offset = {0.0, 0.0, 0.0};
       std::vector<double> transformation;
       uint idx = 0;
@@ -177,9 +180,27 @@ bool SimState<DIM>::load(const nlohmann::json& args) {
       MatrixXd V;
       MatrixXi T;
       load_mesh(path, V, T);
+
+      // Skinning mesh
+      if (const auto& it = obj.find("skinning_mesh"); it != obj.end()) {
+        skinning_path = it->get<std::string>();
+        MatrixXd skinV;
+        MatrixXi skinF;
+        SkinningData sd;
+        sd.empty_ = false;
+        igl::readOBJ(skinning_path,
+            sd.V_, sd.TC_, sd.N_, sd.F_, sd.FTC_, sd.FN_);
+        Eigen::SparseMatrix<double, Eigen::RowMajor> W;
+        linear_blend_skinning(V, T, skinV, sd.W_); 
+        meshes.back()->skinning_data_ = sd;
+      }
+
+      // Apply translation offset
       for (int i = 0; i < V.cols(); ++i) {
         V.col(i).array() += offset[i];
       }
+      
+      // Apply transformation matrix
       if (transformation.size() > 0) {
         Matrix<double,1,DIM> centroid = V.colwise().sum() / V.rows();
         Matrix<double,DIM,DIM> T = Map<Matrix<double,DIM,DIM>>(
@@ -203,6 +224,7 @@ bool SimState<DIM>::load(const nlohmann::json& args) {
               materials[idx]));
         }
       }
+
 
       // After loading and creating mesh, check if any boundary conditions
       // are specified.

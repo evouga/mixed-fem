@@ -173,18 +173,22 @@ void MixedCollision<DIM>::update_derivatives(const MatrixXd& V, double dt) {
   const Eigen::MatrixXi& E = ipc_mesh.edges();
   const Eigen::MatrixXi& F = ipc_mesh.faces();
 
-  double dhat = config_->dhat;// * config_->dhat;
+  double dhat = config_->dhat;
+  double dhat_sqr = config_->dhat * config_->dhat;
   // double h2 = dt_*dt_;
  
   #pragma omp parallel for
   for (int i = 0; i < nframes_; ++i) {
     // Mixed barrier energy gradients and hessians
-    // dphi(d^2)/d = 2d g(d^2)
-    // dphi2(d^2)/d^2 = 2g(d^2) + 4d^2 H(d^2)
     //g_[i] = config_->kappa * ipc::barrier_gradient(d_(i), dhat);
     //H_[i] = config_->kappa * ipc::barrier_hessian(d_(i), dhat);
-    g_[i] = config_->kappa * (ipc::barrier_gradient(d_(i)*d_(i), dhat*dhat) * d_(i) * 2);
-    H_[i] = config_->kappa * (ipc::barrier_hessian(d_(i)*d_(i), dhat*dhat)*4*d_(i)*d_(i) + 2*ipc::barrier_gradient(d_(i)*d_(i), dhat*dhat));
+
+    double d2 = d_(i) * d_(i);
+    double g = ipc::barrier_gradient(d2, dhat_sqr);
+    // dphi(d^2)/d = 2d g(d^2)
+    // dphi2(d^2)/d^2 = 2g(d^2) + 4d^2 H(d^2)
+    g_[i] = config_->kappa * (g * d_(i) * 2);
+    H_[i] = config_->kappa * (ipc::barrier_hessian(d2, dhat_sqr)*4*d2 + 2*g);
     H_(i) = std::max(H_(i), 1e-8);
     Aloc[i] = dd_dx_[i] * H_(i) * dd_dx_[i].transpose();
     // sim::simple_psd_fix(Aloc[i]);

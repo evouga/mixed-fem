@@ -32,6 +32,17 @@ namespace mfem {
     PROJECTED     // Project out both row and columns
   };
 
+  struct SkinningData {
+    Eigen::MatrixXd V_;   // vertex positions    #V by 3
+    Eigen::MatrixXd TC_;  // texture coordinates #TC by 2
+    Eigen::MatrixXd N_;   // corner normals      #N by 3
+    Eigen::MatrixXi F_;   // face indices        #F by 3
+    Eigen::MatrixXi FTC_; // face indices into texture coordinates
+    Eigen::MatrixXi FN_;  // face indices into vertex normals
+    Eigen::SparseMatrixdRowMajor W_; // skinning weights
+    bool empty_ = true;
+  };
+
   // Class to maintain the state and perform physics updates on an object,
   // which has a particular discretization, material, and material config
   class Mesh {
@@ -129,6 +140,8 @@ namespace mfem {
     Eigen::MatrixXi T_;
     Eigen::MatrixXi F_;
     Eigen::VectorXi mat_ids_;
+
+    SkinningData skinning_data_;
 
     std::shared_ptr<MaterialModel> material_;
     std::vector<Element> elements_;

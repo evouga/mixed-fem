@@ -35,7 +35,7 @@ std::vector<MatrixXi> het_faces;
 
 struct PolyscopTetApp : public PolyscopeApp<3> {
 
-  virtual void simulation_step() {
+  virtual void simulation_step() override {
     vertices.clear();
     frame_faces.clear();
     frame_tets.clear();
@@ -161,7 +161,7 @@ struct PolyscopTetApp : public PolyscopeApp<3> {
     }
   }
 
-  virtual void reset() {
+  virtual void reset() override {
     optimizer->reset();
     for (size_t i = 0; i < srfs.size(); ++i) {
       srfs[i]->updateVertexPositions(meshes[i]->Vinit_);
@@ -200,7 +200,15 @@ struct PolyscopTetApp : public PolyscopeApp<3> {
       int n = sprintf(buffer, "../output/obj/tet_%ld_%04d.obj", i, step); 
       buffer[n] = 0;
       size_t sz = meshes[i]->vertices().rows();
-      igl::writeOBJ(std::string(buffer),meshV.block(start,0,sz,3),meshes[i]->F_);
+      if (meshes[i]->skinning_data_.empty_) {
+        igl::writeOBJ(std::string(buffer),
+            meshV.block(start,0,sz,3),meshes[i]->F_);
+      } else {
+        const SkinningData& sd = meshes[i]->skinning_data_;
+        MatrixXd V = sd.W_ * meshV.block(start,0,sz,3);
+        igl::writeOBJ(std::string(buffer), V,
+            sd.F_, sd.N_, sd.FN_, sd.TC_, sd.FTC_);
+      }
       start += sz;
     }
   }

@@ -1,2 +1,13 @@
 Use d^2 for barrier only, and d for constraint...
 
+- Plot lagrange multiplires for a "failing" timestep. For a couple different examples
+  - To eevaluate whether we need augmented lagrangian
+- Mixed Friction
+- Linear SOlver stuff
+
+- What kind of accuracy do we need for our iterative solver to reach our solution?
+- Play around with single linear system in matlab 
+
+
+- iterations vs newton steps to reach convergence
+- Also record total # iterations across entire timestep 
