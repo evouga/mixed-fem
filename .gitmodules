@@ -7,6 +7,3 @@
 [submodule "deps/Bartels"]
 	path = deps/Bartels
 	url = https://github.com/dilevin/Bartels.git
-[submodule "deps/amgcl"]
-	path = deps/amgcl
-	url = https://github.com/ddemidov/amgcl
