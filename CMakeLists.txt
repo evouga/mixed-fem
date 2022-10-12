@@ -82,8 +82,6 @@ find_package(LAPACK)
 find_package(CHOLMOD)
 find_package(SuiteSparse)
 
-add_subdirectory("deps/amgcl")
-
 # Add polyscope
 message("\n\n == CMAKE recursively building Polyscope\n")
 add_subdirectory("deps/polyscope")
@@ -201,30 +199,29 @@ ENDIF()
 
 target_include_directories(mixed_fem_lib SYSTEM PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}/src"
-  "${CMAKE_CURRENT_SOURCE_DIR}/deps/agmcl"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/Bartels/include"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/libigl/include" 
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope/deps/args"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope/deps/json/include")
 
 # Link settings
-target_link_libraries(mixed_fem_lib polyscope Eigen3::Eigen amgcl::amgcl)
+target_link_libraries(mixed_fem_lib polyscope Eigen3::Eigen)
 
 # Create an executable
-add_executable(tet_sim apps/tet_sim.cpp ${SOURCES})
-target_link_libraries(tet_sim mixed_fem_lib)
+# add_executable(tet_sim apps/tet_sim.cpp ${SOURCES})
+# target_link_libraries(tet_sim mixed_fem_lib)
 
-add_executable(cloth_sim apps/cloth_sim.cpp ${SOURCES})
-target_link_libraries(cloth_sim mixed_fem_lib)
+# add_executable(cloth_sim apps/cloth_sim.cpp ${SOURCES})
+# target_link_libraries(cloth_sim mixed_fem_lib)
 
-add_executable(decrement apps/newton_decrement.cpp ${SOURCES})
-target_link_libraries(decrement mixed_fem_lib)
+# add_executable(decrement apps/newton_decrement.cpp ${SOURCES})
+# target_link_libraries(decrement mixed_fem_lib)
 
-add_executable(energy apps/energy.cpp ${SOURCES})
-target_link_libraries(energy mixed_fem_lib)
+# add_executable(energy apps/energy.cpp ${SOURCES})
+# target_link_libraries(energy mixed_fem_lib)
 
-add_executable(coll_sim apps/collision2d_sim.cpp ${SOURCES})
-target_link_libraries(coll_sim mixed_fem_lib)
+# add_executable(coll_sim apps/collision2d_sim.cpp ${SOURCES})
+# target_link_libraries(coll_sim mixed_fem_lib)
 
 add_executable(convergence apps/convergence.cpp ${SOURCES})
 target_link_libraries(convergence mixed_fem_lib)
