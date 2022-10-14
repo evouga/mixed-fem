@@ -154,6 +154,29 @@ void NewtonOptimizer<DIM>::update_system() {
     rhs_ += var->rhs();
   }
   state_.data_.timer.stop("update");
+
+  // TODO bullshit exporting
+
+    //saveMarket(assembler_->A, "lhs2.mkt");
+  // saveMarket(state_.x_->lhs(), "lhs_M.mkt");
+  // saveMarket(state_.x_->rhs(), "rhs_x.mkt");
+
+  // SparseMatrix<double> A, B, C;
+  // VectorXd gs,gl;
+  // state_.mixed_vars_[0]->hessian(A);
+  // state_.mixed_vars_[0]->jacobian_x(B);
+  // state_.mixed_vars_[0]->jacobian_mixed(C);
+  // gs = state_.mixed_vars_[0]->gradient_mixed();
+  // state_.mixed_vars_[0]->evaluate_constraint(x, gl);
+  // saveMarket(A, "lhs_K.mkt");
+  // saveMarket(B, "lhs_Gx.mkt");
+  // saveMarket(C, "lhs_Gs.mkt");
+  // saveMarket(-gs, "rhs_gs.mkt");
+  // saveMarket(-gl, "rhs_gl.mkt");
+
+  
+
+
 }
 
 template <int DIM>

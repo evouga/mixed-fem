@@ -159,6 +159,7 @@ void MixedStretch<DIM>::update_derivatives(double dt) {
     Hinv_[i] = H.inverse();
     g_[i] = h2 * mesh_->elements_[i].material_->gradient(si);
     H_[i] = (1.0 / vol) * (Syminv() * H * Syminv());
+    Hloc_[i] = vol * H;
   }
   data_.timer.stop("Hinv");
   
@@ -261,6 +262,7 @@ void MixedStretch<DIM>::reset() {
   g_.resize(nelem_);
   dSdF_.resize(nelem_);
   Hinv_.resize(nelem_);
+  Hloc_.resize(nelem_);
   Aloc_.resize(nelem_);
   assembler_ = std::make_shared<Assembler<double,DIM,-1>>(
       mesh_->T_, mesh_->free_map_);
@@ -293,6 +295,56 @@ void MixedStretch<DIM>::reset() {
 template<int DIM>
 void MixedStretch<DIM>::post_solve() {
   la_.setZero();
+}
+
+
+template<int DIM>
+void MixedStretch<DIM>::evaluate_constraint(const VectorXd& x, VectorXd& c) {
+  c.resize(N() * nelem_);
+  Matrix<double,N(),M()> tmp;
+  VectorXd def_grad;
+  mesh_->deformation_gradient(x, def_grad);
+
+  #pragma omp parallel for
+  for (int i = 0; i < nelem_; ++i) {
+
+    const VecM& F = def_grad.segment<M()>(M()*i);
+  
+    MatD R = R_[i];
+    VecN stmp;
+    polar_svd<DIM,N()>(R, stmp, Map<MatD>(def_grad.segment<M()>(M()*i).data()),
+        false, tmp);
+
+    const VecN& si = s_.segment<N()>(N()*i);
+    c.segment<N()>(N()*i) = Sym() * (stmp - si) * mesh_->volumes()[i];
+  }
+}
+
+template<int DIM>
+void MixedStretch<DIM>::hessian(SparseMatrix<double>& A) {
+  init_block_diagonal<N(),N()>(A, nelem_);
+  update_block_diagonal<N(),N()>(Hloc_, A);
+}
+
+template<int DIM>
+void MixedStretch<DIM>::jacobian_x(SparseMatrix<double>& A) {
+  SparseMatrix<double> C;
+  init_block_diagonal<M(),N()>(C, nelem_);
+  update_block_diagonal<M(),N()>(dSdF_, C);
+  A = mesh_->jacobian() * C;
+}
+
+template<int DIM>
+void MixedStretch<DIM>::jacobian_mixed(SparseMatrix<double>& A) {
+  std::vector<MatN> C(nelem_);
+  #pragma omp parallel for
+  for (int i = 0; i < nelem_; ++i) {
+    double vol = mesh_->volumes()[i];
+    C[i] = Sym() * vol;
+  }
+  
+  init_block_diagonal<N(),N()>(A, nelem_);
+  update_block_diagonal<N(),N()>(C, A);
 }
 
 template class mfem::MixedStretch<3>; // 3D

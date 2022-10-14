@@ -15,11 +15,6 @@ namespace mfem {
     MixedVariable(std::shared_ptr<Mesh> mesh) : Variable<DIM>(mesh) {
     }
 
-    virtual double energy(const Eigen::VectorXd& x) {
-      std::cerr << "TODO: remove mixed variable energy()!" << std::endl;
-      return 0;
-    }
-
     // Evaluate the energy associated with the variable
     // x - Nodal displacements 
     // y - Mixed variable
@@ -47,6 +42,12 @@ namespace mfem {
 
     // Returns lagrange multipliers
     virtual Eigen::VectorXd& lambda() = 0;
+
+    virtual void evaluate_constraint(const Eigen::VectorXd&,
+        Eigen::VectorXd&) {}
+    virtual void hessian(Eigen::SparseMatrix<double>&) {}
+    virtual void jacobian_x(Eigen::SparseMatrix<double>&) {}
+    virtual void jacobian_mixed(Eigen::SparseMatrix<double>&) {}
 
   };
 

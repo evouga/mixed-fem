@@ -51,6 +51,12 @@ namespace mfem {
       return la_;
     }
 
+    void evaluate_constraint(const Eigen::VectorXd& x,
+        Eigen::VectorXd&) override;
+    void hessian(Eigen::SparseMatrix<double>&) override;
+    void jacobian_x(Eigen::SparseMatrix<double>&) override;
+    void jacobian_mixed(Eigen::SparseMatrix<double>&) override;
+
   protected:
 
     void update_rotations(const Eigen::VectorXd& x);
@@ -124,6 +130,7 @@ namespace mfem {
     std::vector<VecN> S_;     // per-element deformation
     std::vector<VecN> g_;     // per-element gradients
     std::vector<MatN> H_;     // per-element hessians
+    std::vector<MatN> Hloc_;  // per-element hessians
     std::vector<MatN> Hinv_;  // per-element hessian inverse
     std::vector<MatMN> dSdF_; 
     std::vector<Eigen::MatrixXd> Aloc_;

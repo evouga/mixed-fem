@@ -19,7 +19,7 @@ namespace mfem {
 
     // Evaluate the energy associated with the variable
     // x - variable value
-    virtual double energy(const Eigen::VectorXd& x) = 0;
+    virtual double energy(const Eigen::VectorXd& x) { return 0.0; }
 
     // Update the state given a new set of displacements
     // x  - Nodal displacements

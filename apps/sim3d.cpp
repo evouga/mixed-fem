@@ -204,14 +204,8 @@ struct PolyscopTetApp : public PolyscopeApp<3> {
         igl::writeOBJ(std::string(buffer),
             meshV.block(start,0,sz,3),meshes[i]->F_);
       } else {
-        
         const SkinningData& sd = meshes[i]->skinning_data_;
-        std::cout << "exporting sd V:" << sd.F_.rows() << ", " << sd.F_.cols() << " sd TC: " << sd.TC_.rows() << ", " << sd.TC_.cols() << std::endl;
-        std::cout << "W: " << sd.W_.rows() << ", " << sd.W_.cols() << " V: " << sz << std::endl;
-        std::cout << "W norm: " << sd.W_.norm() << std::endl;
         MatrixXd V = sd.W_ * meshV.block(start,0,sz,3);
-        std::cout << "V size: " << V.rows() << ", " << V.cols() << std::endl;
-        std::cout << "V0 size: " << sd.V_.rows() << ", " << sd.V_.cols() << std::endl;
         igl::writeOBJ(std::string(buffer), V,
             sd.F_, sd.N_, sd.FN_, sd.TC_, sd.FTC_);
       }
