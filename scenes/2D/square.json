@@ -26,7 +26,7 @@
       "youngs_modulus": 1e12,
       "poissons_ratio": 0.45,
       "density": 1e3,
-      "energy": "Corot"
+      "energy": "FixedCorot"
     }
   ],
   "mixed_variables": ["mixed-stretch"],

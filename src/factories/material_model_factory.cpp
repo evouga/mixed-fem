@@ -1,6 +1,7 @@
 #include "energies/material_model.h"
 #include "energies/neohookean.h"
 #include "energies/corotational.h"
+#include "energies/fixed_corotational.h"
 #include "energies/arap.h"
 #include "energies/stable_neohookean.h"
 #include "energies/fung.h"
@@ -21,6 +22,12 @@ MaterialModelFactory::MaterialModelFactory() {
       [](std::shared_ptr<MaterialConfig> config)
       ->std::unique_ptr<MaterialModel>
       {return std::make_unique<Corotational>(config);});
+
+  // Fixed Corotated Elasticity
+  register_type(MaterialModelType::MATERIAL_FCR, FixedCorotational::name(),
+      [](std::shared_ptr<MaterialConfig> config)
+      ->std::unique_ptr<MaterialModel>
+      {return std::make_unique<FixedCorotational>(config);});
 
   // Fung
   register_type(MaterialModelType::MATERIAL_FUNG, Fung::name(),

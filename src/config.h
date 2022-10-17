@@ -56,6 +56,7 @@ namespace mfem {
     MATERIAL_SNH,   // Stable neohookean
     MATERIAL_NH,    // neohookean
     MATERIAL_COROT, // corotational
+    MATERIAL_FCR,   // fixed-corotational
     MATERIAL_ARAP,  // as-rigid-as possible
     MATERIAL_FUNG   // exponential
   };

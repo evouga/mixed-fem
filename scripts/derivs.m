@@ -1,4 +1,4 @@
-d=2;
+d=3;
 F=sym('F',[d d]);
 s = sym('S',[d*2,1]);
 sval = sym('sval',[d,1]);
@@ -10,11 +10,11 @@ assume(la,'real')
 assume(c,'real')
 assume(sval,'real')
 % 
-% S = [s(1) s(4) s(5);
-%      s(4) s(2) s(6);
-%      s(5) s(6) s(3)];
-S = [s(1) s(3);
-     s(3) s(2)];
+S = [s(1) s(4) s(5);
+     s(4) s(2) s(6);
+     s(5) s(6) s(3)];
+% S = [s(1) s(3);
+%      s(3) s(2)];
 
 % stable neohookean
 % I3=det(F);
@@ -75,3 +75,12 @@ g=gradient(corot,s(:));
 ccode(corot)
 ccode((H))
 ccode(g)
+
+
+fixed_corot = 0.5*la*(I3-1)^2 + 2*arap;
+H=hessian(fixed_corot,s(:));
+g=gradient(fixed_corot,s(:));
+ccode(fixed_corot)
+ccode((H))
+ccode(g)
+
