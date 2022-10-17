@@ -226,6 +226,9 @@ target_link_libraries(mixed_fem_lib polyscope Eigen3::Eigen)
 add_executable(convergence apps/convergence.cpp ${SOURCES})
 target_link_libraries(convergence mixed_fem_lib)
 
+add_executable(convergence_iterative apps/convergence_iterative.cpp ${SOURCES})
+target_link_libraries(convergence_iterative mixed_fem_lib)
+
 add_executable(convergence_collision apps/convergence_collision.cpp ${SOURCES})
 target_link_libraries(convergence_collision mixed_fem_lib)
 

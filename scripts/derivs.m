@@ -17,10 +17,11 @@ S = [s(1) s(4) s(5);
 %      s(3) s(2)];
 
 % stable neohookean
-% I3=det(F);
-% I2=trace(F'*F);
-I3=det(S);
-I2=trace(S'*S);
+I3=det(F);
+I2=trace(F'*F);
+I1=trace(sqrt(F'*F));
+% I3=det(S);
+% I2=trace(S'*S);
 % I2 = sum(sval.^2);
 % I3 = prod(sval);
 
@@ -84,3 +85,9 @@ ccode(fixed_corot)
 ccode((H))
 ccode(g)
 
+fixed_corot = 0.5*la*(I3-1)^2 + mu*(I2 - 2*I1 + d);
+H=hessian(fixed_corot,F(:));
+g=gradient(fixed_corot,F(:));
+ccode(fixed_corot)
+ccode((H))
+ccode(g)

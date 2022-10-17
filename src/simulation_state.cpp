@@ -361,6 +361,9 @@ void SimState<DIM>::load_params(const nlohmann::json& args) {
   read_and_assign(args, "kappa", config_->kappa);
   read_and_assign(args, "max_newton_iterations", config_->outer_steps);
   read_and_assign(args, "max_linesearch_iterations", config_->ls_iters);
+  read_and_assign(args, "max_iterative_solver_iters",
+      config_->max_iterative_solver_iters);
+  read_and_assign(args, "iterative_solver_tolerance", config_->itr_tol);
 }
 
 template class mfem::SimState<3>; // 3D

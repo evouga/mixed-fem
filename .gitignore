@@ -2,7 +2,7 @@
 build/
 build_debug/
 
-data/
+# data/
 
 *.pdf
 *.log
