@@ -4,30 +4,35 @@
 
 namespace mfem {
 
-  template <typename Solver, typename Scalar, int Ordering>
-  class EigenIterativeSolver : public LinearSolver<Scalar, Ordering> {
+  template <typename Solver, typename SystemMatrix, typename Scalar, int DIM>
+  class EigenIterativeSolver : public LinearSolver<Scalar, DIM> {
+
+    typedef LinearSolver<Scalar, DIM> Base;
+
   public:
 
-    EigenIterativeSolver(std::shared_ptr<SimConfig> config) {
-      solver_.setMaxIterations(config->max_iterative_solver_iters);
-      solver_.setTolerance(config->itr_tol);
+    EigenIterativeSolver(SimState<DIM>* state) 
+        : LinearSolver<Scalar,DIM>(state) {
+      solver_.setMaxIterations(state->config_->max_iterative_solver_iters);
+      solver_.setTolerance(state->config_->itr_tol);
     }
 
-    void compute(const Eigen::SparseMatrix<Scalar, Ordering>& A) override {
-      solver_.compute(A);
-    }
+    void solve() override {
+      system_matrix_.pre_solve(Base::state_);
 
-    Eigen::VectorXx<Scalar> solve(const Eigen::VectorXx<Scalar>& b) override {
-      Eigen::VectorXx<Scalar> x = solver_.solve(b);
+      solver_.compute(system_matrix_.A());
+      tmp_ = solver_.solve(system_matrix_.b());
+
       std::cout << "- CG iters: " << solver_.iterations() << std::endl;
       std::cout << "- CG error: " << solver_.error() << std::endl;
-      return x;
+      system_matrix_.post_solve(Base::state_, tmp_);
     }
 
   private:
 
+    SystemMatrix system_matrix_;
     Solver solver_;
-
+    Eigen::VectorXx<Scalar> tmp_;
   };
 
 

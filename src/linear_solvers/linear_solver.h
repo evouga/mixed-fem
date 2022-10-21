@@ -1,19 +1,23 @@
 #pragma once
 
 #include "EigenTypes.h"
+#include "simulation_state.h"
 
 namespace mfem {
 
-  template <typename Scalar, int Ordering>
+  template <typename Scalar, int DIM>
   class LinearSolver {
 
   public:
 
-    virtual void compute(const Eigen::SparseMatrix<Scalar, Ordering>& A) = 0;
-
-    virtual Eigen::VectorXx<Scalar> solve(const Eigen::VectorXx<Scalar>& b) = 0; 
+    LinearSolver(SimState<DIM>* state) : state_(state) {}
+    
+    virtual void solve() = 0;
 
     virtual ~LinearSolver() = default;
+
+  protected:
+    SimState<DIM>* state_;
   };
 
 }

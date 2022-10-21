@@ -180,7 +180,7 @@ struct PolyscopeTriApp : public PolyscopeApp<2> {
 
     std::shared_ptr<Meshes> m = std::dynamic_pointer_cast<Meshes>(state.mesh_);
     meshes = m->meshes();
-    for (int i = 0; i < meshes.size(); ++i) {
+    for (size_t i = 0; i < meshes.size(); ++i) {
       // Register the mesh with Polyscope
       std::string name = "tri2d_mesh_" + std::to_string(i);
       polyscope::options::autocenterStructures = false;

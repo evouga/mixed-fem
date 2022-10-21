@@ -3,14 +3,13 @@
 #include "factory.h"
 #include "config.h"
 #include "linear_solvers/linear_solver.h"
+#include "simulation_state.h"
 
 namespace mfem {
 
-  class Mesh;
-
+  template<int DIM>
   class SolverFactory : public Factory<SolverType,
-      LinearSolver<double,Eigen::RowMajor>, 
-      std::shared_ptr<Mesh>, std::shared_ptr<SimConfig>> {
+      LinearSolver<double,DIM>, SimState<DIM>*> {
   public:
     SolverFactory();
   };

@@ -109,12 +109,12 @@ namespace mfem {
       optimizer->reset();
 
       if (initMeshV.size() != 0) {
-        optimizer->update_vertices(initMeshV);
+        // optimizer->update_vertices(initMeshV);
         srf->updateVertexPositions(initMeshV);
       }
 
       if (x0.size() != 0) {
-        optimizer->set_state(x0, v);
+        // optimizer->set_state(x0, v);
         if constexpr (DIM == 3) {
           srf->updateVertexPositions(mesh->V_);
         } else {
@@ -296,10 +296,8 @@ namespace mfem {
         if (config->optimizer == OPTIMIZER_SQP_BENDING) {
           ImGui::InputDouble("kappa", &config->kappa,0,0,"%.5g");
         }
-        // ImGui::Checkbox("floor collision",&config->floor_collision);
-        // ImGui::Checkbox("warm start",&config->warm_start);
 
-        if (FactoryCombo<SolverFactory, SolverType>(
+        if (FactoryCombo<SolverFactory<DIM>, SolverType>(
             "Linear Solver", config->solver_type)) {
           optimizer->reset();
         }
@@ -400,7 +398,7 @@ namespace mfem {
     VariableFactory<DIM> variable_factory;
     MixedVariableFactory<DIM> mixed_variable_factory;
     OptimizerFactory<DIM> optimizer_factory;
-    SolverFactory solver_factory;
+    SolverFactory<DIM> solver_factory;
 
     std::shared_ptr<MaterialConfig> material_config;
     std::shared_ptr<MaterialModel> material;

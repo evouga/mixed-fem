@@ -139,25 +139,16 @@ void NewtonOptimizer<DIM>::update_system() {
     state_.mesh_->update_jacobian(x);
   }
 
-  // Add LHS and RHS from each variable
-  lhs_ = state_.x_->lhs();
-  rhs_ = state_.x_->rhs();
-
   for (auto& var : state_.vars_) {
     var->update(x, state_.x_->integrator()->dt());
-    lhs_ += var->lhs();
-    rhs_ += var->rhs();
   }
   for (auto& var : state_.mixed_vars_) {
     var->update(x, state_.x_->integrator()->dt());
-    lhs_ += var->lhs();
-    rhs_ += var->rhs();
   }
   state_.data_.timer.stop("update");
 
   // TODO bullshit exporting
-
-    //saveMarket(assembler_->A, "lhs2.mkt");
+  //saveMarket(assembler_->A, "lhs2.mkt");
   // saveMarket(state_.x_->lhs(), "lhs_M.mkt");
   // saveMarket(state_.x_->rhs(), "rhs_x.mkt");
 
@@ -173,30 +164,20 @@ void NewtonOptimizer<DIM>::update_system() {
   // saveMarket(C, "lhs_Gs.mkt");
   // saveMarket(-gs, "rhs_gs.mkt");
   // saveMarket(-gl, "rhs_gl.mkt");
-
-  
-
-
 }
 
 template <int DIM>
 void NewtonOptimizer<DIM>::substep(double& decrement) {
   // Solve linear system
   state_.data_.timer.start("global");
-  state_.solver_->compute(lhs_);
-  state_.x_->delta() = state_.solver_->solve(rhs_);
+  solver_->solve();
   state_.data_.timer.stop("global");
-  // saveMarket(lhs_, "lhs.mkt");
 
   // Use infinity norm of deltas as termination criteria
   decrement = state_.x_->delta().template lpNorm<Infinity>();
-
-  state_.data_.timer.start("local");
   for (auto& var : state_.mixed_vars_) {
-    var->solve(state_.x_->delta());
     decrement = std::max(decrement, var->delta().template lpNorm<Infinity>());
   }
-  state_.data_.timer.stop("local");
 }
 
 template <int DIM>
@@ -211,10 +192,9 @@ void NewtonOptimizer<DIM>::reset() {
     var->reset();
   }
 
-  SolverFactory solver_factory;
-  state_.solver_ = solver_factory.create(state_.config_->solver_type,
-      state_.mesh_, state_.config_);
+  SolverFactory<DIM> solver_factory;
+  solver_ = solver_factory.create(state_.config_->solver_type, &state_);
 }
 
-template class mfem::NewtonOptimizer<3>;
-template class mfem::NewtonOptimizer<2>;
+template class NewtonOptimizer<3>;
+template class NewtonOptimizer<2>;

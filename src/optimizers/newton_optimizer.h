@@ -37,11 +37,6 @@ namespace mfem {
     // Linear solve
     void substep(double& decrement);
 
-    // linear system left hand side
-    Eigen::SparseMatrix<double, Eigen::RowMajor> lhs_; 
-
-    // linear system right hand side
-    Eigen::VectorXd rhs_;       
-
+    std::unique_ptr<LinearSolver<double, DIM>> solver_;
   };
 }

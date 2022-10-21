@@ -3,7 +3,6 @@
 #include "optimizers/optimizer_data.h"
 #include "variables/displacement.h"
 #include "variables/mixed_variable.h"
-#include "linear_solvers/linear_solver.h"
 #include "energies/material_model.h"
 #include "time_integrators/implicit_integrator.h"
 #include "json/json.hpp"
@@ -36,9 +35,6 @@ namespace mfem {
     // compute some energy (stretch, bending, contact) dependent on
     // displacements.
     std::vector<std::shared_ptr<Variable<DIM>>> vars_;
-
-    // Linear solver to be used in substep of method
-    std::unique_ptr<LinearSolver<double, Eigen::RowMajor>> solver_;
 
     bool load(const std::string& json_file);
     bool load(const nlohmann::json& args);
