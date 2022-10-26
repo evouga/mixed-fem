@@ -36,6 +36,15 @@ namespace mfem {
     // displacements.
     std::vector<std::shared_ptr<Variable<DIM>>> vars_;
 
+    // The total number of degrees of freedom
+    int size() const {
+      int n = x_->size();
+      for (const auto& var : mixed_vars_) {
+        n += var->size() + var->size_dual();
+      }
+      return n;
+    }
+
     bool load(const std::string& json_file);
     bool load(const nlohmann::json& args);
   

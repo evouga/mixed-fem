@@ -125,6 +125,8 @@ template<int DIM>
 void MixedStretch<DIM>::update(const Eigen::VectorXd& x, double dt) {
   update_rotations(x);
   update_derivatives(dt);
+  evaluate_constraint(x, grad_la_);
+  grad_la_ = -grad_la_;
 }
 
 template<int DIM>
@@ -229,6 +231,11 @@ VectorXd MixedStretch<DIM>::gradient() {
 template<int DIM>
 VectorXd MixedStretch<DIM>::gradient_mixed() {
   return grad_;
+}
+
+template<int DIM>
+VectorXd MixedStretch<DIM>::gradient_dual() {
+  return grad_la_;
 }
 
 template<int DIM>
@@ -345,6 +352,50 @@ void MixedStretch<DIM>::jacobian_mixed(SparseMatrix<double>& A) {
   
   init_block_diagonal<N(),N()>(A, nelem_);
   update_block_diagonal<N(),N()>(C, A);
+}
+
+template<int DIM>
+void MixedStretch<DIM>::product_hessian(const Eigen::VectorXd& x,
+    Eigen::Ref<Eigen::VectorXd> out) const { 
+  assert(x.size() == out.size());
+  assert(x.size() == nelem_ * N());
+  
+  #pragma omp parallel for
+  for (int i = 0; i < nelem_; ++i) {
+    out.segment<N()>(N()*i) += Hloc_[i] * x.segment<N()>(N()*i);
+  }
+}
+
+template<int DIM>
+void MixedStretch<DIM>::product_jacobian_x(const Eigen::VectorXd& x,
+    Eigen::Ref<Eigen::VectorXd> out, bool transposed) const {
+
+  // TODO don't assemble this thing.
+  SparseMatrix<double> C;
+  init_block_diagonal<M(),N()>(C, nelem_);
+  update_block_diagonal<M(),N()>(dSdF_, C);
+
+  if (transposed) {
+    assert(x.size() == nelem_ * N());
+    VectorXd tmp = C * x;
+    out += mesh_->jacobian() * tmp;
+  } else {
+    assert(x.size() == mesh_->jacobian().rows());
+    VectorXd tmp = mesh_->jacobian().transpose() * x;
+    out += C.transpose() * tmp;
+  }
+}
+
+template<int DIM>
+void MixedStretch<DIM>::product_jacobian_mixed(const Eigen::VectorXd& x,
+    Eigen::Ref<Eigen::VectorXd> out, bool transposed) const {
+  assert(x.size() == out.size());
+  assert(x.size() == nelem_ * N());
+  #pragma omp parallel for
+  for (int i = 0; i < nelem_; ++i) {
+    double vol = mesh_->volumes()[i];
+    out.segment<N()>(N()*i) += vol * Sym() * x.segment<N()>(N()*i);
+  }
 }
 
 template class mfem::MixedStretch<3>; // 3D

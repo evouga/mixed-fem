@@ -39,8 +39,8 @@ static double newton_decrement(const SimState<DIM>& state) {
     rhs += var->rhs();
   }
 
-  newton_state.solver_->compute(lhs);
-  VectorXd dx = newton_state.solver_->solve(rhs);
+  //newton_state.solver_->compute(lhs);
+  //VectorXd dx = newton_state.solver_->solve(rhs);
 
   // Use infinity norm of deltas as termination criteria
   // double decrement = dx.norm();
@@ -82,7 +82,7 @@ int main(int argc, char **argv) {
     args = nlohmann::json::parse(input);
   } else {
     std::cerr << "Unable to open file: " << filename << std::endl;
-    return false;
+    return -1;
   }
 
   int M = args["max_newton_iterations"];

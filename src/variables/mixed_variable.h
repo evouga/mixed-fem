@@ -35,6 +35,9 @@ namespace mfem {
     // Gradient of the energy with respect to mixed variable
     virtual Eigen::VectorXd gradient_mixed() = 0;
 
+    // Gradient of the energy with respect to dual variable
+    virtual Eigen::VectorXd gradient_dual() = 0;
+
     // Given the solution for displacements, solve the updates of the
     // mixed variables
     // dx - nodal displacement deltas
@@ -43,11 +46,21 @@ namespace mfem {
     // Returns lagrange multipliers
     virtual Eigen::VectorXd& lambda() = 0;
 
+    // Returns number of dual variables
+    virtual int size_dual() const = 0;
+
     virtual void evaluate_constraint(const Eigen::VectorXd&,
         Eigen::VectorXd&) {}
     virtual void hessian(Eigen::SparseMatrix<double>&) {}
     virtual void jacobian_x(Eigen::SparseMatrix<double>&) {}
     virtual void jacobian_mixed(Eigen::SparseMatrix<double>&) {}
+
+    // Matrix vector product with hessian of variable and a vector, x
+    // Output written to "out" vector
+    virtual void product_jacobian_x(const Eigen::VectorXd& x,
+        Eigen::Ref<Eigen::VectorXd> out, bool transposed) const = 0;
+    virtual void product_jacobian_mixed(const Eigen::VectorXd& x,
+        Eigen::Ref<Eigen::VectorXd> out, bool transposed) const = 0;
 
   };
 

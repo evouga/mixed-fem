@@ -32,6 +32,7 @@ namespace mfem {
     Eigen::VectorXd rhs() override;
     Eigen::VectorXd gradient() override;
     Eigen::VectorXd gradient_mixed() override;
+    Eigen::VectorXd gradient_dual() override;
 
     const Eigen::SparseMatrix<double, Eigen::RowMajor>& lhs() override {
       return A_;
@@ -51,11 +52,26 @@ namespace mfem {
       return la_;
     }
 
+    int size() const override {
+      return s_.size();
+    }
+
+    int size_dual() const override {
+      return la_.size();
+    }
+
     void evaluate_constraint(const Eigen::VectorXd& x,
         Eigen::VectorXd&) override;
     void hessian(Eigen::SparseMatrix<double>&) override;
     void jacobian_x(Eigen::SparseMatrix<double>&) override;
     void jacobian_mixed(Eigen::SparseMatrix<double>&) override;
+
+    void product_hessian(const Eigen::VectorXd& x,
+        Eigen::Ref<Eigen::VectorXd> out) const override;
+    void product_jacobian_x(const Eigen::VectorXd& x,
+        Eigen::Ref<Eigen::VectorXd> out, bool transposed) const override;
+    void product_jacobian_mixed(const Eigen::VectorXd& x,
+        Eigen::Ref<Eigen::VectorXd> out, bool transposed) const override;
 
   protected:
 
@@ -124,6 +140,7 @@ namespace mfem {
     Eigen::VectorXd rhs_;     // RHS for schur complement system
     Eigen::VectorXd grad_;    // Gradient with respect to 's' variables
     Eigen::VectorXd grad_x_;  // Gradient with respect to 'x' variables
+    Eigen::VectorXd grad_la_; // Gradient with respect to dual variables
     Eigen::VectorXd gl_;      // tmp var: g_\Lambda in the notes
     Eigen::VectorXd Jdx_;     // tmp var: Jacobian multiplied by dx
     std::vector<MatD> R_;     // per-element rotations

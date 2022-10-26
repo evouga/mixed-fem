@@ -59,6 +59,13 @@ namespace mfem {
       return constraints_;
     }
 
+    int size() const override {
+      return 0;
+    }
+
+    void product_hessian(const Eigen::VectorXd& x,
+        Eigen::Ref<Eigen::VectorXd> out) const override {}
+
   protected:
 
     void update_derivatives(const Eigen::MatrixXd& V, double dt);

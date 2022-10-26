@@ -27,6 +27,7 @@ k=16;
 % options.droptol = 1e-5;
 % [L,U] = ilu(A,options);
 % M = @(x) U \ (L \ x);
+P = sparse(diag(1./sqrt(sum(abs(A).^2))));
 
 figure(1); clf;
 [x,flag,relres,iter,resvec] = minres(A,b,1e-7, 100, P);
@@ -142,7 +143,7 @@ asdf=min(abs(eig(full(K))))
     Z1 = sparse(size(M,1), size(K,1));
     Z2 = sparse(size(K,1), size(K,1));
     S1 = Gx' * Mlumpinv * Gx + R;
-    %S2 = Gs * inv(S1) * Gs + K;
+    S2 = Gs * inv(S1) * Gs + K;
     S2 = K;
     %S2 = sparse(1:size(K,1), 1:size(K,1), sum(K,2));
 

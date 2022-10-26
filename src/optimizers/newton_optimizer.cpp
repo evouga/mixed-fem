@@ -196,5 +196,5 @@ void NewtonOptimizer<DIM>::reset() {
   solver_ = solver_factory.create(state_.config_->solver_type, &state_);
 }
 
-template class NewtonOptimizer<3>;
-template class NewtonOptimizer<2>;
+template class mfem::NewtonOptimizer<3>;
+template class mfem::NewtonOptimizer<2>;

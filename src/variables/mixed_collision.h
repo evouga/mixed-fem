@@ -38,6 +38,11 @@ namespace mfem {
     Eigen::VectorXd rhs() override;
     Eigen::VectorXd gradient() override;
     Eigen::VectorXd gradient_mixed() override;
+    Eigen::VectorXd gradient_dual() override {
+      Eigen::VectorXd tmp;
+      std::cout <<"gradient dual unimplemented for mixed_collision" << std::endl;
+      return tmp;
+    }
 
     const Eigen::SparseMatrix<double, Eigen::RowMajor>& lhs() override {
       if (nframes_ == 0) {
@@ -76,6 +81,21 @@ namespace mfem {
     const ipc::MixedConstraints& frames() const {
       return constraints_;
     }
+
+    int size() const override {
+      return d_.size();
+    }
+
+    int size_dual() const override {
+      return la_.size();
+    }
+
+    void product_hessian(const Eigen::VectorXd& x,
+        Eigen::Ref<Eigen::VectorXd> out) const override {}
+    void product_jacobian_x(const Eigen::VectorXd& x,
+        Eigen::Ref<Eigen::VectorXd> out, bool transposed) const override {}
+    void product_jacobian_mixed(const Eigen::VectorXd& x,
+        Eigen::Ref<Eigen::VectorXd> out, bool transposed) const override {}
 
   protected:
 

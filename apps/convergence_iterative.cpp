@@ -41,8 +41,8 @@ static double newton_decrement(const SimState<DIM>& state) {
     rhs += var->rhs();
   }
 
-  newton_state.solver_->compute(lhs);
-  VectorXd dx = newton_state.solver_->solve(rhs);
+  //newton_optimizer->solver_->compute(lhs);
+  //VectorXd dx = newton_optimizer->solver_->solve(rhs);
 
   // Use infinity norm of deltas as termination criteria
   // double decrement = dx.lpNorm<Infinity>();

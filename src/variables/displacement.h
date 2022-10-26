@@ -3,7 +3,6 @@
 #include "variable.h"
 #include "optimizers/optimizer_data.h"
 #include "time_integrators/implicit_integrator.h"
-#include "boundary_conditions.h"
 #include "utils/sparse_utils.h"
 #include "mesh/mesh.h"
 
@@ -51,6 +50,16 @@ namespace mfem {
       const auto& P = mesh_->projection_matrix();
       assert(x.size() == P.rows());
       x = P.transpose() * x + b_;
+    }
+
+    int size() const override {
+      return x_.size();
+    }
+
+    void product_hessian(const Eigen::VectorXd& x,
+        Eigen::Ref<Eigen::VectorXd> out) const override {
+      assert(out.size() == x.size());
+      out += lhs_ * x;
     }
 
   private:

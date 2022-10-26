@@ -11,7 +11,7 @@ namespace mfem {
   template<int DIM>
   class Variable {
   public:
-    
+
     Variable(std::shared_ptr<Mesh> mesh) : mesh_(mesh) {
     }
 
@@ -51,9 +51,17 @@ namespace mfem {
     // Returns variable values
     virtual Eigen::VectorXd& value() = 0;
 
+    // Return number of degrees of freedom 
+    virtual int size() const = 0;
+
     const std::shared_ptr<Mesh> mesh() const {
       return mesh_;
     }
+
+    // Matrix vector product with hessian of variable and a vector, x
+    // Output written to "out" vector
+    virtual void product_hessian(const Eigen::VectorXd& x,
+        Eigen::Ref<Eigen::VectorXd> out) const = 0;
 
   protected:
 

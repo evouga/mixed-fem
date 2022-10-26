@@ -5,6 +5,7 @@
 #include "linear_solvers/eigen_iterative_solver.h"
 #include "linear_solvers/affine_pcg.h"
 #include "linear_solvers/linear_system.h"
+#include <unsupported/Eigen/IterativeSolvers>
 
 #if defined(SIM_USE_CHOLMOD)
 #include <Eigen/CholmodSupport>
@@ -18,6 +19,7 @@ using Scalar = double;
 template<int DIM>
 SolverFactory<DIM>::SolverFactory() {
 
+  //// Positive Definite Solvers ////
   // Sparse matrix type
   using SpMat = SystemMatrixPD<Scalar>::MatrixType; 
   
@@ -79,6 +81,23 @@ SolverFactory<DIM>::SolverFactory() {
       { 
         return std::make_unique<EigenIterativeSolver<
           SOLVER_EIGEN_CG_IC, SystemMatrixPD<Scalar>,
+          Scalar, DIM>>(state);
+      }
+  );
+
+  //// Positive Definite Solvers ////
+  
+  // Sparse matrix type
+  using BlockMat = typename SystemMatrixIndefinite<Scalar,DIM>::MatrixType;
+
+  using SOLVER_MINRES_ID = MINRES<BlockMat, Lower|Upper,
+      IdentityPreconditioner>;
+  this->register_type(SolverType::SOLVER_MINRES_ID, "minres",
+      [](SimState<DIM>* state)
+      ->std::unique_ptr<LinearSolver<Scalar, DIM>>
+      { 
+        return std::make_unique<EigenIterativeSolver<
+          SOLVER_MINRES_ID, SystemMatrixIndefinite<Scalar,DIM>,
           Scalar, DIM>>(state);
       }
   );

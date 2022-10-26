@@ -50,6 +50,7 @@ namespace mfem {
     SOLVER_AFFINE_PCG,
     SOLVER_EIGEN_CG_DIAG,
     SOLVER_EIGEN_CG_IC,
+    SOLVER_MINRES_ID
   };
 
   enum MaterialModelType { 

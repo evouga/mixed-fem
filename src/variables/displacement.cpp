@@ -63,7 +63,6 @@ VectorXd Displacement<DIM>::rhs() {
 template<int DIM>
 VectorXd Displacement<DIM>::gradient() {
   double h = integrator_->dt();
-  double h2 = h*h;
   const auto& P = mesh_->projection_matrix();
   VectorXd xt = P.transpose()*x_ + b_;
   VectorXd diff = xt - integrator_->x_tilde() - h*h*f_ext_;
