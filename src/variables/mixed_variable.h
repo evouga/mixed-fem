@@ -62,6 +62,8 @@ namespace mfem {
     virtual void product_jacobian_mixed(const Eigen::VectorXd& x,
         Eigen::Ref<Eigen::VectorXd> out, bool transposed) const = 0;
 
+    virtual void product_hessian_inv(const Eigen::VectorXd& x,
+        Eigen::Ref<Eigen::VectorXd> out) const { std::cout << "product_hessian_inv unimplemented!" << std::endl; }
   };
 
 }

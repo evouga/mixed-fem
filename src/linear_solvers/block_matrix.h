@@ -6,9 +6,6 @@
 #include <Eigen/IterativeLinearSolvers>
 #include <unsupported/Eigen/IterativeSolvers>
 #include "simulation_state.h"
- 
-//class BlockMatrix;
-//using Eigen::SparseMatrix;
 
 namespace Eigen {
 
@@ -76,9 +73,7 @@ namespace internal {
     template<typename Dest>
     static void scaleAndAddTo(Dest& dst, const BlockMatrix<DIM>& lhs,
         const Rhs& rhs, const Scalar& alpha) {
-// [M 0 B']
-// [0 H C']
-// [B C 0 ]
+
       // This method should implement "dst += alpha * lhs * rhs" inplace,
       // however, for iterative solvers, alpha is always equal to 1,
       // so let's not bother about it.
@@ -116,12 +111,12 @@ namespace internal {
 
         // Terms for mixed variable
         Ref<VectorXd> out = dst.segment(curr_row,var->size());
-        var->product_jacobian_mixed(ds, out, false);
-        var->product_hessian(la, out);
+        var->product_hessian(ds, out);
+        var->product_jacobian_mixed(la, out, false);
         curr_row += var->size();
 
         // Terms for dual variable
-        Ref<VectorXd> out_la = dst.segment(curr_row,var->size());
+        Ref<VectorXd> out_la = dst.segment(curr_row,var->size_dual());
         var->product_jacobian_x(dx, out_la, false);
         var->product_jacobian_mixed(ds, out_la, false);
         curr_row += var->size_dual();

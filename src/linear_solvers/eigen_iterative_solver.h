@@ -28,12 +28,14 @@ namespace mfem {
       system_matrix_.post_solve(Base::state_, tmp_);
     }
 
+    Solver& eigen_solver() {
+      return solver_;
+    }
+
   private:
 
     SystemMatrix system_matrix_;
     Solver solver_;
     Eigen::VectorXx<Scalar> tmp_;
   };
-
-
 }

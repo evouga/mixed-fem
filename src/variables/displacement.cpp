@@ -24,7 +24,7 @@ double Displacement<DIM>::energy(const VectorXd& x) {
   const auto& P = mesh_->projection_matrix();
   VectorXd xt = P.transpose()*x + b_;
   VectorXd diff = xt - integrator_->x_tilde() - h*h*f_ext_;
-  const auto& MM = mesh_->template mass_matrix<FULL>();
+  const auto& MM = mesh_->template mass_matrix<MatrixType::FULL>();
   double e = 0.5*diff.transpose()*MM*diff;
   return e;
 }
@@ -67,7 +67,7 @@ VectorXd Displacement<DIM>::gradient() {
   VectorXd xt = P.transpose()*x_ + b_;
   VectorXd diff = xt - integrator_->x_tilde() - h*h*f_ext_;
 
-  const auto& PM = mesh_->template mass_matrix<PROJECT_ROWS>();
+  const auto& PM = mesh_->template mass_matrix<MatrixType::PROJECT_ROWS>();
   grad_ = PM * diff;
   return grad_;
 }
@@ -90,7 +90,7 @@ void Displacement<DIM>::reset() {
   x_ = P * x_;
   dx_ = 0*x_;
 
-  lhs_ = mesh_->template mass_matrix<mfem::MatrixType::PROJECTED>();
+  lhs_ = mesh_->template mass_matrix<MatrixType::PROJECTED>();
 
   // External gravity force
   VecD ext = Map<Matrix<float,DIM,1>>(config_->ext).template cast<double>();

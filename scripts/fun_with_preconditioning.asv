@@ -144,7 +144,7 @@ function [P]=evals_saddle1(A,M,K,Gx,Gs,k)
     % S = Gx'*Minv*Gx + Gs*Kinv*Gs
     S = B' * A1inv * B;
     S = Gs' * Kinv * Gs;% + R;
-    S= Kinv;
+S=Kinv;
     % 2x2 schur complement preconditioner and its inverse
     Z1 = sparse(size(S,1), size(A1,1));
     P = [A1 Z1'; Z1 S];

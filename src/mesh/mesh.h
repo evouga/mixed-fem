@@ -26,10 +26,15 @@ namespace mfem {
     std::shared_ptr<MaterialModel> material_;
   };
   
-  enum MatrixType {
+  enum class MatrixType {
     FULL,         // Full matrix
     PROJECT_ROWS, // Project BCs from row entries
     PROJECTED     // Project out both row and columns
+  };
+
+  enum class JacobianType {
+    FULL,               // Full jacobian matrix
+    PROJECTED_WEIGHTED, // Projected BCs out and volume weighted 
   };
 
   struct SkinningData {
@@ -81,8 +86,13 @@ namespace mfem {
     virtual void init_jacobian() {};
     virtual void update_jacobian(const Eigen::VectorXd& x) {}
     
-    virtual const Eigen::SparseMatrixdRowMajor& jacobian() {
-      return PJW_;
+    template<JacobianType T = JacobianType::PROJECTED_WEIGHTED >
+    const Eigen::SparseMatrixdRowMajor& jacobian() {
+      if constexpr (T == JacobianType::PROJECTED_WEIGHTED) {
+        return PJW_;
+      } else {
+        return J_;
+      }
     }
 
     virtual const std::vector<Eigen::MatrixXd>& local_jacobians() {

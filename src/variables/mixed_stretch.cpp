@@ -58,6 +58,7 @@ namespace {
         }
       }
 
+      //TODO not even checking compute_gradients...
       // R, S, and the vector S
       R = U * V.transpose();
       Matrix2d S = R.transpose() * A;
@@ -197,7 +198,7 @@ void MixedStretch<DIM>::update_derivatives(double dt) {
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
     double vol = mesh_->volumes()[i];
-    grad_.segment<N()>(N()*i) = vol * (g_[i] + Sym()*la_.segment<N()>(N()*i));
+    grad_.segment<N()>(N()*i) = vol * (g_[i]);//+Sym()*la_.segment<N()>(N()*i));
   }
 }
 
@@ -294,7 +295,8 @@ void MixedStretch<DIM>::reset() {
     VecN stmp;
     R_[i].setIdentity();
     polar_svd<DIM,N()>(R_[i], S_[i],
-        Map<MatD>(def_grad.segment<M()>(M()*i).data()), false, Js);
+        Map<MatD>(def_grad.segment<M()>(M()*i).data()), true, Js);
+    dSdF_[i] = Js.transpose()*Sym();
     s_.segment<N()>(N()*i) = S_[i];
   }
 }
@@ -319,8 +321,7 @@ void MixedStretch<DIM>::evaluate_constraint(const VectorXd& x, VectorXd& c) {
   
     MatD R = R_[i];
     VecN stmp;
-    polar_svd<DIM,N()>(R, stmp, Map<MatD>(def_grad.segment<M()>(M()*i).data()),
-        false, tmp);
+    polar_svd<DIM,N()>(R, stmp, Map<MatD>(def_grad.segment<M()>(M()*i).data()), false, tmp);
 
     const VecN& si = s_.segment<N()>(N()*i);
     c.segment<N()>(N()*i) = Sym() * (stmp - si) * mesh_->volumes()[i];
@@ -338,7 +339,7 @@ void MixedStretch<DIM>::jacobian_x(SparseMatrix<double>& A) {
   SparseMatrix<double> C;
   init_block_diagonal<M(),N()>(C, nelem_);
   update_block_diagonal<M(),N()>(dSdF_, C);
-  A = mesh_->jacobian() * C;
+  A = -mesh_->jacobian() * C;
 }
 
 template<int DIM>
@@ -349,7 +350,6 @@ void MixedStretch<DIM>::jacobian_mixed(SparseMatrix<double>& A) {
     double vol = mesh_->volumes()[i];
     C[i] = Sym() * vol;
   }
-  
   init_block_diagonal<N(),N()>(A, nelem_);
   update_block_diagonal<N(),N()>(C, A);
 }
@@ -367,22 +367,42 @@ void MixedStretch<DIM>::product_hessian(const Eigen::VectorXd& x,
 }
 
 template<int DIM>
+void MixedStretch<DIM>::product_hessian_inv(const Eigen::VectorXd& x,
+    Eigen::Ref<Eigen::VectorXd> out) const { 
+  assert(x.size() == out.size());
+  assert(x.size() == nelem_ * N());
+  
+  #pragma omp parallel for
+  for (int i = 0; i < nelem_; ++i) {
+    double vol = mesh_->volumes()[i];
+    out.segment<N()>(N()*i) += vol * Hinv_[i] * x.segment<N()>(N()*i);
+  }
+}
+
+template<int DIM>
 void MixedStretch<DIM>::product_jacobian_x(const Eigen::VectorXd& x,
     Eigen::Ref<Eigen::VectorXd> out, bool transposed) const {
 
-  // TODO don't assemble this thing.
-  SparseMatrix<double> C;
-  init_block_diagonal<M(),N()>(C, nelem_);
-  update_block_diagonal<M(),N()>(dSdF_, C);
-
   if (transposed) {
     assert(x.size() == nelem_ * N());
-    VectorXd tmp = C * x;
-    out += mesh_->jacobian() * tmp;
+    VectorXd tmp(M() * nelem_);
+
+    #pragma omp parallel for
+    for (int i = 0; i < nelem_; ++i) {
+      tmp.segment<M()>(M()*i) = dSdF_[i] * x.segment<N()>(N()*i);
+    }
+    out -= mesh_->jacobian() * tmp;
+
   } else {
     assert(x.size() == mesh_->jacobian().rows());
+
     VectorXd tmp = mesh_->jacobian().transpose() * x;
-    out += C.transpose() * tmp;
+
+    #pragma omp parallel for
+    for (int i = 0; i < nelem_; ++i) {
+      out.segment<N()>(N()*i) -= dSdF_[i].transpose()
+          * tmp.segment<M()>(M()*i);
+    }
   }
 }
 

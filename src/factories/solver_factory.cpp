@@ -6,6 +6,7 @@
 #include "linear_solvers/affine_pcg.h"
 #include "linear_solvers/linear_system.h"
 #include <unsupported/Eigen/IterativeSolvers>
+#include "linear_solvers/preconditioners.h"
 
 #if defined(SIM_USE_CHOLMOD)
 #include <Eigen/CholmodSupport>
@@ -90,15 +91,20 @@ SolverFactory<DIM>::SolverFactory() {
   // Sparse matrix type
   using BlockMat = typename SystemMatrixIndefinite<Scalar,DIM>::MatrixType;
 
-  using SOLVER_MINRES_ID = MINRES<BlockMat, Lower|Upper,
-      IdentityPreconditioner>;
+  //using SOLVER_MINRES_ID = GMRES<BlockMat, LumpedPreconditioner<Scalar, DIM>>;
+  //using SOLVER_MINRES_ID = ConjugateGradient<BlockMat, Lower|Upper, LumpedPreconditioner<Scalar,DIM>>;
+  //using SOLVER_MINRES_ID = MINRES<BlockMat,Lower|Upper,LumpedPreconditioner<Scalar, DIM>>;
+  //using SOLVER_MINRES_ID = MINRES<BlockMat,Lower|Upper,BlockDiagonalPreconditioner<Scalar, DIM>>;
+  using SOLVER_MINRES_ID = ConjugateGradient<BlockMat,Lower|Upper,BlockDiagonalPreconditioner<Scalar, DIM>>;
+  //using SOLVER_MINRES_ID = GMRES<BlockMat,BlockDiagonalPreconditioner<Scalar, DIM>>;
   this->register_type(SolverType::SOLVER_MINRES_ID, "minres",
-      [](SimState<DIM>* state)
-      ->std::unique_ptr<LinearSolver<Scalar, DIM>>
+      [](SimState<DIM>* state)->std::unique_ptr<LinearSolver<Scalar, DIM>>
       { 
-        return std::make_unique<EigenIterativeSolver<
+        auto solver = std::make_unique<EigenIterativeSolver<
           SOLVER_MINRES_ID, SystemMatrixIndefinite<Scalar,DIM>,
           Scalar, DIM>>(state);
+        solver->eigen_solver().preconditioner().init(state);
+        return solver;
       }
   );
 }

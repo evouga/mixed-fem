@@ -276,6 +276,7 @@ namespace mfem {
 
         if (config->solver_type == SolverType::SOLVER_AFFINE_PCG
             || config->solver_type == SolverType::SOLVER_EIGEN_CG_DIAG
+            || config->solver_type == SolverType::SOLVER_MINRES_ID
             || config->solver_type == SolverType::SOLVER_EIGEN_CG_IC) {
           ImGui::InputInt("Max CG Iters", &config->max_iterative_solver_iters);
           ImGui::InputDouble("CG Tol", &config->itr_tol,0,0,"%.5g");
