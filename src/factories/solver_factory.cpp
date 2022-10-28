@@ -96,7 +96,7 @@ SolverFactory<DIM>::SolverFactory() {
   //using SOLVER_MINRES_ID = MINRES<BlockMat,Lower|Upper,LumpedPreconditioner<Scalar, DIM>>;
   //using SOLVER_MINRES_ID = MINRES<BlockMat,Lower|Upper,BlockDiagonalPreconditioner<Scalar, DIM>>;
   using SOLVER_MINRES_ID = ConjugateGradient<BlockMat,Lower|Upper,BlockDiagonalPreconditioner<Scalar, DIM>>;
-  //using SOLVER_MINRES_ID = GMRES<BlockMat,BlockDiagonalPreconditioner<Scalar, DIM>>;
+  // using SOLVER_MINRES_ID = BiCGSTAB<BlockMat,BlockDiagonalPreconditioner<Scalar, DIM>>;
   this->register_type(SolverType::SOLVER_MINRES_ID, "minres",
       [](SimState<DIM>* state)->std::unique_ptr<LinearSolver<Scalar, DIM>>
       { 

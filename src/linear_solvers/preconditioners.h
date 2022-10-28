@@ -133,19 +133,29 @@ namespace Eigen {
           for (int i = 0; i < L.rows(); ++i) {
             L.coeffRef(i,i) += 1e-8;
           }
+
+
+          // SparseMatrix<double> A, C;
+          // var->hessian(A);
+          // var->jacobian_mixed(C);
+
           Linv.factorize(L);
           if (Linv.info() != Eigen::Success) {
-           std::cerr << "Linvprefactor failed! " << std::endl;
+           std::cerr << "Linv prefactor failed! " << std::endl;
            exit(1);
-          } else {
-            std::cout << "Linv ok:" << std::endl;
           }
         }
         return *this;
       }
    
       BlockDiagonalPreconditioner& compute(const MatType& mat) {
-        return factorize(mat);
+        static int step = 0;
+        if (step == 0) {
+          std::cout << "factorize" << std::endl;
+          factorize(mat);
+        }
+        step = (step + 1) % state_->config_->outer_steps;
+        return *this;
       }
    
       template<typename Rhs, typename Dest>
