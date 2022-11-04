@@ -42,7 +42,7 @@ namespace mfem {
     TI_BDF6
   };
 
-  enum SolverType {
+  enum LinearSolverType {
     SOLVER_EIGEN_LLT,
     SOLVER_EIGEN_LDLT,
     SOLVER_EIGEN_LU,
@@ -50,7 +50,9 @@ namespace mfem {
     SOLVER_AFFINE_PCG,
     SOLVER_EIGEN_CG_DIAG,
     SOLVER_EIGEN_CG_IC,
-    SOLVER_MINRES_ID
+    SOLVER_MINRES_ID,
+    SOLVER_DUAL_ASCENT,
+    SOLVER_ADMM
   };
 
   enum MaterialModelType { 
@@ -108,7 +110,7 @@ namespace mfem {
     OptimizerType optimizer = OPTIMIZER_NEWTON;
     int max_iterative_solver_iters = 500;
     double itr_tol = 1e-4;
-    SolverType solver_type = SOLVER_EIGEN_LLT;
+    LinearSolverType solver_type = SOLVER_EIGEN_LLT;
     TimeIntegratorType ti_type = TI_BDF1;
     std::set<VariableType> variables = {};
     std::set<VariableType> mixed_variables = {

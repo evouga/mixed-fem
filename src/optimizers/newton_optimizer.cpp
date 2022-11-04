@@ -2,7 +2,7 @@
 
 #include "linesearch.h"
 #include "mesh/mesh.h"
-#include "factories/solver_factory.h"
+#include "factories/linear_solver_factory.h"
 #include <unsupported/Eigen/SparseExtra>
 #include "utils/additive_ccd.h"
 #include "ipc/ipc.hpp"
@@ -191,7 +191,7 @@ void NewtonOptimizer<DIM>::reset() {
     var->reset();
   }
 
-  SolverFactory<DIM> solver_factory;
+  LinearSolverFactory<DIM> solver_factory;
   solver_ = solver_factory.create(state_.config_->solver_type, &state_);
 }
 

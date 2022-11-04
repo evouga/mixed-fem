@@ -8,9 +8,9 @@
 namespace mfem {
 
   template<int DIM>
-  class SolverFactory : public Factory<SolverType,
+  class LinearSolverFactory : public Factory<LinearSolverType,
       LinearSolver<double,DIM>, SimState<DIM>*> {
   public:
-    SolverFactory();
+    LinearSolverFactory();
   };
 }

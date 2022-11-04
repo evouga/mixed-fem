@@ -107,16 +107,17 @@ namespace internal {
       for (const auto& var : state.mixed_vars_) {
 
         const VectorXd& ds = rhs.segment(curr_row, var->size());
-        const VectorXd& la = rhs.segment(curr_row+var->size(),var->size_dual());
+        const VectorXd& la = rhs.segment(curr_row + var->size(),
+            var->size_dual());
 
         // Terms for mixed variable
-        Ref<VectorXd> out = dst.segment(curr_row,var->size());
+        Ref<VectorXd> out = dst.segment(curr_row, var->size());
         var->product_hessian(ds, out);
         var->product_jacobian_mixed(la, out, false);
         curr_row += var->size();
 
         // Terms for dual variable
-        Ref<VectorXd> out_la = dst.segment(curr_row,var->size_dual());
+        Ref<VectorXd> out_la = dst.segment(curr_row, var->size_dual());
         var->product_jacobian_x(dx, out_la, false);
         var->product_jacobian_mixed(ds, out_la, false);
         curr_row += var->size_dual();

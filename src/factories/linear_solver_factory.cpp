@@ -1,10 +1,11 @@
-#include "solver_factory.h"
+#include "linear_solver_factory.h"
 #include "mesh/mesh.h"
 #include "EigenTypes.h"
 #include "linear_solvers/eigen_solver.h"
 #include "linear_solvers/eigen_iterative_solver.h"
 #include "linear_solvers/affine_pcg.h"
 #include "linear_solvers/linear_system.h"
+#include "linear_solvers/split_solver.h"
 #include <unsupported/Eigen/IterativeSolvers>
 #include "linear_solvers/preconditioners.h"
 
@@ -18,7 +19,7 @@ using namespace Eigen;
 using Scalar = double;
 
 template<int DIM>
-SolverFactory<DIM>::SolverFactory() {
+LinearSolverFactory<DIM>::LinearSolverFactory() {
 
   //// Positive Definite Solvers ////
   // Sparse matrix type
@@ -26,7 +27,7 @@ SolverFactory<DIM>::SolverFactory() {
   
   // Eigen LLT
   using LLT = SimplicialLLT<SpMat>;
-  this->register_type(SolverType::SOLVER_EIGEN_LLT, "eigen-llt",
+  this->register_type(LinearSolverType::SOLVER_EIGEN_LLT, "eigen-llt",
       [](SimState<DIM>* state)
       ->std::unique_ptr<LinearSolver<Scalar, DIM>>
       {return std::make_unique<EigenSolver<LLT, SystemMatrixPD<Scalar>,
@@ -34,7 +35,7 @@ SolverFactory<DIM>::SolverFactory() {
 
   // Eigen LDLT
   using LDLT = SimplicialLDLT<SpMat>;
-  this->register_type(SolverType::SOLVER_EIGEN_LDLT, "eigen-ldlt",
+  this->register_type(LinearSolverType::SOLVER_EIGEN_LDLT, "eigen-ldlt",
       [](SimState<DIM>* state)
       ->std::unique_ptr<LinearSolver<Scalar, DIM>>
       {return std::make_unique<EigenSolver<LDLT, SystemMatrixPD<Scalar>,
@@ -42,7 +43,7 @@ SolverFactory<DIM>::SolverFactory() {
 
   // Eigen LU
   using LU = SparseLU<SpMat>;
-  this->register_type(SolverType::SOLVER_EIGEN_LU, "eigen-lu",
+  this->register_type(LinearSolverType::SOLVER_EIGEN_LU, "eigen-lu",
       [](SimState<DIM>* state)
       ->std::unique_ptr<LinearSolver<Scalar, DIM>>
       {return std::make_unique<EigenSolver<LU, SystemMatrixPD<Scalar>,
@@ -50,7 +51,7 @@ SolverFactory<DIM>::SolverFactory() {
 
   #if defined(SIM_USE_CHOLMOD)
   using CHOLMOD = CholmodSupernodalLLT<SpMat>;
-  this->register_type(SolverType::SOLVER_CHOLMOD, "cholmod",
+  this->register_type(LinearSolverType::SOLVER_CHOLMOD, "cholmod",
       [](SimState<DIM>* state)
       ->std::unique_ptr<LinearSolver<Scalar, DIM>>
       {return std::make_unique<EigenSolver<CHOLMOD, SystemMatrixPD<Scalar>,
@@ -64,7 +65,7 @@ SolverFactory<DIM>::SolverFactory() {
 //       {return std::make_unique<AffinePCG<Scalar, RowMajor>>(mesh, config);});
 
   using EIGEN_CG_DIAG = ConjugateGradient<SpMat, Lower|Upper>;
-  this->register_type(SolverType::SOLVER_EIGEN_CG_DIAG, "eigen-pcg-diag",
+  this->register_type(LinearSolverType::SOLVER_EIGEN_CG_DIAG, "eigen-pcg-diag",
       [](SimState<DIM>* state)
       ->std::unique_ptr<LinearSolver<Scalar, DIM>>
       { 
@@ -76,7 +77,7 @@ SolverFactory<DIM>::SolverFactory() {
 
   using SOLVER_EIGEN_CG_IC = ConjugateGradient<SpMat, Lower|Upper,
       IncompleteCholesky<Scalar>>;
-  this->register_type(SolverType::SOLVER_EIGEN_CG_IC, "eigen-pcg-IC",
+  this->register_type(LinearSolverType::SOLVER_EIGEN_CG_IC, "eigen-pcg-IC",
       [](SimState<DIM>* state)
       ->std::unique_ptr<LinearSolver<Scalar, DIM>>
       { 
@@ -86,18 +87,32 @@ SolverFactory<DIM>::SolverFactory() {
       }
   );
 
-  //// Positive Definite Solvers ////
-  
+  //// Indefinite Solvers ////
+  using SOLVER_DUAL_ASCENT = Eigen::SplitSolverPreconditioner<Scalar,DIM> ;
+  this->register_type(LinearSolverType::SOLVER_DUAL_ASCENT, "split-solver",
+      [](SimState<DIM>* state)->std::unique_ptr<LinearSolver<Scalar, DIM>>
+      { 
+        return std::make_unique<SplitSolver<SOLVER_DUAL_ASCENT, 
+            Scalar, DIM>>(state);
+      }
+  );
+
+  using SOLVER_ADMM = Eigen::ADMMPreconditioner<Scalar,DIM>;
+  this->register_type(LinearSolverType::SOLVER_ADMM, "admm-solver",
+      [](SimState<DIM>* state)->std::unique_ptr<LinearSolver<Scalar, DIM>>
+      { 
+        return std::make_unique<SplitSolver<SOLVER_ADMM,
+            Scalar, DIM>>(state);
+      }
+  );
+
   // Sparse matrix type
   using BlockMat = typename SystemMatrixIndefinite<Scalar,DIM>::MatrixType;
 
-  //using SOLVER_MINRES_ID = GMRES<BlockMat, LumpedPreconditioner<Scalar, DIM>>;
   //using SOLVER_MINRES_ID = ConjugateGradient<BlockMat, Lower|Upper, LumpedPreconditioner<Scalar,DIM>>;
-  //using SOLVER_MINRES_ID = MINRES<BlockMat,Lower|Upper,LumpedPreconditioner<Scalar, DIM>>;
   //using SOLVER_MINRES_ID = MINRES<BlockMat,Lower|Upper,BlockDiagonalPreconditioner<Scalar, DIM>>;
   using SOLVER_MINRES_ID = ConjugateGradient<BlockMat,Lower|Upper,BlockDiagonalPreconditioner<Scalar, DIM>>;
-  // using SOLVER_MINRES_ID = BiCGSTAB<BlockMat,BlockDiagonalPreconditioner<Scalar, DIM>>;
-  this->register_type(SolverType::SOLVER_MINRES_ID, "minres",
+  this->register_type(LinearSolverType::SOLVER_MINRES_ID, "minres",
       [](SimState<DIM>* state)->std::unique_ptr<LinearSolver<Scalar, DIM>>
       { 
         auto solver = std::make_unique<EigenIterativeSolver<
@@ -109,5 +124,5 @@ SolverFactory<DIM>::SolverFactory() {
   );
 }
 
-template class mfem::SolverFactory<3>;
-template class mfem::SolverFactory<2>;
+template class mfem::LinearSolverFactory<3>;
+template class mfem::LinearSolverFactory<2>;

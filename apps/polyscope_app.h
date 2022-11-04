@@ -14,7 +14,7 @@
 #include "optimizers/optimizer.h"
 #include "energies/material_model.h"
 
-#include "factories/solver_factory.h"
+#include "factories/linear_solver_factory.h"
 #include "factories/variable_factory.h"
 #include "factories/optimizer_factory.h"
 #include "factories/integrator_factory.h"
@@ -274,10 +274,10 @@ namespace mfem {
         ImGui::InputInt("Max LS Iters", &config->ls_iters);
         ImGui::InputDouble("Newton Tol", &config->newton_tol,0,0,"%.5g");
 
-        if (config->solver_type == SolverType::SOLVER_AFFINE_PCG
-            || config->solver_type == SolverType::SOLVER_EIGEN_CG_DIAG
-            || config->solver_type == SolverType::SOLVER_MINRES_ID
-            || config->solver_type == SolverType::SOLVER_EIGEN_CG_IC) {
+        if (config->solver_type == LinearSolverType::SOLVER_AFFINE_PCG
+            || config->solver_type == LinearSolverType::SOLVER_EIGEN_CG_DIAG
+            || config->solver_type == LinearSolverType::SOLVER_MINRES_ID
+            || config->solver_type == LinearSolverType::SOLVER_EIGEN_CG_IC) {
           ImGui::InputInt("Max CG Iters", &config->max_iterative_solver_iters);
           ImGui::InputDouble("CG Tol", &config->itr_tol,0,0,"%.5g");
         }
@@ -298,7 +298,7 @@ namespace mfem {
           ImGui::InputDouble("kappa", &config->kappa,0,0,"%.5g");
         }
 
-        if (FactoryCombo<SolverFactory<DIM>, SolverType>(
+        if (FactoryCombo<LinearSolverFactory<DIM>, LinearSolverType>(
             "Linear Solver", config->solver_type)) {
           optimizer->reset();
         }
@@ -399,7 +399,7 @@ namespace mfem {
     VariableFactory<DIM> variable_factory;
     MixedVariableFactory<DIM> mixed_variable_factory;
     OptimizerFactory<DIM> optimizer_factory;
-    SolverFactory<DIM> solver_factory;
+    LinearSolverFactory<DIM> solver_factory;
 
     std::shared_ptr<MaterialConfig> material_config;
     std::shared_ptr<MaterialModel> material;

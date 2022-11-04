@@ -10,7 +10,7 @@
 #include "utils/linear_blend_skinning.h"
 
 // Factories
-#include "factories/solver_factory.h"
+#include "factories/linear_solver_factory.h"
 #include "factories/variable_factory.h"
 #include "factories/optimizer_factory.h"
 #include "factories/integrator_factory.h"
@@ -332,7 +332,7 @@ bool SimState<DIM>::load(const nlohmann::json& args) {
     vars_.push_back(variable_factory.create(type, mesh_, config_));
   }
 
-  SolverFactory<DIM> solver_factory;
+  LinearSolverFactory<DIM> solver_factory;
   if (const auto& it = args.find("linear_solver"); it != args.end()) {
     std::string name = it->get<std::string>();
     config_->solver_type = solver_factory.type_by_name(name);
