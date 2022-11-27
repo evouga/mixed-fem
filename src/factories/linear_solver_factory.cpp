@@ -6,8 +6,9 @@
 #include "linear_solvers/affine_pcg.h"
 #include "linear_solvers/linear_system.h"
 #include "linear_solvers/split_solver.h"
-#include <unsupported/Eigen/IterativeSolvers>
 #include "linear_solvers/preconditioners.h"
+#include "linear_solvers/subspace_matrix.h"
+#include <unsupported/Eigen/IterativeSolvers>
 
 #if defined(SIM_USE_CHOLMOD)
 #include <Eigen/CholmodSupport>
@@ -122,6 +123,33 @@ LinearSolverFactory<DIM>::LinearSolverFactory() {
         return solver;
       }
   );
+
+  //NOTE using DUal ascent not admm 
+  using SOLVER_MINRES_ADMM = ConjugateGradient<BlockMat,Lower|Upper,SplitSolverPreconditioner<Scalar, DIM>>;
+  this->register_type(LinearSolverType::SOLVER_MINRES_ADMM, "minres-admm",
+      [](SimState<DIM>* state)->std::unique_ptr<LinearSolver<Scalar, DIM>>
+      { 
+        auto solver = std::make_unique<EigenIterativeSolver<
+          SOLVER_MINRES_ADMM, SystemMatrixIndefinite<Scalar,DIM>,
+          Scalar, DIM>>(state);
+        solver->eigen_solver().preconditioner().init(state);
+        return solver;
+      }
+  );
+
+  using SubspaceMat = typename SubspaceSystem<DIM>::MatrixType;
+  //using SOLVER_SUBSPACE = BiCGSTAB<SubspaceMat, IncompleteCholesky<Scalar>>;
+  //this->register_type(LinearSolverType::SOLVER_SUBSPACE, "subspace",
+  //    [](SimState<DIM>* state)->std::unique_ptr<LinearSolver<Scalar, DIM>>
+  //    { 
+  //      return std::make_unique<EigenIterativeSolver<
+  //        SOLVER_SUBSPACE, SubspaceSystem<DIM>, Scalar, DIM>>(state);
+  //    }
+  //);
+  this->register_type(LinearSolverType::SOLVER_SUBSPACE, "subspace",
+      [](SimState<DIM>* state)->std::unique_ptr<LinearSolver<Scalar, DIM>>
+      {return std::make_unique<EigenSolver<SparseLU<SubspaceMat>, SubspaceSystem<DIM>,
+        Scalar, DIM>>(state);});
 }
 
 template class mfem::LinearSolverFactory<3>;

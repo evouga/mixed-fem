@@ -5,11 +5,11 @@
 
 namespace Eigen {
 
-  template <typename Scalar, int DIM>
+  template <typename Scalar, typename MatType>
   class LumpedPreconditioner
   {
       typedef Matrix<Scalar,Dynamic,1> Vector;
-      typedef BlockMatrix<DIM> MatType;
+      //typedef SparseMatrix<Scalar> MatType;
 
     public:
       typedef typename Vector::StorageIndex StorageIndex;
@@ -30,7 +30,7 @@ namespace Eigen {
       LumpedPreconditioner& factorize(const MatType& mat) {
         invdiag_.resize(mat.cols());
         Vector diag = mat * Vector::Ones(mat.cols());
-        invdiag_ = 1.0 / diag.array().abs();
+        invdiag_ = 1.0 / (diag.array().abs() / mat.cols());
         is_initialized_ = true;
         return *this;
       }
@@ -253,7 +253,7 @@ namespace Eigen {
    
       template<typename Rhs, typename Dest>
       void _solve_impl(const Rhs& b, Dest& x) const {
-        int max_iters = 100000;
+        int max_iters = 100;
 
         x.setZero();
 
@@ -287,7 +287,7 @@ namespace Eigen {
             const VectorXd& la0 = x0.segment(curr_row + var->size(),
                 var->size_dual());
             Ref<VectorXd> bs = bi.segment(curr_row,var->size());
-            var->product_jacobian_mixed(la0, bs, false);
+            var->product_jacobian_mixed(la0, bs);
             bs = (b.segment(curr_row,var->size()) - bs).eval();
             // std::cout << "b s norm :" << b.segment(curr_row,var->size()).norm() << std::endl;
 
@@ -299,7 +299,7 @@ namespace Eigen {
             // Mixed dual variable RHS
             Ref<VectorXd> b_la = bi.segment(curr_row, var->size_dual());
             var->product_jacobian_x(x.head(n), b_la, false);
-            var->product_jacobian_mixed(x_s, b_la, false);
+            var->product_jacobian_mixed(x_s, b_la);
 
             // Update mixed dual variable
             x.segment(curr_row, var->size_dual()) =  la0 +
@@ -379,7 +379,7 @@ namespace Eigen {
    
       template<typename Rhs, typename Dest>
       void _solve_impl(const Rhs& b, Dest& x) const {
-        int max_iters = 100000;
+        int max_iters = 100;
 
         x.setZero();
 
@@ -388,7 +388,7 @@ namespace Eigen {
 
         assert(state_->vars_.size() == 0);
 
-        double rho = .1;
+        double rho = .02;
 
         // Laplacian block
         SparseMatrixdRowMajor M = state_->mesh_->mass_matrix();
@@ -440,7 +440,7 @@ namespace Eigen {
             VectorXd b_rho(n);
             Cs.setZero();
             b_rho.setZero();
-            var->product_jacobian_mixed(x_s, Cs, false);
+            var->product_jacobian_mixed(x_s, Cs);
             var->product_jacobian_x(Cs, b_rho, true);
             bi.head(n) += b_rho * rho;
 
@@ -460,7 +460,7 @@ namespace Eigen {
             const VectorXd& la0 = x0.segment(curr_row + var->size(),
                 var->size_dual());
             Ref<VectorXd> bs = bi.segment(curr_row,var->size());
-            var->product_jacobian_mixed(la0, bs, false);
+            var->product_jacobian_mixed(la0, bs);
 
             // Mixed variable quadratic penalty RHS
             // rho C*(Bx)
@@ -469,7 +469,7 @@ namespace Eigen {
             Bx.setZero();
             b_rho.setZero();
             var->product_jacobian_x(x.head(n), Bx, false);
-            var->product_jacobian_mixed(Bx, b_rho, false);
+            var->product_jacobian_mixed(Bx, b_rho);
             bs += b_rho * rho;
 
             bs = (b.segment(curr_row,var->size()) - bs).eval();
@@ -484,11 +484,11 @@ namespace Eigen {
             // Mixed dual variable RHS
             Ref<VectorXd> b_la = bi.segment(curr_row, var->size_dual());
             var->product_jacobian_x(x.head(n), b_la, false);
-            var->product_jacobian_mixed(x_s, b_la, false);
+            var->product_jacobian_mixed(x_s, b_la);
 
             // Update mixed dual variable
             x.segment(curr_row, var->size_dual()) =  la0 +
-                std::pow( std::max(0.0, 1.0 - 1*i/(max_iters*5.0)),2) * (-b.segment(curr_row, var->size_dual()) + b_la);
+                /*std::pow( std::max(0.0, 1.0 - 1*i/(max_iters*100.0)),2) */ (-b.segment(curr_row, var->size_dual()) + b_la);
             curr_row += var->size_dual();
           }
 

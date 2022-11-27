@@ -4,6 +4,7 @@
 #include "svd/newton_procrustes.h"
 #include "svd/dsvd.h"
 #include "svd/svd_eigen.h"
+#include "utils/functor.h"
 
 using namespace Eigen;
 using namespace mfem;
@@ -198,7 +199,8 @@ void MixedStretch<DIM>::update_derivatives(double dt) {
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
     double vol = mesh_->volumes()[i];
-    grad_.segment<N()>(N()*i) = vol * (g_[i]);//+Sym()*la_.segment<N()>(N()*i));
+    grad_.segment<N()>(N()*i) = vol * (g_[i]);
+    //+Sym()*la_.segment<N()>(N()*i));
   }
 }
 
@@ -262,6 +264,7 @@ void MixedStretch<DIM>::reset() {
   nelem_ = mesh_->T_.rows();
 
   s_.resize(N()*nelem_);
+  ds_.resize(N()*nelem_);
   la_.resize(N()*nelem_);
   la_.setZero();
   R_.resize(nelem_);
@@ -321,7 +324,8 @@ void MixedStretch<DIM>::evaluate_constraint(const VectorXd& x, VectorXd& c) {
   
     MatD R = R_[i];
     VecN stmp;
-    polar_svd<DIM,N()>(R, stmp, Map<MatD>(def_grad.segment<M()>(M()*i).data()), false, tmp);
+    polar_svd<DIM,N()>(R, stmp, Map<MatD>(def_grad.segment<M()>(M()*i).data()),
+        false, tmp);
 
     const VecN& si = s_.segment<N()>(N()*i);
     c.segment<N()>(N()*i) = Sym() * (stmp - si) * mesh_->volumes()[i];
@@ -332,6 +336,18 @@ template<int DIM>
 void MixedStretch<DIM>::hessian(SparseMatrix<double>& A) {
   init_block_diagonal<N(),N()>(A, nelem_);
   update_block_diagonal<N(),N()>(Hloc_, A);
+}
+
+template<int DIM>
+void MixedStretch<DIM>::hessian_inv(SparseMatrix<double>& A) {
+  std::vector<MatN> Hinv(nelem_);
+  #pragma omp parallel for
+  for (int i = 0; i < nelem_; ++i) {
+    double vol = mesh_->volumes()[i];
+    Hinv[i] = vol*Hinv_[i];
+  }
+  init_block_diagonal<N(),N()>(A, nelem_);
+  update_block_diagonal<N(),N()>(Hinv, A);
 }
 
 template<int DIM>
@@ -408,13 +424,44 @@ void MixedStretch<DIM>::product_jacobian_x(const Eigen::VectorXd& x,
 
 template<int DIM>
 void MixedStretch<DIM>::product_jacobian_mixed(const Eigen::VectorXd& x,
-    Eigen::Ref<Eigen::VectorXd> out, bool transposed) const {
+    Eigen::Ref<Eigen::VectorXd> out) const {
   assert(x.size() == out.size());
   assert(x.size() == nelem_ * N());
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
     double vol = mesh_->volumes()[i];
     out.segment<N()>(N()*i) += vol * Sym() * x.segment<N()>(N()*i);
+  }
+}
+
+template<int DIM>
+void MixedStretch<DIM>::product_hessian_sqrt(const VectorXd& x,
+    Ref<VectorXd> out) const {
+  assert(x.size() == out.size());
+  assert(x.size() == nelem_ * N());
+  #pragma omp parallel for
+  for (int i = 0; i < nelem_; ++i) {
+    SelfAdjointEigenSolver<MatN> es(Hloc_[i]);
+    VecN diag = es.eigenvalues().real().array().sqrt(); 
+    MatN hess = es.eigenvectors().real() * diag.asDiagonal() 
+         * es.eigenvectors().real().transpose();
+    out.segment<N()>(N()*i) += hess * x.segment<N()>(N()*i);
+  }
+}
+
+template<int DIM>
+void MixedStretch<DIM>::product_hessian_sqrt_inv(const VectorXd& x,
+    Ref<VectorXd> out) const {
+  assert(x.size() == out.size());
+  assert(x.size() == nelem_ * N());
+  #pragma omp parallel for
+  for (int i = 0; i < nelem_; ++i) {
+    SelfAdjointEigenSolver<MatN> es(Hloc_[i]);
+    // Note: doing reciprocal sqrt here instead
+    VecN diag = es.eigenvalues().real().array().rsqrt(); 
+    MatN hess = es.eigenvectors().real() * diag.asDiagonal() 
+         * es.eigenvectors().real().transpose();
+    out.segment<N()>(N()*i) += hess * x.segment<N()>(N()*i);
   }
 }
 

@@ -11,10 +11,7 @@
 using namespace mfem;
 using namespace Eigen;
 
-template <int DIM>
-void NewtonOptimizer<DIM>::step() {
-  state_.data_.clear();
-
+template <int DIM> void NewtonOptimizer<DIM>::step() { state_.data_.clear();
   // Pre operations for variables
   state_.x_->pre_solve();
   for (auto& var : state_.mixed_vars_) {
@@ -150,7 +147,6 @@ void NewtonOptimizer<DIM>::update_system() {
   // TODO bullshit exporting
   //saveMarket(state_.x_->lhs(), "lhs_M.mkt");
   //saveMarket(state_.x_->rhs(), "rhs_x.mkt");
-
   //SparseMatrix<double> A, B, C;
   //VectorXd gs,gl;
   //state_.mixed_vars_[0]->hessian(A);

@@ -95,7 +95,7 @@ namespace mfem {
     void product_jacobian_x(const Eigen::VectorXd& x,
         Eigen::Ref<Eigen::VectorXd> out, bool transposed) const override {}
     void product_jacobian_mixed(const Eigen::VectorXd& x,
-        Eigen::Ref<Eigen::VectorXd> out, bool transposed) const override {}
+        Eigen::Ref<Eigen::VectorXd> out) const override {}
 
   protected:
 
