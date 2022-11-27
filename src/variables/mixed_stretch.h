@@ -63,6 +63,7 @@ namespace mfem {
     void evaluate_constraint(const Eigen::VectorXd& x,
         Eigen::VectorXd&) override;
     void hessian(Eigen::SparseMatrix<double>&) override;
+    void hessian_inv(Eigen::SparseMatrix<double>&) override;
     void jacobian_x(Eigen::SparseMatrix<double>&) override;
     void jacobian_mixed(Eigen::SparseMatrix<double>&) override;
 
@@ -73,7 +74,11 @@ namespace mfem {
     void product_jacobian_x(const Eigen::VectorXd& x,
         Eigen::Ref<Eigen::VectorXd> out, bool transposed) const override;
     void product_jacobian_mixed(const Eigen::VectorXd& x,
-        Eigen::Ref<Eigen::VectorXd> out, bool transposed) const override;
+        Eigen::Ref<Eigen::VectorXd> out) const override;
+    void product_hessian_sqrt(const Eigen::VectorXd& x,
+        Eigen::Ref<Eigen::VectorXd> out) const override;
+    void product_hessian_sqrt_inv(const Eigen::VectorXd& x,
+        Eigen::Ref<Eigen::VectorXd> out) const override;
 
   protected:
 

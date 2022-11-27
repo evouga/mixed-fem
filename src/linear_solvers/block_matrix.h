@@ -9,6 +9,14 @@
 
 namespace Eigen {
 
+  //
+  // var
+    //template<typename Rhs>
+    //Eigen::Product<BlockMatrix,Rhs,Eigen::AliasFreeProduct> operator*(
+    //    const Eigen::MatrixBase<Rhs>& x) const {
+  //
+  //
+  //
   // Wrapped for sparse matrix to support mixed FEM KKT matrix
   template<int DIM>
   class BlockMatrix : public Eigen::EigenBase<BlockMatrix<DIM>> {
@@ -113,13 +121,13 @@ namespace internal {
         // Terms for mixed variable
         Ref<VectorXd> out = dst.segment(curr_row, var->size());
         var->product_hessian(ds, out);
-        var->product_jacobian_mixed(la, out, false);
+        var->product_jacobian_mixed(la, out);
         curr_row += var->size();
 
         // Terms for dual variable
         Ref<VectorXd> out_la = dst.segment(curr_row, var->size_dual());
         var->product_jacobian_x(dx, out_la, false);
-        var->product_jacobian_mixed(ds, out_la, false);
+        var->product_jacobian_mixed(ds, out_la);
         curr_row += var->size_dual();
       }
     }
