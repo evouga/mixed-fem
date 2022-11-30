@@ -100,6 +100,7 @@ add_subdirectory("deps/polyscope")
 # set(NASOQ_USE_CLAPACK  ON)
 # set(NASOQ_WITH_EIGEN OFF)
 # add_subdirectory("deps/nasoq")
+add_subdirectory("deps/amgcl")
 
 file(GLOB SOURCES 
     ${PROJECT_SOURCE_DIR}/src/*.cpp 
@@ -205,12 +206,9 @@ target_include_directories(mixed_fem_lib SYSTEM PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope/deps/json/include")
 
 # Link settings
-target_link_libraries(mixed_fem_lib polyscope Eigen3::Eigen)
+target_link_libraries(mixed_fem_lib polyscope Eigen3::Eigen amgcl::amgcl)
 
 # Create an executable
-# add_executable(tet_sim apps/tet_sim.cpp ${SOURCES})
-# target_link_libraries(tet_sim mixed_fem_lib)
-
 # add_executable(cloth_sim apps/cloth_sim.cpp ${SOURCES})
 # target_link_libraries(cloth_sim mixed_fem_lib)
 

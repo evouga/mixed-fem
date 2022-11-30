@@ -9,7 +9,6 @@ Gs = mmread('lhs_Gs.mkt');
 r_x = mmread('rhs_x.mkt');
 r_gs = mmread('rhs_gs.mkt');
 r_gl = mmread('rhs_gl.mkt');
-r_subspace = mmread('rhs_sub.mkt');
 b = [r_x; r_gs; r_gl];
 %%
 
@@ -68,14 +67,14 @@ norm(A * [x;s;la] - b) / norm(b)
 norm(A * [x2;s2;la2] - b) / norm(b)
 %norm(G*p+D*y-c)
 
-r_sub = mmread('rhs_sub.mkt');
-x_sub = mmread('x_sub.mkt');
-s_sub = mmread('s_sub.mkt');
-l_sub = mmread('la_sub.mkt');
-y_sub = mmread('y_sub.mkt');
-p_sub = mmread('p_sub.mkt');
-rhs2 = mmread('rhs2.mkt');
-lhs2 = mmread('lhs2.mkt');
+% r_sub = mmread('rhs_sub.mkt');
+% x_sub = mmread('x_sub.mkt');
+% s_sub = mmread('s_sub.mkt');
+% l_sub = mmread('la_sub.mkt');
+% y_sub = mmread('y_sub.mkt');
+% p_sub = mmread('p_sub.mkt');
+% rhs2 = mmread('rhs2.mkt');
+% lhs2 = mmread('lhs2.mkt');
 % Gl_sub = mmread('Gla_sub.mkt');
 % lump = mmread('lump_sub.mkt');
 % options.type = "ilutp";

@@ -525,4 +525,92 @@ namespace Eigen {
       const mfem::SimState<DIM>* state_;
       bool is_initialized_;
   };
+
+  template <typename Scalar>
+  class GaussSeidelPreconditioner
+  {
+      typedef Matrix<Scalar,Dynamic,1> Vector;
+      typedef SparseMatrix<Scalar> MatType;
+
+    public:
+      typedef typename Vector::StorageIndex StorageIndex;
+      enum {
+        ColsAtCompileTime = Dynamic,
+        MaxColsAtCompileTime = Dynamic
+      };
+   
+      GaussSeidelPreconditioner() : is_initialized_(false) {}
+   
+      EIGEN_CONSTEXPR Index rows() const EIGEN_NOEXCEPT { return A_.rows(); }
+      EIGEN_CONSTEXPR Index cols() const EIGEN_NOEXCEPT { return A_.cols(); }
+   
+      GaussSeidelPreconditioner& analyzePattern(const MatType&) {
+        return *this;
+      }
+   
+      GaussSeidelPreconditioner& factorize(const MatType& mat) {
+        return *this;
+      }
+   
+      GaussSeidelPreconditioner& compute(const MatType& mat) {
+        is_initialized_ = true;
+        A_ = mat;
+        return *this;
+      }
+
+      void setMaxIterations(int max_iters) {
+        max_iters_ = max_iters;
+      }
+
+      Scalar error() {
+        return error_;
+      }
+
+      int iterations() {
+        return iters_;
+      }
+
+      void setTolerance(Scalar tol) {
+        tol_ = tol;
+      }
+   
+      template<typename Rhs, typename Dest>
+      void _solve_impl(const Rhs& b, Dest& x) const {
+        x.setZero();
+
+        auto AL = A_.template triangularView<Lower>();
+        auto AU = A_.template triangularView<StrictlyUpper>();
+
+        Scalar b_norm = b.norm();
+
+        for (iters_ = 0; iters_ < max_iters_; ++iters_) {
+          x = AL.solve(b - AU*x);
+
+          error_ = (A_*x - b).norm() / b_norm;
+          if (error_ < tol_) {
+            break;
+          }
+        }
+      }
+   
+      template<typename Rhs> inline const Solve<GaussSeidelPreconditioner, Rhs>
+      solve(const MatrixBase<Rhs>& b) const {
+        eigen_assert(is_initialized_ && 
+            "GaussSeidelPreconditioner is not initialized.");
+        eigen_assert(invdiag_.size() == b.rows()
+            && "GaussSeidelPreconditioner::solve(): invalid"
+            "number of rows of the right hand side matrix b");
+        return Solve<GaussSeidelPreconditioner, Rhs>(*this, b.derived());
+      }
+   
+      ComputationInfo info() { return Success; }
+   
+    protected:
+      bool is_initialized_;
+      int max_iters_ = 100;
+      mutable int iters_ = 0;
+      mutable Scalar error_;
+      Scalar tol_ = 0;
+      MatType A_;
+  };
 }

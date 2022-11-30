@@ -114,7 +114,6 @@ namespace mfem {
       }
 
       if (x0.size() != 0) {
-        // optimizer->set_state(x0, v);
         if constexpr (DIM == 3) {
           srf->updateVertexPositions(mesh->V_);
         } else {
@@ -172,63 +171,63 @@ namespace mfem {
         callback_funcs[i]();
       }
 
-      if (ImGui::TreeNode("Material Params")) {
+      //if (ImGui::TreeNode("Material Params")) {
 
-        if (FactoryCombo<MaterialModelFactory, MaterialModelType>(
-            "Material Model", material_config->material_model)) {
-          material = material_factory.create(material_config->material_model,
-              material_config);
-          mesh->material_ = material;
-        }
+      //  if (FactoryCombo<MaterialModelFactory, MaterialModelType>(
+      //      "Material Model", material_config->material_model)) {
+      //    material = material_factory.create(material_config->material_model,
+      //        material_config);
+      //    mesh->material_ = material;
+      //  }
 
-        double lo=0.1,hi=0.5;
-        if (ImGui::InputScalar("Young's Modulus", ImGuiDataType_Double,
-            &material_config->ym, NULL, NULL, "%.3e")) {
-          
-          Enu_to_lame(material_config->ym, material_config->pr,
-              material_config->la, material_config->mu);
-          config->kappa = material_config->mu;
+      //  double lo=0.1,hi=0.5;
+      //  if (ImGui::InputScalar("Young's Modulus", ImGuiDataType_Double,
+      //      &material_config->ym, NULL, NULL, "%.3e")) {
+      //    
+      //    Enu_to_lame(material_config->ym, material_config->pr,
+      //        material_config->la, material_config->mu);
+      //    config->kappa = material_config->mu;
 
-          if (config->optimizer == OPTIMIZER_SQP_BENDING) {
-            double E = material_config->ym;
-            double nu = material_config->pr;
-            double thickness = material_config->thickness;
-            config->kappa = E / (24 * (1.0 - nu * nu))
-                * thickness * thickness * thickness;
-          }
-        }
-        // ImGui::SameLine(); 
-        // HelpMarker("Young's Modulus");
-        if (ImGui::SliderScalar("Poisson's Ratio", ImGuiDataType_Double,
-            &material_config->pr, &lo, &hi)) {
-          
-          Enu_to_lame(material_config->ym, material_config->pr,
-              material_config->la, material_config->mu);
+      //    if (config->optimizer == OPTIMIZER_SQP_BENDING) {
+      //      double E = material_config->ym;
+      //      double nu = material_config->pr;
+      //      double thickness = material_config->thickness;
+      //      config->kappa = E / (24 * (1.0 - nu * nu))
+      //          * thickness * thickness * thickness;
+      //    }
+      //  }
+      //  // ImGui::SameLine(); 
+      //  // HelpMarker("Young's Modulus");
+      //  if (ImGui::SliderScalar("Poisson's Ratio", ImGuiDataType_Double,
+      //      &material_config->pr, &lo, &hi)) {
+      //    
+      //    Enu_to_lame(material_config->ym, material_config->pr,
+      //        material_config->la, material_config->mu);
 
-          if (config->optimizer == OPTIMIZER_SQP_BENDING) {
-            double E = material_config->ym;
-            double nu = material_config->pr;
-            double thickness = material_config->thickness;
-            config->kappa = E / (24 * (1.0 - nu * nu))
-                * thickness * thickness * thickness;
-          }
-        }
+      //    if (config->optimizer == OPTIMIZER_SQP_BENDING) {
+      //      double E = material_config->ym;
+      //      double nu = material_config->pr;
+      //      double thickness = material_config->thickness;
+      //      config->kappa = E / (24 * (1.0 - nu * nu))
+      //          * thickness * thickness * thickness;
+      //    }
+      //  }
 
-        if (config->optimizer == OPTIMIZER_SQP_BENDING) {
-          if (ImGui::InputDouble("Thickness", &material_config->thickness)) {
-            double E = material_config->ym;
-            double nu = material_config->pr;
-            double thickness = material_config->thickness;
-            config->kappa = E / (24 * (1.0 - nu * nu))
-                * thickness * thickness * thickness;
-          }
+      //  if (config->optimizer == OPTIMIZER_SQP_BENDING) {
+      //    if (ImGui::InputDouble("Thickness", &material_config->thickness)) {
+      //      double E = material_config->ym;
+      //      double nu = material_config->pr;
+      //      double thickness = material_config->thickness;
+      //      config->kappa = E / (24 * (1.0 - nu * nu))
+      //          * thickness * thickness * thickness;
+      //    }
 
-          ImGui::InputDouble("Density", &material_config->density);
-        }
-        ImGui::TreePop();
-      }
+      //    ImGui::InputDouble("Density", &material_config->density);
+      //  }
+      //  ImGui::TreePop();
+      //}
 
-      ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+      //ImGui::SetNextItemOpen(true, ImGuiCond_Once);
       if (ImGui::TreeNode("Variables")) {
 
         if (FactoryCheckbox<MixedVariableFactory<DIM>, VariableType>(
@@ -258,11 +257,16 @@ namespace mfem {
       if (ImGui::TreeNode("Sim Params")) {
 
         ImGui::InputDouble("Timestep", &config->h, 0,0,"%.5f");
-        ImGui::InputDouble("dhat", &config->dhat, 0,0,"%.5g");
-        ImGui::InputDouble("mu", &config->mu, 0,0,"%.5g");
-        ImGui::InputDouble("espv", &config->espv, 0,0,"%.5g");
-        ImGui::Checkbox("enable_ccd", &config->enable_ccd);
 
+        // Collision parameters
+        if (ImGui::TreeNode("Contact")) {
+          ImGui::InputDouble("dhat", &config->dhat, 0,0,"%.5g");
+          ImGui::InputDouble("mu", &config->mu, 0,0,"%.5g");
+          ImGui::InputDouble("espv", &config->espv, 0,0,"%.5g");
+          ImGui::Checkbox("enable_ccd", &config->enable_ccd);
+        }
+
+        // Optimizer parameters
         if (FactoryCombo<OptimizerFactory<DIM>, OptimizerType>(
             "Optimizer", config->optimizer)) {
           SimState<DIM>& state = optimizer->state();
@@ -274,10 +278,13 @@ namespace mfem {
         ImGui::InputInt("Max LS Iters", &config->ls_iters);
         ImGui::InputDouble("Newton Tol", &config->newton_tol,0,0,"%.5g");
 
+        // Iterative solver params
         if (config->solver_type == LinearSolverType::SOLVER_AFFINE_PCG
             || config->solver_type == LinearSolverType::SOLVER_EIGEN_CG_DIAG
             || config->solver_type == LinearSolverType::SOLVER_MINRES_ID
-            || config->solver_type == LinearSolverType::SOLVER_EIGEN_CG_IC) {
+            || config->solver_type == LinearSolverType::SOLVER_EIGEN_CG_IC
+            || config->solver_type == LinearSolverType::SOLVER_EIGEN_GS
+            || config->solver_type == LinearSolverType::SOLVER_AMGCL) {
           ImGui::InputInt("Max CG Iters", &config->max_iterative_solver_iters);
           ImGui::InputDouble("CG Tol", &config->itr_tol,0,0,"%.5g");
         }
@@ -349,16 +356,6 @@ namespace mfem {
           Eigen::MatrixXd V = Eigen::Map<Eigen::MatrixXd>(v0.data(), DIM,
               state.mesh_->V_.rows());
           V.transposeInPlace();
-
-          // Eigen::MatrixXd x(optimizer->step_x[0].size(),
-          //     optimizer->step_x.size());
-          // for (size_t i = 0; i < optimizer->step_x.size(); ++i) {
-          //   x.col(i) = optimizer->step_x[i];
-          // }
-          // Save the file names
-          // n = sprintf(buffer, "../output/sim_x_%04d.dmat", step); 
-          // buffer[n] = 0;
-          // igl::writeDMAT(std::string(buffer), x);
 
           n = sprintf(buffer, "../output/sim_x0_%04d.dmat", step); 
           buffer[n] = 0;
