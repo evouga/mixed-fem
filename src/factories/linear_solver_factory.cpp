@@ -8,7 +8,10 @@
 #include "linear_solvers/split_solver.h"
 #include "linear_solvers/preconditioners.h"
 #include "linear_solvers/subspace_matrix.h"
+<<<<<<< HEAD
 #include "linear_solvers/amgcl_solver.h"
+=======
+>>>>>>> 1ba56d32a28af00c4b56bd4700758b0df4217e07
 #include <unsupported/Eigen/IterativeSolvers>
 
 #if defined(SIM_USE_CHOLMOD)
@@ -126,8 +129,13 @@ LinearSolverFactory<DIM>::LinearSolverFactory() {
   );
 
   //NOTE using DUal ascent not admm 
+<<<<<<< HEAD
   using SOLVER_MINRES_ADMM = MINRES<BlockMat,Lower|Upper,SplitSolverPreconditioner<Scalar, DIM>>;
   this->register_type(LinearSolverType::SOLVER_MINRES_ADMM, "minres-indefinite-admm",
+=======
+  using SOLVER_MINRES_ADMM = ConjugateGradient<BlockMat,Lower|Upper,SplitSolverPreconditioner<Scalar, DIM>>;
+  this->register_type(LinearSolverType::SOLVER_MINRES_ADMM, "minres-admm",
+>>>>>>> 1ba56d32a28af00c4b56bd4700758b0df4217e07
       [](SimState<DIM>* state)->std::unique_ptr<LinearSolver<Scalar, DIM>>
       { 
         auto solver = std::make_unique<EigenIterativeSolver<
@@ -149,8 +157,6 @@ LinearSolverFactory<DIM>::LinearSolverFactory() {
   //);
   this->register_type(LinearSolverType::SOLVER_SUBSPACE, "subspace",
       [](SimState<DIM>* state)->std::unique_ptr<LinearSolver<Scalar, DIM>>
-      {return std::make_unique<EigenSolver<SparseLU<SubspaceMat>,
-        SubspaceSystem<DIM>, Scalar, DIM>>(state);});
 
   this->register_type(LinearSolverType::SOLVER_AMGCL, "subspace-amgcl",
       [](SimState<DIM>* state)->std::unique_ptr<LinearSolver<Scalar, DIM>>
@@ -165,7 +171,6 @@ LinearSolverFactory<DIM>::LinearSolverFactory() {
           EIGEN_GS, SubspaceSystem<DIM>, Scalar, DIM>>(state);
       }
   );
-
 }
 
 template class mfem::LinearSolverFactory<3>;
