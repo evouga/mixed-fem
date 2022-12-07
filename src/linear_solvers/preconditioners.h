@@ -134,11 +134,10 @@ namespace Eigen {
             L.coeffRef(i,i) += 1e-8;
           }
 
-
           // SparseMatrix<double> A, C;
           // var->hessian(A);
           // var->jacobian_mixed(C);
-
+          //
           Linv.factorize(L);
           if (Linv.info() != Eigen::Success) {
            std::cerr << "Linv prefactor failed! " << std::endl;
@@ -208,138 +207,6 @@ namespace Eigen {
       bool is_initialized_;
   };
 
-
-  template <typename Scalar, int DIM>
-  class SplitSolverPreconditioner
-  {
-      typedef Matrix<Scalar,Dynamic,1> Vector;
-      typedef BlockMatrix<DIM> MatType;
-
-    public:
-      typedef typename Vector::StorageIndex StorageIndex;
-      enum {
-        ColsAtCompileTime = Dynamic,
-        MaxColsAtCompileTime = Dynamic
-      };
-   
-      SplitSolverPreconditioner() : is_initialized_(false), state_(nullptr) {}
-   
-      EIGEN_CONSTEXPR Index rows() const EIGEN_NOEXCEPT { return state_->size(); }
-      EIGEN_CONSTEXPR Index cols() const EIGEN_NOEXCEPT { return state_->size(); }
-
-      void init(const mfem::SimState<DIM>* state) {
-        // Mass matrix inverse block
-        SparseMatrixdRowMajor M = state->mesh_->mass_matrix();
-        Minv_.compute(state->mesh_->mass_matrix());
-        if (Minv_.info() != Eigen::Success) {
-         std::cerr << "M prefactor failed! " << std::endl;
-         exit(1);
-        }
-        is_initialized_ = true;
-        state_ = state;
-      }
-   
-      SplitSolverPreconditioner& analyzePattern(const MatType&) {
-        return *this;
-      }
-   
-      SplitSolverPreconditioner& factorize(const MatType& mat) {
-        return *this;
-      }
-   
-      SplitSolverPreconditioner& compute(const MatType& mat) {
-        return *this;
-      }
-   
-      template<typename Rhs, typename Dest>
-      void _solve_impl(const Rhs& b, Dest& x) const {
-        int max_iters = 100;
-
-        x.setZero();
-
-        Dest x0 = x;
-        Rhs bi = b;
-
-        assert(state_->vars_.size() == 0);
-
-        for (int i = 0; i < max_iters; ++i) {
-          int n = state_->x_->size();
-          bi.setZero();
-          x.setZero();
-
-          
-          // Compute x RHS using lagrange multipliers
-          int curr_row = n;
-          for (const auto& var : state_->mixed_vars_) {
-            curr_row += var->size();
-            const VectorXd& la = x0.segment(curr_row, var->size_dual());
-            var->product_jacobian_x(la, bi.head(n), true);
-            curr_row += var->size_dual();
-          }
-
-          // Solve for 'x' updates
-          bi.head(n) = (b.head(n) - bi.head(n)).eval();
-          x.head(n) = Minv_.solve(bi.head(n));
-
-          curr_row = n;
-          for (const auto& var : state_->mixed_vars_) {
-            // Mixed variable RHS
-            const VectorXd& la0 = x0.segment(curr_row + var->size(),
-                var->size_dual());
-            Ref<VectorXd> bs = bi.segment(curr_row,var->size());
-            var->product_jacobian_mixed(la0, bs);
-            bs = (b.segment(curr_row,var->size()) - bs).eval();
-            // std::cout << "b s norm :" << b.segment(curr_row,var->size()).norm() << std::endl;
-
-            // Solve for mixed variable
-            Ref<VectorXd> x_s = x.segment(curr_row, var->size());
-            var->product_hessian_inv(bs, x_s);
-            curr_row += var->size();
-
-            // Mixed dual variable RHS
-            Ref<VectorXd> b_la = bi.segment(curr_row, var->size_dual());
-            var->product_jacobian_x(x.head(n), b_la, false);
-            var->product_jacobian_mixed(x_s, b_la);
-
-            // Update mixed dual variable
-            x.segment(curr_row, var->size_dual()) =  la0 +
-                std::pow( std::max(0.0, 1.0 - 1*i/(max_iters*1.0)),2) * (-b.segment(curr_row, var->size_dual()) + b_la);
-            curr_row += var->size_dual();
-          }
-
-          double conv = (x-x0).norm();
-          if (conv < 1e-8) {
-            // std::cout << "Residual: " << i << " = " << (x-x0).template lpNorm<Eigen::Infinity>() << std::endl; 
-            // std::cout << "Residual x: " << i << " = " << (x-x0).head(n).template lpNorm<Eigen::Infinity>()  << std::endl; 
-            // std::cout << "Residual s: " << i << " = " << (x-x0).segment(n, state_->mixed_vars_[0]->size()).template lpNorm<Eigen::Infinity>() << std::endl; 
-            // break;
-          }
-          if ((i % 100)== 0) {
-            std::cout << "Residual: " << i << " = " << (x-x0).template lpNorm<Eigen::Infinity>() << std::endl; 
-            // std::cout << "Residual x: " << i << " = " << (x-x0).head(n).template lpNorm<Eigen::Infinity>()  << std::endl; 
-            // std::cout << "Residual s: " << i << " = " << (x-x0).segment(n, state_->mixed_vars_[0]->size()).template lpNorm<Eigen::Infinity>() << std::endl; 
-          }
-          x0 = x;
-        }
-
-      }
-   
-      template<typename Rhs>
-      inline const Solve<SplitSolverPreconditioner, Rhs>
-      solve(const MatrixBase<Rhs>& b) const {
-        eigen_assert(is_initialized_ && 
-            "SplitSolverPreconditioner is not initialized.");
-        return Solve<SplitSolverPreconditioner, Rhs>(*this, b.derived());
-      }
-   
-      ComputationInfo info() { return Success; }
-   
-    protected:
-      SimplicialLLT<SparseMatrixdRowMajor, Upper|Lower> Minv_;
-      const mfem::SimState<DIM>* state_;
-      bool is_initialized_;
-  };
-
   template <typename Scalar, int DIM>
   class ADMMPreconditioner
   {
@@ -376,12 +243,18 @@ namespace Eigen {
       ADMMPreconditioner& compute(const MatType& mat) {
         return *this;
       }
+
+      // Eigen iterative solver API
+      Scalar error() { return error_; }
+      int iterations() { return iters_; }
+      void setTolerance(Scalar tol) { tol_ = tol; }
+      void setMaxIterations(int max_iters) { max_iters_ = max_iters; }
    
       template<typename Rhs, typename Dest>
       void _solve_impl(const Rhs& b, Dest& x) const {
-        int max_iters = 100;
 
         x.setZero();
+        std::cout << "b.norm(): " << b.norm() << std::endl;
 
         Dest x0 = x;
         Rhs bi = b;
@@ -425,8 +298,7 @@ namespace Eigen {
         // argmin_s g(x)
         //    g'(s) = 0 = rho*C*(Bx+Cs)
         //    rho C'C s = - rho C*(Bx)
-
-        for (int i = 0; i < max_iters; ++i) {
+        for (iters_ = 0; iters_ < max_iters_; ++iters_) {
           int n = state_->x_->size();
           bi.setZero();
           x.setZero();
@@ -478,7 +350,7 @@ namespace Eigen {
             // Solve for mixed variable
             Ref<VectorXd> x_s = x.segment(curr_row, var->size());
             // var->product_hessian_inv(bs, x_s);
-            x_s = Hinv_.solve(bs);
+            x_s = Hinv_.solve(bs); // TODO why the hell
             curr_row += var->size();
 
             // Mixed dual variable RHS
@@ -488,19 +360,21 @@ namespace Eigen {
 
             // Update mixed dual variable
             x.segment(curr_row, var->size_dual()) =  la0 +
-                /*std::pow( std::max(0.0, 1.0 - 1*i/(max_iters*100.0)),2) */ (-b.segment(curr_row, var->size_dual()) + b_la);
+                /*std::pow( std::max(0.0, 1.0 - 1*i/(max_iters*100.0)),2) */
+                (-b.segment(curr_row, var->size_dual()) + b_la);
             curr_row += var->size_dual();
           }
 
-          double conv = (x-x0).norm();
-          if (conv < 1e-8) {
+          error_ = (x-x0).norm();
+          if (error_ < tol_) {
             // std::cout << "Residual: " << i << " = " << (x-x0).template lpNorm<Eigen::Infinity>() << std::endl; 
             // std::cout << "Residual x: " << i << " = " << (x-x0).head(n).template lpNorm<Eigen::Infinity>()  << std::endl; 
-            // std::cout << "Residual s: " << i << " = " << (x-x0).segment(n, state_->mixed_vars_[0]->size()).template lpNorm<Eigen::Infinity>() << std::endl; 
-            // break;
+            // std::cout << "Residual s: " << i << " = " << (x-x0)
+            //    .segment(n, state_->mixed_vars_[0]->size()).template lpNorm<Eigen::Infinity>() << std::endl; 
+            break;
           }
-          if ((i % 100)== 0) {
-            std::cout << "Residual: " << i << " = " << (x-x0).template lpNorm<Eigen::Infinity>() << std::endl; 
+          if ((iters_ % 100)== 0) {
+            std::cout << "Residual: " << iters_ << " = " << (x-x0).template lpNorm<Eigen::Infinity>() << std::endl; 
             // std::cout << "Residual x: " << i << " = " << (x-x0).head(n).template lpNorm<Eigen::Infinity>()  << std::endl; 
             // std::cout << "Residual s: " << i << " = " << (x-x0).segment(n, state_->mixed_vars_[0]->size()).template lpNorm<Eigen::Infinity>() << std::endl; 
           }
@@ -524,6 +398,10 @@ namespace Eigen {
       // SimplicialLLT<SparseMatrixdRowMajor, Upper|Lower> Hinv_;
       const mfem::SimState<DIM>* state_;
       bool is_initialized_;
+      int max_iters_ = 100;
+      mutable int iters_ = 0;
+      mutable Scalar error_;
+      Scalar tol_ = 0;
   };
 
   template <typename Scalar>
@@ -558,21 +436,11 @@ namespace Eigen {
         return *this;
       }
 
-      void setMaxIterations(int max_iters) {
-        max_iters_ = max_iters;
-      }
-
-      Scalar error() {
-        return error_;
-      }
-
-      int iterations() {
-        return iters_;
-      }
-
-      void setTolerance(Scalar tol) {
-        tol_ = tol;
-      }
+      // Eigen iterative solver API
+      Scalar error() { return error_; }
+      int iterations() { return iters_; }
+      void setTolerance(Scalar tol) { tol_ = tol; }
+      void setMaxIterations(int max_iters) { max_iters_ = max_iters; }
    
       template<typename Rhs, typename Dest>
       void _solve_impl(const Rhs& b, Dest& x) const {
@@ -597,9 +465,6 @@ namespace Eigen {
       solve(const MatrixBase<Rhs>& b) const {
         eigen_assert(is_initialized_ && 
             "GaussSeidelPreconditioner is not initialized.");
-        eigen_assert(invdiag_.size() == b.rows()
-            && "GaussSeidelPreconditioner::solve(): invalid"
-            "number of rows of the right hand side matrix b");
         return Solve<GaussSeidelPreconditioner, Rhs>(*this, b.derived());
       }
    

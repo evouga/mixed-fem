@@ -282,8 +282,11 @@ namespace mfem {
         if (config->solver_type == LinearSolverType::SOLVER_AFFINE_PCG
             || config->solver_type == LinearSolverType::SOLVER_EIGEN_CG_DIAG
             || config->solver_type == LinearSolverType::SOLVER_MINRES_ID
+            || config->solver_type == LinearSolverType::SOLVER_MINRES_ADMM
             || config->solver_type == LinearSolverType::SOLVER_EIGEN_CG_IC
             || config->solver_type == LinearSolverType::SOLVER_EIGEN_GS
+            || config->solver_type == LinearSolverType::SOLVER_SUBSPACE
+            || config->solver_type == LinearSolverType::SOLVER_ADMM
             || config->solver_type == LinearSolverType::SOLVER_AMGCL) {
           ImGui::InputInt("Max CG Iters", &config->max_iterative_solver_iters);
           ImGui::InputDouble("CG Tol", &config->itr_tol,0,0,"%.5g");

@@ -103,9 +103,9 @@ template <int DIM> void NewtonOptimizer<DIM>::step() { state_.data_.clear();
     ++i;
     Base::callback(state_);
 
-  } while (i < state_.config_->outer_steps
+  } while (i < state_.config_->outer_steps); /*
       && grad_norm > state_.config_->newton_tol
-      && (res > 1e-12));
+      && (res > 1e-12)); */
 
   if (state_.config_->show_data) {
     state_.data_.print_data(state_.config_->show_timing);

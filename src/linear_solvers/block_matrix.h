@@ -9,14 +9,6 @@
 
 namespace Eigen {
 
-  //
-  // var
-    //template<typename Rhs>
-    //Eigen::Product<BlockMatrix,Rhs,Eigen::AliasFreeProduct> operator*(
-    //    const Eigen::MatrixBase<Rhs>& x) const {
-  //
-  //
-  //
   // Wrapped for sparse matrix to support mixed FEM KKT matrix
   template<int DIM>
   class BlockMatrix : public Eigen::EigenBase<BlockMatrix<DIM>> {

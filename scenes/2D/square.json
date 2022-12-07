@@ -7,7 +7,7 @@
   "time_integrator": "BDF1",
   "linear_solver": "cholmod",
   "enable_ccd": false,
-  "max_newton_iterations": 10,
+  "max_newton_iterations": 30,
   "max_linesearch_iterations": 20,
   "objects": [
     {
@@ -15,18 +15,18 @@
       "offset": [0.0, 0.0, 0.0],
       "material_index": 0,
       "boundary_condition": {
-        "type": "stretch",
-        "ratio": 0.1,
+        "type": "hangends",
+        "ratio": 0.01,
         "axis": 0
       }
     }
   ],
   "material_models": [
     {
-      "youngs_modulus": 1e6,
+      "youngs_modulus": 1e5,
       "poissons_ratio": 0.45,
       "density": 1e3,
-      "energy": "FixedCorot"
+      "energy": "Stable-Neohookean"
     }
   ],
   "mixed_variables": ["mixed-stretch"],

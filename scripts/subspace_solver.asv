@@ -9,7 +9,6 @@ Gs = mmread('lhs_Gs.mkt');
 r_x = mmread('rhs_x.mkt');
 r_gs = mmread('rhs_gs.mkt');
 r_gl = mmread('rhs_gl.mkt');
-r_subspace = mmread('rhs_sub.mkt');
 b = [r_x; r_gs; r_gl];
 %%
 
@@ -51,28 +50,59 @@ la = -Dinv * (y - fy);
 p = -G'*la + fp;
 
 LHS2 = G*G' + D*D;
+RHS2 = -G*fp + -D*fy - -c;
 
+la2 = LHS2\RHS2;
+p2 = -G'*la2 + fp;
+y2 = -D*la2 + fy;
 
 x = Msqrtinv * p;
 s = Hsqrtinv * y;
-cond(full(LHS))
-cond(full(LHS2))
-cond(full(A))
-norm(A * [x;s;la] - b) / norm(b)
-%norm(G*p+D*y-c)
-% cond(full(A))
-%k=16;
-%[P] = evals_saddle1(A,M,K,Gx2,Gs,k);
+x2 = Msqrtinv * p2;
+s2 = Hsqrtinv * y2;
 
-r_sub = mmread('rhs_sub.mkt');
-x_sub = mmread('x_sub.mkt');
-s_sub = mmread('s_sub.mkt');
-l_sub = mmread('la_sub.mkt');
-y_sub = mmread('y_sub.mkt');
-p_sub = mmread('p_sub.mkt');
-Gl_sub = mmread('Gla_sub.mkt');
-lump = mmread('lump_sub.mkt');
-Gl=G'*la;
+% (BM^{-1}B' + D^2)la = BM^{-1}gx + CH^{-1}gs - c
+RHS3 = Gx'* (M\r_x) + D*fy - c;
+la3 = LHS2\RHS3;
+x3 = M \(r_x - Gx*la3);
+y3 = -D*la3 + fy;
+s3 = Hsqrtinv * y3;
+
+% x, y = H^{1/2}s
+% x'Mx + ||y||^2 - x'gx - y'fy
+% fy = H^{-1/2}gs
+% Mx - gx + la'B
+% y - fy + la'D
+% Bx + Dy - c = 0
+% B(M^{-1}(gx - B'la)) + Dy = c
+% -B M^-1 B'la + Dy = c - BM^{-1}gx
+% -B M^-1 B'la + D(fy - la'D) = c - BM^{-1}gx
+% (-B M^-1 B - DD)la = c - BM^{-1}gx - CH^{-1}gs
+% (BM^{-1}B' + D^2)la = BM^{-1}gx + CH^{-1}gs - c
+
+% Mx - gx + la'B
+% Hs - gs + la'C
+% Bx + Dy - c
+% B(M-1(gx-B'la)) + CH^{-1}(gs-C'la)
+la4 = 
+
+%cond(full(LHS))
+%cond(full(LHS2))
+%cond(full(A))
+norm(A * [x;s;la] - b) / norm(b)
+norm(A * [x2;s2;la2] - b) / norm(b)
+norm(A * [x3;s3;la3] - b) / norm(b)
+%norm(G*p+D*y-c)
+
+% r_sub = mmread('rhs_sub.mkt');
+% x_sub = mmread('x_sub.mkt');
+% s_sub = mmread('s_sub.mkt');
+% l_sub = mmread('la_sub.mkt');
+% y_sub = mmread('y_sub.mkt');
+% p_sub = mmread('p_sub.mkt');
+% rhs2 = mmread('rhs2.mkt');
+% lhs2 = mmread('lhs2.mkt');
+
 % options.type = "ilutp";
 % options.milu = "row";
 % options.droptol = 1e-5;
@@ -81,7 +111,8 @@ Gl=G'*la;
 % P = sparse(diag(sum(abs(A))));
 % P = sparse(eye(size(A)));
 [~,D] = eig(full(LHS),'vector');
-[~,D0] = eig(full(A),'vector');
+[~,D0] = eig(full(LHS2),'vector');
+%[~,D0] = eig(full(A),'vector');
 D = sort(abs(real(D)));
 D0 = sort(abs(real(D0)));
 s1 = max(D) / min(D);
@@ -93,7 +124,11 @@ hold on;
 plot(D0,'.-');
 
 figure(1); clf;
-[x,flag,relres,iter,resvec] = minres(A,b,1e-7, 500, P);
+%[x,flag,relres,iter,resvec] = minres(A,b,1e-7, 500, P);
+[x,flag,relres,iter,resvec] = minres(LHS,RHS,1e-7, 200);
+[x,flag,relres,iter,resvec2] = minres(LHS2,RHS2,1e-7, 200);
 % [x,flag,relres,iter,resvec] = gmres(A,b,10,1e-7, 100, P);
-semilogy(resvec)
+semilogy(resvec);
+hold on;
+semilogy(resvec2)
 end

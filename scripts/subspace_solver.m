@@ -9,10 +9,6 @@ Gs = mmread('lhs_Gs.mkt');
 r_x = mmread('rhs_x.mkt');
 r_gs = mmread('rhs_gs.mkt');
 r_gl = mmread('rhs_gl.mkt');
-<<<<<<< HEAD
-=======
-r_subspace = mmread('rhs_sub.mkt');
->>>>>>> 1ba56d32a28af00c4b56bd4700758b0df4217e07
 b = [r_x; r_gs; r_gl];
 %%
 
@@ -20,6 +16,7 @@ b = [r_x; r_gs; r_gl];
 Mlump = sparse(1:size(M,1), 1:size(M,1), sum(M,2));
 Msqrt = sqrt(Mlump);
 Msqrtinv = sparse(1:size(M,1), 1:size(M,1), 1./sqrt(sum(M,2)));
+Minv = sparse(1:size(M,1), 1:size(M,1), 1./sum(M,2));
 Hsqrt = K;
 Hsqrtinv = K;
 
@@ -64,34 +61,55 @@ x = Msqrtinv * p;
 s = Hsqrtinv * y;
 x2 = Msqrtinv * p2;
 s2 = Hsqrtinv * y2;
+
+% (BM^{-1}B' + D^2)la = BM^{-1}gx + CH^{-1}gs - c
+RHS3 = Gx'* (M\r_x) + D*fy - c;
+la3 = LHS2\RHS3;
+x3 = M \(r_x - Gx*la3);
+y3 = -D*la3 + fy;
+s3 = Hsqrtinv * y3;
+
+% x, y = H^{1/2}s
+% x'Mx + ||y||^2 - x'gx - y'fy
+% fy = H^{-1/2}gs
+% Mx - gx + la'B
+% y - fy + la'D
+% Bx + Dy - c = 0
+% B(M^{-1}(gx - B'la)) + Dy = c
+% -B M^-1 B'la + Dy = c - BM^{-1}gx
+% -B M^-1 B'la + D(fy - la'D) = c - BM^{-1}gx
+% (-B M^-1 B - DD)la = c - BM^{-1}gx - CH^{-1}gs
+% (BM^{-1}B' + D^2)la = BM^{-1}gx + CH^{-1}gs - c
+
+% Mx - gx + la'B
+% Hs - gs + la'C
+% Bx + Dy - c
+% B(M-1(gx-B'la)) + CH^{-1}(gs-C'la)
+%LHS2 = G*G' + D*D;
+la4 = (Gx'*Minv*Gx + Gs*inv(K)*Gs)\-(c - Gx'*Minv*r_x - Gs*inv(K)*r_gs);
+x4 = Minv*(r_x-Gx*la4);
+s4 = inv(K)*(r_gs-Gs*la4);
+norm(la4-la)
+norm(la3-la4)
 %cond(full(LHS))
 %cond(full(LHS2))
 %cond(full(A))
-norm(A * [x;s;la] - b) / norm(b)
-norm(A * [x2;s2;la2] - b) / norm(b)
-%norm(G*p+D*y-c)
+r1 = A * [x;s;la] - b;
+r2 = A * [x2;s2;la2] - b;
+r3 = A * [x4;s4;la4] - b;
 
-<<<<<<< HEAD
-% r_sub = mmread('rhs_sub.mkt');
-% x_sub = mmread('x_sub.mkt');
-% s_sub = mmread('s_sub.mkt');
-% l_sub = mmread('la_sub.mkt');
-% y_sub = mmread('y_sub.mkt');
-% p_sub = mmread('p_sub.mkt');
-% rhs2 = mmread('rhs2.mkt');
-% lhs2 = mmread('lhs2.mkt');
-=======
-r_sub = mmread('rhs_sub.mkt');
+norm(r1) / norm(b)
+norm(r2) / norm(b)
+
+[W,D] = eig(full(A));
+norm(W*D*W' - A,'fro')
+D(1:5,1:5)
+
 x_sub = mmread('x_sub.mkt');
 s_sub = mmread('s_sub.mkt');
 l_sub = mmread('la_sub.mkt');
-y_sub = mmread('y_sub.mkt');
-p_sub = mmread('p_sub.mkt');
-rhs2 = mmread('rhs2.mkt');
-lhs2 = mmread('lhs2.mkt');
->>>>>>> 1ba56d32a28af00c4b56bd4700758b0df4217e07
-% Gl_sub = mmread('Gla_sub.mkt');
-% lump = mmread('lump_sub.mkt');
+
+
 % options.type = "ilutp";
 % options.milu = "row";
 % options.droptol = 1e-5;

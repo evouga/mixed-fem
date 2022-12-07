@@ -12,5 +12,11 @@ namespace mfem {
       LinearSolver<double,DIM>, SimState<DIM>*> {
   public:
     LinearSolverFactory();
+  private:
+    // Register positive-definite Schur-complement based solvers
+    void register_pd_solvers();
+
+    // Register indefinite system solvers
+    void register_indefinite_solvers();
   };
 }

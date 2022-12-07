@@ -7,55 +7,42 @@
 #include "json/json.hpp"
 
 #include "factories/optimizer_factory.h"
+#include "config.h"
 
 using namespace Eigen;
 using namespace mfem;
 
-const int DIM = 3;
+const int DIM = 2;
 
 std::shared_ptr<Optimizer<DIM>> optimizer;
 std::shared_ptr<Optimizer<DIM>> newton_optimizer;
 std::shared_ptr<Mesh> mesh;
 
-double min_decrement;
-std::vector<double> curr_decrements;
+double min_gradient;
+std::vector<double> curr_gradients;
 
-static double newton_decrement(const SimState<DIM>& state) {
+static double newton_gradient(const SimState<DIM>& state) {
   // Get full configuration vector
   VectorXd x = state.x_->value();
   state.x_->unproject(x);
 
-  SparseMatrix<double, RowMajor> lhs;
-  VectorXd rhs;
-
   const SimState<DIM>& newton_state = newton_optimizer->state();
 
   newton_state.x_->value() = state.x_->value();
-  // Add LHS and RHS from each variable
-  lhs = newton_state.x_->lhs();
-  rhs = newton_state.x_->rhs();
+  VectorXd rhs = newton_state.x_->rhs();
 
   for (auto& var : newton_state.vars_) {
     var->update(x, state.x_->integrator()->dt());
-    lhs += var->lhs();
     rhs += var->rhs();
   }
-
-  //newton_optimizer->solver_->compute(lhs);
-  //VectorXd dx = newton_optimizer->solver_->solve(rhs);
-
-  // Use infinity norm of deltas as termination criteria
-  // double decrement = dx.lpNorm<Infinity>();
-  double decrement = rhs.norm();
-  return decrement;
+  return rhs.norm();
 }
 
 void callback(const SimState<DIM>& state) {
-  double decrement = newton_decrement(state);
-  // if (decrement < min_decrement)
-    min_decrement = decrement;
-    curr_decrements.push_back(decrement);
-  std::cout << "decrement: " << decrement << std::endl;
+  double grad = newton_gradient(state);
+  min_gradient = grad;
+  curr_gradients.push_back(grad);
+  std::cout << "gradient: " << grad << std::endl;
 }
 
 int main(int argc, char **argv) {
@@ -86,16 +73,19 @@ int main(int argc, char **argv) {
   nlohmann::json args = nlohmann::json::parse(input);
   OptimizerFactory<DIM> factory;
 
+  std::vector<LinearSolverType> types = {
+    //LinearSolverType::SOLVER_EIGEN_CG_IC, // Primal condensation 
+    //LinearSolverType::SOLVER_MINRES_ID, // Indefinite
+    //LinearSolverType::SOLVER_AMGCL//,  // Dual condensation
+    LinearSolverType::SOLVER_SUBSPACE
+    //LinearSolverType::SOLVER_ADMM
+  };
+  int N = types.size();
   int M = args["max_newton_iterations"];
 
-  // VectorXd exps(N);// = VectorXd::LinSpaced(N, 8, 14);
-  int N = 15;
-  VectorXd exps = -VectorXd::LinSpaced(N, 0, 5);
-  std::cout << " exps : " << exps << std::endl;
 
-  VectorXd min_decrements(N);
-  VectorXd tols = exps;
-  MatrixXd decrements(N, M);
+  VectorXd min_gradients(N);
+  MatrixXd gradients(N, M);
   std::cout << "M: " << M << std::endl;
 
   for (int i = 0; i < N; ++i) {
@@ -103,15 +93,17 @@ int main(int argc, char **argv) {
     std::ifstream input(filename);
     nlohmann::json args = nlohmann::json::parse(input);
 
-    curr_decrements.clear();
-    min_decrement = std::numeric_limits<double>::max();
-    tols(i) = std::pow(10,exps(i));
+    curr_gradients.clear();
+    min_gradient = std::numeric_limits<double>::max();
+    //tols(i) = std::pow(10,exps(i));
+    double tol = 0.00000001;
 
     SimState<DIM> state;
     state.load(args);
     optimizer = factory.create(state.config_->optimizer, state);
-    optimizer->state().config_->itr_tol = tols(i);
-
+    optimizer->state().config_->itr_tol = tol;//tols(i);
+    optimizer->state().config_->max_iterative_solver_iters = 1e5;
+    optimizer->state().config_->solver_type = types[i];
     optimizer->reset();
     optimizer->callback = callback;
     
@@ -126,14 +118,13 @@ int main(int argc, char **argv) {
     newton_optimizer->reset();
 
     optimizer->step();
-    min_decrements(i) = min_decrement;
-    decrements.row(i) = Map<RowVectorXd>(curr_decrements.data(), M);
+    min_gradients(i) = min_gradient;
+    gradients.row(i) = Map<RowVectorXd>(curr_gradients.data(), M);
   }
-  std::cout << "min_decrements: " << min_decrements << std::endl;
-  igl::writeDMAT("../output/convergence.dmat", decrements);
-  igl::writeDMAT("../output/finalconvergence_converge.dmat", min_decrements);
-  igl::writeDMAT("../output/ym_values.dmat", tols);
-
+  std::cout << "min_gradients: " << min_gradients << std::endl;
+  igl::writeDMAT("../output/convergence.dmat", gradients);
+  igl::writeDMAT("../output/finalconvergence_converge.dmat", min_gradients);
+  //igl::writeDMAT("../output/ym_values.dmat", tols);
   return 0;
 }
 
