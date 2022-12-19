@@ -74,6 +74,22 @@ endif()
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 
+# Some Flags for OMP to work on OSx
+if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+  set(OpenMP_C "${CMAKE_C_COMPILER}" CACHE STRING "" FORCE)
+  set(OpenMP_C_FLAGS "-Wno-unused-command-line-argument" CACHE STRING "" FORCE)
+  set(OpenMP_C_LIB_NAMES "")
+  set(OpenMP_libomp_LIBRARY ${OpenMP_C_LIB_NAMES})
+  set(OpenMP_libgomp_LIBRARY ${OpenMP_C_LIB_NAMES})
+  set(OpenMP_libiomp5_LIBRARY ${OpenMP_C_LIB_NAMES})
+  set(OpenMP_CXX "${CMAKE_CXX_COMPILER}")
+  set(OpenMP_CXX_FLAGS "-Wno-unused-command-line-argument")
+  set(OpenMP_CXX_LIB_NAMES "")
+  set(OpenMP_libomp_LIBRARY ${OpenMP_CXX_LIB_NAMES})
+  set(OpenMP_libgomp_LIBRARY ${OpenMP_CXX_LIB_NAMES})
+  set(OpenMP_libiomp5_LIBRARY ${OpenMP_CXX_LIB_NAMES})
+endif()
+    
 # Find Eigen
 find_package(Eigen3 3.4.0 REQUIRED)
 find_package(OpenMP REQUIRED)
@@ -220,6 +236,9 @@ target_link_libraries(mixed_fem_lib polyscope Eigen3::Eigen amgcl::amgcl)
 
 # add_executable(coll_sim apps/collision2d_sim.cpp ${SOURCES})
 # target_link_libraries(coll_sim mixed_fem_lib)
+
+add_executable(compare apps/compare_iterative.cpp ${SOURCES})
+target_link_libraries(compare mixed_fem_lib)
 
 add_executable(convergence apps/convergence.cpp ${SOURCES})
 target_link_libraries(convergence mixed_fem_lib)

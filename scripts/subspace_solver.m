@@ -86,28 +86,30 @@ s3 = Hsqrtinv * y3;
 % Bx + Dy - c
 % B(M-1(gx-B'la)) + CH^{-1}(gs-C'la)
 %LHS2 = G*G' + D*D;
-la4 = (Gx'*Minv*Gx + Gs*inv(K)*Gs)\-(c - Gx'*Minv*r_x - Gs*inv(K)*r_gs);
-x4 = Minv*(r_x-Gx*la4);
-s4 = inv(K)*(r_gs-Gs*la4);
-norm(la4-la)
-norm(la3-la4)
+% la4 = (Gx'*Minv*Gx + Gs*inv(K)*Gs)\-(c - Gx'*Minv*r_x - Gs*inv(K)*r_gs);
+% x4 = Minv*(r_x-Gx*la4);
+% s4 = inv(K)*(r_gs-Gs*la4);
+% norm(la4-la)
+% norm(la3-la4)
 %cond(full(LHS))
 %cond(full(LHS2))
 %cond(full(A))
 r1 = A * [x;s;la] - b;
 r2 = A * [x2;s2;la2] - b;
-r3 = A * [x4;s4;la4] - b;
+% r3 = A * [x4;s4;la4] - b;
 
 norm(r1) / norm(b)
 norm(r2) / norm(b)
-
+% norm(r3) / norm(b)
 [W,D] = eig(full(A));
 norm(W*D*W' - A,'fro')
-D(1:5,1:5)
+k=1758;
+B=W(:,end-k+1:end);
+norm(B*D(end-k+1:end,end-k+1:end)*B' - A,'fro')
 
-x_sub = mmread('x_sub.mkt');
-s_sub = mmread('s_sub.mkt');
-l_sub = mmread('la_sub.mkt');
+z=(B'*B)\(B'*r2);
+plot(1:k,z);
+D(1:5,1:5)
 
 
 % options.type = "ilutp";

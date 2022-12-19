@@ -156,8 +156,6 @@ namespace mfem {
       static bool simulating = false;
       static int step = 0;
       static int export_step = 0;
-      static int max_steps = 300;
-
       ImGui::PushItemWidth(100);
 
 
@@ -376,10 +374,10 @@ namespace mfem {
         export_step = 0;
         step = 0;
       }
-      if (step >= max_steps) {
+      if (step >= config->timesteps) {
         simulating = false;
       }
-      ImGui::InputInt("Max Steps", &max_steps);
+      ImGui::InputInt("Max Steps", &config->timesteps);
       ImGui::PopItemWidth();
     }
 

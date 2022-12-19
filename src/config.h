@@ -94,6 +94,7 @@ namespace mfem {
     bool show_timing = true;
     bool show_data = true;
     bool save_substeps = false;
+    int timesteps = 300;
     int outer_steps = 5;
     int ls_iters = 20;
 

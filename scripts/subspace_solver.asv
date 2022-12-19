@@ -16,6 +16,7 @@ b = [r_x; r_gs; r_gl];
 Mlump = sparse(1:size(M,1), 1:size(M,1), sum(M,2));
 Msqrt = sqrt(Mlump);
 Msqrtinv = sparse(1:size(M,1), 1:size(M,1), 1./sqrt(sum(M,2)));
+Minv = sparse(1:size(M,1), 1:size(M,1), 1./sum(M,2));
 Hsqrt = K;
 Hsqrtinv = K;
 
@@ -50,7 +51,7 @@ la = -Dinv * (y - fy);
 p = -G'*la + fp;
 
 LHS2 = G*G' + D*D;
-RHS2 = -G*fp + -D*fy - -c;
+RHS2 = G*fp + D*fy - c;
 
 la2 = LHS2\RHS2;
 p2 = -G'*la2 + fp;
@@ -84,24 +85,32 @@ s3 = Hsqrtinv * y3;
 % Hs - gs + la'C
 % Bx + Dy - c
 % B(M-1(gx-B'la)) + CH^{-1}(gs-C'la)
-la4 = 
-
+%LHS2 = G*G' + D*D;
+% la4 = (Gx'*Minv*Gx + Gs*inv(K)*Gs)\-(c - Gx'*Minv*r_x - Gs*inv(K)*r_gs);
+% x4 = Minv*(r_x-Gx*la4);
+% s4 = inv(K)*(r_gs-Gs*la4);
+% norm(la4-la)
+% norm(la3-la4)
 %cond(full(LHS))
 %cond(full(LHS2))
 %cond(full(A))
-norm(A * [x;s;la] - b) / norm(b)
-norm(A * [x2;s2;la2] - b) / norm(b)
-norm(A * [x3;s3;la3] - b) / norm(b)
-%norm(G*p+D*y-c)
+r1 = A * [x;s;la] - b;
+r2 = A * [x2;s2;la2] - b;
+% r3 = A * [x4;s4;la4] - b;
 
-% r_sub = mmread('rhs_sub.mkt');
-% x_sub = mmread('x_sub.mkt');
-% s_sub = mmread('s_sub.mkt');
-% l_sub = mmread('la_sub.mkt');
-% y_sub = mmread('y_sub.mkt');
-% p_sub = mmread('p_sub.mkt');
-% rhs2 = mmread('rhs2.mkt');
-% lhs2 = mmread('lhs2.mkt');
+norm(r1) / norm(b)
+norm(r2) / norm(b)
+% norm(r3) / norm(b)
+[W,D] = eig(full(A));
+norm(W*D*W' - A,'fro')
+k=1758;
+B=W(:,end-k+1:end);
+norm(B*D(end-k+1:end,end-k+1:end)*B' - A,'fro')
+
+z=(B'*B)\(B'*r1);
+plot(1:k,z);
+D(1:5,1:5)
+
 
 % options.type = "ilutp";
 % options.milu = "row";

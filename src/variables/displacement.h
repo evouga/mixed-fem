@@ -45,6 +45,10 @@ namespace mfem {
       return integrator_;
     }
 
+    std::shared_ptr<ImplicitIntegrator> integrator() {
+      return integrator_;
+    }
+
     // "Unproject" out of reduced space with dirichlet BCs removed
     void unproject(Eigen::VectorXd& x) const {
       const auto& P = mesh_->projection_matrix();

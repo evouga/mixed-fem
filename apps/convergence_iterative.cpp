@@ -11,7 +11,7 @@
 using namespace Eigen;
 using namespace mfem;
 
-const int DIM = 3;
+const int DIM = 2;
 
 std::shared_ptr<Optimizer<DIM>> optimizer;
 std::shared_ptr<Optimizer<DIM>> newton_optimizer;
@@ -55,7 +55,7 @@ void callback(const SimState<DIM>& state) {
   // if (decrement < min_decrement)
     min_decrement = decrement;
     curr_decrements.push_back(decrement);
-  std::cout << "decrement: " << decrement << std::endl;
+  //std::cout << "decrement: " << decrement << std::endl;
 }
 
 int main(int argc, char **argv) {
@@ -88,15 +88,12 @@ int main(int argc, char **argv) {
 
   int M = args["max_newton_iterations"];
 
-  // VectorXd exps(N);// = VectorXd::LinSpaced(N, 8, 14);
   int N = 15;
-  VectorXd exps = -VectorXd::LinSpaced(N, 0, 5);
-  std::cout << " exps : " << exps << std::endl;
+  VectorXd exps = -VectorXd::LinSpaced(N, 1, 7);
 
   VectorXd min_decrements(N);
   VectorXd tols = exps;
   MatrixXd decrements(N, M);
-  std::cout << "M: " << M << std::endl;
 
   for (int i = 0; i < N; ++i) {
     // Read and parse file
@@ -122,12 +119,14 @@ int main(int argc, char **argv) {
 
     SimState<DIM> newton_state;
     newton_state.load(args);
-    newton_optimizer = factory.create(newton_state.config_->optimizer, newton_state);
+    newton_optimizer = factory.create(newton_state.config_->optimizer,
+        newton_state);
     newton_optimizer->reset();
 
     optimizer->step();
     min_decrements(i) = min_decrement;
     decrements.row(i) = Map<RowVectorXd>(curr_decrements.data(), M);
+    std::cout << "i; " << i << " " << std::endl;
   }
   std::cout << "min_decrements: " << min_decrements << std::endl;
   igl::writeDMAT("../output/convergence.dmat", decrements);
