@@ -1,0 +1,37 @@
+{
+  "dt": 0.034,
+  "body_force": [0.0, 0.0, 0.0],
+  "print_timing": true,
+  "print_stats": true,
+  "optimizer": "newton",
+  "time_integrator": "BDF1",
+  "linear_solver": "cholmod",
+  "enable_ccd": false,
+  "boundary_condition": "twist",
+  "max_newton_iterations": 1,
+  "max_linesearch_iterations": 20,
+  "objects": [
+    {
+      "path": "../models/mesh/rubber_chicken/rubber_chicken.mesh",
+      "skinning_mesh": "../models/mesh/rubber_chicken/chicken_lo.obj",
+      "offset": [0.0, 0.0, 0.0],
+      "material_index": 0,
+      "boundary_condition": {
+        "type": "twist-and-stretch",
+        "ratio": 0.2,
+        "velocity": 0.2,
+        "axis": 0
+      }
+    }
+  ],
+  "material_models": [
+    {
+      "youngs_modulus": 4e5,
+      "poissons_ratio": 0.45,
+      "density": 1e3,
+      "energy": "Stable-Neohookean"
+    }
+  ],
+  "mixed_variables": [],
+  "variables": ["stretch"]
+}
