@@ -62,6 +62,32 @@ void Meshes::init() {
     meshes_[i]->init();
   }
   Mesh::init();
+  // TODO copy starts... don't capture by reference
+  std::vector<size_t> starts(meshes_.size() + 1);
+  starts[0] = 0;
+  for (size_t i = 0; i < meshes_.size(); ++i) {
+    starts[i+1] = starts[i] + meshes_[i]->V_.rows();
+  }
+
+  // Disable self-collision
+  ipc_mesh_.can_collide = [starts](size_t a, size_t b)->bool {
+    int ma = 0, mb = 0;
+    for (size_t i = 0; i < starts.size(); ++i) {
+      if (a > starts[i] && a < starts[i+1])
+        ma = i;
+      if (b > starts[i] && b < starts[i+1])
+        mb = i;
+    }
+    return ma != mb;
+
+  };
+    // TODO can_collide
+      /// A function that takes two vertex IDs (row numbers in V) and returns true
+    /// if the vertices (and faces or edges containing the vertices) can
+    /// collide. By default all primitives can collide with all other
+    /// primitives.
+    // std::function<bool(size_t, size_t)> can_collide = default_can_collide;
+        // static int default_can_collide(size_t, size_t) { return true; }
 }
 
 void Meshes::volumes(Eigen::VectorXd& vol) {

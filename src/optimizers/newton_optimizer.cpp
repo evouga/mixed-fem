@@ -62,7 +62,7 @@ template <int DIM> void NewtonOptimizer<DIM>::step() { state_.data_.clear();
 
       // alpha = 0.9 * ipc::compute_collision_free_stepsize(
       //     state_.mesh_->collision_mesh(), V1, V2);
-      state_.data_.add("ACCD2 ", alpha);
+      // state_.data_.add("ACCD2 ", alpha);
       state_.data_.timer.stop("ACCD2");
     }
 
@@ -103,9 +103,9 @@ template <int DIM> void NewtonOptimizer<DIM>::step() { state_.data_.clear();
     ++i;
     Base::callback(state_);
 
-  } while (i < state_.config_->outer_steps); /*
+  } while (i < state_.config_->outer_steps
       && grad_norm > state_.config_->newton_tol
-      && (res > 1e-12)); */
+      && (res > 1e-12)); 
 
   if (state_.config_->show_data) {
     state_.data_.print_data(state_.config_->show_timing);
@@ -145,8 +145,8 @@ void NewtonOptimizer<DIM>::update_system() {
   state_.data_.timer.stop("update");
 
   // TODO bullshit exporting
-  //saveMarket(state_.x_->lhs(), "lhs_M.mkt");
-  //saveMarket(state_.x_->rhs(), "rhs_x.mkt");
+  // saveMarket(state_.x_->lhs(), "lhs_M.mkt");
+  // saveMarket(state_.x_->rhs(), "rhs_x.mkt");
   //SparseMatrix<double> A, B, C;
   //VectorXd gs,gl;
   //state_.mixed_vars_[0]->hessian(A);

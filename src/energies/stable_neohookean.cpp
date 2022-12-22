@@ -324,5 +324,6 @@ Matrix4d StableNeohookean::hessian(const Vector4d& F) {
   H(3,1) = -F1_1*F1_2*la;
   H(3,2) = -F1_1*F2_1*la;
   H(3,3) = mu+(F1_1*F1_1)*la;
+  sim::simple_psd_fix(H);
   return H;
 }

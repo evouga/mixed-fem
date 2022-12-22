@@ -84,6 +84,7 @@ namespace mfem {
     BC_ONEPOINT,
     BC_RANDOM,
     BC_FALL,
+    BC_TRANSLATE
   };
   
   
@@ -139,7 +140,9 @@ namespace mfem {
     BCScriptType type = BCScriptType::BC_NULL;
     double ratio = 0.1;
     int axis = 0;
-    double velocity = 0.1;
+    double velocity = 0.1; // in meters/second
+    double duration = 1.0; // in seconds
+    bool flip = false;     // whether a BC should reverse at end of duration
   };
 
 }

@@ -253,6 +253,8 @@ bool SimState<DIM>::load(const nlohmann::json& args) {
         read_and_assign(*it, "axis", cfg.axis);
         read_and_assign(*it, "ratio", cfg.ratio);
         read_and_assign(*it, "velocity", cfg.velocity);
+        read_and_assign(*it, "duration", cfg.duration);
+        read_and_assign(*it, "flip", cfg.flip);
         meshes.back()->bc_config_ = cfg;
       }
     }

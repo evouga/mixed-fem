@@ -90,7 +90,8 @@ double ipc::additive_ccd(const VectorXd& x, const VectorXd& p,
   MatrixXd P = V2-V1;
 
   ipc::Candidates candidates;
-  ipc::construct_collision_candidates(mesh, V1, V2, candidates, dhat * 1.1);
+  ipc::construct_collision_candidates(mesh, V1, V2, candidates, dhat * 1.1,
+      ipc::BroadPhaseMethod::SPATIAL_HASH);
 
 
   const Eigen::MatrixXi& E = mesh.edges();

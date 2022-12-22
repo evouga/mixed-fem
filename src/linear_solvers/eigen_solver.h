@@ -1,6 +1,7 @@
 #pragma once
 
 #include "linear_solver.h"
+// #include <unsupported/Eigen/SparseExtra>
 
 namespace mfem {
 
@@ -17,10 +18,13 @@ namespace mfem {
     void solve() override {
       system_matrix_.pre_solve(Base::state_);
       //if (!has_init_) { // Can't do this for collisions since pattern changes
-        solver_.analyzePattern(system_matrix_.A());
-        has_init_ = true;
-      //}
-      solver_.factorize(system_matrix_.A());
+      //   solver_.analyzePattern(system_matrix_.A());
+      //   has_init_ = true;
+      // //}
+      // solver_.factorize(system_matrix_.A());
+        // saveMarket(system_matrix_.A(), "lhs.mkt");
+
+      solver_.compute(system_matrix_.A());
       if (solver_.info() != Eigen::Success) {
        std::cerr << "prefactor failed! " << std::endl;
        exit(1);

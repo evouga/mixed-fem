@@ -24,7 +24,7 @@ double MixedCollision<DIM>::energy(const VectorXd& x, const VectorXd& d) {
   constraints.update_distances(d);
   ipc::Candidates candidates;
   ipc::construct_collision_candidates(
-      ipc_mesh, V_srf, candidates, config_->dhat * 1.1);
+      ipc_mesh, V_srf, candidates, config_->dhat * 1.1, ipc::BroadPhaseMethod::SPATIAL_HASH);
   ipc::construct_constraint_set(candidates, ipc_mesh, V_srf, config_->dhat,
       constraints);
 

@@ -3,6 +3,7 @@
 #include "boundary_conditions/bend_boundary_condition.h"
 #include "boundary_conditions/stretch_boundary_condition.h"
 #include "boundary_conditions/twist_boundary_condition.h"
+#include "boundary_conditions/moving_boundary_condition.h"
 
 using namespace mfem;
 using namespace Eigen;
@@ -53,4 +54,9 @@ BoundaryConditionFactory::BoundaryConditionFactory() {
       [](Eigen::MatrixXd V, BoundaryConditionConfig cfg)
       ->std::unique_ptr<BoundaryCondition>
       {return std::make_unique<TwistBC>(V, cfg);});  
+  
+  register_type(BCScriptType::BC_TRANSLATE, "translate", 
+      [](Eigen::MatrixXd V, BoundaryConditionConfig cfg)
+      ->std::unique_ptr<BoundaryCondition>
+      {return std::make_unique<TranslateBC>(V, cfg);});
 }
