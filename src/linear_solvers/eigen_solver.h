@@ -30,6 +30,7 @@ namespace mfem {
        exit(1);
       }
       tmp_ = solver_.solve(system_matrix_.b());
+      //std::cout << "rhs norm() : " << system_matrix_.b().norm() << std::endl;
       system_matrix_.post_solve(Base::state_, tmp_);
 
     }

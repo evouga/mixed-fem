@@ -53,7 +53,6 @@ Meshes::Meshes(const std::vector<std::shared_ptr<Mesh>>& meshes)
         meshes_[i]->elements_.end());
   }
   igl::boundary_facets(T_, F_);
-  // initial_velocity_ = 0 * V_;
 }
 
 void Meshes::init() {
@@ -79,15 +78,7 @@ void Meshes::init() {
         mb = i;
     }
     return ma != mb;
-
   };
-    // TODO can_collide
-      /// A function that takes two vertex IDs (row numbers in V) and returns true
-    /// if the vertices (and faces or edges containing the vertices) can
-    /// collide. By default all primitives can collide with all other
-    /// primitives.
-    // std::function<bool(size_t, size_t)> can_collide = default_can_collide;
-        // static int default_can_collide(size_t, size_t) { return true; }
 }
 
 void Meshes::volumes(Eigen::VectorXd& vol) {

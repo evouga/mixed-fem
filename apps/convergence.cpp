@@ -93,7 +93,7 @@ int main(int argc, char **argv) {
 
   // Create args for standard FEM optimizer
   args.erase("mixed_variables");
-  args["variables"] = {"stretch"};
+  args["variables"] = {"stretch", "collision"};
 
   // Create newton FEM optimizer
   SimState<DIM> newton_state;
@@ -111,9 +111,18 @@ int main(int argc, char **argv) {
     // Simulate the i-th timestep
     optimizer->step();
 
+    if (curr_gradients.size() < M) {
+      int sz = (M - curr_gradients.size());
+      for (int j = 0; j < sz; ++j) {
+        curr_gradients.push_back(curr_gradients.back());
+      }
+      
+    }
+
     // Add data
     gradients.row(i) = Map<RowVectorXd>(curr_gradients.data(), M);
   }
+  std::cout << "gradients: " << gradients << std::endl;
   igl::writeDMAT("../output/convergence.dmat", gradients);
   return 0;
 }

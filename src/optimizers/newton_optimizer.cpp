@@ -25,6 +25,7 @@ template <int DIM> void NewtonOptimizer<DIM>::step() { state_.data_.clear();
   double grad_norm;
   double E = 0, E_prev = 0, res = 0;
   do {
+    Base::callback(state_);
 
     // Update gradient and hessian
     update_system();
@@ -101,7 +102,7 @@ template <int DIM> void NewtonOptimizer<DIM>::step() { state_.data_.clear();
     state_.data_.add("alpha ", alpha);
     state_.data_.add("kappa ", state_.config_->kappa);
     ++i;
-    Base::callback(state_);
+    //Base::callback(state_);
 
   } while (i < state_.config_->outer_steps
       && grad_norm > state_.config_->newton_tol
@@ -131,6 +132,8 @@ void NewtonOptimizer<DIM>::update_system() {
   // Get full configuration vector
   VectorXd x = state_.x_->value();
   state_.x_->unproject(x);
+  //std::cout << std::setprecision(10) << std::endl;
+  //std::cout << "x norm: " << x.norm() << std::endl;
 
   if (!state_.mesh_->fixed_jacobian()) {
     state_.mesh_->update_jacobian(x);
