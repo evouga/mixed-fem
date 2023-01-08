@@ -69,16 +69,16 @@ void Meshes::init() {
   }
 
   // Disable self-collision
-  ipc_mesh_.can_collide = [starts](size_t a, size_t b)->bool {
-    int ma = 0, mb = 0;
-    for (size_t i = 0; i < starts.size(); ++i) {
-      if (a > starts[i] && a < starts[i+1])
-        ma = i;
-      if (b > starts[i] && b < starts[i+1])
-        mb = i;
-    }
-    return ma != mb;
-  };
+  //ipc_mesh_.can_collide = [starts](size_t a, size_t b)->bool {
+  //  int ma = 0, mb = 0;
+  //  for (size_t i = 0; i < starts.size(); ++i) {
+  //    if (a > starts[i] && a < starts[i+1])
+  //      ma = i;
+  //    if (b > starts[i] && b < starts[i+1])
+  //      mb = i;
+  //  }
+  //  return ma != mb;
+  //};
 }
 
 void Meshes::volumes(Eigen::VectorXd& vol) {

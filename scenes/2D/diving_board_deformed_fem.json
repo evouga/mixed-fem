@@ -37,13 +37,13 @@
       "youngs_modulus": 1e6,
       "poissons_ratio": 0.42,
       "density": 1e4,
-      "energy": "Stable-Neohookean"
+      "energy": "FixedCorot"
     },
     {
       "youngs_modulus": 4e9,
       "poissons_ratio": 0.45,
       "density": 1e3,
-      "energy": "Stable-Neohookean"
+      "energy": "FixedCorot"
     }
   ],
   "mixed_variables": [],

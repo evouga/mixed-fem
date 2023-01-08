@@ -1,4 +1,4 @@
-d=3;
+d=2;
 F=sym('F',[d d]);
 s = sym('S',[d*2,1]);
 sval = sym('sval',[d,1]);

@@ -19,7 +19,6 @@ namespace mfem {
     }
 
     double energy(const Eigen::Vector6d& S) override; 
-
     Eigen::Vector6d gradient(const Eigen::Vector6d& S) override; 
 
     Eigen::Matrix6d hessian_inv(const Eigen::Vector6d& S);
