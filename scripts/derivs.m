@@ -1,4 +1,4 @@
-d=2;
+d=3;
 F=sym('F',[d d]);
 s = sym('S',[d*2,1]);
 sval = sym('sval',[d,1]);
@@ -77,7 +77,6 @@ ccode(corot)
 ccode((H))
 ccode(g)
 
-
 fixed_corot = 0.5*la*(I3-1)^2 + 2*arap;
 H=hessian(fixed_corot,s(:));
 g=gradient(fixed_corot,s(:));
@@ -85,9 +84,11 @@ ccode(fixed_corot)
 ccode((H))
 ccode(g)
 
-fixed_corot = 0.5*la*(I3-1)^2 + mu*(I2 - 2*I1 + d);
-H=hessian(fixed_corot,F(:));
-g=gradient(fixed_corot,F(:));
-ccode(fixed_corot)
+vol_ratio = 0.5*la*(I3-1)^2;
+H=hessian(vol_ratio,F(:));
+g=gradient(vol_ratio,F(:));
+ccode(vol_ratio)
 ccode((H))
 ccode(g)
+
+

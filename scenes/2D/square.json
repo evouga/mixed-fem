@@ -16,17 +16,17 @@
       "material_index": 0,
       "boundary_condition": {
         "type": "hangends",
-        "ratio": 0.01,
+        "ratio": 0.91,
         "axis": 0
       }
     }
   ],
   "material_models": [
     {
-      "youngs_modulus": 1e10,
+      "youngs_modulus": 1e5,
       "poissons_ratio": 0.45,
       "density": 1e3,
-      "energy": "Stable-Neohookean"
+      "energy": "FixedCorot"
     }
   ],
   "mixed_variables": ["mixed-stretch"],

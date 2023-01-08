@@ -83,7 +83,7 @@ struct PolyscopeTriApp : public PolyscopeApp<2> {
 
     const T* c = dynamic_cast<const T*>(var);
     if (!c) return false;
-    int n = c->num_collision_frames();
+    // int n = c->num_collision_frames();
 
     // Get vertices at current iteration
     VectorXd xt = x->value();
@@ -102,6 +102,8 @@ struct PolyscopeTriApp : public PolyscopeApp<2> {
 
     // Add collision frames
     const auto& frames = c->frames();
+    int n = frames.size();
+    std::cout << "frames size: " << frames.size() << " n: " << c->num_collision_frames() << std::endl;
     for (int i = 0; i < n; ++i) {
       std::array<long, 4> ids = frames[i].vertex_indices(E, F);
       std::vector<int> ids_full;

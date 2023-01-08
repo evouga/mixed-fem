@@ -225,21 +225,6 @@ target_include_directories(mixed_fem_lib SYSTEM PUBLIC
 target_link_libraries(mixed_fem_lib polyscope Eigen3::Eigen amgcl::amgcl)
 
 # Create an executable
-# add_executable(cloth_sim apps/cloth_sim.cpp ${SOURCES})
-# target_link_libraries(cloth_sim mixed_fem_lib)
-
-# add_executable(decrement apps/newton_decrement.cpp ${SOURCES})
-# target_link_libraries(decrement mixed_fem_lib)
-
-# add_executable(energy apps/energy.cpp ${SOURCES})
-# target_link_libraries(energy mixed_fem_lib)
-
-# add_executable(coll_sim apps/collision2d_sim.cpp ${SOURCES})
-# target_link_libraries(coll_sim mixed_fem_lib)
-
-add_executable(compare apps/compare_iterative.cpp ${SOURCES})
-target_link_libraries(compare mixed_fem_lib)
-
 add_executable(convergence apps/convergence.cpp ${SOURCES})
 target_link_libraries(convergence mixed_fem_lib)
 

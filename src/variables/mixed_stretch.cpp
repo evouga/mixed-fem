@@ -5,6 +5,7 @@
 #include "svd/dsvd.h"
 #include "svd/svd_eigen.h"
 #include "utils/functor.h"
+// #include "svd/iARAP.h"
 
 using namespace Eigen;
 using namespace mfem;
@@ -21,6 +22,13 @@ namespace {
       // Compute R, and dR/dF
       newton_procrustes(R, Matrix3d::Identity(), A, compute_gradients,
           dRdF, 1e-6, 100);
+
+      // if (compute_gradients) {
+      //   Matrix9d dRdF2;
+      //   iARAP::rotation(A, true, dRdF2);
+      //   std::cout << "diff: " << (dRdF-dRdF2).norm() << std::endl;
+      //   std::cout << "dRdF\n" << dRdF << "\n dRdF2\n: " << dRdF2 << std::endl;
+      // }
 
       // From rotations compute S & S in vec form
       Matrix3d S = R.transpose() * A;

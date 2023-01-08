@@ -12,10 +12,10 @@ using namespace mfem;
 MaterialModelFactory::MaterialModelFactory() {
   
   // ARAP
-  register_type(MaterialModelType::MATERIAL_ARAP, ArapModel::name(),
+  register_type(MaterialModelType::MATERIAL_ARAP, ARAP::name(),
       [](std::shared_ptr<MaterialConfig> config)
       ->std::unique_ptr<MaterialModel>
-      {return std::make_unique<ArapModel>(config);});
+      {return std::make_unique<ARAP>(config);});
 
   // Corotated Elasticity
   register_type(MaterialModelType::MATERIAL_COROT, Corotational::name(),

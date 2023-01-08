@@ -5,17 +5,16 @@
 namespace mfem {
 
   // as-rigid-as-possible material model
-  class ArapModel : public MaterialModel {
+  class ARAP : public MaterialModel {
   public:
     
     static std::string name() {
       return "ARAP";
     }
 
-    ArapModel(const std::shared_ptr<MaterialConfig>& config)
+    ARAP(const std::shared_ptr<MaterialConfig>& config)
         : MaterialModel(config) {
       std::cout << "Creating ARAP energy" << std::endl;
-
     }
 
     double energy(const Eigen::Vector6d& S) override; 
@@ -28,6 +27,14 @@ namespace mfem {
     double energy(const Eigen::Vector3d& s) override;
     Eigen::Vector3d gradient(const Eigen::Vector3d& s) override;
     Eigen::Matrix3d hessian(const Eigen::Vector3d& s) override;    
+
+    double energy(const Eigen::Vector4d& F) override;
+    Eigen::Vector4d gradient(const Eigen::Vector4d& F) override;
+    Eigen::Matrix4d hessian(const Eigen::Vector4d& F) override;
+
+    double energy(const Eigen::Vector9d& F) override;
+    Eigen::Vector9d gradient(const Eigen::Vector9d& F) override;
+    Eigen::Matrix9d hessian(const Eigen::Vector9d& F) override;
   };
 
 
