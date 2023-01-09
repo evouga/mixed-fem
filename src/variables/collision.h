@@ -34,7 +34,7 @@ namespace mfem {
     Eigen::VectorXd gradient() override;
 
     const Eigen::SparseMatrix<double, Eigen::RowMajor>& lhs() override {
-      if (nframes_ == 0) {
+      if (constraints_.empty()) {
         A_ = Eigen::SparseMatrix<double, Eigen::RowMajor>();
         A_.resize(mesh_->jacobian().rows(),mesh_->jacobian().rows());
       }
@@ -52,7 +52,7 @@ namespace mfem {
     }
 
     int num_collision_frames() const {
-      return nframes_;
+      return constraints_.size();
     }
 
     const ipc::Constraints& frames() const {
@@ -80,7 +80,6 @@ namespace mfem {
 
     OptimizerData data_;     // Stores timing results
     double dt_;
-    int nframes_;            // number of elements
     Eigen::VectorXd grad_;   // Gradient with respect to 'd' variables
 
     std::shared_ptr<SimConfig> config_;

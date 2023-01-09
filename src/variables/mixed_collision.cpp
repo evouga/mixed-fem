@@ -64,7 +64,7 @@ double MixedCollision<DIM>::constraint_value(const VectorXd& x,
   // New frames are initialized such that the mixed distance
   // equals the nodal distance, so the lagrange multipliers are zero.
   #pragma omp parallel for reduction( + : e )
-  for (int i = 0; i < nframes_; ++i) {
+  for (size_t i = 0; i < constraints_.size(); ++i) {
     // Make sure constraint is still valid
     double D = constraints_[i].compute_distance(V_srf, E, F,
         ipc::DistanceMode::SQRT);
@@ -103,16 +103,16 @@ void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
       config_->dhat, constraints_);
 
   std::map<std::array<long, 4>, int> new_frame_map;
-  nframes_ = constraints_.size();
 
-  T_.resize(nframes_, 4);
-  D_.resize(nframes_);
-  dd_dx_.resize(nframes_);
-  VectorXd d_new(nframes_);
-  VectorXd la_new(nframes_);
+  int num_frames = constraints_.size();
+  T_.resize(num_frames, 4);
+  D_.resize(num_frames);
+  dd_dx_.resize(num_frames);
+  VectorXd d_new(num_frames);
+  VectorXd la_new(num_frames);
 
   // Rebuilding mixed variables for the new set of collision frames.
-  for (int i = 0; i < nframes_; ++i) {
+  for (int i = 0; i < num_frames; ++i) {
     // Getting collision frame, and computing squared distance.
     std::array<long, 4> ids = constraints_[i].vertex_indices(E, F);
 
@@ -130,7 +130,7 @@ void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
   d_ = constraints_.get_distances();
   la_ = constraints_.get_lambdas();
 
-  if (nframes_ > 0) {
+  if (num_frames > 0) {
     // std::cout << "T\n: " << T_ << std::endl;
     std::cout << "la max: " << la_.maxCoeff() 
               << " min: " << la_.minCoeff() << std::endl;
@@ -156,17 +156,17 @@ void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
 template<int DIM>
 void MixedCollision<DIM>::update_derivatives(const MatrixXd& V, double dt) {
 
-  if (nframes_ == 0) {
+  if (constraints_.empty()) {
     return;
   }
 
   data_.timer.start("g-H");
-  H_.resize(nframes_);
-  g_.resize(nframes_);
+  H_.resize(constraints_.size());
+  g_.resize(constraints_.size());
 
   // vector of local hessians and gradients
-  std::vector<Eigen::MatrixXd> Aloc(nframes_);
-  std::vector<Eigen::VectorXd> gloc(nframes_); 
+  std::vector<Eigen::MatrixXd> Aloc(constraints_.size());
+  std::vector<Eigen::VectorXd> gloc(constraints_.size()); 
 
   // Getting IPC mesh data
   const auto& ipc_mesh = mesh_->collision_mesh();
@@ -178,7 +178,7 @@ void MixedCollision<DIM>::update_derivatives(const MatrixXd& V, double dt) {
   // double h2 = dt_*dt_;
  
   #pragma omp parallel for
-  for (int i = 0; i < nframes_; ++i) {
+  for (size_t i = 0; i < constraints_.size(); ++i) {
     // Mixed barrier energy gradients and hessians
     //g_[i] = config_->kappa * ipc::barrier_gradient(d_(i), dhat);
     //H_[i] = config_->kappa * ipc::barrier_hessian(d_(i), dhat);
@@ -221,12 +221,12 @@ VectorXd MixedCollision<DIM>::rhs() {
 
   rhs_.resize(mesh_->jacobian().rows());
   rhs_.setZero();
-  gl_.resize(nframes_);
+  gl_.resize(constraints_.size());
 
   // Computing schur-complement system right-hand-side
-  std::vector<VectorXd> g(nframes_);
+  std::vector<VectorXd> g(constraints_.size());
   #pragma omp parallel for
-  for (int i = 0; i < nframes_; ++i) {
+  for (size_t i = 0; i < constraints_.size(); ++i) {
     gl_(i) = H_(i) * (D_(i) - d_(i)) + g_(i);
     g[i] = -dd_dx_[i] * gl_(i);
   }
@@ -237,7 +237,7 @@ VectorXd MixedCollision<DIM>::rhs() {
 
 template<int DIM>
 VectorXd MixedCollision<DIM>::gradient() {
-  if (nframes_ == 0) {
+  if (constraints_.empty()) {
     grad_x_.resize(mesh_->jacobian().rows());
     grad_x_.setZero();
   }
@@ -246,7 +246,7 @@ VectorXd MixedCollision<DIM>::gradient() {
 
 template<int DIM>
 VectorXd MixedCollision<DIM>::gradient_mixed() {
-  if (nframes_ == 0) {
+  if (constraints_.empty()) {
     grad_.resize(0);
   }
   return grad_;
@@ -254,7 +254,7 @@ VectorXd MixedCollision<DIM>::gradient_mixed() {
 
 template<int DIM>
 void MixedCollision<DIM>::solve(const VectorXd& dx) {
-  if (nframes_ == 0) {
+  if (constraints_.empty()) {
     return;
   }
   
@@ -264,7 +264,7 @@ void MixedCollision<DIM>::solve(const VectorXd& dx) {
   Gdx_.resize(d_.size());
 
   #pragma omp parallel for
-  for (int i = 0; i < nframes_; ++i) {
+  for (size_t i = 0; i < constraints_.size(); ++i) {
     // Get frame configuration vector
     VectorXd qi(dd_dx_[i].size());
     for (int j = 0; j < 4; ++j) {

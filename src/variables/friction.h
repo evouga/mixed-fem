@@ -36,7 +36,7 @@ namespace mfem {
     Eigen::VectorXd gradient() override;
 
     const Eigen::SparseMatrix<double, Eigen::RowMajor>& lhs() override {
-      if (nframes_ == 0) {
+      if (constraints_.empty()) {
         A_ = Eigen::SparseMatrix<double, Eigen::RowMajor>();
         A_.resize(mesh_->jacobian().rows(),mesh_->jacobian().rows());
       }
@@ -70,7 +70,6 @@ namespace mfem {
 
     OptimizerData data_;     // Stores timing results
     double dt_;
-    int nframes_;            // number of elements
     Eigen::VectorXd grad_;   // Gradient with respect to 'd' variables
     Eigen::MatrixXd V0_;
 
@@ -78,7 +77,6 @@ namespace mfem {
     Eigen::SparseMatrix<double, Eigen::RowMajor> A_;
     std::shared_ptr<Assembler<double,DIM,-1>> assembler_;
     std::shared_ptr<VecAssembler<double,DIM,-1>> vec_assembler_;
-    // ipc::Constraints constraints_; // TODO cache these somewhere else -- share them
     ipc::FrictionConstraints constraints_;
   };
 }

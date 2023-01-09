@@ -45,7 +45,7 @@ namespace mfem {
     }
 
     const Eigen::SparseMatrix<double, Eigen::RowMajor>& lhs() override {
-      if (nframes_ == 0) {
+      if (constraints_.empty()) {
         A_ = Eigen::SparseMatrix<double, Eigen::RowMajor>();
         A_.resize(mesh_->jacobian().rows(),mesh_->jacobian().rows());
       }
@@ -54,28 +54,28 @@ namespace mfem {
     void solve(const Eigen::VectorXd& dx) override;
 
     Eigen::VectorXd& delta() override {
-      if (nframes_ == 0) {
+      if (constraints_.empty()) {
         delta_.resize(0);
       }
       return delta_;
     }
 
     Eigen::VectorXd& value() override {
-      if (nframes_ == 0) {
+      if (constraints_.empty()) {
         d_.resize(0);
       }
       return d_;
     }
 
     Eigen::VectorXd& lambda() override {
-      if (nframes_ == 0) {
+      if (constraints_.empty()) {
         la_.resize(0);
       }
       return la_;
     }
 
     int num_collision_frames() const {
-      return nframes_;
+      return constraints_.size();
     }
 
     const ipc::MixedConstraints& frames() const {
@@ -111,7 +111,6 @@ namespace mfem {
 
     OptimizerData data_;     // Stores timing results
     double dt_;
-    int nframes_;            // number of elements
     Eigen::VectorXd D_;      // per-frames distances
     Eigen::VectorXd d_;      // distance variables
     Eigen::VectorXd delta_;  // distance variables deltas
@@ -133,7 +132,6 @@ namespace mfem {
     std::shared_ptr<VecAssembler<double,DIM,-1>> vec_assembler_;
 
     ipc::MixedConstraints constraints_;
-    // ipc::Constraints constraints_;
     std::map<std::array<long, 4>, int> frame_map_;
   };
 }

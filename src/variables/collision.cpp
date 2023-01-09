@@ -65,11 +65,11 @@ void Collision<DIM>::update(const Eigen::VectorXd& x, double dt) {
   ipc::construct_constraint_set(candidates, ipc_mesh, V,
       config_->dhat, constraints_);
 
-  nframes_ = constraints_.size();
+  size_t num_frames = constraints_.size();
 
   // Create element matrix for assemblers
-  VectorXd D(nframes_);
-  MatrixXi T(nframes_, 4);
+  VectorXd D(num_frames);
+  MatrixXi T(num_frames, 4);
   for (size_t i = 0; i < constraints_.size(); ++i) {
     std::array<long, 4> ids = constraints_[i].vertex_indices(E, F);
     for (int j = 0; j < 4; ++j) {
@@ -94,13 +94,15 @@ void Collision<DIM>::update(const Eigen::VectorXd& x, double dt) {
 template<int DIM>
 void Collision<DIM>::update_derivatives(const MatrixXd& V, double dt) {
 
-  if (nframes_ == 0) {
+  size_t num_frames = constraints_.size();
+
+  if (num_frames == 0) {
     return;
   }
 
   // vector of local hessians and gradients
-  std::vector<Eigen::MatrixXd> Aloc(nframes_);
-  std::vector<Eigen::VectorXd> gloc(nframes_); 
+  std::vector<Eigen::MatrixXd> Aloc(num_frames);
+  std::vector<Eigen::VectorXd> gloc(num_frames); 
 
   // Get IPC mesh and face/edge/vertex data
   const auto& ipc_mesh = mesh_->collision_mesh();
@@ -110,7 +112,7 @@ void Collision<DIM>::update_derivatives(const MatrixXd& V, double dt) {
   // Hessian and gradient with respect to x
   data_.timer.start("g-H");
   #pragma omp parallel for
-  for (int i = 0; i < nframes_; ++i) {
+  for (size_t i = 0; i < num_frames; ++i) {
     Aloc[i] = config_->kappa * constraints_[i].compute_potential_hessian(
         V, E, F, config_->dhat, true);
     gloc[i] = config_->kappa * constraints_[i].compute_potential_gradient(
@@ -136,7 +138,7 @@ VectorXd Collision<DIM>::rhs() {
 
 template<int DIM>
 VectorXd Collision<DIM>::gradient() {
-  if (nframes_ == 0) {
+  if (constraints_.empty()) {
     grad_.resize(mesh_->jacobian().rows());
     grad_.setZero();
   }
