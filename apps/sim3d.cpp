@@ -101,7 +101,6 @@ struct PolyscopTetApp : public PolyscopeApp<3> {
 
     const T* c = dynamic_cast<const T*>(var);
     if (!c) return false;
-    //int n = c->num_collision_frames();
 
     // Get vertices at current iteration
     VectorXd xt = x->value();
@@ -119,7 +118,6 @@ struct PolyscopTetApp : public PolyscopeApp<3> {
     // Add collision frames
     const auto& frames = c->frames();
     int n = frames.size();
-    std::cout << "frames size: " << frames.size() << " n: " << c->num_collision_frames() << std::endl;
     for (int i = 0; i < n; ++i) {
       std::array<long, 4> ids = frames[i].vertex_indices(E, F);
       std::vector<int> ids_full;
@@ -225,7 +223,7 @@ struct PolyscopTetApp : public PolyscopeApp<3> {
 
     std::shared_ptr<Meshes> m = std::dynamic_pointer_cast<Meshes>(state.mesh_);
     meshes = m->meshes();
-    for (int i = 0; i < meshes.size(); ++i) {
+    for (size_t i = 0; i < meshes.size(); ++i) {
       // Register the mesh with Polyscope
       MatrixXd F;
       igl::boundary_facets(meshes[i]->T_, F);

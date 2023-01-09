@@ -131,11 +131,15 @@ void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
   la_ = constraints_.get_lambdas();
 
   if (num_frames > 0) {
-    // std::cout << "T\n: " << T_ << std::endl;
-    std::cout << "la max: " << la_.maxCoeff() 
-              << " min: " << la_.minCoeff() << std::endl;
-    std::cout << "d min: " << d_.minCoeff() << std::endl;
-    std::cout << "D min: " << D_.minCoeff() << std::endl;
+    double ratio = d_.minCoeff() / D_.minCoeff();
+    if (ratio > 1e3) {
+      std::cout << "WARNING: distance discrepancy is high" << std::endl;
+      std::cout << "la max: " << la_.maxCoeff() 
+                << " min: " << la_.minCoeff() << std::endl;
+      std::cout << "d min: " << d_.minCoeff() << std::endl;
+      std::cout << "D min: " << D_.minCoeff() << std::endl;
+      std::cout << "Ratio: " << d_.minCoeff() / D_.minCoeff() << std::endl;
+    }
   }
 
   // std::cout << "num constraints: "<< constraints_.num_constraints() << std::endl;

@@ -61,7 +61,9 @@ void SimState<DIM>::load_mesh(const std::string& path, MatrixXd& V, MatrixXi& T)
     V = tmp;
   } else {
     MatrixXd F;
-    igl::readMESH(path, V, T, F);
+    if (!igl::readMESH(path, V, T, F)) {
+      exit(-1);
+    }
     double fac = V.maxCoeff();
     V.array() /= fac;
     std::cout << "normalizing vertices: SimState<DIM>::load_mesh" << std::endl;
