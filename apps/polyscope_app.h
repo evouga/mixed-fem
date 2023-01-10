@@ -404,7 +404,5 @@ namespace mfem {
     std::shared_ptr<Optimizer<DIM>> optimizer;
     std::shared_ptr<SimConfig> config;
     std::shared_ptr<Mesh> mesh;
-
-    std::vector<std::string> bc_list;
   };
 }

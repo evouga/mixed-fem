@@ -1,7 +1,6 @@
 #include "meshes.h"
 #include "config.h"
 #include "utils/sparse_utils.h"
-#include "boundary_conditions.h"
 #include "utils/pinning_matrix.h"
 #include "igl/boundary_facets.h"
 
@@ -151,17 +150,32 @@ void Meshes::deformation_gradient(const VectorXd& x, VectorXd& F) {
 
 void Meshes::init_bcs() {
 
+  external_force_.resize(V_.size());
+
   size_t start_V = 0;
   int dim = V_.cols();
   for (size_t i = 0; i < meshes_.size(); ++i) {
     size_t sz_V = meshes_[i]->V_.rows();
+
+    // Set boolean values indicating whether vertex is fixed
     is_fixed_.conservativeResize(start_V + sz_V);
     is_fixed_.segment(start_V, sz_V) = meshes_[i]->is_fixed_;
+
+    // Set segment of external force for each mesh
+    // external_force_.segment(dim*start_V, dim*sz_V) = 
+    //     meshes_[i]->bc_ext_->force();
+
+    //TODO not sure this should be here.
     V_.block(start_V, 0, sz_V, dim) = meshes_[i]->V_;
 
     start_V += sz_V;
   }
+
+  // Create reduce vertex set selection matrix
   P_ = pinning_matrix(V_, T_, is_fixed_);
+
+  // Map from full vertex set to reduced set indices. Value
+  // equals -1 if vertex is fixed.
   free_map_.resize(is_fixed_.size(), -1);
   int curr = 0;
   for (int i = 0; i < is_fixed_.size(); ++i) {

@@ -22,6 +22,10 @@ namespace mfem {
     virtual void init(Eigen::MatrixXd& V) {}
     virtual void step(Eigen::MatrixXd& V, double dt) {}
 
+    const Eigen::VectorXd& force() const {
+      return force_;
+    }
+
     const Eigen::VectorXi& forced_vertices() const { 
       return is_forced_;
     }
@@ -44,7 +48,7 @@ namespace mfem {
     Eigen::VectorXi is_forced_;  // |V| x 1 - {0, 1}
     Eigen::VectorXi force_map_;  // |V| x 1 - Index into forced vertices list
     std::vector<std::vector<int>> groups_;
-    Eigen::VectorXd force; // d|V| x 1 - force vector, 'd' is the dimension
+    Eigen::VectorXd force_; // d|V| x 1 - force vector, 'd' is the dimension
   };
 
   // Constant force applied over the entire object
@@ -55,7 +59,7 @@ namespace mfem {
       int d = V.cols();
       Eigen::VectorXd ext = Eigen::Map<Eigen::VectorXd>(config_.force,
           V.cols());
-      force = ext.replicate(V.rows(),1);
+      force_ = ext.replicate(V.rows(),1);
     }
   };
 
@@ -73,12 +77,12 @@ namespace mfem {
       is_forced_ = Eigen::VectorXi::Zero(V.rows());
       if (config.is_body_force) {
         is_forced_.setOnes();
-        force = f.replicate(V.rows(),1);
+        force_ = f.replicate(V.rows(),1);
       } else {
-        force.resize(V.size());
+        force_.resize(V.size());
         for (int i : groups_[group_id_]) {
           is_forced_(i) = 1;
-          force.segment(d*i,d) = f;
+          force_.segment(d*i,d) = f;
         }
       }
       update_force_map();

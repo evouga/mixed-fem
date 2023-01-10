@@ -3,7 +3,6 @@
 #include "variable.h"
 #include "optimizers/optimizer_data.h"
 #include "time_integrators/implicit_integrator.h"
-#include "boundary_conditions.h"
 #include "utils/sparse_utils.h"
 
 namespace mfem {

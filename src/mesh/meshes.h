@@ -27,6 +27,7 @@ namespace mfem {
   protected:
 
     std::vector<std::shared_ptr<Mesh>> meshes_;
+    Eigen::VectorXd external_force_; 
 
   };
 }

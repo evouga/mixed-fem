@@ -5,6 +5,7 @@
 #include <memory>
 #include "ipc/ipc.hpp"
 #include "boundary_conditions/boundary_condition.h"
+#include "boundary_conditions/external_force.h"
 
 #if defined(SIM_USE_CHOLMOD)
 #include <Eigen/CholmodSupport>
@@ -142,6 +143,7 @@ namespace mfem {
     Eigen::VectorXi is_fixed_;
     BoundaryConditionConfig bc_config_;
     std::unique_ptr<BoundaryCondition> bc_;
+    std::unique_ptr<ExternalForce> bc_ext_; // Neumann BCs and body forces
 
     Eigen::MatrixXd V_;     // Current deformed vertices
     Eigen::MatrixXd Vref_;  // Reference vertex positions
@@ -169,6 +171,7 @@ namespace mfem {
     Eigen::VectorXd vols_;
     std::vector<Eigen::MatrixXd> Jloc_;
     ipc::CollisionMesh ipc_mesh_;
+
   };
 }
 

@@ -11,7 +11,6 @@
 #include <igl/slice_mask.h>
 #include <igl/boundary_facets.h>
 
-#include "boundary_conditions.h"
 #include <sstream>
 #include <fstream>
 #include <functional>
@@ -218,8 +217,6 @@ struct PolyscopTetApp : public PolyscopeApp<3> {
     SimState<3> state;
     state.load(filename);
     igl::boundary_facets(state.mesh_->T_, meshF);
-
-    BoundaryConditions<3>::get_script_names(bc_list);
 
     std::shared_ptr<Meshes> m = std::dynamic_pointer_cast<Meshes>(state.mesh_);
     meshes = m->meshes();

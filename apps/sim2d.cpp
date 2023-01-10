@@ -9,7 +9,6 @@
 #include <igl/remove_unreferenced.h>
 #include <igl/per_face_normals.h>
 
-#include "boundary_conditions.h"
 #include <sstream>
 #include <fstream>
 #include <functional>
@@ -177,8 +176,6 @@ struct PolyscopeTriApp : public PolyscopeApp<2> {
     SimState<2> state;
     state.load(filename);
     meshF = state.mesh_->T_;
-
-    BoundaryConditions<2>::get_script_names(bc_list);
 
     std::shared_ptr<Meshes> m = std::dynamic_pointer_cast<Meshes>(state.mesh_);
     meshes = m->meshes();

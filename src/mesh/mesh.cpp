@@ -1,5 +1,4 @@
 #include "mesh.h"
-#include "boundary_conditions.h"
 #include "energies/material_model.h"
 #include "config.h"
 #include "energies/stable_neohookean.h"
