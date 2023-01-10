@@ -1,10 +1,10 @@
 {
   "dt": 0.0333,
   "body_force": [0.0, -9.8, 0.0],
-  "print_timing": false,
+  "print_timing": true,
   "print_stats": true,
   "optimizer": "newton",
-  "time_integrator": "BDF2",
+  "time_integrator": "BDF1",
   "linear_solver": "cholmod",
   "enable_ccd": true,
   "dhat": 0.001,
@@ -12,14 +12,11 @@
   "boundary_condition": "hangends",
   "max_newton_iterations": 10,
   "max_linesearch_iterations": 20,
-  "initial_state0": {
-    "x_path": "../scenes/3D/data/sim_x0_0016.dmat",
-    "v_path": "../scenes/3D/data/sim_v_0016.dmat"
-  },
+  "timesteps":200,
   "objects": [
     {
       "path": "../models/mesh/cube_14.mesh",
-      "offset": [0.0, 1.0, 0.0],
+      "offset": [0.0, 0.0, 0.0],
       "material_index": 0,
       "boundary_condition": {
         "type": "hangends",
@@ -28,25 +25,30 @@
       }
     },
     {
-      "path": "../models/mesh/coarse_bunny.mesh",
-      "offset": [-0.2, 3.0, 0.0],
-      "material_index": 1
+      "path": "../models/mesh/beam.mesh",
+      "offset": [-0.5, 1.2, 0.0],
+      "material_index": 1,
+      "transformation": [
+        0.25, 0.0, 0.0,
+        0.0, 0.25, 0.0,
+        0.0, 0.0, 0.25
+      ]
     }
   ],
   "material_models": [
     {
-      "youngs_modulus": 1e7,
+      "youngs_modulus": 1e6,
       "poissons_ratio": 0.45,
       "density": 1e3,
       "energy": "Stable-Neohookean"
     },
     {
-      "youngs_modulus": 2e4,
+      "youngs_modulus": 1e3,
       "poissons_ratio": 0.45,
       "density": 1e3,
       "energy": "Stable-Neohookean"
     }
   ],
-  "mixed_variables": ["mixed-stretch", "mixed-collision"],
-  "variables": []
+  "mixed_variables": [],
+  "variables": ["stretch","collision"]
 }

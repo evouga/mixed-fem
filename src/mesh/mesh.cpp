@@ -72,10 +72,13 @@ void Mesh::init() {
 
   MatrixXi E, F;
   if (dim == 2) {
-    igl::oriented_facets(T_, E);
+    // igl::oriented_facets(T_, E);
+    // igl::edges(T_, E);
+    igl::boundary_facets(T_, E);
   } else {
+    // Check that faces have positive area
     igl::boundary_facets(T_, F);
-    igl::edges(T_, E);
+    igl::edges(F, E);
   }
   ipc_mesh_ = ipc::CollisionMesh::build_from_full_mesh(V_, E, F);
 }

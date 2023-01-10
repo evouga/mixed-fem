@@ -118,7 +118,10 @@ void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
 
     // Add entry in element matrix. Used for assembly.
     for (int j = 0; j < 4; ++j) {
-      T_(i,j) = ids[j];
+      T_(i,j) = -1;
+      if (ids[j] != -1) {
+        T_(i,j) = ipc_mesh.to_full_vertex_id(ids[j]);
+      }
     }
   // TODO compute_distance_gradient
   // SHOULD be doing dtype

@@ -73,14 +73,17 @@ void Collision<DIM>::update(const Eigen::VectorXd& x, double dt) {
   for (size_t i = 0; i < constraints_.size(); ++i) {
     std::array<long, 4> ids = constraints_[i].vertex_indices(E, F);
     for (int j = 0; j < 4; ++j) {
-      T(i,j) = ids[j];
+      T(i,j) = -1;
+      if (ids[j] != -1) {
+        T(i,j) = ipc_mesh.to_full_vertex_id(ids[j]);
+      }
     }
     D(i) = constraints_[i].compute_distance(V, E, F, ipc::DistanceMode::SQRT);
   }
-  // if (nframes_ > 0) {
-  //   std::cout << "D min: " << D.minCoeff() << std::endl;
-  //   std::cout << "D max: " << D.maxCoeff() << std::endl;
-  // }
+  if (num_frames > 0) {
+    std::cout << "D min: " << D.minCoeff() << std::endl;
+    std::cout << "D max: " << D.maxCoeff() << std::endl;
+  }
 
   // Remaking assemblers since collision frames change.
   assembler_ = std::make_shared<Assembler<double,DIM,-1>>(T, mesh_->free_map_);

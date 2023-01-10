@@ -15,17 +15,17 @@ namespace mfem {
 
     virtual void init(Eigen::MatrixXd& V) {}
     virtual void step(Eigen::MatrixXd& V, double dt) {}
-
-    const Eigen::VectorXi fixed() const { 
+    
+    const Eigen::VectorXi& fixed() const { 
       return is_fixed_;
     }
+
+    static void init_boundary_groups(const Eigen::MatrixXd &V,
+      std::vector<std::vector<int>> &bc_groups, double ratio, int axis);
 
   protected:
     
     void update_free_map();
-
-    static void init_boundary_groups(const Eigen::MatrixXd &V,
-      std::vector<std::vector<int>> &bc_groups, double ratio, int axis);
 
     BoundaryConditionConfig config_;
     Eigen::VectorXi is_fixed_;  // |V| x 1 - {0, 1} to indicate if fixed

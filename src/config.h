@@ -86,7 +86,14 @@ namespace mfem {
     BC_FALL,
     BC_TRANSLATE
   };
-  
+
+  enum ExternalForceType {
+    EXT_AREA_FORCE,
+    EXT_MECHANICAL_PRESS,
+    EXT_STRETCH,
+    EXT_BEND,
+    EXT_TWIST
+  };
   
   // Global parameters for the simulation
   struct SimConfig {
@@ -143,6 +150,28 @@ namespace mfem {
     double velocity = 0.1; // in meters/second
     double duration = 1.0; // in seconds
     bool flip = false;     // whether a BC should reverse at end of duration
+  };
+
+  // Config for body forces and neumann BCs
+  struct ExternalForceConfig {
+    bool is_body_force = true; // is force applied to every vertex
+    bool is_fixed = true;      // does the force stay constant after a timestep
+
+    // force x,y,z vector in Newtons (default is gravity)
+    double force[3] = {0, -9.8, 0};       
+
+    int axis = 0;       // axis along which we apply the force 
+    double ratio = 0.1; // ratio along axis we apply it (ignored if body force)
+
+    // Mechanical press config
+    double max_force = 100;        // absolute maximum force (in Newtons)
+    double target_velocity = 0.1;  // in meters/second
+    double max_displacement = 0.3; // in meters
+
+    // whether to reverse after maximally displaced or after reaching the
+    // maximum force.
+    bool flip = false; 
+    bool pause_duration = 0.0; // before flipping, duration in seconds to pause
   };
 
 }
