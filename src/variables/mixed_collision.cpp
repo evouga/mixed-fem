@@ -40,7 +40,6 @@ double MixedCollision<DIM>::energy(const VectorXd& x, const VectorXd& d) {
   return e;
 }
 
-
 template <int DIM>
 double MixedCollision<DIM>::constraint_value(const VectorXd& x,
     const VectorXd& d) {
@@ -198,10 +197,9 @@ void MixedCollision<DIM>::update_derivatives(const MatrixXd& V, double dt) {
     H_[i] = config_->kappa * (ipc::barrier_hessian(d2, dhat_sqr)*4*d2 + 2*g);
     H_(i) = std::max(H_(i), 1e-8);
     Aloc[i] = dd_dx_[i] * H_(i) * dd_dx_[i].transpose();
-    // sim::simple_psd_fix(Aloc[i]);
 
     // Gradient with respect to x variable
-    gloc[i] = -dd_dx_[i] * la_(i);
+    gloc[i] = dd_dx_[i] * la_(i);
   }
   data_.timer.stop("g-H");
 
@@ -278,18 +276,17 @@ void MixedCollision<DIM>::solve(const VectorXd& dx) {
       if (T_(i,j) == -1) break;
       qi.segment<DIM>(DIM*j) = q.segment<DIM>(DIM*T_(i,j));
     }
-    Gdx_(i) = -qi.dot(dd_dx_[i]);
+    Gdx_(i) = qi.dot(dd_dx_[i]);
   }
   // Update lagrange multipliers
-  la_ = -gl_.array() + (H_.array() * Gdx_.array());
+  la_ = gl_.array() + (H_.array() * Gdx_.array());
 
   // Compute mixed variable descent direction
-  delta_ = -(la_ + g_).array() / H_.array();
+  delta_ = -(g_ - la_).array() / H_.array();
   if (delta_.hasNaN()) {
     std::cout << "la_: " << la_ << std::endl;
     std::cout << "g_: " << g_ << std::endl;
     std::cout << "H_: " << H_ << std::endl;
-
     exit(1);
   }
   data_.timer.stop("local");

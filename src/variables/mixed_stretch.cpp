@@ -136,7 +136,7 @@ void MixedStretch<DIM>::update(const Eigen::VectorXd& x, double dt) {
   update_rotations(x);
   update_derivatives(dt);
   evaluate_constraint(x, grad_la_);
-  grad_la_ = -grad_la_;
+  // grad_la_ = -grad_la_;
 }
 
 template<int DIM>
@@ -199,7 +199,7 @@ void MixedStretch<DIM>::update_derivatives(double dt) {
   for (int i = 0; i < nelem_; ++i) {
     tmp.segment<M()>(M()*i) = dSdF_[i]*la_.segment<N()>(N()*i);
   }
-  grad_x_ = -mesh_->jacobian() * tmp;
+  grad_x_ = mesh_->jacobian() * tmp;
 
   // Gradient with respect to mixed variable
   grad_.resize(N()*nelem_);
@@ -252,17 +252,16 @@ VectorXd MixedStretch<DIM>::gradient_dual() {
 template<int DIM>
 void MixedStretch<DIM>::solve(const VectorXd& dx) {
   data_.timer.start("local");
-  Jdx_ = -mesh_->jacobian().transpose() * dx;
-  la_ = -gl_;
-
+  Jdx_ = mesh_->jacobian().transpose() * dx;
+  la_ = gl_;
   ds_.resize(N()*nelem_);
 
   #pragma omp parallel for 
   for (int i = 0; i < nelem_; ++i) {
     la_.segment<N()>(N()*i) += H_[i] * (dSdF_[i].transpose()
-        * Jdx_.segment<M()>(M()*i));
+        * Jdx_.segment<M()>(M()*i));        
     ds_.segment<N()>(N()*i) = -Hinv_[i]
-        * (Sym() * la_.segment<N()>(N()*i) + g_[i]);
+        * (g_[i] - Sym() * la_.segment<N()>(N()*i));
   }
   data_.timer.stop("local");
 }
