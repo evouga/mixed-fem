@@ -124,6 +124,56 @@ namespace ipc {
     throw std::out_of_range("Constraint index is out of range!");
   }
 
+  bool MixedConstraints::constraint_mollifier(size_t idx,
+      const Eigen::MatrixXd& V, const Eigen::MatrixXi& E, 
+      double& value) const {
+    // Mollifier can only be active if constraint is edge-edge
+    value = 1.0;
+    idx -= ev_constraints.size();
+    if (idx < ee_constraints.size()) {
+      // Get edges
+      long eai = ee_constraints[idx].edge0_index;
+      long ebi = ee_constraints[idx].edge1_index;
+      double eps_x = ee_constraints[idx].eps_x;
+
+      // Edge vertex indices
+      long ea0i = E(eai, 0), ea1i = E(eai, 1);
+      long eb0i = E(ebi, 0), eb1i = E(ebi, 1);
+
+      value = edge_edge_mollifier(
+          V.row(ea0i), V.row(ea1i), V.row(eb0i), V.row(eb1i), eps_x);
+      
+      // Return true if mollifier is < 1.0, indicating that the mollifier is on
+      return (value < 1.0);
+    } else {
+      return false;
+    }
+  }
+
+  VectorMax12d MixedConstraints::constraint_mollifier_gradient(size_t idx,
+            const Eigen::MatrixXd& V, const Eigen::MatrixXi& E) const {
+    // Mollifier can only be active if constraint is edge-edge
+    idx -= ev_constraints.size();
+    if (idx < ee_constraints.size()) {
+      // Get edges
+      long eai = ee_constraints[idx].edge0_index;
+      long ebi = ee_constraints[idx].edge1_index;
+      double eps_x = ee_constraints[idx].eps_x;
+
+      // Edge vertex indices
+      long ea0i = E(eai, 0), ea1i = E(eai, 1);
+      long eb0i = E(ebi, 0), eb1i = E(ebi, 1);
+
+      VectorMax12d mollifier_grad;
+      edge_edge_mollifier_gradient(
+          V.row(ea0i), V.row(ea1i), V.row(eb0i), V.row(eb1i), eps_x,
+          mollifier_grad);
+      return mollifier_grad;
+    }
+    throw std::out_of_range("index is not for edge-edge constraint");
+  }
+
+
   void MixedConstraints::update_distances(const Eigen::VectorXd& distances) {
     assert(distances.size() == size());
     for (int i = 0; i < distances.size(); ++i) {

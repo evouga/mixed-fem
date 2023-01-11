@@ -68,7 +68,9 @@ double MixedCollision<DIM>::constraint_value(const VectorXd& x,
     double D = constraints_[i].compute_distance(V_srf, E, F,
         ipc::DistanceMode::SQRT);
     if (D <= dhat || d(i) <= dhat) {
-      e += la_(i) * (D - d(i));
+      double mollifier = 1.0;
+      constraints_.constraint_mollifier(i, V_srf, E, mollifier);
+      e += la_(i) * mollifier * (D - d(i));
     }
   }
   return e;
@@ -101,14 +103,14 @@ void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
   ipc::construct_constraint_set(candidates, ipc_mesh, V_srf,
       config_->dhat, constraints_);
 
-  std::map<std::array<long, 4>, int> new_frame_map;
-
   int num_frames = constraints_.size();
   T_.resize(num_frames, 4);
   D_.resize(num_frames);
-  dd_dx_.resize(num_frames);
-  VectorXd d_new(num_frames);
-  VectorXd la_new(num_frames);
+  Gx_.resize(num_frames);
+  Gd_.resize(num_frames);
+
+  d_ = constraints_.get_distances();
+  la_ = constraints_.get_lambdas();
 
   // Rebuilding mixed variables for the new set of collision frames.
   for (int i = 0; i < num_frames; ++i) {
@@ -122,15 +124,26 @@ void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
         T_(i,j) = ipc_mesh.to_full_vertex_id(ids[j]);
       }
     }
-  // TODO compute_distance_gradient
-  // SHOULD be doing dtype
+    // SHOULD be doing dtype
     D_(i) = constraints_[i].compute_distance(V_srf, E, F,
         ipc::DistanceMode::SQRT);
-    dd_dx_[i] = constraints_[i].compute_distance_gradient(V_srf, E, F,
+
+    double mollifier = 1.0; // constrain mollifier 
+
+    Gx_[i] = constraints_[i].compute_distance_gradient(V_srf, E, F,
         ipc::DistanceMode::SQRT);
+    Gd_(i) = -1;
+    // If edge-edge mollifier is active, modify the jacobians
+    if (constraints_.constraint_mollifier(i, V_srf, E, mollifier)) {
+      ipc::VectorMax12d mollifier_grad =
+          constraints_.constraint_mollifier_gradient(i, V_srf, E);
+      Gd_(i) *= mollifier;
+      Gx_[i] = mollifier*Gx_[i] + (D_(i) - d_(i))*mollifier_grad;
+      std::cout << "HEY MOLLIFIER IS ON :)" << mollifier << std::endl;
+      // std::cout << "\t Gradient:\n" << mollifier_grad << std::endl;
+      // std::cout << "\t Gradient:2\n" << Gx_[i] << std::endl;
+    }
   }
-  d_ = constraints_.get_distances();
-  la_ = constraints_.get_lambdas();
 
   if (num_frames > 0) {
     double ratio = d_.minCoeff() / D_.minCoeff();
@@ -196,10 +209,12 @@ void MixedCollision<DIM>::update_derivatives(const MatrixXd& V, double dt) {
     g_[i] = config_->kappa * (g * d_(i) * 2);
     H_[i] = config_->kappa * (ipc::barrier_hessian(d2, dhat_sqr)*4*d2 + 2*g);
     H_(i) = std::max(H_(i), 1e-8);
-    Aloc[i] = dd_dx_[i] * H_(i) * dd_dx_[i].transpose();
+
+    double Gd_inv_sqr = 1.0 / (Gd_(i) * Gd_(i));
+    Aloc[i] = Gd_inv_sqr * Gx_[i] * H_(i) * Gx_[i].transpose();
 
     // Gradient with respect to x variable
-    gloc[i] = dd_dx_[i] * la_(i);
+    gloc[i] = Gx_[i] * la_(i);
   }
   data_.timer.stop("g-H");
 
@@ -215,7 +230,7 @@ void MixedCollision<DIM>::update_derivatives(const MatrixXd& V, double dt) {
   data_.timer.stop("Update RHS");
 
   // Gradient with respect to mixed variable
-  grad_ = g_ + la_;
+  grad_ = g_ + la_; // TODO missing la*mollifier :)
 }
 
 template<int DIM>
@@ -232,8 +247,10 @@ VectorXd MixedCollision<DIM>::rhs() {
   std::vector<VectorXd> g(constraints_.size());
   #pragma omp parallel for
   for (size_t i = 0; i < constraints_.size(); ++i) {
-    gl_(i) = H_(i) * (D_(i) - d_(i)) + g_(i);
-    g[i] = -dd_dx_[i] * gl_(i);
+    double Gd_inv_sqr = 1.0 / (Gd_(i) * Gd_(i));
+    gl_(i) = Gd_inv_sqr * H_(i) * (D_(i) - d_(i)) 
+           - g_(i) / Gd_(i);
+    g[i] = -Gx_[i] * gl_(i);
   }
   vec_assembler_->assemble(g, rhs_);
   data_.timer.stop("RHS - s");
@@ -271,18 +288,20 @@ void MixedCollision<DIM>::solve(const VectorXd& dx) {
   #pragma omp parallel for
   for (size_t i = 0; i < constraints_.size(); ++i) {
     // Get frame configuration vector
-    VectorXd qi(dd_dx_[i].size());
+    VectorXd qi(Gx_[i].size());
     for (int j = 0; j < 4; ++j) {
       if (T_(i,j) == -1) break;
       qi.segment<DIM>(DIM*j) = q.segment<DIM>(DIM*T_(i,j));
     }
-    Gdx_(i) = qi.dot(dd_dx_[i]);
+
+    double Gd_inv_sqr = 1.0 / (Gd_(i) * Gd_(i));
+    Gdx_(i) = Gd_inv_sqr * qi.dot(Gx_[i]);
   }
   // Update lagrange multipliers
   la_ = gl_.array() + (H_.array() * Gdx_.array());
 
   // Compute mixed variable descent direction
-  delta_ = -(g_ - la_).array() / H_.array();
+  delta_ = -(g_.array() + Gd_.array()*la_.array()) / H_.array();
   if (delta_.hasNaN()) {
     std::cout << "la_: " << la_ << std::endl;
     std::cout << "g_: " << g_ << std::endl;
@@ -294,6 +313,8 @@ void MixedCollision<DIM>::solve(const VectorXd& dx) {
 
 template<int DIM>
 void MixedCollision<DIM>::reset() {
+  Gx_.clear();
+  Gd_.resize(0);
   d_.resize(0);
   g_.resize(0);
   H_.resize(0);
@@ -302,18 +323,15 @@ void MixedCollision<DIM>::reset() {
   rhs_.resize(0);
   grad_.resize(0);
   delta_.resize(0);
-  dd_dx_.resize(0);
   grad_x_.resize(0);
-  frame_map_.clear();
 }
 
 template<int DIM>
 void MixedCollision<DIM>::post_solve() {
   d_.resize(0);
   la_.resize(0);
-  la_.setZero();
-  dd_dx_.clear();
-  frame_map_.clear();
+  Gx_.clear();
+  Gd_.resize(0);
   constraints_.clear();
 }
 

@@ -126,12 +126,14 @@ namespace mfem {
     Eigen::MatrixXi T_;
 
     std::shared_ptr<SimConfig> config_;
-    std::vector<Eigen::VectorXd> dd_dx_; 
+    //std::vector<Eigen::VectorXd> dd_dx_;
+    // std::vector<bool> is_mollified_;    // whether constraint is mollified
+    std::vector<ipc::VectorMax12d> Gx_; // constraint jacobian w.r.t x
+    Eigen::VectorXd Gd_;                // constraint jacobian w.r.t d
     Eigen::SparseMatrix<double, Eigen::RowMajor> A_;
     std::shared_ptr<Assembler<double,DIM,-1>> assembler_;
     std::shared_ptr<VecAssembler<double,DIM,-1>> vec_assembler_;
 
     ipc::MixedConstraints constraints_;
-    std::map<std::array<long, 4>, int> frame_map_;
   };
 }

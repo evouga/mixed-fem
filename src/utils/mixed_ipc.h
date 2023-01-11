@@ -34,6 +34,14 @@ namespace ipc {
       void update_distances(const Eigen::VectorXd& distances);
       void update_lambdas(const Eigen::VectorXd& lambdas);
 
+      // Mollifier to apply to constraint functions. Returns
+      // whether the mollifier is active.
+      bool constraint_mollifier(size_t idx,
+          const Eigen::MatrixXd& V, const Eigen::MatrixXi& E, 
+          double& value) const;
+      VectorMax12d constraint_mollifier_gradient(size_t idx,
+          const Eigen::MatrixXd& V, const Eigen::MatrixXi& E) const;
+
       Eigen::VectorXd get_distances() const {
         Eigen::VectorXd x(size());
         for (int i = 0; i < x.size(); ++i) {
