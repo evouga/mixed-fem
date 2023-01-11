@@ -4,6 +4,7 @@
 #include "boundary_conditions/stretch_boundary_condition.h"
 #include "boundary_conditions/twist_boundary_condition.h"
 #include "boundary_conditions/moving_boundary_condition.h"
+#include "boundary_conditions/twist_and_stretch_boundary_condition.h"
 #include "boundary_conditions/press_force.h"
 
 using namespace mfem;
@@ -60,6 +61,11 @@ BoundaryConditionFactory::BoundaryConditionFactory() {
       [](Eigen::MatrixXd V, BoundaryConditionConfig cfg)
       ->std::unique_ptr<BoundaryCondition>
       {return std::make_unique<TranslateBC>(V, cfg);});
+
+  register_type(BCScriptType::BC_TWISTNSTRETCH, "twist-and-stretch", 
+      [](Eigen::MatrixXd V, BoundaryConditionConfig cfg)
+      ->std::unique_ptr<BoundaryCondition>
+      {return std::make_unique<TwistAndStretchBC>(V, cfg);});
 }
 
 ExternalForceFactory::ExternalForceFactory() {

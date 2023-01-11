@@ -13,7 +13,7 @@
   "max_linesearch_iterations": 20,
   "objects": [
     {
-      "path": "../models/mask.mesh",
+      "path": "../models/mesh/mask.mesh",
       "offset": [0.0, 0.0, 0.0],
       "material_index": 0,
       "boundary_condition": {
@@ -23,7 +23,7 @@
       }
     },
     {
-      "path": "../models/corona_lo.mesh",
+      "path": "../models/mesh/corona_lo.mesh",
       "offset": [0.0, 0.0, 10.0],
       "material_index": 1,
       "transformation": [

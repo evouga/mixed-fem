@@ -8,13 +8,13 @@
   "linear_solver": "cholmod",
   "enable_ccd": true,
   "dhat": 0.001,
-  "kappa": 1e5,
+  "kappa": 1e8,
   "boundary_condition": "hangends",
   "max_newton_iterations": 10,
   "max_linesearch_iterations": 20,
   "objects": [
     {
-      "path": "../models/coarse_bunny.mesh",
+      "path": "../models/mesh/coarse_bunny.mesh",
       "offset": [0.0, 1.0, 0.0],
       "material_index": 0,
       "boundary_condition": {
@@ -24,7 +24,7 @@
       }
     },
     {
-      "path": "../models/bar.mesh",
+      "path": "../models/mesh/bar.mesh",
       "offset": [-0.5, 3.0, 0.0],
       "material_index": 1
     }

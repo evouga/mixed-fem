@@ -47,7 +47,7 @@
         "force": [0.0, -10.0, 0.0],
         "axis": 1,
         "ratio": 0.3,
-        "max_force": 100,
+        "max_force": 1000,
         "target_velocity": -0.1,
         "max_displacement": 0.5
       }
@@ -64,19 +64,19 @@
       "youngs_modulus": 1e9,
       "poissons_ratio": 0.45,
       "density": 1e3,
-      "energy": "Stable-Neohookean"
+      "energy": "FixedCorot"
     },
     {
-      "youngs_modulus": 1e5,
+      "youngs_modulus": 1e4,
       "poissons_ratio": 0.45,
       "density": 1e3,
-      "energy": "Stable-Neohookean"
+      "energy": "FixedCorot"
     },
     {
       "youngs_modulus": 1e9,
       "poissons_ratio": 0.45,
       "density": 4e3,
-      "energy": "Stable-Neohookean"
+      "energy": "FixedCorot"
     }
   ],
   "mixed_variables": ["mixed-stretch","mixed-collision"],
