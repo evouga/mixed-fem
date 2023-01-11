@@ -1,6 +1,6 @@
 #include "mixed_ipc.h"
 
-#include <ipc/barrier/barrier.hpp>
+// #include <ipc/barrier/barrier.hpp>
 
 #define IPC_EARLIEST_TOI_USE_MUTEX
 #ifdef IPC_EARLIEST_TOI_USE_MUTEX
@@ -17,124 +17,12 @@
 
 namespace ipc {
 
-  ///////////////////////////////////////////////////////////////////////////////
-  
-  EdgeVertexMixedConstraint::EdgeVertexMixedConstraint(long edge_index, long vertex_index)
-    : EdgeVertexConstraint(edge_index, vertex_index)
-  {}
-
-  EdgeVertexMixedConstraint::EdgeVertexMixedConstraint(const EdgeVertexCandidate& candidate)
-      : EdgeVertexConstraint(candidate)
-  {}
-
-  double EdgeVertexMixedConstraint::compute_distance(
-      const Eigen::MatrixXd& V,
-      const Eigen::MatrixXi& E,
-      const Eigen::MatrixXi& F,
-      const DistanceMode dmode) const
-  {
-    return point_edge_distance(
-        V.row(vertex_index), V.row(E(edge_index, 0)), V.row(E(edge_index, 1)),
-        dtype, dmode);
-  }
-
-  VectorMax12d EdgeVertexMixedConstraint::compute_distance_gradient(
-      const Eigen::MatrixXd& V,
-      const Eigen::MatrixXi& E,
-      const Eigen::MatrixXi& F,
-      const DistanceMode dmode) const
-  {
-    VectorMax9d distance_grad;
-    point_edge_distance_gradient(
-        V.row(vertex_index), V.row(E(edge_index, 0)), V.row(E(edge_index, 1)),
-        dtype, dmode, distance_grad);
-    return distance_grad;
-  }
-
-  MatrixMax12d EdgeVertexMixedConstraint::compute_distance_hessian(
-      const Eigen::MatrixXd& V,
-      const Eigen::MatrixXi& E,
-      const Eigen::MatrixXi& F,
-      const DistanceMode dmode) const 
-  {
-    MatrixMax9d distance_hess;
-    point_edge_distance_hessian(
-        V.row(vertex_index), V.row(E(edge_index, 0)), V.row(E(edge_index, 1)),
-        dtype, dmode, distance_hess);
-    return distance_hess;      
-  }
-
-  ///////////////////////////////////////////////////////////////////////////////
-
-  FaceVertexMixedConstraint::FaceVertexMixedConstraint(long face_index,
-      long vertex_index) : FaceVertexConstraint(face_index, vertex_index)
-  {
-  }
-
-  FaceVertexMixedConstraint::FaceVertexMixedConstraint(
-      const FaceVertexCandidate& candidate) : FaceVertexConstraint(candidate)
-  {
-  }
-
-  double FaceVertexMixedConstraint::compute_distance(
-      const Eigen::MatrixXd& V,
-      const Eigen::MatrixXi& E,
-      const Eigen::MatrixXi& F,
-      const DistanceMode dmode) const
-  {
-      // The distance type is known because of construct_constraint_set()
-      return point_triangle_distance(
-          V.row(vertex_index), V.row(F(face_index, 0)), V.row(F(face_index, 1)),
-          V.row(F(face_index, 2)), dtype, dmode);
-  }
-
-  VectorMax12d FaceVertexMixedConstraint::compute_distance_gradient(
-      const Eigen::MatrixXd& V,
-      const Eigen::MatrixXi& E,
-      const Eigen::MatrixXi& F,
-      const DistanceMode dmode) const
-  {
-      VectorMax12d distance_grad;
-      point_triangle_distance_gradient(
-          V.row(vertex_index), V.row(F(face_index, 0)), V.row(F(face_index, 1)),
-          V.row(F(face_index, 2)), dtype, dmode, distance_grad);
-      return distance_grad;
-  }
-
-  MatrixMax12d FaceVertexMixedConstraint::compute_distance_hessian(
-      const Eigen::MatrixXd& V,
-      const Eigen::MatrixXi& E,
-      const Eigen::MatrixXi& F,
-      const DistanceMode dmode) const
-  {
-      MatrixMax12d distance_hess;
-      point_triangle_distance_hessian(
-          V.row(vertex_index), V.row(F(face_index, 0)), V.row(F(face_index, 1)),
-          V.row(F(face_index, 2)), dtype, dmode, distance_hess);
-      return distance_hess;
-  }
-  ///////////////////////////////////////////////////////////////////////////////
-
-  EdgeEdgeMixedConstraint::EdgeEdgeMixedConstraint(
-      long edge0_index, long edge1_index, double eps_x)
-      : EdgeEdgeConstraint(edge0_index, edge1_index, eps_x)
-  {}
-
-  EdgeEdgeMixedConstraint::EdgeEdgeMixedConstraint(
-      const EdgeEdgeCandidate& candidate, double eps_x)
-      : EdgeEdgeConstraint(candidate, eps_x)
-  {}
-
-  ///////////////////////////////////////////////////////////////////////////////
-
-  size_t MixedConstraints::size() const
-  {
+  size_t MixedConstraints::size() const {
       return ev_constraints.size() + ee_constraints.size()
           + fv_constraints.size();
   }
 
-  bool MixedConstraints::empty() const
-  {
+  bool MixedConstraints::empty() const {
       return ev_constraints.empty()
           && ee_constraints.empty() && fv_constraints.empty();
   }
@@ -145,8 +33,7 @@ namespace ipc {
     fv_constraints.clear();
   }
 
-  CollisionConstraint& MixedConstraints::operator[](size_t idx)
-  {
+  CollisionConstraint& MixedConstraints::operator[](size_t idx) {
     if (idx < ev_constraints.size()) {
         return ev_constraints[idx];
     }
@@ -161,8 +48,7 @@ namespace ipc {
     throw std::out_of_range("Constraint index is out of range!");
   }
 
-  const CollisionConstraint& MixedConstraints::operator[](size_t idx) const
-  {
+  const CollisionConstraint& MixedConstraints::operator[](size_t idx) const {
     if (idx < ev_constraints.size()) {
         return ev_constraints[idx];
     }
@@ -240,20 +126,20 @@ namespace ipc {
 
   void MixedConstraints::update_distances(const Eigen::VectorXd& distances) {
     assert(distances.size() == size());
-    for (size_t i = 0; i < distances.size(); ++i) {
+    for (int i = 0; i < distances.size(); ++i) {
       distance(i) = distances(i);
     }
   }
   
   void MixedConstraints::update_lambdas(const Eigen::VectorXd& lambdas) {
     assert(lambdas.size() == size());
-    for (size_t i = 0; i < lambdas.size(); ++i) {
+    for (int i = 0; i < lambdas.size(); ++i) {
       lambda(i) = lambdas(i);
     }
   }
   
   template <typename T>
-  void create_constraint_map(const std::vector<T>& constraints,
+  void create_constraint_set(const std::vector<T>& constraints,
       unordered_set<T>& set) {
     for (size_t i = 0; i < constraints.size(); ++i) {
       set.emplace(constraints[i]);
@@ -266,8 +152,7 @@ namespace ipc {
       const Eigen::MatrixXd &V,
       const double dhat,
       MixedConstraints &constraint_set,
-      const double dmin)
-  {
+      const double dmin) {
     assert(V.rows() == mesh.num_vertices());
 
     MixedConstraints new_constraints;
@@ -280,26 +165,25 @@ namespace ipc {
     // Cull the candidates by measuring the distance and dropping those that are
     // greater than dhat.
     const double offset_sqr = (dmin + dhat) * (dmin + dhat);
-    auto is_active = [&](double distance_sqr)
-    {
+    auto is_active = [&](double distance_sqr) {
       return distance_sqr < offset_sqr;
     };
 
-    unordered_set<EdgeVertexMixedConstraint> ev_map;
-    unordered_set<EdgeEdgeMixedConstraint> ee_map;
-    unordered_set<FaceVertexMixedConstraint> fv_map;
-    create_constraint_map(constraint_set.ev_constraints, ev_map);
-    create_constraint_map(constraint_set.ee_constraints, ee_map);
-    create_constraint_map(constraint_set.fv_constraints, fv_map); 
+    unordered_set<EdgeVertexMixedConstraint> ev_set;
+    unordered_set<EdgeEdgeMixedConstraint> ee_set;
+    unordered_set<FaceVertexMixedConstraint> fv_set;
+    create_constraint_set(constraint_set.ev_constraints, ev_set);
+    create_constraint_set(constraint_set.ee_constraints, ee_set);
+    create_constraint_set(constraint_set.fv_constraints, fv_set); 
 
     std::mutex vv_mutex, ev_mutex, ee_mutex, fv_mutex;
 
+    // Process edge-vertex constraint candidates
     tbb::parallel_for(
         tbb::blocked_range<size_t>(size_t(0), candidates.ev_candidates.size()),
-        [&](const tbb::blocked_range<size_t> &r)
-        {
-          for (size_t i = r.begin(); i < r.end(); i++)
-          {
+        [&](const tbb::blocked_range<size_t> &r) {
+          for (size_t i = r.begin(); i < r.end(); i++) {
+            // Construct edge-vertex constraint candidate
             const auto &ev_candidate = candidates.ev_candidates[i];
             const auto &[ei, vi] = ev_candidate;
             long e0i = E(ei, 0), e1i = E(ei, 1);
@@ -307,6 +191,7 @@ namespace ipc {
             PointEdgeDistanceType dtype =
                 point_edge_distance_type(V.row(vi), V.row(e0i), V.row(e1i));
 
+            // Squared distance from to point to edge
             double distance_sqr = point_edge_distance(
                 V.row(vi), V.row(e0i), V.row(e1i), dtype,
                 DistanceMode::SQUARED);
@@ -317,12 +202,17 @@ namespace ipc {
               // constraints
               EdgeVertexMixedConstraint constraint(ev_candidate);
 
-              auto found_item = ev_map.find(constraint);
-              if (found_item != ev_map.end()) {
+              // Check if this constraint exists from a previous iteration
+              auto found_item = ev_set.find(constraint);
+              if (found_item != ev_set.end()) {
+                // If this already exists, then it has a mixed distance
+                // and lagrange multiplier value, so we  re-use hese values.
                 constraint.distance = found_item->distance;
                 constraint.lambda = found_item->lambda;
-                ev_map.erase(constraint);
+                ev_set.erase(constraint);
               } else {
+                // Otherwise initialize the mixed distance
+                // to the true distance and set lambda to 0.
                 constraint.distance = std::sqrt(distance_sqr);
                 constraint.lambda = 0.0;
               }
@@ -331,13 +221,12 @@ namespace ipc {
             }
           }
         });
-
+    // Process edge-edge constraint candidates
     tbb::parallel_for(
         tbb::blocked_range<size_t>(size_t(0), candidates.ee_candidates.size()),
-        [&](const tbb::blocked_range<size_t> &r)
-        {
-          for (size_t i = r.begin(); i < r.end(); i++)
-          {
+        [&](const tbb::blocked_range<size_t> &r) {
+          for (size_t i = r.begin(); i < r.end(); i++) {
+            // Construct edge-edge constraint candidate
             const auto &ee_candidate = candidates.ee_candidates[i];
             const auto &[eai, ebi] = ee_candidate;
             long ea0i = E(eai, 0), ea1i = E(eai, 1);
@@ -346,12 +235,12 @@ namespace ipc {
             EdgeEdgeDistanceType dtype = edge_edge_distance_type(
                 V.row(ea0i), V.row(ea1i), V.row(eb0i), V.row(eb1i));
 
+            // Squared distance between edges
             double distance_sqr = edge_edge_distance(
                 V.row(ea0i), V.row(ea1i), V.row(eb0i), V.row(eb1i), dtype,
                 DistanceMode::SQUARED);
 
-            if (is_active(distance_sqr))
-            {
+            if (is_active(distance_sqr)) {
               double eps_x = edge_edge_mollifier_threshold(
                   V_rest.row(ea0i), V_rest.row(ea1i), //
                   V_rest.row(eb0i), V_rest.row(eb1i));
@@ -359,11 +248,13 @@ namespace ipc {
 
               EdgeEdgeMixedConstraint constraint(ee_candidate, eps_x);
 
-              auto found_item = ee_map.find(constraint);
-              if (found_item != ee_map.end()) {
+              // Again, check if this constraint already exists. If so,
+              // reuse the values, otherwise initialize them.
+              auto found_item = ee_set.find(constraint);
+              if (found_item != ee_set.end()) {
                 constraint.distance = found_item->distance;
                 constraint.lambda = found_item->lambda;
-                ee_map.erase(constraint);
+                ee_set.erase(constraint);
               } else {
                 constraint.distance = std::sqrt(distance_sqr);
                 constraint.lambda = 0.0;
@@ -373,12 +264,12 @@ namespace ipc {
           }
         });
 
+    // Process face-vertex constraint candidates
     tbb::parallel_for(
         tbb::blocked_range<size_t>(size_t(0), candidates.fv_candidates.size()),
-        [&](const tbb::blocked_range<size_t> &r)
-        {
-          for (size_t i = r.begin(); i < r.end(); i++)
-          {
+        [&](const tbb::blocked_range<size_t> &r) {
+          for (size_t i = r.begin(); i < r.end(); i++) {
+            // Construct face-vertex constraint candidate
             const auto &fv_candidate = candidates.fv_candidates[i];
             const auto &[fi, vi] = fv_candidate;
             long f0i = F(fi, 0), f1i = F(fi, 1), f2i = F(fi, 2);
@@ -388,22 +279,24 @@ namespace ipc {
                 V.row(fv_candidate.vertex_index), //
                 V.row(f0i), V.row(f1i), V.row(f2i));
 
+            // Squared point-triangle fact distance
             double distance_sqr = point_triangle_distance(
                 V.row(fv_candidate.vertex_index), //
                 V.row(f0i), V.row(f1i), V.row(f2i), dtype,
                 DistanceMode::SQUARED);
 
-            if (is_active(distance_sqr))
-            {
+            if (is_active(distance_sqr)) {
               std::lock_guard<std::mutex> lock(fv_mutex);
               
               FaceVertexMixedConstraint constraint(fv_candidate);
 
-              auto found_item = fv_map.find(constraint);
-              if (found_item != fv_map.end()) {
+              // Again, check if this constraint already exists. If so,
+              // reuse the values, otherwise initialize them.
+              auto found_item = fv_set.find(constraint);
+              if (found_item != fv_set.end()) {
                 constraint.distance = found_item->distance;
                 constraint.lambda = found_item->lambda;
-                fv_map.erase(constraint);
+                fv_set.erase(constraint);
               } else {
                 constraint.distance = std::sqrt(distance_sqr);
                 constraint.lambda = 0.0;
@@ -419,10 +312,10 @@ namespace ipc {
     }
 
     constraint_set = new_constraints;
-    // Check if any constraints are in ev_map, ee_map, fv_map, then add them to
-    // the new state
+    // TODO check if there are any remaining constraints in the ee|ev|fv_sets,
+    // and if there mixed distance is below the dhat value. This happens when
+    // the true distance is greater than dhat, but the mixed still hasn't caught
+    // up. In such a case, we need to NOT remove these constraints, and add them
+    // to the new constraint set.
   }
-
-  ///////////////////////////////////////////////////////////////////////////////
-
 }
