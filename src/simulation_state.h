@@ -51,7 +51,7 @@ namespace mfem {
   private:
     // Load triangle mesh
     static void load_mesh(const std::string& path, Eigen::MatrixXd& V,
-        Eigen::MatrixXi& T);
+        Eigen::MatrixXi& T, bool normalize_vertices);
 
     // Loads simulation parameters
     void load_params(const nlohmann::json& args);

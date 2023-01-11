@@ -11,7 +11,7 @@ namespace mfem {
         target_velocity_(config.target_velocity) {
       
       int d = V.cols();
-      f_ = target_velocity_;
+      f_ = config_.force[config_.axis];//target_velocity_;
 
       // Mark vertices that receive the area force
       is_forced_ = Eigen::VectorXi::Zero(V.rows());

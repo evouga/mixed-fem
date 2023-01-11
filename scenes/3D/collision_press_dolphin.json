@@ -1,15 +1,15 @@
 {
   "dt": 0.0333,
   "body_force": [0.0, -9.8, 0.0],
-  "print_timing": false,
+  "print_timing": true,
   "print_stats": true,
   "optimizer": "newton",
   "time_integrator": "BDF1",
   "linear_solver": "cholmod",
-  "enable_ccd": false,
-  "dhat": 0.001,
-  "kappa": 1e12,
-  "max_newton_iterations": 1,
+  "enable_ccd": true,
+  "dhat": 0.00025,
+  "kappa": 1e10,
+  "max_newton_iterations": 5,
   "max_linesearch_iterations": 20,
   "objects": [
     {
@@ -42,14 +42,21 @@
       "offset": [0.0, 0.5, 0.0],
       "material_index": 2,
       "normalize": false,
-      "boundary_condition": {
-        "type": "translate",
-        "ratio": 0.1,
+      "external_force": {
+        "type": "press",
+        "force": [0.0, -10.0, 0.0],
         "axis": 1,
-        "velocity": 0.225,
-        "duration": 5,
-        "flip": true
+        "ratio": 0.3,
+        "max_force": 100,
+        "target_velocity": -0.1,
+        "max_displacement": 0.5
       }
+    },
+    {
+      "path": "../models/mesh/dolphin.mesh",
+      "offset": [0.0, 0.0, 0.0],
+      "material_index": 1,
+      "normalize": false
     }
   ],
   "material_models": [
@@ -72,6 +79,6 @@
       "energy": "Stable-Neohookean"
     }
   ],
-  "mixed_variables": ["mixed-stretch"],
+  "mixed_variables": ["mixed-stretch","mixed-collision"],
   "variables": []
 }

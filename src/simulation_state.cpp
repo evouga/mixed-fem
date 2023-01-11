@@ -43,7 +43,8 @@ namespace {
 // Read 2D Mesh
 // TODO separate 3D or maybe even templated loading
 template <int DIM>
-void SimState<DIM>::load_mesh(const std::string& path, MatrixXd& V, MatrixXi& T) {
+void SimState<DIM>::load_mesh(const std::string& path, MatrixXd& V,
+    MatrixXi& T, bool normalize_vertices) {
   if constexpr (DIM == 2) {
     MatrixXd NV;
     MatrixXi NT;
@@ -64,9 +65,13 @@ void SimState<DIM>::load_mesh(const std::string& path, MatrixXd& V, MatrixXi& T)
     if (!igl::readMESH(path, V, T, F)) {
       exit(-1);
     }
-    double fac = V.maxCoeff();
-    V.array() /= fac;
-    std::cout << "normalizing vertices: SimState<DIM>::load_mesh" << std::endl;
+
+    if (normalize_vertices) {
+      std::cout << "normalizing vertices: SimState<DIM>::load_mesh" << std::endl;
+      double fac = V.maxCoeff();
+      V.array() /= fac;
+    }
+
   }
 }
 
@@ -147,6 +152,7 @@ bool SimState<DIM>::load(const nlohmann::json& args) {
       uint idx = 0;
       VectorXi material_ids;
       bool has_material_ids = false;
+      bool normalize_vertices = true;
 
       // Get File path
       if (const auto& it = obj.find("path"); it != obj.end()) {
@@ -155,6 +161,8 @@ bool SimState<DIM>::load(const nlohmann::json& args) {
         std::cerr << "Object missing path!" << std::endl;
         return false;
       }
+
+      read_and_assign(obj, "normalize", normalize_vertices);
 
       if (const auto& it = obj.find("offset"); it != obj.end()) {
         offset = it->get<std::vector<double>>();
@@ -171,7 +179,6 @@ bool SimState<DIM>::load(const nlohmann::json& args) {
         assert(initial_velocity.size() == 3);
       }
 
-      
       if (const auto& it = obj.find("material_ids"); it != obj.end()) {
         std::string mat_path = it->get<std::string>();
         has_material_ids = true;
@@ -187,7 +194,7 @@ bool SimState<DIM>::load(const nlohmann::json& args) {
 
       MatrixXd V, V0;
       MatrixXi T;
-      load_mesh(path, V, T);
+      load_mesh(path, V, T, normalize_vertices);
       V0 = V;
 
       // Apply translation offset
