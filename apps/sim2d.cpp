@@ -102,7 +102,6 @@ struct PolyscopeTriApp : public PolyscopeApp<2> {
     // Add collision frames
     const auto& frames = c->frames();
     int n = frames.size();
-    std::cout << "frames size: " << frames.size() << " n: " << c->num_collision_frames() << std::endl;
     for (int i = 0; i < n; ++i) {
       std::array<long, 4> ids = frames[i].vertex_indices(E, F);
       std::vector<int> ids_full;

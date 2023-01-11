@@ -5,9 +5,9 @@
 
 namespace mfem {
 
-  // Body or Neumann boundary conditions that are fixed within a single timestep.
-  // Useful for gravity or simple pushing forces, but not compatible with something like
-  // friction.
+  // Body or Neumann boundary conditions that are fixed within a timestep.
+  // Useful for gravity or simple pushing forces, but not compatible
+  // with something like friction.
   class ExternalForce {
   public:
 
@@ -30,8 +30,8 @@ namespace mfem {
       return is_forced_;
     }
 
-    bool is_constant() const {
-      return config_.is_fixed;
+    virtual bool is_constant() const {
+      return true;
     }
 
   protected:
@@ -51,23 +51,10 @@ namespace mfem {
     Eigen::VectorXd force_; // d|V| x 1 - force vector, 'd' is the dimension
   };
 
-  // Constant force applied over the entire object
-  class BodyForce : public ExternalForce {
-  public:
-    BodyForce(const Eigen::MatrixXd& V, const ExternalForceConfig& config)
-        : ExternalForce(V, config) {
-      int d = V.cols();
-      Eigen::VectorXd ext = Eigen::Map<Eigen::VectorXd>(config_.force,
-          V.cols());
-      force_ = ext.replicate(V.rows(),1);
-    }
-  };
-
   // Uniformly distributed force over an area of the mesh
   class AreaForce: public ExternalForce {
   public:
     AreaForce(const Eigen::MatrixXd& V,
-        const Eigen::SparseMatrix<double,Eigen::RowMajor>& M,
         const ExternalForceConfig& config) : ExternalForce(V, config) {
       
       int d = V.cols();
@@ -80,22 +67,40 @@ namespace mfem {
         force_ = f.replicate(V.rows(),1);
       } else {
         force_.resize(V.size());
+        force_.setZero();
         for (int i : groups_[group_id_]) {
           is_forced_(i) = 1;
           force_.segment(d*i,d) = f;
         }
       }
       update_force_map();
-
-
-
     }
 
   private:
     int group_id_ = 1;
-
   };
 
 
+  class StretchForce : public ExternalForce {
+  public:
+    StretchForce(const Eigen::MatrixXd& V,
+        const ExternalForceConfig& config) : ExternalForce(V, config) {
+      
+      int d = V.cols();
+      Eigen::VectorXd f = Eigen::Map<Eigen::VectorXd>(config_.force, V.cols());
 
+      // Mark vertices that receive the area force
+      is_forced_ = Eigen::VectorXi::Zero(V.rows());
+      force_.resize(V.size());
+      force_.setZero();
+
+      for (size_t i = 0; i < groups_.size(); ++i) {
+        for (int j : groups_[i]) {
+          is_forced_(j) = 1;
+          force_.segment(d*j,d) = std::pow(-1.0,i) * f;
+        }
+      }
+      update_force_map();
+    }
+  };
 }

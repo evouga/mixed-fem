@@ -131,10 +131,15 @@ namespace mfem {
       return ipc_mesh_;
     }
 
+    const Eigen::VectorXd& external_force() const {
+      return external_force_;
+    }
+
     // Update boundary conditions
     virtual void init_bcs();
     virtual void update_bcs(double dt) {
       bc_->step(V_, dt);
+      bc_ext_->step(V_, dt);
     }
 
   public:
@@ -142,8 +147,11 @@ namespace mfem {
     std::vector<int> free_map_;
     Eigen::VectorXi is_fixed_;
     BoundaryConditionConfig bc_config_;
+    ExternalForceConfig ext_config_;
     std::unique_ptr<BoundaryCondition> bc_;
     std::unique_ptr<ExternalForce> bc_ext_; // Neumann BCs and body forces
+    Eigen::VectorXd external_force_; 
+
 
     Eigen::MatrixXd V_;     // Current deformed vertices
     Eigen::MatrixXd Vref_;  // Reference vertex positions

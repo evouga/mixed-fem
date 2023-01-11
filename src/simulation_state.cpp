@@ -259,6 +259,35 @@ bool SimState<DIM>::load(const nlohmann::json& args) {
         read_and_assign(*it, "flip", cfg.flip);
         meshes.back()->bc_config_ = cfg;
       }
+
+      // After loading and creating mesh, check if any boundary conditions
+      // are specified.
+      if (const auto& it = obj.find("external_force"); it != obj.end()) {
+        ExternalForceFactory factory;
+        ExternalForceConfig cfg;
+
+        std::string name;
+        read_and_assign(*it, "type", name);
+        cfg.type = factory.type_by_name(name);
+
+        read_and_assign(*it, "is_body_force", cfg.is_body_force);
+        read_and_assign(*it, "axis", cfg.axis);
+        read_and_assign(*it, "ratio", cfg.ratio);
+        if (const auto& fext = it->find("force"); fext != it->end()) {
+          std::vector<double> ext = fext->get<std::vector<double>>();
+          assert(ext.size() == 3);
+          cfg.force[0] = ext[0];
+          cfg.force[1] = ext[1];
+          cfg.force[2] = ext[2];
+        }
+        read_and_assign(*it, "max_force", cfg.max_force);
+        read_and_assign(*it, "target_velocity", cfg.target_velocity);
+        read_and_assign(*it, "max_displacement", cfg.max_displacement);
+
+        //read_and_assign(*it, "duration", cfg.duration);
+        //read_and_assign(*it, "flip", cfg.flip);
+        meshes.back()->ext_config_ = cfg;
+      }
     }
   }
   mesh_ = std::make_shared<Meshes>(meshes);

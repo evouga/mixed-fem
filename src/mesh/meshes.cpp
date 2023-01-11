@@ -162,8 +162,8 @@ void Meshes::init_bcs() {
     is_fixed_.segment(start_V, sz_V) = meshes_[i]->is_fixed_;
 
     // Set segment of external force for each mesh
-    // external_force_.segment(dim*start_V, dim*sz_V) = 
-    //     meshes_[i]->bc_ext_->force();
+    external_force_.segment(dim*start_V, dim*sz_V) = 
+        meshes_[i]->bc_ext_->force();
 
     //TODO not sure this should be here.
     V_.block(start_V, 0, sz_V, dim) = meshes_[i]->V_;
@@ -194,6 +194,14 @@ void Meshes::update_bcs(double dt) {
     // Ugh!
     MatrixXd tmp = V_.block(start_V, 0, sz_V, dim);
     meshes_[i]->bc_->step(tmp, dt);
+
+    // Update segment of external force for each mesh
+    if (!meshes_[i]->bc_ext_->is_constant()) {
+      meshes_[i]->bc_ext_->step(tmp, dt);
+      external_force_.segment(dim*start_V, dim*sz_V) = 
+          meshes_[i]->bc_ext_->force();
+    }
+
     V_.block(start_V, 0, sz_V, dim) = tmp;
     start_V += sz_V;
   }

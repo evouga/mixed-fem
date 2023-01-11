@@ -1,0 +1,51 @@
+{
+  "dt": 0.0333,
+  "body_force": [0.0, -9.8, 0.0],
+  "print_timing": true,
+  "print_stats": true,
+  "optimizer": "newton",
+  "time_integrator": "BDF1",
+  "linear_solver": "cholmod",
+  "enable_ccd": false,
+  "max_newton_iterations": 10,
+  "max_linesearch_iterations": 20,
+  "objects": [
+    {
+      "path": "../models/obj/square_xy_145.obj",
+      "offset": [0.0, 0.0, 0.0],
+      "material_index": 0,
+      "boundary_condition": {
+        "type": "stretch",
+        "ratio": 0.1,
+        "velocity": -0.05,
+        "axis": 0
+      },
+      "external_force": {
+        "type": "area",
+        "is_body_force": true,
+        "force": [0.0, 0.0, 0.0]
+      }
+    },
+    {
+      "path": "../models/obj/square_xy_145.obj",
+      "offset": [0.0, 3.0, 0.0],
+      "material_index": 0,
+      "external_force": {
+        "type": "stretch",
+        "force": [-300.0, 0.0, 0.0],
+        "axis": 0,
+        "ratio": 0.1
+      }
+    }
+  ],
+  "material_models": [
+    {
+      "youngs_modulus": 1e5,
+      "poissons_ratio": 0.45,
+      "density": 1e3,
+      "energy": "Corot"
+    }
+  ],
+  "mixed_variables": ["mixed-stretch"],
+  "variables": []
+}

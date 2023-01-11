@@ -83,6 +83,9 @@ void Mesh::init() {
 }
 
 void Mesh::init_bcs() {
+  ExternalForceFactory ext_factory;
+  bc_ext_ = ext_factory.create(ext_config_.type, Vref_, ext_config_);
+  bc_ext_->init(V_);
 
   BoundaryConditionFactory factory;
   bc_ = factory.create(bc_config_.type, Vref_, bc_config_);

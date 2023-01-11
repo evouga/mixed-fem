@@ -102,6 +102,5 @@ namespace mfem {
     Eigen::VectorXd dx_;      // displacement deltas
     Eigen::VectorXd rhs_;     // right-hand-side vector
     Eigen::VectorXd grad_;    // Gradient with respect to 's' variables
-    Eigen::VectorXd f_ext_;   // body forces
   };
 }

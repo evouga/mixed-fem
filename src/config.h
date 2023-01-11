@@ -154,8 +154,8 @@ namespace mfem {
 
   // Config for body forces and neumann BCs
   struct ExternalForceConfig {
+    ExternalForceType type = ExternalForceType::EXT_AREA_FORCE;
     bool is_body_force = true; // is force applied to every vertex
-    bool is_fixed = true;      // does the force stay constant after a timestep
 
     // force x,y,z vector in Newtons (default is gravity)
     double force[3] = {0, -9.8, 0};       

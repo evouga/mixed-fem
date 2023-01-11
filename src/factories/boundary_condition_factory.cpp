@@ -4,6 +4,7 @@
 #include "boundary_conditions/stretch_boundary_condition.h"
 #include "boundary_conditions/twist_boundary_condition.h"
 #include "boundary_conditions/moving_boundary_condition.h"
+#include "boundary_conditions/press_force.h"
 
 using namespace mfem;
 using namespace Eigen;
@@ -59,4 +60,23 @@ BoundaryConditionFactory::BoundaryConditionFactory() {
       [](Eigen::MatrixXd V, BoundaryConditionConfig cfg)
       ->std::unique_ptr<BoundaryCondition>
       {return std::make_unique<TranslateBC>(V, cfg);});
+}
+
+ExternalForceFactory::ExternalForceFactory() {
+
+  register_type(EXT_AREA_FORCE, "area", 
+      [](Eigen::MatrixXd V, ExternalForceConfig cfg)
+      ->std::unique_ptr<ExternalForce>
+      {return std::make_unique<AreaForce>(V, cfg);});
+
+  register_type(EXT_STRETCH, "stretch", 
+      [](Eigen::MatrixXd V, ExternalForceConfig cfg)
+      ->std::unique_ptr<ExternalForce>
+      {return std::make_unique<StretchForce>(V, cfg);});
+
+  register_type(EXT_MECHANICAL_PRESS, "press", 
+      [](Eigen::MatrixXd V, ExternalForceConfig cfg)
+      ->std::unique_ptr<ExternalForce>
+      {return std::make_unique<MechanicalPress>(V, cfg);});
+
 }
