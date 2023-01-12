@@ -55,7 +55,8 @@ namespace mfem {
     SOLVER_MINRES_ADMM,
     SOLVER_ADMM,
     SOLVER_SUBSPACE,
-    SOLVER_AMGCL
+    SOLVER_AMGCL,
+    SOLVER_EIGEN_CG_ARAP
   };
 
   enum MaterialModelType { 

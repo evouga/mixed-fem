@@ -56,10 +56,9 @@ namespace mfem {
     std::vector<std::pair<int,int>> global_pairs;
     std::vector<std::pair<int,int>> local_pairs;
 
-    int num_nodes; // number of unique pairs / blocks in matrix
     std::vector<int> multiplicity; // number of pairs to sum over for a node
-    std::vector<int> row_offsets;
-    std::vector<int> offsets;
+    std::vector<int> row_offsets;  // each entry is index into new row
+    std::vector<int> offsets;      // unique pairs
     Eigen::SparseMatrix<Scalar, Eigen::RowMajor> A;
 
   };

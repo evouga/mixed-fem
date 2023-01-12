@@ -4,7 +4,6 @@
 #include "svd/newton_procrustes.h"
 #include "svd/dsvd.h"
 #include "svd/svd_eigen.h"
-#include "utils/functor.h"
 // #include "svd/iARAP.h"
 
 using namespace Eigen;

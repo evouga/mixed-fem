@@ -139,7 +139,7 @@ void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
           constraints_.constraint_mollifier_gradient(i, V_srf, E);
       Gd_(i) *= mollifier;
       Gx_[i] = mollifier*Gx_[i] + (D_(i) - d_(i))*mollifier_grad;
-      std::cout << "HEY MOLLIFIER IS ON :)" << mollifier << std::endl;
+      // std::cout << "HEY MOLLIFIER IS ON :)" << mollifier << std::endl;
       // std::cout << "\t Gradient:\n" << mollifier_grad << std::endl;
       // std::cout << "\t Gradient:2\n" << Gx_[i] << std::endl;
     }

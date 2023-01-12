@@ -37,6 +37,6 @@ namespace mfem {
     // Linear solve
     void substep(double& decrement);
 
-    std::unique_ptr<LinearSolver<double, DIM>> solver_;
+    std::unique_ptr<LinearSolver<double, DIM>> linear_solver_;
   };
 }

@@ -34,15 +34,14 @@ Assembler<Scalar,DIM,N>::Assembler(const MatrixXi& E,
   std::vector<int> ids;
   ids.reserve(N_*N_*E.rows());
 
-  int cols = E.cols();
-  // Identify all node pairs for each element
+  // Add all node pairs for each element
   for (int i = 0; i < E.rows(); ++i) {
-    for (int j = 0; j < cols; ++j) {
+    for (int j = 0; j < N_; ++j) {
       // Make sure indices are valid and unpinned
       if (E(i,j) == -1 || free_map[E(i,j)] == -1) continue;
       int id1 = free_map[E(i,j)];
 
-      for (int k = 0; k < cols; ++k) {
+      for (int k = 0; k < N_; ++k) {
         if (E(i,k) == -1 || free_map[E(i,k)] == -1) continue;
         int id2 = free_map[E(i,k)];
 
@@ -75,14 +74,11 @@ Assembler<Scalar,DIM,N>::Assembler(const MatrixXi& E,
   std::pair<int, int> curr_pair;
 
   //row_offsets.push_back(curr_row);
-  num_nodes = 0;
 
   // Loop over pairs, counting duplicates
   // Purpose of this is so that we can easily sum over duplicate
   // entries when assembling the matrix
   while (i < multiplicity.size()) {
-      //&& (i + multiplicity[i]) < multiplicity.size()) {
-
     curr_pair = global_pairs[i];
 
     // Mark the offset in which we meet a new row
@@ -99,35 +95,18 @@ Assembler<Scalar,DIM,N>::Assembler(const MatrixXi& E,
 
     offsets.push_back(i);
     i += multiplicity[i];
-    ++num_nodes;
   }
   row_offsets.push_back(multiplicity.size());
 
-  // std::cout << "Multiplicity: ";
-  // for (int i =0; i < multiplicity.size(); ++i) {
-  //   std::cout << multiplicity[i] << " ";
-  // }
-  // std::cout << std::endl;
-  // std::cout << "Element IDS: ";
-  // for (int i =0; i < element_ids.size(); ++i) {
-  //   std::cout << element_ids[i] << " ";
-  // }
-  // std::cout << std::endl;
-  // std::cout << "Global Pairs: ";
-  // for (int i =0; i < global_pairs.size(); ++i) {
-  //   std::cout << "(" << global_pairs[i].first << ", " << global_pairs[i].second << ") ";
-  // }
-  // std::cout << std::endl;
-  // Initialize our sparse matrix
+  // Initialize our sparse matrix using each unique global pair
   std::vector<Triplet<Scalar>> trips;
-  for (int i = 0; i < num_nodes; ++i) {
+  for (size_t i = 0; i < offsets.size(); ++i) {
     std::pair<int,int>& p = global_pairs[offsets[i]];
     // std::cout << "i: " << i << " offset: " << offsets[i] << " pair: " << p.first << ", " << p.second << std::endl;
     for (int j = 0; j < DIM; ++j) {
       for (int k = 0; k < DIM; ++k) {
         trips.push_back(Triplet<double>(
               p.first*DIM+j, p.second*DIM+k,1.0));
-
       }
     }
   }
@@ -141,44 +120,34 @@ Assembler<Scalar,DIM,N>::Assembler(const MatrixXi& E,
 template <typename Scalar, int DIM, int N>
 void Assembler<Scalar,DIM,N>::update_matrix(const std::vector<MatM>& blocks)
 {
-  //std::cout << "Assemble" << std::endl;
   // Iterate over M rows at a time
-
-  // for (int i = 0; i < 3; ++i) {
-  //   std::cout << "k start: " << A.outerIndexPtr()[i] << std::endl;
-  //   std::cout << "k end: " << A.outerIndexPtr()[i+1] << std::endl;
-  // }
   #pragma omp parallel for
   for (size_t ii = 0; ii < row_offsets.size() - 1; ++ii) {
     int row_beg = row_offsets[ii];
     int row_end = row_offsets[ii+1];
 
-    // std::cout << "non zeros: " << A.nonZeros() << std::endl;
-    // std::cout << "row beg: " << row_beg << " k_start: " << A.outerIndexPtr()[DIM*ii] << std::endl;;
-    // std::cout << "row end: " << row_end << std::endl;
     // The index of the block for this row. 
     int block_col = 0;
 
     while (row_beg < row_end) {
-      // Get number of duplicate blocks for this offset
+      // Get number of duplicate blocks for this offset (block)
       int n = multiplicity[row_beg];
-      // std::cout << "n: " << n << " block col: " << block_col << std::endl;
 
-      // Get the global positioning of this block
-      const std::pair<int,int>& g = global_pairs[row_beg];
-      // std::cout << "g: " << g.first << ", " << g.second << std::endl;
-
-      // Compute Local block
+      // Compute Local block by summing all the blocks which
+      // share the same global pair values.
       Matrix<double,DIM,DIM> local_block;
       local_block.setZero();
       for (int i = 0; i < n; ++i) {
-
+        // Get element index for this block
         int e = element_ids[row_beg + i];
 
         // Local coordinates within element's block
         const std::pair<int,int>& l = local_pairs[row_beg + i];
         local_block += blocks[e].block(DIM*l.first, DIM*l.second, DIM, DIM);
       }
+
+      // Get the global positioning of this block
+      const std::pair<int,int>& g = global_pairs[row_beg];
 
       // Apologies to the cache locality gods
       // For each row of the DIMxDIM blocks
@@ -198,7 +167,6 @@ void Assembler<Scalar,DIM,N>::update_matrix(const std::vector<MatM>& blocks)
       row_beg += n;
       ++block_col;
     }
-
   }
 }
 

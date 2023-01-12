@@ -168,7 +168,7 @@ template <int DIM>
 void NewtonOptimizer<DIM>::substep(double& decrement) {
   // Solve linear system
   state_.data_.timer.start("global");
-  solver_->solve();
+  linear_solver_->solve();
   state_.data_.timer.stop("global");
 
   // Use infinity norm of deltas as termination criteria
@@ -191,7 +191,7 @@ void NewtonOptimizer<DIM>::reset() {
   }
 
   LinearSolverFactory<DIM> solver_factory;
-  solver_ = solver_factory.create(state_.config_->solver_type, &state_);
+  linear_solver_ = solver_factory.create(state_.config_->solver_type, &state_);
 }
 
 template class mfem::NewtonOptimizer<3>;

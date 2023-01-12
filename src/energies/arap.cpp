@@ -40,26 +40,6 @@ Vector6d ARAP::gradient(const Vector6d& S) {
 
 }
 
-Matrix6d ARAP::hessian_inv(const Vector6d& S) {
-  
-  double mu = config_->mu;
-  double S1 = S(0);
-  double S2 = S(1);
-  double S3 = S(2);
-  double S4 = S(3);
-  double S5 = S(4);
-  double S6 = S(5);
-  Matrix6d Hinv;
-  Hinv.setZero();
-  Hinv(0,0) = 1. / mu;
-  Hinv(1,1) = 1. / mu;
-  Hinv(2,2) = 1. / mu;
-  Hinv(3,3) = 1. / (2.0 * mu);
-  Hinv(4,4) = 1. / (2.0 * mu);
-  Hinv(5,5) = 1. / (2.0 * mu);
-  return Hinv;
-}
-
 Matrix6d ARAP::hessian(const Vector6d& S, bool psd_fix) {
   double mu = config_->mu;
   Vector6d tmp; tmp << 1,1,1,2,2,2;
