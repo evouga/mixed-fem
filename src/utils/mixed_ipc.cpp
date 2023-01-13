@@ -361,6 +361,23 @@ namespace ipc {
       new_constraints[ci].minimum_distance = dmin;
     }
 
+    // if ((ee_set.size() + ev_set.size() + fv_set.size()) > 0) {
+    //   std::cout << "WARNING: " << ee_set.size() << " edge-edge, " << ev_set.size()
+    //             << " edge-vertex, and " << fv_set.size()
+    //             << " face-vertex constraints were not removed." << std::endl;
+    // }
+
+    // For each remaining element in sets, add elements into new_constraints
+    for (const auto& constraint : ee_set) {
+      new_constraints.ee_constraints.emplace_back(constraint);
+    }
+    for (const auto& constraint : ev_set) {
+      new_constraints.ev_constraints.emplace_back(constraint);
+    }
+    for (const auto& constraint : fv_set) {
+      new_constraints.fv_constraints.emplace_back(constraint);
+    }
+
     constraint_set = new_constraints;
     // TODO check if there are any remaining constraints in the ee|ev|fv_sets,
     // and if there mixed distance is below the dhat value. This happens when

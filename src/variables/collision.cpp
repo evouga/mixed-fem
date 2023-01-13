@@ -34,10 +34,14 @@ double Collision<DIM>::energy(const VectorXd& x) {
   // Computing barrier potential for all collision frames
   #pragma omp parallel for reduction( + : e )
   for (size_t i = 0; i < constraints.size(); ++i) {
-    //double d = constraints[i].compute_distance(V, E, F);
+    double d = constraints[i].compute_distance(V, E, F);
     //e += config_->kappa * ipc::barrier(d, dhat_sqr) / h2;
-    e += config_->kappa * constraints[i].compute_potential(
-        V, E, F, config_->dhat) / h2;
+    if (d <= 0.0) {
+      e += std::numeric_limits<double>::infinity();
+    } else {
+      e += config_->kappa * constraints[i].compute_potential(
+          V, E, F, config_->dhat) / h2;
+    }
   }
   return e;
 }

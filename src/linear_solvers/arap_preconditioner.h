@@ -5,36 +5,6 @@
 
 namespace Eigen {
 
-  // Block jacobi diagonal preconditioner. Inverts the NxN blocks of the sparse matrix along the diagonal
-  void block_jacobi_preconditioner(SparseMatrix<double,RowMajor>& A, const VectorXd& b, VectorXd& x) {
-// assume A is a sparse matrix with blocks of size nxn
-    // assume b is a vector with n blocks
-    // assume x is a vector with n blocks
-    // assume A is symmetric
-    // assume A is positive definite
-    // assume A is block diagonal
-    // assume A is square
-    // assume A is stored in row major order
-    // assume A is stored in compressed sparse row format
-
-    // get the number of blocks
-    int n = b.size();
-    // get the number of rows in each block
-    int m = A.rows()/n;
-
-    // loop over the blocks
-    for (int i = 0; i < n; i++) {
-      // // get the diagonal block
-      // SparseMatrix<double> Aii = A.block(i*m,i*m,m,m);
-      // // get the diagonal block of b
-      // VectorXd bi = b.segment(i*m,m);
-      // // get the diagonal block of x
-      // VectorXd& xi = x.segment(i*m,m);
-      // // solve the block system
-      // xi = Aii.colPivHouseholderQr().solve(bi);
-    }
-  }
-
   template <typename Scalar, int DIM>
   class ArapPreconditioner {
       typedef Matrix<Scalar,Dynamic,1> Vector;
@@ -70,7 +40,22 @@ namespace Eigen {
         state->mixed_vars_[0]->jacobian_x(Gx);
 
         // TODO double multiplying by areas currently. Make a volume diagonal matrix
-        MatType L = k * Gx * Gx.transpose();
+        const VectorXd& vols = state->mesh_->volumes();
+        SparseMatrix<double, RowMajor> W;
+
+        int N = std::pow(state->mesh_->V_.cols(),2);
+        W.resize(N*vols.size(), N*vols.size());
+ 
+        std::vector<Triplet<double>> trips;
+        for (int i = 0; i < vols.size(); ++i) {
+          for (int j = 0; j < N; ++j) {
+            trips.push_back(Triplet<double>(N*i+j, N*i+j, 1.0 / vols(i)));
+          }
+        }
+        W.setFromTriplets(trips.begin(),trips.end());
+
+
+        MatType L = k * Gx * W * Gx.transpose();
         L += state->mesh_->mass_matrix(); 
         solver_.compute(L);
         if (solver_.info() != Eigen::Success) {

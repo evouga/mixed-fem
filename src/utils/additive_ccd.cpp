@@ -49,7 +49,7 @@ namespace {
     t = 0.0;
     double t_l = (1.0 - s) * d / l_p;
 
-
+    int cnt = 0;
     while (true) {
       x1 += t_l * p1;
       x2 += t_l * p2;
@@ -65,6 +65,11 @@ namespace {
         break;
       }
       t_l = 0.9 * d / l_p;
+      if(++cnt > 1000) {
+        // std::cout << "t: " << t << " d: " << d << " t_l" << t_l << " l_p: " << l_p << std::endl;
+        // std::cout << "CNT > 1000" << cnt << std::endl;
+        break;
+      }
     }
     return valid;
   }
@@ -89,9 +94,11 @@ double ipc::additive_ccd(const VectorXd& x, const VectorXd& p,
   V2 = mesh.vertices(V2);
   MatrixXd P = V2-V1;
 
+  // std::cout << "Construct collision candidates 1" << std::endl;
   ipc::Candidates candidates;
-  ipc::construct_collision_candidates(mesh, V1, V2, candidates);/*, dhat * 1.1,
-      ipc::BroadPhaseMethod::SPATIAL_HASH);*/
+  ipc::construct_collision_candidates(mesh, V1, V2, candidates, dhat / 2.0,
+      ipc::BroadPhaseMethod::SWEEP_AND_TINIEST_QUEUE);
+  // std::cout << "Construct collision candidates 2" << std::endl;
 
 
   const Eigen::MatrixXi& E = mesh.edges();
@@ -143,6 +150,7 @@ double ipc::additive_ccd(const VectorXd& x, const VectorXd& p,
 
   } else {
 
+    // std::cout << "EDGE EDGE " << std::endl;
     // Edge-edge distance checks
     #pragma omp parallel for reduction(min : min_step)
     for (size_t i = 0; i < candidates.ee_candidates.size(); ++i) {
@@ -178,6 +186,7 @@ double ipc::additive_ccd(const VectorXd& x, const VectorXd& p,
       }
     }
 
+    // std::cout << "Face Vertex" << std::endl;
     // Face-vertex distance checks
     #pragma omp parallel for reduction(min : min_step)
     for (size_t i = 0; i < candidates.fv_candidates.size(); ++i) {

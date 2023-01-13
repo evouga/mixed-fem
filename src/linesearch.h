@@ -116,7 +116,7 @@ namespace mfem {
       alpha = alpha * p;
       ++iter;
     }
-
+    // std::cout << "ALPHA: " << alpha << std::endl;
     if(iter < max_iterations) {
       state.x_->value() += alpha * state.x_->delta();
       for (auto& var : state.mixed_vars_) {

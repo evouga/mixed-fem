@@ -18,7 +18,8 @@ double MixedCollision<DIM>::energy(const VectorXd& x, const VectorXd& d) {
   // Get IPC mesh and face/edge/vertex data
   const auto& ipc_mesh = mesh_->collision_mesh();
   MatrixXd V_srf = ipc_mesh.vertices(V); // surface vertex set
-
+  // TODO   ipc::construct_collision_candidates(mesh, V1, V2, candidates);/*, dhat * 1.1,
+  // use this method instead!!!
   // Computing collision constraints
   ipc::MixedConstraints constraints = constraints_;
   constraints.update_distances(d);
@@ -35,7 +36,11 @@ double MixedCollision<DIM>::energy(const VectorXd& x, const VectorXd& d) {
   for (size_t i = 0; i < constraints.size(); ++i) {
     double di = constraints.distance(i);
     //e += config_->kappa * ipc::barrier(di, config_->dhat) / h2;
-    e += config_->kappa * ipc::barrier(di*di, config_->dhat*config_->dhat) / h2;
+    if (di <= 0.0) {
+      e += std::numeric_limits<double>::infinity();
+    } else {
+      e += config_->kappa * ipc::barrier(di*di, config_->dhat*config_->dhat) / h2;
+    }
   }
   return e;
 }
@@ -137,23 +142,38 @@ void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
     if (constraints_.constraint_mollifier(i, V_srf, E, mollifier)) {
       ipc::VectorMax12d mollifier_grad =
           constraints_.constraint_mollifier_gradient(i, V_srf, E);
-      Gd_(i) *= mollifier;
-      Gx_[i] = mollifier*Gx_[i] + (D_(i) - d_(i))*mollifier_grad;
-       std::cout << "HEY MOLLIFIER IS ON :)" << mollifier << std::endl;
-      // std::cout << "\t Gradient:\n" << mollifier_grad << std::endl;
-      // std::cout << "\t Gradient:2\n" << Gx_[i] << std::endl;
+      // Gd_(i) *= mollifier;
+      // Gx_[i] = mollifier*Gx_[i] + (D_(i) - d_(i))*mollifier_grad;
+      //  std::cout << "HEY MOLLIFIER IS ON :)" << mollifier << std::endl;
+      //  if (mollifier <1e-4) {
+      //     std::cout << "\t Gradient:\n" << mollifier_grad << std::endl;
+      //     std::cout << "\t Gradient:2\n" << Gx_[i] << std::endl;
+      //  }
+
     }
   }
 
   if (num_frames > 0) {
     double ratio = d_.minCoeff() / D_.minCoeff();
-    if (ratio > 1e3) {
+    if (la_.minCoeff() > 1e7 || ratio > 1e3) {
       std::cout << "WARNING: distance discrepancy is high" << std::endl;
       std::cout << "la max: " << la_.maxCoeff() 
                 << " min: " << la_.minCoeff() << std::endl;
       std::cout << "d min: " << d_.minCoeff() << std::endl;
       std::cout << "D min: " << D_.minCoeff() << std::endl;
       std::cout << "Ratio: " << d_.minCoeff() / D_.minCoeff() << std::endl;
+      
+      for (int i = 0 ; i < num_frames; ++i) {
+        if (abs(la_(i)) > 1e7) {
+          // std::cout << "la(" << i << ") = " << la_(i) << std::endl;
+          // std::cout << "Gd(" << i << ") = " << Gd_(i) << std::endl;
+          // std::cout << "Gd^2(" << i << ") = " << Gd_(i)*Gd_(i) << std::endl;
+          // std::cout << "Gx(" << i << ") = " << Gx_[i].transpose() << std::endl;
+          // std::cout << "d(" << i << ") = " << d_(i) << std::endl;
+          // std::cout << "D(" << i << ") = " << D_(i) << std::endl;
+          // exit(1);
+        }
+      }
     }
   }
 
