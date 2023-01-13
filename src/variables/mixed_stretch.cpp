@@ -176,6 +176,7 @@ void MixedStretch<DIM>::update_derivatives(double dt) {
     Hloc_[i] = vol * H;
   }
   data_.timer.stop("Hinv");
+  std::cout << "eval max coef " << evals_.maxCoeff() << std::endl; 
   
   data_.timer.start("Local H");
   const std::vector<MatrixXd>& Jloc = mesh_->local_jacobians();

@@ -60,6 +60,10 @@ namespace mfem {
       return la_.size();
     }
 
+    const Eigen::VectorXd& max_stresses() const {
+      return evals_;
+    }
+
     void evaluate_constraint(const Eigen::VectorXd& x,
         Eigen::VectorXd&) override;
     void hessian(Eigen::SparseMatrix<double>&) override;

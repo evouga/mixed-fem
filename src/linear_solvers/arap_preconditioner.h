@@ -2,6 +2,7 @@
 
 #include "simulation_state.h"
 #include "EigenTypes.h"
+#include "variables/mixed_stretch.h"
 
 namespace Eigen {
 
@@ -29,20 +30,20 @@ namespace Eigen {
           throw std::runtime_error("Using ARAP preconditioner without mixed vars");
         }
 
-        // Conjure up some silly stiffness
-        double k = state->config_->h * state->config_->h;
-        double ym = 1e4;
+        double ym = 1e6;
         double pr = 0.45;
         double mu = ym/(2.0*(1.0+pr));
+        double k = state->config_->h * state->config_->h;
         k *= mu;
-
         SparseMatrixd Gx;
         state->mixed_vars_[0]->jacobian_x(Gx);
 
+        std::cout << "pre solve " << std::endl;
         // TODO double multiplying by areas currently. Make a volume diagonal matrix
         const VectorXd& vols = state->mesh_->volumes();
         SparseMatrix<double, RowMajor> W;
 
+        std::cout << "pre solve " << std::endl;
         int N = std::pow(state->mesh_->V_.cols(),2);
         W.resize(N*vols.size(), N*vols.size());
  
@@ -52,23 +53,37 @@ namespace Eigen {
             trips.push_back(Triplet<double>(N*i+j, N*i+j, 1.0 / vols(i)));
           }
         }
+        std::cout << "pre solve " << std::endl;
         W.setFromTriplets(trips.begin(),trips.end());
-
-
-        MatType L = k * Gx * W * Gx.transpose();
-        L += state->mesh_->mass_matrix(); 
-        solver_.compute(L);
+        std::cout << "pre solve " << std::endl;
+        L_ = Gx * W * Gx.transpose();
+        std::cout << "pre solve " << std::endl;
+        solver_.compute(state->mesh_->mass_matrix() + k*L_);
         if (solver_.info() != Eigen::Success) {
           throw std::runtime_error("ARAP preconditioner factorization failed!");
         }
-        // const T* c = dynamic_cast<const *>(var);
-        // if (!c) return false;
-        // if (state->mixed_vars_) {
-        // } else {
-        //   throw std::runtime_error("Using ARAP preconditioner without mixed-stretch");
-        // }
+        std::cout << "post solve " << std::endl;
         is_initialized_ = true;
         state_ = state;
+      }
+
+      void rebuild_factorization() {
+        // Conjure up some silly stiffness
+        double k = state_->config_->h * state_->config_->h;
+        const mfem::MixedStretch<DIM>* c = dynamic_cast<
+            const mfem::MixedStretch<DIM>*>(state_->mixed_vars_[0].get());
+        if (c) {
+          std::cout << "max stresses: " << c->max_stresses().size() << std::endl;
+          double max_stress = c->max_stresses().maxCoeff();
+          std::cout << "MAXIMUM stress" << max_stress << std::endl;
+          k *= max_stress;
+        } else {
+          throw std::runtime_error("Using ARAP preconditioner without mixed-stretch");
+        }
+        solver_.compute(state_->mesh_->mass_matrix() + k*L_);
+        if (solver_.info() != Eigen::Success) {
+          throw std::runtime_error("ARAP preconditioner factorization failed!");
+        }
       }
    
       ArapPreconditioner& analyzePattern(const MatType&) {
@@ -76,35 +91,16 @@ namespace Eigen {
       }
    
       ArapPreconditioner& factorize(const MatType& mat) {
-        mat.block(1,1,1,1);
-        // for (auto& var : state_->mixed_vars_) {
-        //   SparseMatrixd Gx;
-        //   var->jacobian_x(Gx);
-        //   SparseMatrixdRowMajor L = Gx.transpose() * Mlumpinv_ * Gx; 
-        //   for (int i = 0; i < L.rows(); ++i) {
-        //     L.coeffRef(i,i) += 1e-8;
-        //   }
-
-        //   // SparseMatrix<double> A, C;
-        //   // var->hessian(A);
-        //   // var->jacobian_mixed(C);
-        //   //
-        //   Linv.factorize(L);
-        //   if (Linv.info() != Eigen::Success) {
-        //    std::cerr << "Linv prefactor failed! " << std::endl;
-        //    exit(1);
-        //   }
-        // }
         return *this;
       }
    
       ArapPreconditioner& compute(const MatType& mat) {
-        // static int step = 0;
-        // if (step == 0) {
-        //   std::cout << "factorize" << std::endl;
-        //   factorize(mat);
-        // }
-        // step = (step + 1) % state_->config_->outer_steps;
+         static int step = 5;
+         if (step == 0) {
+           std::cout << "factorize" << std::endl;
+           rebuild_factorization();
+         }
+         step = (step + 1) % 10;
         return *this;
       }
    
@@ -127,6 +123,7 @@ namespace Eigen {
       SimplicialLLT<MatType, Upper|Lower> solver_;
       const mfem::SimState<DIM>* state_;
       bool is_initialized_;
+      MatType L_;
   };
 
   template <typename Scalar, int DIM>
