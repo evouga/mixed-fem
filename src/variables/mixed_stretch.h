@@ -150,6 +150,8 @@ namespace mfem {
     Eigen::VectorXd grad_la_; // Gradient with respect to dual variables
     Eigen::VectorXd gl_;      // tmp var: g_\Lambda in the notes
     Eigen::VectorXd Jdx_;     // tmp var: Jacobian multiplied by dx
+    Eigen::VectorXd evals_;   // Maximum eigenvalues of the local stresses
+
     std::vector<MatD> R_;     // per-element rotations
     std::vector<VecN> S_;     // per-element deformation
     std::vector<VecN> g_;     // per-element gradients

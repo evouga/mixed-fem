@@ -38,7 +38,7 @@ namespace {
     double l_p = p1.rowwise().norm().maxCoeff()
                + p2.rowwise().norm().maxCoeff();
 
-    if (l_p <= 1e-16) {
+    if (l_p <= 1e-12) {
       return false;
     }
 
@@ -90,8 +90,8 @@ double ipc::additive_ccd(const VectorXd& x, const VectorXd& p,
   MatrixXd P = V2-V1;
 
   ipc::Candidates candidates;
-  ipc::construct_collision_candidates(mesh, V1, V2, candidates, dhat * 1.1,
-      ipc::BroadPhaseMethod::SPATIAL_HASH);
+  ipc::construct_collision_candidates(mesh, V1, V2, candidates);/*, dhat * 1.1,
+      ipc::BroadPhaseMethod::SPATIAL_HASH);*/
 
 
   const Eigen::MatrixXi& E = mesh.edges();

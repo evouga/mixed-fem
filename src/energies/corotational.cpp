@@ -1,5 +1,4 @@
 #include "energies/corotational.h"
-#include "simple_psd_fix.h"
 #include "config.h"
 
 using namespace Eigen;

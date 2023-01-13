@@ -4,6 +4,7 @@
 #include "svd/newton_procrustes.h"
 #include "svd/dsvd.h"
 #include "svd/svd_eigen.h"
+#include "utils/psd_fix.h"
 // #include "svd/iARAP.h"
 
 using namespace Eigen;
@@ -167,7 +168,9 @@ void MixedStretch<DIM>::update_derivatives(double dt) {
     double vol = mesh_->volumes()[i];
     const VecN& si = s_.segment<N()>(N()*i);
     MatN H = h2 * mesh_->elements_[i].material_->hessian(si);
-    Hinv_[i] = H.inverse();
+    VecN evals;
+    psd_fix_invert(H, Hinv_[i], evals); 
+    evals_(i) = h2 * evals(N()-1); // store maximum eigenvalue
     g_[i] = h2 * mesh_->elements_[i].material_->gradient(si);
     H_[i] = (1.0 / vol) * (Syminv() * H * Syminv());
     Hloc_[i] = vol * H;
@@ -281,6 +284,7 @@ void MixedStretch<DIM>::reset() {
   Hinv_.resize(nelem_);
   Hloc_.resize(nelem_);
   Aloc_.resize(nelem_);
+  evals_.resize(nelem_);
   assembler_ = std::make_shared<Assembler<double,DIM,-1>>(
       mesh_->T_, mesh_->free_map_);
 

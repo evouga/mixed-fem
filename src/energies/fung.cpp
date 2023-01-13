@@ -1,5 +1,4 @@
 #include "energies/fung.h"
-#include "simple_psd_fix.h"
 #include "config.h"
 
 using namespace Eigen;
@@ -91,10 +90,6 @@ Matrix6d Fung::hessian(const Vector6d& S, bool psd_fix) {
   H(5,3) = S5*la*((mu+c*mu)/la+S1*(S6*S6)+S2*(S5*S5)+S3*(S4*S4)-S1*S2*S3-S4*S5*S6*2.0+1.0)*-2.0+la*(S1*S6*2.0-S4*S5*2.0)*(S3*S4*2.0-S5*S6*2.0)+S4*S6*(c*c)*mu*exp((c*(S1*S1+S2*S2+S3*S3+(S4*S4)*2.0+(S5*S5)*2.0+(S6*S6)*2.0-3.0))/2.0)*2.0;
   H(5,4) = S4*la*((mu+c*mu)/la+S1*(S6*S6)+S2*(S5*S5)+S3*(S4*S4)-S1*S2*S3-S4*S5*S6*2.0+1.0)*-2.0+la*(S1*S6*2.0-S4*S5*2.0)*(S2*S5*2.0-S4*S6*2.0)+S5*S6*(c*c)*mu*exp((c*(S1*S1+S2*S2+S3*S3+(S4*S4)*2.0+(S5*S5)*2.0+(S6*S6)*2.0-3.0))/2.0)*2.0;
   H(5,5) = mu*2.0+la*pow(S1*S6*2.0-S4*S5*2.0,2.0)+c*mu*exp((c*(S1*S1+S2*S2+S3*S3+(S4*S4)*2.0+(S5*S5)*2.0+(S6*S6)*2.0-3.0))/2.0)+S1*la*((mu+c*mu)/la+S1*(S6*S6)+S2*(S5*S5)+S3*(S4*S4)-S1*S2*S3-S4*S5*S6*2.0+1.0)*2.0+(S6*S6)*(c*c)*mu*exp((c*(S1*S1+S2*S2+S3*S3+(S4*S4)*2.0+(S5*S5)*2.0+(S6*S6)*2.0-3.0))/2.0)*2.0;
-  if(psd_fix) {
-    sim::simple_psd_fix(H);
-  }
-
   return H;
 }
 

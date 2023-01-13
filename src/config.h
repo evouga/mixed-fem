@@ -42,6 +42,9 @@ namespace mfem {
     TI_BDF6
   };
 
+  // TODO should separate the
+  // linear solver and preconditioner
+  // probably...
   enum LinearSolverType {
     SOLVER_EIGEN_LLT,
     SOLVER_EIGEN_LDLT,
@@ -56,7 +59,8 @@ namespace mfem {
     SOLVER_ADMM,
     SOLVER_SUBSPACE,
     SOLVER_AMGCL,
-    SOLVER_EIGEN_CG_ARAP
+    SOLVER_EIGEN_CG_ARAP,
+    SOLVER_EIGEN_CG_BLOCK_JACOBI
   };
 
   enum MaterialModelType { 

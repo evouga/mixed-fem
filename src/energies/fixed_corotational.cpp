@@ -89,7 +89,6 @@ Matrix6d FixedCorotational::hessian(const Vector6d& S, bool psd_fix) {
   H(5,3) = S5*la*(S1*(S6*S6)+S2*(S5*S5)+S3*(S4*S4)-S1*S2*S3-S4*S5*S6*2.0+1.0)*-2.0+la*(S1*S6*2.0-S4*S5*2.0)*(S3*S4*2.0-S5*S6*2.0);
   H(5,4) = S4*la*(S1*(S6*S6)+S2*(S5*S5)+S3*(S4*S4)-S1*S2*S3-S4*S5*S6*2.0+1.0)*-2.0+la*(S1*S6*2.0-S4*S5*2.0)*(S2*S5*2.0-S4*S6*2.0);
   H(5,5) = mu*4.0+la*pow(S1*S6*2.0-S4*S5*2.0,2.0)+S1*la*(S1*(S6*S6)+S2*(S5*S5)+S3*(S4*S4)-S1*S2*S3-S4*S5*S6*2.0+1.0)*2.0;
-  sim::simple_psd_fix(H);
   return H;
 }
 
@@ -131,7 +130,6 @@ Matrix3d FixedCorotational::hessian(const Vector3d& s) {
   H(2,0) = S2*S3*la*-2.0;
   H(2,1) = S1*S3*la*-2.0;
   H(2,2) = mu*4.0+(S3*S3)*la*4.0+la*(-S1*S2+S3*S3+1.0)*2.0;
-  sim::simple_psd_fix(H);
   return H;
 }
 

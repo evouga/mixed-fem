@@ -145,13 +145,24 @@ void LinearSolverFactory<DIM>::register_pd_solvers() {
       ArapPreconditioner<Scalar,DIM>>;
   this->register_type(LinearSolverType::SOLVER_EIGEN_CG_ARAP, "eigen-pcg-ARAP",
       [](SimState<DIM>* state)->std::unique_ptr<LinearSolver<Scalar, DIM>> { 
-        std::cout << "making iterative arap solver" << std::endl;
         auto solver = std::make_unique<EigenIterativeSolver<
             SOLVER_EIGEN_CG_ARAP,
             SystemMatrixPD<Scalar>, Scalar, DIM>>(state);
         solver->eigen_solver().preconditioner().init(state);
-        std::cout << "123making iterative arap solver" << std::endl;
+        return solver;
+      }
+  );
 
+  // Eigen Conjugate gradient with block jacobi preconditioner
+  using SOLVER_EIGEN_CG_BLOCK_JACOBI = ConjugateGradient<SpMat, Lower|Upper,
+      BlockJacobiPreconditioner<Scalar,DIM>>;
+  this->register_type(LinearSolverType::SOLVER_EIGEN_CG_BLOCK_JACOBI,
+      "eigen-pcg-block_jacobi",
+      [](SimState<DIM>* state)->std::unique_ptr<LinearSolver<Scalar, DIM>> { 
+        auto solver = std::make_unique<EigenIterativeSolver<
+            SOLVER_EIGEN_CG_BLOCK_JACOBI,
+            SystemMatrixPD<Scalar>, Scalar, DIM>>(state);
+        solver->eigen_solver().preconditioner().init(state);
         return solver;
       }
   );
