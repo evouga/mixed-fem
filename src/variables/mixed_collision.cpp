@@ -11,6 +11,11 @@ using namespace mfem;
 template<int DIM>
 double MixedCollision<DIM>::energy(const VectorXd& x, const VectorXd& d) {
 
+  ipc::Candidates& candidates = mesh_->collision_candidates();
+  if (candidates.size() == 0) {
+    return 0.0;
+  }
+
   // Convert configuration vector to matrix form
   MatrixXd V = Map<const MatrixXd>(x.data(), DIM, mesh_->V_.rows());
   V.transposeInPlace();
@@ -18,14 +23,10 @@ double MixedCollision<DIM>::energy(const VectorXd& x, const VectorXd& d) {
   // Get IPC mesh and face/edge/vertex data
   const auto& ipc_mesh = mesh_->collision_mesh();
   MatrixXd V_srf = ipc_mesh.vertices(V); // surface vertex set
-  // TODO   ipc::construct_collision_candidates(mesh, V1, V2, candidates);/*, dhat * 1.1,
-  // use this method instead!!!
+
   // Computing collision constraints
   ipc::MixedConstraints constraints = constraints_;
   constraints.update_distances(d);
-  ipc::Candidates candidates;
-  ipc::construct_collision_candidates(
-      ipc_mesh, V_srf, candidates, config_->dhat * 1.1, ipc::BroadPhaseMethod::SPATIAL_HASH);
   ipc::construct_constraint_set(candidates, ipc_mesh, V_srf, config_->dhat,
       constraints);
 
@@ -39,7 +40,8 @@ double MixedCollision<DIM>::energy(const VectorXd& x, const VectorXd& d) {
     if (di <= 0.0) {
       e += std::numeric_limits<double>::infinity();
     } else {
-      e += config_->kappa * ipc::barrier(di*di, config_->dhat*config_->dhat) / h2;
+      e += config_->kappa 
+          * ipc::barrier(di*di, config_->dhat*config_->dhat) / h2;
     }
   }
   return e;
@@ -98,22 +100,27 @@ void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
   // Convert to reduced (surface only) vertex set
   MatrixXd V_srf = ipc_mesh.vertices(V);
 
-  // Computing collision constraints
-  // ipc::construct_constraint_set(ipc_mesh, V_srf, config_->dhat, constraints_)
+  // Update mixed variables for current constraint set
   constraints_.update_distances(d_);
   constraints_.update_lambdas(la_);
+
+  // Computing new collision constraints
+  // TODO - do I need to update the collision candidates? Or can I use the
+  // existing ones?
   ipc::Candidates candidates;
   ipc::construct_collision_candidates(
       ipc_mesh, V_srf, candidates, config_->dhat * 1.1);
   ipc::construct_constraint_set(candidates, ipc_mesh, V_srf,
       config_->dhat, constraints_);
 
+  // Initializing new variables
   int num_frames = constraints_.size();
   T_.resize(num_frames, 4);
   D_.resize(num_frames);
   Gx_.resize(num_frames);
   Gd_.resize(num_frames);
 
+  // From new constraint set, get mixed variables
   d_ = constraints_.get_distances();
   la_ = constraints_.get_lambdas();
 
@@ -129,7 +136,7 @@ void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
         T_(i,j) = ipc_mesh.to_full_vertex_id(ids[j]);
       }
     }
-    // SHOULD be doing dtype
+    // TODO should be doing dtype based on config
     D_(i) = constraints_[i].compute_distance(V_srf, E, F,
         ipc::DistanceMode::SQRT);
 
@@ -149,7 +156,6 @@ void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
       //     std::cout << "\t Gradient:\n" << mollifier_grad << std::endl;
       //     std::cout << "\t Gradient:2\n" << Gx_[i] << std::endl;
       //  }
-
     }
   }
 
@@ -162,26 +168,12 @@ void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
       std::cout << "d min: " << d_.minCoeff() << std::endl;
       std::cout << "D min: " << D_.minCoeff() << std::endl;
       std::cout << "Ratio: " << d_.minCoeff() / D_.minCoeff() << std::endl;
-      
-      for (int i = 0 ; i < num_frames; ++i) {
-        if (abs(la_(i)) > 1e7) {
-          // std::cout << "la(" << i << ") = " << la_(i) << std::endl;
-          // std::cout << "Gd(" << i << ") = " << Gd_(i) << std::endl;
-          // std::cout << "Gd^2(" << i << ") = " << Gd_(i)*Gd_(i) << std::endl;
-          // std::cout << "Gx(" << i << ") = " << Gx_[i].transpose() << std::endl;
-          // std::cout << "d(" << i << ") = " << d_(i) << std::endl;
-          // std::cout << "D(" << i << ") = " << D_(i) << std::endl;
-          // exit(1);
-        }
-      }
     }
   }
-
   // std::cout << "num constraints: "<< constraints_.num_constraints() << std::endl;
-  // std::cout << "nframes_ : " << nframes_ << std::endl;
 
   // Create new assembler, since collision frame set changes.
-  // TODO - use the IPC assemlber instead. it's better
+  // TODO - use the IPC assembler instead?
   data_.timer.start("Create assemblers");
   assembler_ = std::make_shared<Assembler<double,DIM,-1>>(T_, mesh_->free_map_);
   vec_assembler_ = std::make_shared<VecAssembler<double,DIM,-1>>(T_,

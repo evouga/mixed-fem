@@ -131,6 +131,10 @@ namespace mfem {
       return ipc_mesh_;
     }
 
+    ipc::Candidates& collision_candidates() {
+      return ipc_candidates_;
+    }
+
     const Eigen::VectorXd& external_force() const {
       return external_force_;
     }
@@ -179,6 +183,7 @@ namespace mfem {
     Eigen::VectorXd vols_;
     std::vector<Eigen::MatrixXd> Jloc_;
     ipc::CollisionMesh ipc_mesh_;
+    ipc::Candidates ipc_candidates_;
 
   };
 }

@@ -77,7 +77,8 @@ namespace {
 
 template <int DIM>
 double ipc::additive_ccd(const VectorXd& x, const VectorXd& p,
-    const ipc::CollisionMesh& mesh, double dhat) {
+    const ipc::CollisionMesh& mesh, ipc::Candidates& candidates,
+    double dhat) {
     
   double min_step = 1.0;
   double s = 0.1; // scaling factor
@@ -94,8 +95,7 @@ double ipc::additive_ccd(const VectorXd& x, const VectorXd& p,
   V2 = mesh.vertices(V2);
   MatrixXd P = V2-V1;
 
-  // std::cout << "Construct collision candidates 1" << std::endl;
-  ipc::Candidates candidates;
+  candidates.clear();
   ipc::construct_collision_candidates(mesh, V1, V2, candidates, dhat / 2.0);//,
       //ipc::BroadPhaseMethod::SWEEP_AND_TINIEST_QUEUE);
   // std::cout << "Construct collision candidates 2" << std::endl;
@@ -230,6 +230,8 @@ double ipc::additive_ccd(const VectorXd& x, const VectorXd& p,
 
 // Explicit instantiation for 2D/3D          
 template double ipc::additive_ccd<3>(const VectorXd& x1,
-        const VectorXd& x2, const ipc::CollisionMesh& mesh, double dhat);
+        const VectorXd& x2, const ipc::CollisionMesh& mesh,
+        ipc::Candidates& candidates, double dhat);
 template double ipc::additive_ccd<2>(const VectorXd& x1,
-        const VectorXd& x2, const ipc::CollisionMesh& mesh, double dhat);        
+        const VectorXd& x2, const ipc::CollisionMesh& mesh,
+        ipc::Candidates& candidates, double dhat);        
