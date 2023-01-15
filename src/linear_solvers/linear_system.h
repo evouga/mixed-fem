@@ -71,9 +71,6 @@ namespace mfem {
       rhs_.resize(lhs_.rows());
 
       rhs_.head(state->x_->size()) = -state->x_->gradient();
-      //for (const auto& var : state->mixed_vars_) {
-      //  rhs_.head(state->x_->size()) -= var->gradient();
-      //}
 
       int curr_row = state->x_->size();
       for (const auto& var : state->mixed_vars_) {

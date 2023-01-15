@@ -176,7 +176,6 @@ void MixedStretch<DIM>::update_derivatives(double dt) {
     Hloc_[i] = vol * H;
   }
   data_.timer.stop("Hinv");
-  std::cout << "eval max coef " << evals_.maxCoeff() << std::endl; 
   
   data_.timer.start("Local H");
   const std::vector<MatrixXd>& Jloc = mesh_->local_jacobians();
@@ -233,6 +232,16 @@ VectorXd MixedStretch<DIM>::rhs() {
     tmp.segment<M()>(M()*i) = dSdF_[i] * gl_.segment<N()>(N()*i);
   }
   rhs_ = -mesh_->jacobian() * tmp;
+  //std::cout << "RHS norm" << rhs_.norm() << std::endl;
+  //double g_norm = 0.0, diff_norm = 0.0;
+  //for (int i = 0; i < nelem_; ++i) {
+  //  g_norm += g_[i].squaredNorm();
+  //  diff_norm += (S_[i] - s_.segment<N()>(N()*i)).squaredNorm();
+  //}
+  //std::cout << "g norm " << g_norm << std::endl;
+  //std::cout << "diff norm " << diff_norm << std::endl;
+  //std::cout << "la norm " << la_.norm() << std::endl;
+  //std::cout << "s norm " << s_.norm() << std::endl;
   data_.timer.stop("RHS - s");
   return rhs_;
 }

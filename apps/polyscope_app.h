@@ -282,7 +282,7 @@ namespace mfem {
             || config->solver_type == LinearSolverType::SOLVER_MINRES_ID
             || config->solver_type == LinearSolverType::SOLVER_MINRES_ADMM
             || config->solver_type == LinearSolverType::SOLVER_EIGEN_CG_IC
-            || config->solver_type == LinearSolverType::SOLVER_EIGEN_CG_ARAP
+            || config->solver_type == LinearSolverType::SOLVER_EIGEN_CG_LAPLACIAN
             || config->solver_type == LinearSolverType::SOLVER_EIGEN_CG_BLOCK_JACOBI
             || config->solver_type == LinearSolverType::SOLVER_EIGEN_GS
             || config->solver_type == LinearSolverType::SOLVER_SUBSPACE

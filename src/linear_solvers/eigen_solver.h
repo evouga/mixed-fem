@@ -17,11 +17,6 @@ namespace mfem {
 
     void solve() override {
       system_matrix_.pre_solve(Base::state_);
-      //if (!has_init_) { // Can't do this for collisions since pattern changes
-      //   solver_.analyzePattern(system_matrix_.A());
-      //   has_init_ = true;
-      // //}
-      // solver_.factorize(system_matrix_.A());
         // saveMarket(system_matrix_.A(), "lhs.mkt");
 
       solver_.compute(system_matrix_.A());
@@ -32,7 +27,6 @@ namespace mfem {
       tmp_ = solver_.solve(system_matrix_.b());
       //std::cout << "rhs norm() : " << system_matrix_.b().norm() << std::endl;
       system_matrix_.post_solve(Base::state_, tmp_);
-
     }
 
   private:

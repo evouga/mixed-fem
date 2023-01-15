@@ -96,8 +96,8 @@ double ipc::additive_ccd(const VectorXd& x, const VectorXd& p,
 
   // std::cout << "Construct collision candidates 1" << std::endl;
   ipc::Candidates candidates;
-  ipc::construct_collision_candidates(mesh, V1, V2, candidates, dhat / 2.0,
-      ipc::BroadPhaseMethod::SWEEP_AND_TINIEST_QUEUE);
+  ipc::construct_collision_candidates(mesh, V1, V2, candidates, dhat / 2.0);//,
+      //ipc::BroadPhaseMethod::SWEEP_AND_TINIEST_QUEUE);
   // std::cout << "Construct collision candidates 2" << std::endl;
 
 

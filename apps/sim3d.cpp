@@ -29,7 +29,10 @@ std::vector<MatrixXd> vertices;
 std::vector<MatrixXi> frame_faces;
 std::vector<MatrixXi> frame_tets;
 polyscope::SurfaceMesh* frame_srf = nullptr; // collision frame mesh
-polyscope::VolumeMesh* frame_tet = nullptr; // collision frame tetrahedra
+polyscope::VolumeMesh* frame_tet = nullptr;  // collision frame tetrahedra
+polyscope::VolumeMesh* sim_mesh = nullptr;   // mesh tetrahedra
+MatrixXi substep_T; // substep tetrahedra
+VectorXd substep_stresses;
 std::vector<MatrixXi> het_faces;
 
 struct PolyscopTetApp : public PolyscopeApp<3> {
@@ -41,6 +44,8 @@ struct PolyscopTetApp : public PolyscopeApp<3> {
 
     optimizer->step();
     meshV = mesh->vertices();
+
+    // Update mesh vertex positions
     size_t start = 0;
     for (size_t i = 0; i < srfs.size(); ++i) {
       size_t sz = meshes[i]->vertices().rows();
@@ -52,17 +57,18 @@ struct PolyscopTetApp : public PolyscopeApp<3> {
   void collision_gui() {
 
     static bool show_substeps = false;
+    static bool show_sim_data = true;
     static int substep = 0;
     static bool show_frames = true;
-    ImGui::Checkbox("Show Substeps",&show_substeps);
+    ImGui::Checkbox("Show substeps",&show_substeps);
 
     if(!show_substeps) return;
     ImGui::InputInt("Substep", &substep);
+    ImGui::Checkbox("Show Sim data",&show_sim_data);
     
     // Update regular meshes
     if (vertices.size() > 0) {
       substep = std::clamp(substep, 0, int(vertices.size()-1));
-
       size_t start = 0;
       for (size_t i = 0; i < srfs.size(); ++i) {
         size_t sz = meshes[i]->vertices().rows();
@@ -71,28 +77,51 @@ struct PolyscopTetApp : public PolyscopeApp<3> {
       }
     }
 
+    // Visualize collision data
     // Show triangle frames
     if (show_frames && frame_faces.size() > 0) {
-
-      // Update frame mesh
+      if (frame_srf) {
+        removeStructure(frame_srf);
+      }
+      // Update frame mesh. Have to initialize new mesh since connectivity 
+      // changes.
       frame_srf = polyscope::registerSurfaceMesh("frames", vertices[substep],
           frame_faces[substep]);
-
     } else if (frame_srf) {
       frame_srf->setEnabled(false);
     }
 
     // Show tetrahedron frames
     if (show_frames && frame_tets.size() > 0) {
+      if (frame_tet) {
+        removeStructure(frame_tet);
+      }
       // Update frame mesh
       frame_tet = polyscope::registerTetMesh("tet_frames", vertices[substep],
           frame_tets[substep]);
-
     } else if (frame_tet) {
       frame_tet->setEnabled(false);
     }
+
+    if (show_sim_data && substep_T.size() > 0) {
+      if (sim_mesh == nullptr) {
+        std::cout << "creating sim mesh: " << vertices[substep].rows() << " " << substep_T.rows() << std::endl;
+        sim_mesh = polyscope::registerTetMesh("sim_mesh", vertices[substep], substep_T);
+      } else {
+        sim_mesh->updateVertexPositions(vertices[substep]);
+      }
+
+      if (substep_stresses.size()) {
+        sim_mesh->addCellScalarQuantity("stress", substep_stresses);
+      }
+
+      sim_mesh->setEnabled(true);
+    } else if (sim_mesh && !show_sim_data) {
+      sim_mesh->setEnabled(false);
+    }
   }
 
+  // Add the collision stencils for the current simulation state
   template <typename T, typename U>
   bool add_collision_frames(const SimState<3>& state, const U* var) {
 
@@ -101,15 +130,9 @@ struct PolyscopTetApp : public PolyscopeApp<3> {
     const T* c = dynamic_cast<const T*>(var);
     if (!c) return false;
 
-    // Get vertices at current iteration
-    VectorXd xt = x->value();
-    x->unproject(xt);
-    MatrixXd V = Map<MatrixXd>(xt.data(), mesh->V_.cols(), mesh->V_.rows());
-    V.transposeInPlace();
     const auto& ipc_mesh = mesh->collision_mesh();
     const Eigen::MatrixXi& E = ipc_mesh.edges();
     const Eigen::MatrixXi& F = ipc_mesh.faces();
-    MatrixXd V_srf = ipc_mesh.vertices(V);
 
     std::vector<std::vector<int>> faces;
     std::vector<std::vector<int>> tets;
@@ -140,23 +163,38 @@ struct PolyscopTetApp : public PolyscopeApp<3> {
     for (size_t i = 0; i < tets.size(); ++i) {
       Tframe.row(i) = Map<RowVector4i>(tets[i].data());
     }
-    vertices.push_back(V);
     frame_faces.push_back(Fframe);
     frame_tets.push_back(Tframe);
     return true;
   }
 
   void collision_callback(const SimState<3>& state) {
+    if (substep_T.size() == 0){
+      substep_T = state.mesh_->T_;
+    }
+
+    // Get vertices at current iteration
+    VectorXd xt = state.x_->value();
+    state.x_->unproject(xt);
+    MatrixXd V = Map<MatrixXd>(xt.data(), state.mesh_->V_.cols(),
+        state.mesh_->V_.rows());
+    V.transposeInPlace();
+    vertices.push_back(V);
+
     for (size_t i = 0; i < state.mixed_vars_.size(); ++i) {
-      if (add_collision_frames<MixedCollision<3>>(state,
-          state.mixed_vars_[i].get())) {
-        return;
+      // Try and cast variable to collision and add collision frames
+      add_collision_frames<MixedCollision<3>>(state,
+          state.mixed_vars_[i].get());
+
+      // Similarly try to cast to stretch and add stresses
+      const MixedStretch<3>* stretch = 
+          dynamic_cast<const MixedStretch<3>*>(state.mixed_vars_[i].get());
+      if (stretch) {
+        substep_stresses = stretch->max_stresses();
       }
     }
     for (size_t i = 0; i < state.vars_.size(); ++i) {
-      if (add_collision_frames<Collision<3>>(state, state.vars_[i].get())) {
-        return;
-      }
+      add_collision_frames<Collision<3>>(state, state.vars_[i].get());
     }
   }
 

@@ -6,7 +6,8 @@
 #include "linear_solvers/affine_pcg.h"
 #include "linear_solvers/linear_system.h"
 #include "linear_solvers/preconditioners.h"
-#include "linear_solvers/arap_preconditioner.h"
+#include "linear_solvers/preconditioners/laplacian_preconditioner.h"
+#include "linear_solvers/preconditioners/block_jacobi_preconditioner.h"
 #include "linear_solvers/subspace_matrix.h"
 #include "linear_solvers/amgcl_solver.h"
 #include <unsupported/Eigen/IterativeSolvers>
@@ -142,8 +143,9 @@ void LinearSolverFactory<DIM>::register_pd_solvers() {
 
   // Eigen Conjugate gradient with arap preconditioner
   using SOLVER_EIGEN_CG_ARAP = ConjugateGradient<SpMat, Lower|Upper,
-      ArapPreconditioner<Scalar,DIM>>;
-  this->register_type(LinearSolverType::SOLVER_EIGEN_CG_ARAP, "eigen-pcg-ARAP",
+      LaplacianPreconditioner<Scalar,DIM>>;
+  this->register_type(LinearSolverType::SOLVER_EIGEN_CG_LAPLACIAN,
+      "eigen-pcg-laplacian",
       [](SimState<DIM>* state)->std::unique_ptr<LinearSolver<Scalar, DIM>> { 
         auto solver = std::make_unique<EigenIterativeSolver<
             SOLVER_EIGEN_CG_ARAP,
