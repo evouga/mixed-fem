@@ -6,8 +6,9 @@
 
 namespace Eigen {
 
+  // LBFGS for solving linear systems
   template <typename Scalar, int DIM>
-  class LaplacianPreconditioner {
+  class LBFGS {
       typedef Matrix<Scalar,Dynamic,1> Vector;
       typedef SparseMatrix<double, RowMajor> MatType;
 
@@ -18,7 +19,7 @@ namespace Eigen {
         MaxColsAtCompileTime = Dynamic
       };
    
-      LaplacianPreconditioner() : is_initialized_(false), state_(nullptr) {}
+      LBFGS() : is_initialized_(false), state_(nullptr) {}
    
       EIGEN_CONSTEXPR Index rows() const EIGEN_NOEXCEPT { return state_->size(); }
       EIGEN_CONSTEXPR Index cols() const EIGEN_NOEXCEPT { return state_->size(); }
@@ -35,8 +36,6 @@ namespace Eigen {
         double mu = ym/(2.0*(1.0+pr));
         double k = state->config_->h * state->config_->h;
         k *= mu;
-        k =1;
-        std::cout << "LAPLACIAN PRECONDITIONER IN IT " << std::endl;
         SparseMatrixd Gx;
         state->mixed_vars_[0]->jacobian_x(Gx);
 
@@ -110,7 +109,7 @@ namespace Eigen {
             "LaplacianPreconditioner is not initialized.");
         return Solve<LaplacianPreconditioner, Rhs>(*this, b.derived());
       }
-
+   
       ComputationInfo info() { return Success; }
    
     protected:

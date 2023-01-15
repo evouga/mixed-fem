@@ -74,7 +74,7 @@ double MixedCollision<DIM>::constraint_value(const VectorXd& x,
         ipc::DistanceMode::SQRT);
     if (D <= dhat || d(i) <= dhat) {
       double mollifier = 1.0;
-      constraints_.constraint_mollifier(i, V_srf, E, mollifier);
+      // constraints_.constraint_mollifier(i, V_srf, E, mollifier);
       e += la_(i) * mollifier * (D - d(i));
     }
   }

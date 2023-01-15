@@ -7,7 +7,8 @@
 #include "linear_solvers/linear_system.h"
 #include "linear_solvers/preconditioners.h"
 #include "linear_solvers/preconditioners/laplacian_preconditioner.h"
-#include "linear_solvers/preconditioners/block_jacobi_preconditioner.h"
+#include "linear_solvers/preconditioners/block_jacobi.h"
+#include "linear_solvers/preconditioners/gauss_seidel.h"
 #include "linear_solvers/subspace_matrix.h"
 #include "linear_solvers/amgcl_solver.h"
 #include <unsupported/Eigen/IterativeSolvers>

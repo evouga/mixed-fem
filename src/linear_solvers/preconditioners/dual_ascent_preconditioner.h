@@ -5,9 +5,39 @@
 #include "variables/mixed_stretch.h"
 
 namespace Eigen {
-
+  
+  // We have a system of the form
+  // [M+K 0   Dx'][dx] = [gx]
+  // [0   Hd  Ds'][dD] = [gd]
+  // [Dx  Ds  0  ][dl] = [gl]
+  //
+  // For now let's say M+K is fixed and prefactored
+  // H is the diagonal distance hessian, and Dx and Ds are the jacobians.
+  // 
+  // The equivalent quadratic form for this system is 
+  // E(dx,dD,dl) = 0.5 * (
+  //        dx^T M+K dx + dl Dx dx - dx^T gx 
+  //      + dD^T Hd dD  + dl Ds dD - dD^T gd
+  //      + dl^T Dx^T dx + dl^T Ds^T dD - dl^T gl)
+  // 
+  // So minimization takes the form
+  // dx*, dD*, dl* = argmin_{dx,dD,dl} E(dx,dD,dl)
+  //
+  // In dual ascent we alternate between solving for each variable, so that
+  // for the k+1-th iteration we have
+  // dx_{k+1} = argmin_{dx} E(dx,dD_k,dl_k)
+  // dD_{k+1} = argmin_{dD} E(dx_{k+1},dD,dl_k)
+  //
+  // We can solve for dx by setting the derivative of E with respect to dx to 0
+  // and solving for dx. This gives
+  // dx_{k+1} = (M+K)^{-1} (gx - Dx' dl_k) and for dD we get
+  // dD_{k+1} = (Hd)^{-1} (gd - Ds' dl_k) and for dl we get
+  // 
+  // And for the multiplier update we use:
+  // dl_{k+1} = dl_k - (Dx dx_{k+1} + Ds dD_{k+1}) - gl 
+  // (gl is the current constraint violation so it needs to be here)
   template <typename Scalar, int DIM>
-  class LaplacianPreconditioner {
+  class DualAscentPreconditioner {
       typedef Matrix<Scalar,Dynamic,1> Vector;
       typedef SparseMatrix<double, RowMajor> MatType;
 
@@ -18,7 +48,7 @@ namespace Eigen {
         MaxColsAtCompileTime = Dynamic
       };
    
-      LaplacianPreconditioner() : is_initialized_(false), state_(nullptr) {}
+      DualAscentPreconditioner() : is_initialized_(false), state_(nullptr) {}
    
       EIGEN_CONSTEXPR Index rows() const EIGEN_NOEXCEPT { return state_->size(); }
       EIGEN_CONSTEXPR Index cols() const EIGEN_NOEXCEPT { return state_->size(); }
@@ -35,8 +65,6 @@ namespace Eigen {
         double mu = ym/(2.0*(1.0+pr));
         double k = state->config_->h * state->config_->h;
         k *= mu;
-        k =1;
-        std::cout << "LAPLACIAN PRECONDITIONER IN IT " << std::endl;
         SparseMatrixd Gx;
         state->mixed_vars_[0]->jacobian_x(Gx);
 
@@ -73,28 +101,24 @@ namespace Eigen {
           double max_stress = c->max_stresses().maxCoeff();
           k *= max_stress;
         } else {
-          throw std::runtime_error("Using ARAP preconditioner without mixed-stretch");
+          throw std::runtime_error("Using ARAP preconditioner without"
+            " mixed-stretch");
         }
         solver_.compute(state_->mesh_->mass_matrix() + k*L_);
         if (solver_.info() != Eigen::Success) {
-          throw std::runtime_error("ARAP preconditioner factorization failed!");
+          throw std::runtime_error("DualAscentPreconditioner factorization"
+              " failed!");
         }
       }
    
-      LaplacianPreconditioner& analyzePattern(const MatType&) {
-        return *this;
-      }
-   
-      LaplacianPreconditioner& factorize(const MatType& mat) {
-        return *this;
-      }
-   
+      LaplacianPreconditioner& analyzePattern(const MatType&) { return *this; }
+      LaplacianPreconditioner& factorize(const MatType& mat) { return *this; }
       LaplacianPreconditioner& compute(const MatType& mat) {
-         static int step = 5;
-         if (step == 0) {
-           rebuild_factorization();
-         }
-         step = (step + 1) % 10;
+        //  static int step = 5;
+        //  if (step == 0) {
+        //    rebuild_factorization();
+        //  }
+        //  step = (step + 1) % 10;
         return *this;
       }
    
@@ -110,7 +134,7 @@ namespace Eigen {
             "LaplacianPreconditioner is not initialized.");
         return Solve<LaplacianPreconditioner, Rhs>(*this, b.derived());
       }
-
+   
       ComputationInfo info() { return Success; }
    
     protected:
