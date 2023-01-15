@@ -33,7 +33,11 @@ namespace mfem {
     template<int DIM>
     void post_solve(const SimState<DIM>* state, const Eigen::VectorXd& dx) {
 
-      state->x_->delta() = dx;
+      double h = state->x_->integrator()->dt();
+      double fac = h*h*(1.0 - state->config_->inertia_blend_factor);
+
+      state->x_->delta() = dx + fac * state->mesh_->external_force();
+;
       for (auto& var : state->mixed_vars_) {
         var->solve(dx);
       }

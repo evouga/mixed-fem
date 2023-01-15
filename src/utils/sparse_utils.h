@@ -3,7 +3,7 @@
 #include <EigenTypes.h>
 
 namespace mfem {
-
+  
   // Class for parallel assembly of FEM stiffness matrices
   // Each element's input is a block of size NxN composed of DIMxDIM sub-blocks
   // these sub-blocks are scattered to their global nodes positions and

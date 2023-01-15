@@ -118,6 +118,7 @@ namespace mfem {
     double constraint_tol = 1e-2;
     bool enable_ccd = false;
     double dhat = 1e-2;
+    double inertia_blend_factor = 1.0;
 
     // update kappa and lambda if residual below this tolerance
     double update_zone_tol = 1e-1; 

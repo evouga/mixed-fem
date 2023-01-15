@@ -79,8 +79,7 @@ template <int DIM>
 bool SimState<DIM>::load(const std::string& json_file) {
   // Confirm file is .json
   if (std::filesystem::path(json_file).extension() != ".json") {
-    std::cerr << "File: " << json_file << " needs to be json" << std::endl;
-    return false;
+    throw std::runtime_error("File: " + json_file + " needs to be json");
   }
 
   // Read and parse file
@@ -89,8 +88,7 @@ bool SimState<DIM>::load(const std::string& json_file) {
   if (input.good()) {
     args = json::parse(input);
   } else {
-    std::cerr << "Unable to open file: " << json_file << std::endl;
-    return false;
+    throw std::runtime_error("Unable to open file: " + json_file);
   }
   return load(args);
 }
@@ -399,6 +397,7 @@ void SimState<DIM>::load_params(const nlohmann::json& args) {
   read_and_assign(args, "dhat", config_->dhat);
   read_and_assign(args, "kappa", config_->kappa);
   read_and_assign(args, "timesteps", config_->timesteps);
+  read_and_assign(args, "inertia_blend_factor", config_->inertia_blend_factor);
   read_and_assign(args, "max_newton_iterations", config_->outer_steps);
   read_and_assign(args, "max_linesearch_iterations", config_->ls_iters);
   read_and_assign(args, "max_iterative_solver_iters",
