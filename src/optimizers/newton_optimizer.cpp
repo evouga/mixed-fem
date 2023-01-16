@@ -27,6 +27,12 @@ template <int DIM> void NewtonOptimizer<DIM>::step() {
   int i = 0;
   double grad_norm;
   double E = 0, E_prev = 0, res = 0;
+
+  // TODO 
+  // Need to construct collision candidates if it's
+  // not been run yet. Happens for first timestep, so
+  // we may end up missing collisions
+
   do {
     Base::callback(state_);
 

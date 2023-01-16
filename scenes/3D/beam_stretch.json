@@ -1,6 +1,5 @@
 {
   "dt": 0.034,
-  "body_force": [0.0, 0.0, 0.0],
   "print_timing": true,
   "print_stats": true,
   "optimizer": "newton",
@@ -20,6 +19,11 @@
         "ratio": 0.01,
         "velocity": -0.1,
         "axis": 0
+      },
+      "external_force": {
+        "type": "area",
+        "is_body_force": true,
+        "force": [0.0, 0.0, 0.0]
       }
    }
   ],

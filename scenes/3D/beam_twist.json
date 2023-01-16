@@ -1,6 +1,5 @@
 {
   "dt": 0.034,
-  "body_force": [0.0, 0.0, 0.0],
   "print_timing": true,
   "print_stats": true,
   "optimizer": "newton",
@@ -22,6 +21,11 @@
         "ratio": 0.01,
         "velocity": -0.1,
         "axis": 0
+      },
+      "external_force": {
+        "type": "area",
+        "is_body_force": true,
+        "force": [0.0, 0.0, 0.0]
       }
     }
   ],
@@ -30,7 +34,7 @@
       "youngs_modulus": 1e6,
       "poissons_ratio": 0.45,
       "density": 1e3,
-      "energy": "Stable-Neohookean"
+      "energy": "Neohookean"
     }
   ],
   "mixed_variables": ["mixed-stretch"],

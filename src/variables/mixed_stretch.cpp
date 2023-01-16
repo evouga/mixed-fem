@@ -5,6 +5,8 @@
 #include "svd/dsvd.h"
 #include "svd/svd_eigen.h"
 #include "utils/psd_fix.h"
+#include <unsupported/Eigen/SparseExtra>
+
 // #include "svd/iARAP.h"
 
 using namespace Eigen;
@@ -193,11 +195,11 @@ void MixedStretch<DIM>::update_derivatives(double dt) {
   }
   OptimizerData::get().timer.stop("Aloc", "MixedStretch");
 
-  //saveMarket(assembler_->A, "lhs2.mkt");
   OptimizerData::get().timer.start("assemble", "MixedStretch");
   assembler_->update_matrix(Aloc_);
   OptimizerData::get().timer.stop("assemble", "MixedStretch");
   A_ = assembler_->A;
+  // saveMarket(assembler_->A, "lhs2.mkt");
 
   // Gradient with respect to x variable
   grad_x_.resize(mesh_->jacobian().rows());
