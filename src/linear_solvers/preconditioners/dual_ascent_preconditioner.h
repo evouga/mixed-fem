@@ -181,11 +181,11 @@ namespace Eigen {
           // dD_{k+1} = (Hd)^{-1} (gd - Ds' dl_k) and for dl we get
           collision_->product_hessian_inv(gd_ + dl_k, dD_k);
 
-          // dl_{k+1} = dl_k - (Dx dx_{k+1} + Ds dD_{k+1}) - gl
+          // dl_{k+1} = dl_k - (Dx dx_{k+1} + Ds dD_{k+1}) + gl
           collision_->product_jacobian_x(x, Dx_dx, false);
 
           // operand sizes
-          dl_k += gl_ -(Dx_dx - dD_k);
+          dl_k += gl_ - (Dx_dx - dD_k);
 
           std::cout << "gd norm: " << gd_.norm() << std::endl;
           std::cout << "gl_ norm: " << gl_.norm() << std::endl;
@@ -195,7 +195,7 @@ namespace Eigen {
           std::cout << "Dx_dx norm: " << Dx_dx.norm() << std::endl;
           std::cout << "Dx_dl norm: " << Dx_dl.norm() << std::endl;
         }
-        if (dl_k.norm() > 1e12) {
+        if (dl_k.maxCoeff() > 1e7) {
           exit(1);
         }
       }

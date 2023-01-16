@@ -9,33 +9,52 @@ namespace mfem {
   class Timer {
 
     using Time = std::chrono::high_resolution_clock;
+    
+    // For each key, store the clock, total time, and # of measurements
     using T = std::tuple<std::chrono::time_point<Time>, double, int>;
 
+    using KeyMap = std::unordered_map<std::string, T>;
+
   public:
+
+    Timer() : output_filename_("timing.csv") {
+    }
+
     // Start timer for a key (creates entry if does not exist)
-    void start(const std::string& key);
+    void start(const std::string& key, const std::string& tag = "Default");
 
     // Records elapsed time for given key
-    void stop(const std::string& key);
+    void stop(const std::string& key, const std::string& tag = "Default");
 
-    double total(const std::string& key)  const;
+    double total(const std::string& key,
+        const std::string& tag = "Default") const;
 
-    double average(const std::string& key)  const;
+    double average(const std::string& key,
+        const std::string& tag = "Default") const;
 
     void print() const;
 
     void reset() {
-      times_.clear();
+      // times_.clear();
+      timers_.clear();
     }
 
-  private:
-    // For each key, store the clock, total time, and # of measurements
-    std::map<std::string, T> times_;	
-  };
+    void write_csv(int step) const;
 
+  private:
+
+    // Map tags to key maps
+    std::unordered_map<std::string, KeyMap> timers_;
+
+    std::string output_filename_;
+  };
 
   struct OptimizerData {
     
+    static OptimizerData& get() {
+      static OptimizerData instance;
+      return instance;
+    }
 
     OptimizerData(std::string output_filename)
         : output_filename_(output_filename) {
@@ -43,6 +62,9 @@ namespace mfem {
 
     OptimizerData() : output_filename_("../data/output/results.mat") {
     }
+
+    OptimizerData(OptimizerData const&) = delete;
+    void operator=(OptimizerData const&) = delete;
 
     virtual void clear();
     virtual void write() const;

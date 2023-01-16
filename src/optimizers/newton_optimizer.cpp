@@ -11,7 +11,10 @@
 using namespace mfem;
 using namespace Eigen;
 
-template <int DIM> void NewtonOptimizer<DIM>::step() { state_.data_.clear();
+template <int DIM> void NewtonOptimizer<DIM>::step() {
+  
+  OptimizerData::get().clear();
+
   // Pre operations for variables
   state_.x_->pre_solve();
   for (auto& var : state_.mixed_vars_) {
@@ -38,7 +41,7 @@ template <int DIM> void NewtonOptimizer<DIM>::step() { state_.data_.clear();
     // If collisions enabled, perform CCD
     // TODO enable_ccd in simulate_state initialization
     if (state_.config_->enable_ccd) {
-      state_.data_.timer.start("ACCD");
+      OptimizerData::get().timer.start("ACCD");
       VectorXd x1 = state_.x_->value();
       state_.x_->unproject(x1);
       VectorXd p = state_.mesh_->projection_matrix().transpose() 
@@ -47,8 +50,8 @@ template <int DIM> void NewtonOptimizer<DIM>::step() { state_.data_.clear();
           state_.mesh_->collision_mesh(),
           state_.mesh_->collision_candidates(),
           state_.config_->dhat);
-      state_.data_.add("ACCD ", alpha);
-      state_.data_.timer.stop("ACCD");
+      OptimizerData::get().add("ACCD ", alpha);
+      OptimizerData::get().timer.stop("ACCD");
     }
 
     auto energy_func = [&state = state_](double a) {
@@ -74,17 +77,16 @@ template <int DIM> void NewtonOptimizer<DIM>::step() { state_.data_.clear();
     E_prev = E;
 
     // Linesearch on descent direction
-    state_.data_.timer.start("LS");
+    OptimizerData::get().timer.start("LS");
     auto status = linesearch_backtracking(state_, alpha, energy_func,0.0,0.5);
-    state_.data_.timer.stop("LS");
+    OptimizerData::get().timer.stop("LS");
 
     // Record some data
-    state_.data_.add(" Iteration", i+1);
-    state_.data_.add("Energy", E);
-    state_.data_.add("Energy res", res);
-    state_.data_.add("Newton dec", grad_norm);
-    state_.data_.add("alpha ", alpha);
-    state_.data_.add("kappa ", state_.config_->kappa);
+    OptimizerData::get().add(" Iteration", i+1);
+    OptimizerData::get().add("Energy", E);
+    OptimizerData::get().add("Energy res", res);
+    OptimizerData::get().add("Decrement", grad_norm);
+    OptimizerData::get().add("alpha ", alpha);
     ++i;
     //Base::callback(state_);
 
@@ -93,7 +95,7 @@ template <int DIM> void NewtonOptimizer<DIM>::step() { state_.data_.clear();
       && (res > 1e-12)); 
 
   if (state_.config_->show_data) {
-    state_.data_.print_data(state_.config_->show_timing);
+    OptimizerData::get().print_data(state_.config_->show_timing);
   }
 
   // Update dirichlet boundary conditions
@@ -111,7 +113,7 @@ template <int DIM> void NewtonOptimizer<DIM>::step() { state_.data_.clear();
 
 template <int DIM>
 void NewtonOptimizer<DIM>::update_system() {
-  state_.data_.timer.start("update");
+  OptimizerData::get().timer.start("update");
 
   // Get full configuration vector
   VectorXd x = state_.x_->value();
@@ -129,7 +131,7 @@ void NewtonOptimizer<DIM>::update_system() {
   for (auto& var : state_.mixed_vars_) {
     var->update(x, state_.x_->integrator()->dt());
   }
-  state_.data_.timer.stop("update");
+  OptimizerData::get().timer.stop("update");
 
   // TODO bullshit exporting
   // saveMarket(state_.x_->lhs(), "lhs_M.mkt");
@@ -151,9 +153,9 @@ void NewtonOptimizer<DIM>::update_system() {
 template <int DIM>
 void NewtonOptimizer<DIM>::substep(double& decrement) {
   // Solve linear system
-  state_.data_.timer.start("global");
+  OptimizerData::get().timer.start("linsolve");
   linear_solver_->solve();
-  state_.data_.timer.stop("global");
+  OptimizerData::get().timer.stop("linsolve");
 
   // Use infinity norm of deltas as termination criteria
   decrement = state_.x_->delta().template lpNorm<Infinity>();

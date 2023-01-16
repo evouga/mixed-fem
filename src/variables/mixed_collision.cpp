@@ -15,6 +15,7 @@ double MixedCollision<DIM>::energy(const VectorXd& x, const VectorXd& d) {
   if (candidates.size() == 0) {
     return 0.0;
   }
+  OptimizerData::get().timer.start("energy", "MixedCollision");
 
   // Convert configuration vector to matrix form
   MatrixXd V = Map<const MatrixXd>(x.data(), DIM, mesh_->V_.rows());
@@ -44,13 +45,15 @@ double MixedCollision<DIM>::energy(const VectorXd& x, const VectorXd& d) {
           * ipc::barrier(di*di, config_->dhat*config_->dhat) / h2;
     }
   }
+  OptimizerData::get().timer.stop("energy", "MixedCollision");
   return e;
 }
 
 template <int DIM>
 double MixedCollision<DIM>::constraint_value(const VectorXd& x,
     const VectorXd& d) {
-
+  
+  OptimizerData::get().timer.start("constraint-energy", "MixedCollision");
   double e = 0;
 
   // Convert configuration vector to matrix form
@@ -80,6 +83,7 @@ double MixedCollision<DIM>::constraint_value(const VectorXd& x,
       e += la_(i) * mollifier * (D - d(i));
     }
   }
+  OptimizerData::get().timer.stop("constraint-energy", "MixedCollision");
   return e;
 }
 
@@ -87,6 +91,8 @@ template<int DIM>
 void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
   // Get collision frames
   dt_ = dt;
+
+  OptimizerData::get().timer.start("update-constraints", "MixedCollision");
 
   // Convert configuration vector to matrix form
   MatrixXd V = Map<const MatrixXd>(x.data(), DIM, mesh_->V_.rows());
@@ -170,15 +176,15 @@ void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
       std::cout << "Ratio: " << d_.minCoeff() / D_.minCoeff() << std::endl;
     }
   }
-  // std::cout << "num constraints: "<< constraints_.num_constraints() << std::endl;
+  OptimizerData::get().timer.stop("update-constraints", "MixedCollision");
 
   // Create new assembler, since collision frame set changes.
   // TODO - use the IPC assembler instead?
-  data_.timer.start("Create assemblers");
+  OptimizerData::get().timer.start("assembler-init", "MixedCollision");
   assembler_ = std::make_shared<Assembler<double,DIM,-1>>(T_, mesh_->free_map_);
   vec_assembler_ = std::make_shared<VecAssembler<double,DIM,-1>>(T_,
       mesh_->free_map_);
-  data_.timer.stop("Create assemblers");
+  OptimizerData::get().timer.stop("assembler-init", "MixedCollision");
 
   // Build gradients and hessian
   update_derivatives(V_srf, dt);
@@ -190,8 +196,7 @@ void MixedCollision<DIM>::update_derivatives(const MatrixXd& V, double dt) {
   if (constraints_.empty()) {
     return;
   }
-
-  data_.timer.start("g-H");
+  OptimizerData::get().timer.start("derivatives", "MixedCollision");
   H_.resize(constraints_.size());
   g_.resize(constraints_.size());
 
@@ -228,18 +233,16 @@ void MixedCollision<DIM>::update_derivatives(const MatrixXd& V, double dt) {
     // Gradient with respect to x variable
     gloc[i] = Gx_[i] * la_(i);
   }
-  data_.timer.stop("g-H");
+  OptimizerData::get().timer.stop("derivatives", "MixedCollision");
 
-  data_.timer.start("Update LHS");
+  OptimizerData::get().timer.start("assemble", "MixedCollision");
   assembler_->update_matrix(Aloc);
   A_ = assembler_->A;
   //saveMarket(assembler_->A, "lhs_c1.mkt");
-  data_.timer.stop("Update LHS");
+  OptimizerData::get().timer.stop("assemble", "MixedCollision");
 
   // Assemble gradient with respect to x variable
-  data_.timer.start("Update RHS");
   vec_assembler_->assemble(gloc, grad_x_);
-  data_.timer.stop("Update RHS");
 
   // Gradient with respect to mixed variable
   grad_ = g_; // TODO missing la*mollifier :)
@@ -247,8 +250,7 @@ void MixedCollision<DIM>::update_derivatives(const MatrixXd& V, double dt) {
 
 template<int DIM>
 VectorXd MixedCollision<DIM>::rhs() {
-  data_.timer.start("RHS - s");
-
+  OptimizerData::get().timer.start("rhs", "MixedCollision");
   assert(D_.size() == d_.size());
 
   rhs_.resize(mesh_->jacobian().rows());
@@ -265,7 +267,7 @@ VectorXd MixedCollision<DIM>::rhs() {
     g[i] = -Gx_[i] * gl_(i);
   }
   vec_assembler_->assemble(g, rhs_);
-  data_.timer.stop("RHS - s");
+  OptimizerData::get().timer.stop("rhs", "MixedCollision");
   return rhs_;
 }
 
@@ -289,9 +291,9 @@ void MixedCollision<DIM>::solve(const VectorXd& dx) {
     return;
   }
   
-  VectorXd q = mesh_->projection_matrix().transpose() * dx;
+  OptimizerData::get().timer.start("solve", "MixedCollision");
 
-  data_.timer.start("local");
+  VectorXd q = mesh_->projection_matrix().transpose() * dx;
   Gdx_.resize(d_.size());
 
   #pragma omp parallel for
@@ -317,7 +319,7 @@ void MixedCollision<DIM>::solve(const VectorXd& dx) {
     std::cout << "H_: " << H_ << std::endl;
     exit(1);
   }
-  data_.timer.stop("local");
+  OptimizerData::get().timer.stop("solve", "MixedCollision");
 }
 
 template<int DIM>
@@ -333,10 +335,10 @@ void MixedCollision<DIM>::evaluate_constraint(
 template<int DIM>
 void MixedCollision<DIM>::product_hessian_inv(const VectorXd& x,
     Ref<VectorXd> out) const {
-  std::cout << "Hinv: " << H_.transpose() << std::endl;
-  std::cout << "g" << g_.transpose() << std::endl;
-  std::cout << "d_: " << d_.transpose() << std::endl;
-  std::cout << "D_: " << D_.transpose() << std::endl;
+  // std::cout << "Hinv: " << H_.transpose() << std::endl;
+  // std::cout << "g" << g_.transpose() << std::endl;
+  // std::cout << "d_: " << d_.transpose() << std::endl;
+  // std::cout << "D_: " << D_.transpose() << std::endl;
   out = x.array() / H_.array().max(1.0);
 }
 

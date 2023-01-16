@@ -113,7 +113,6 @@ namespace mfem {
 
     using Base::mesh_;
 
-    OptimizerData data_;     // Stores timing results
     double dt_;
     Eigen::VectorXd D_;      // per-frames distances
     Eigen::VectorXd d_;      // distance variables
@@ -130,8 +129,6 @@ namespace mfem {
     Eigen::MatrixXi T_;
 
     std::shared_ptr<SimConfig> config_;
-    //std::vector<Eigen::VectorXd> dd_dx_;
-    // std::vector<bool> is_mollified_;    // whether constraint is mollified
     std::vector<ipc::VectorMax12d> Gx_; // constraint jacobian w.r.t x
     Eigen::VectorXd Gd_;                // constraint jacobian w.r.t d
     Eigen::SparseMatrix<double, Eigen::RowMajor> A_;

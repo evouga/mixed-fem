@@ -30,9 +30,9 @@ namespace mfem {
     void post_solve() override;
 
     Eigen::VectorXd rhs() override;
-    Eigen::VectorXd gradient() override;
-    Eigen::VectorXd gradient_mixed() override;
-    Eigen::VectorXd gradient_dual() override;
+    Eigen::VectorXd gradient() override { return grad_x_; }
+    Eigen::VectorXd gradient_mixed() override { return grad_; }
+    Eigen::VectorXd gradient_dual() override { return grad_la_; }
 
     const Eigen::SparseMatrix<double, Eigen::RowMajor>& lhs() override {
       return A_;
@@ -139,7 +139,6 @@ namespace mfem {
 
     using Base::mesh_;
 
-    OptimizerData data_;      // Stores timing results
     int nelem_;               // number of elements
     Eigen::VectorXd s_;       // deformation variables
     Eigen::VectorXd ds_;      // deformation variables deltas

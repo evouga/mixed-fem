@@ -153,17 +153,20 @@ namespace mfem {
       static bool export_obj = false;
       static bool export_mesh = false;
       static bool export_sim_substeps = false;
+      static bool export_timing = false;
       static bool simulating = false;
       static int step = 0;
       static int export_step = 0;
       ImGui::PushItemWidth(100);
 
-
-      ImGui::Checkbox("export obj",&export_obj);
+      ImGui::Text("Exporting:");
+      ImGui::Checkbox(".obj",&export_obj);
       ImGui::SameLine();
-      ImGui::Checkbox("export substeps",&config->save_substeps);
+      ImGui::Checkbox(".mesh",&export_mesh);
       ImGui::SameLine();
-      ImGui::Checkbox("export mesh",&export_mesh);
+      ImGui::Checkbox("snapshot",&config->save_substeps);
+      ImGui::SameLine();
+      ImGui::Checkbox("timing",&export_timing);
 
       for (size_t i = 0; i < callback_funcs.size(); ++i) {
         callback_funcs[i]();
@@ -330,6 +333,11 @@ namespace mfem {
       if(ImGui::Button("step") || simulating) {
         std::cout << "Timestep: " << step << std::endl;
         simulation_step();
+
+        if (export_timing) {
+          OptimizerData::get().timer.write_csv(step);
+        }
+        
         ++step;
 
         if (export_obj) {

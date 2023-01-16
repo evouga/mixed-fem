@@ -36,7 +36,7 @@ namespace mfem {
 
       // tmp_.setZero();
       guesser_.update_gradients();
-      tmp_ = guesser_.solve(system_matrix_.b());
+      // tmp_ = guesser_.solve(system_matrix_.b());
       tmp_ = solver_.solveWithGuess(system_matrix_.b(), tmp_);
 
       std::cout << "- CG iters: " << solver_.iterations() << std::endl;

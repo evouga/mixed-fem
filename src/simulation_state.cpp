@@ -71,7 +71,6 @@ void SimState<DIM>::load_mesh(const std::string& path, MatrixXd& V,
       double fac = V.maxCoeff();
       V.array() /= fac;
     }
-
   }
 }
 

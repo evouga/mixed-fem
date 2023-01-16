@@ -12,9 +12,6 @@ namespace mfem {
   // Class to maintain simulation state
   template <int DIM>
   struct SimState {
-    // For reporting simulation data and timing
-    OptimizerData data_;
-
     // Simulation mesh
     std::shared_ptr<Mesh> mesh_;
 

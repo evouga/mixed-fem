@@ -90,7 +90,7 @@ namespace {
 
 template<int DIM>
 double MixedStretch<DIM>::energy(const VectorXd& x, const VectorXd& s) {
-
+  OptimizerData::get().timer.start("energy", "MixedStretch");
   double e = 0;
 
   #pragma omp parallel for reduction( + : e )
@@ -100,12 +100,14 @@ double MixedStretch<DIM>::energy(const VectorXd& x, const VectorXd& s) {
         * mesh_->volumes()[i];
     e += e_psi;
   }
+  OptimizerData::get().timer.stop("energy", "MixedStretch");
   return e;
 }
 
 template <int DIM>
 double MixedStretch<DIM>::constraint_value(const VectorXd& x,
     const VectorXd& s) {
+  OptimizerData::get().timer.start("constraint", "MixedStretch");
 
   VectorXd def_grad;
   mesh_->deformation_gradient(x, def_grad);
@@ -128,6 +130,7 @@ double MixedStretch<DIM>::constraint_value(const VectorXd& x,
     double e_l = la_.segment<N()>(N()*i).dot(diff) * mesh_->volumes()[i];
     e += e_l;
   }
+  OptimizerData::get().timer.stop("constraint", "MixedStretch");
   return e;
 }
 
@@ -141,6 +144,8 @@ void MixedStretch<DIM>::update(const Eigen::VectorXd& x, double dt) {
 
 template<int DIM>
 void MixedStretch<DIM>::update_rotations(const Eigen::VectorXd& x) {
+  OptimizerData::get().timer.start("rotations", "MixedStretch");
+
   VectorXd def_grad;
   mesh_->deformation_gradient(x, def_grad);
 
@@ -155,6 +160,7 @@ void MixedStretch<DIM>::update_rotations(const Eigen::VectorXd& x) {
         Map<MatD>(def_grad.segment<M()>(M()*i).data()), true, Js);
     dSdF_[i] = Js.transpose()*Sym();
   }
+  OptimizerData::get().timer.stop("rotations", "MixedStretch");
 }
 
 template<int DIM>
@@ -162,7 +168,7 @@ void MixedStretch<DIM>::update_derivatives(double dt) {
 
   double h2 = dt * dt;
 
-  data_.timer.start("Hinv");
+  OptimizerData::get().timer.start("derivatives", "MixedStretch");
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
     double vol = mesh_->volumes()[i];
@@ -175,9 +181,9 @@ void MixedStretch<DIM>::update_derivatives(double dt) {
     H_[i] = (1.0 / vol) * (Syminv() * H * Syminv());
     Hloc_[i] = vol * H;
   }
-  data_.timer.stop("Hinv");
+  OptimizerData::get().timer.stop("derivatives", "MixedStretch");
   
-  data_.timer.start("Local H");
+  OptimizerData::get().timer.start("Aloc", "MixedStretch");
   const std::vector<MatrixXd>& Jloc = mesh_->local_jacobians();
   #pragma omp parallel for
   for (int i = 0; i < nelem_; ++i) {
@@ -185,11 +191,12 @@ void MixedStretch<DIM>::update_derivatives(double dt) {
     Aloc_[i] = (Jloc[i].transpose() * (dSdF_[i] * H_[i]
         * dSdF_[i].transpose()) * Jloc[i]) * (vol*vol);
   }
-  data_.timer.stop("Local H");
+  OptimizerData::get().timer.stop("Aloc", "MixedStretch");
+
   //saveMarket(assembler_->A, "lhs2.mkt");
-  data_.timer.start("Update LHS");
+  OptimizerData::get().timer.start("assemble", "MixedStretch");
   assembler_->update_matrix(Aloc_);
-  data_.timer.stop("Update LHS");
+  OptimizerData::get().timer.stop("assemble", "MixedStretch");
   A_ = assembler_->A;
 
   // Gradient with respect to x variable
@@ -216,7 +223,7 @@ void MixedStretch<DIM>::update_derivatives(double dt) {
 
 template<int DIM>
 VectorXd MixedStretch<DIM>::rhs() {
-  data_.timer.start("RHS - s");
+  OptimizerData::get().timer.start("rhs", "MixedStretch");
 
   rhs_.resize(mesh_->jacobian().rows());
   rhs_.setZero();
@@ -242,28 +249,13 @@ VectorXd MixedStretch<DIM>::rhs() {
   //std::cout << "diff norm " << diff_norm << std::endl;
   //std::cout << "la norm " << la_.norm() << std::endl;
   //std::cout << "s norm " << s_.norm() << std::endl;
-  data_.timer.stop("RHS - s");
+  OptimizerData::get().timer.stop("rhs", "MixedStretch");
   return rhs_;
 }
 
 template<int DIM>
-VectorXd MixedStretch<DIM>::gradient() {
-  return grad_x_;
-}
-
-template<int DIM>
-VectorXd MixedStretch<DIM>::gradient_mixed() {
-  return grad_;
-}
-
-template<int DIM>
-VectorXd MixedStretch<DIM>::gradient_dual() {
-  return grad_la_;
-}
-
-template<int DIM>
 void MixedStretch<DIM>::solve(const VectorXd& dx) {
-  data_.timer.start("local");
+  OptimizerData::get().timer.start("solve", "MixedStretch");
   Jdx_ = mesh_->jacobian().transpose() * dx;
   la_ = gl_;
   ds_.resize(N()*nelem_);
@@ -275,7 +267,7 @@ void MixedStretch<DIM>::solve(const VectorXd& dx) {
     ds_.segment<N()>(N()*i) = -Hinv_[i]
         * (g_[i] - Sym() * la_.segment<N()>(N()*i));
   }
-  data_.timer.stop("local");
+  OptimizerData::get().timer.stop("solve", "MixedStretch");
 }
 
 template<int DIM>
@@ -328,7 +320,6 @@ template<int DIM>
 void MixedStretch<DIM>::post_solve() {
   la_.setZero();
 }
-
 
 template<int DIM>
 void MixedStretch<DIM>::evaluate_constraint(const VectorXd& x,
