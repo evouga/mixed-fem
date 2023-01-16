@@ -337,7 +337,7 @@ void MixedCollision<DIM>::product_hessian_inv(const VectorXd& x,
   std::cout << "g" << g_.transpose() << std::endl;
   std::cout << "d_: " << d_.transpose() << std::endl;
   std::cout << "D_: " << D_.transpose() << std::endl;
-  out = x.array() / H_.array();
+  out = x.array() / H_.array().max(1.0);
 }
 
 template<int DIM>

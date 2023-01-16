@@ -171,6 +171,7 @@ namespace Eigen {
         Vector Dx_dx = Vector::Zero(gd_.size());
         Vector Dx_dl = Vector::Zero(gx_.size());
 
+
         for (iters_ = 0; iters_ < max_iters_; ++iters_) {
           // dx_{k+1} = (M+K)^{-1} (gx - Dx' dl_k) and for dD we get
           collision_->product_jacobian_x(dl_k, Dx_dl, true);
@@ -192,6 +193,7 @@ namespace Eigen {
           std::cout << "dl norm: " << dl_k.norm() << std::endl;
           std::cout << "dD norm: " << dD_k.norm() << std::endl;
           std::cout << "Dx_dx norm: " << Dx_dx.norm() << std::endl;
+          std::cout << "Dx_dl norm: " << Dx_dl.norm() << std::endl;
         }
         if (dl_k.norm() > 1e12) {
           exit(1);

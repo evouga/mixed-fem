@@ -219,7 +219,6 @@ VecAssembler<Scalar,DIM,N>::VecAssembler(const MatrixXi& E,
   int curr_vid;
 
   row_offsets.push_back(curr_row);
-  num_nodes = 0;
 
   // Loop over vertex ids (vids), counting duplicates
   // Purpose of this is so that we can easily sum over duplicate
@@ -242,7 +241,6 @@ VecAssembler<Scalar,DIM,N>::VecAssembler(const MatrixXi& E,
 
     offsets.push_back(i);
     i += multiplicity[i];
-    ++num_nodes;
   }
   row_offsets.push_back(multiplicity.size());
   int m = *std::max_element(free_map.begin(), free_map.end()) + 1;
@@ -252,7 +250,7 @@ VecAssembler<Scalar,DIM,N>::VecAssembler(const MatrixXi& E,
 template <typename Scalar, int DIM, int N>
 void VecAssembler<Scalar,DIM,N>::assemble(
     const std::vector<Matrix<Scalar,M(),1>>& vecs, VectorXd& a) {
-  a.resize(size_);
+  a = VectorXd::Zero(size_);
 
   // Iterate over M rows at a time
   #pragma omp parallel for
