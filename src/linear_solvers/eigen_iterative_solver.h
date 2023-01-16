@@ -9,7 +9,8 @@ namespace mfem {
   class EigenIterativeSolver : public LinearSolver<Scalar, DIM> {
 
     typedef LinearSolver<Scalar, DIM> Base;
-    typedef Eigen::LaplacianPreconditioner<Scalar, DIM> InitialGuesser;
+    // typedef Eigen::LaplacianPreconditioner<Scalar, DIM> InitialGuesser;
+    typedef Eigen::DualAscentPreconditioner<Scalar, DIM> InitialGuesser;
 
   public:
 
@@ -17,7 +18,8 @@ namespace mfem {
         : LinearSolver<Scalar,DIM>(state) {
       solver_.setMaxIterations(state->config_->max_iterative_solver_iters);
       solver_.setTolerance(state->config_->itr_tol);
-      // guesser_.init(state);
+      
+      guesser_.init(state);
     }
 
     void solve() override {
@@ -27,19 +29,14 @@ namespace mfem {
       // tmp_ = solver_.solve(system_matrix_.b());
 
       // std::cout << "Solver will crash on non PD systems!" << std::endl;
-      // SparseMatrixdRowMajor M = Base::state_->mesh_->mass_matrix();
-      // Minv.compute(Base::state_->mesh_->mass_matrix());
-      // if (Minv.info() != Eigen::Success) {
-      //   std::cerr << "M prefactor failed! " << std::endl;
-      //   exit(1);
-      // }
       double h = Base::state_->x_->integrator()->dt();
       const auto& P = Base::state_->mesh_->projection_matrix();
       tmp_ = -(Base::state_->x_->value() - P*Base::state_->x_->integrator()->x_tilde()) 
       + h*h*P*Base::state_->mesh_->external_force();  
-      // std::cout << "A * tmp_ norm" << (system_matrix_.A() * tmp_ - system_matrix_.b()).norm() / system_matrix_.b().norm() << std::endl;
+
       // tmp_.setZero();
-      // // tmp_ = guesser_.solve(system_matrix_.b(), tmp_);
+      guesser_.update_gradients();
+      tmp_ = guesser_.solve(system_matrix_.b());
       tmp_ = solver_.solveWithGuess(system_matrix_.b(), tmp_);
 
       std::cout << "- CG iters: " << solver_.iterations() << std::endl;

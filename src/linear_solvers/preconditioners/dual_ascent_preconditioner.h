@@ -35,7 +35,7 @@ namespace Eigen {
   // dD_{k+1} = (Hd)^{-1} (gd - Ds' dl_k) and for dl we get
   // 
   // And for the multiplier update we use:
-  // dl_{k+1} = dl_k - (Dx dx_{k+1} + Ds dD_{k+1}) - gl 
+  // dl_{k+1} = dl_k - (Dx dx_{k+1} + Ds dD_{k+1}) + gl 
   // (gl is the current constraint violation so it needs to be here)
   template <typename Scalar, int DIM>
   class DualAscentPreconditioner {
@@ -60,13 +60,13 @@ namespace Eigen {
         }
 
         for (int i = 0; i < state->mixed_vars_.size(); ++i) {
-          if (const mfem::MixedStretch<DIM>* stretch = dynamic_cast<
-              const mfem::MixedStretch<DIM>*>(state->mixed_vars_[i].get())) {
+          if (mfem::MixedStretch<DIM>* stretch = dynamic_cast<
+              mfem::MixedStretch<DIM>*>(state->mixed_vars_[i].get())) {
             stretch_ = stretch;
           }
 
-          if (const mfem::MixedCollision<DIM>* collision = dynamic_cast<
-              const mfem::MixedCollision<DIM>*>(state->mixed_vars_[i].get())) {
+          if (mfem::MixedCollision<DIM>* collision = dynamic_cast<
+              mfem::MixedCollision<DIM>*>(state->mixed_vars_[i].get())) {
             collision_ = collision;
           }
         }
@@ -93,7 +93,8 @@ namespace Eigen {
         const VectorXd& vols = state->mesh_->volumes();
         SparseMatrix<double, RowMajor> W;
 
-        int N = std::pow(state->mesh_->V_.cols(),2);
+        // int N = std::pow(state->mesh_->V_.cols(),2);
+        int N = state->mesh_->V_.cols() == 2 ? 3 : 6;
         W.resize(N*vols.size(), N*vols.size());
  
         std::vector<Triplet<double>> trips;
@@ -137,31 +138,64 @@ namespace Eigen {
         //    rebuild_factorization();
         //  }
         //  step = (step + 1) % 10;
-
         return *this;
       }
-   
-      template<typename Rhs, typename Dest>
-      void _solve_impl(const Rhs& b, Dest& x) const {
 
-        // Build gx
+      void update_gradients() {
         gx_ = state_->x_->rhs() + stretch_->rhs();
 
         // Build gd (collision gradient)
         gd_ = -collision_->gradient_mixed();
         
-        gl_ = -collision_->gradient();
+        collision_->evaluate_constraint(state_->x_->value(), gl_);
+        gl_ = -gl_;
+      }
 
+      // Eigen iterative solver API
+      Scalar error() { return error_; }
+      int iterations() { return iters_; }
+      void setTolerance(Scalar tol) { tol_ = tol; }
+      void setMaxIterations(int max_iters) { max_iters_ = max_iters; }
+   
+   
+      template<typename Rhs, typename Dest>
+      void _solve_impl(const Rhs& b, Dest& x) const {
 
+        if (collision_->num_collision_frames() == 0) {
+          x = solver_.solve(b);
+          return;
+        }
 
-        // dx_{k+1} = (M+K)^{-1} (gx - Dx' dl_k) and for dD we get
-        // dD_{k+1} = (Hd)^{-1} (gd - Ds' dl_k) and for dl we get
-        // 
-        // And for the multiplier update we use:
-        // dl_{k+1} = dl_k - (Dx dx_{k+1} + Ds dD_{k+1}) - gl 
+        Vector dD_k = Vector::Zero(gd_.size());
+        Vector dl_k = Vector::Zero(gd_.size());
+        Vector Dx_dx = Vector::Zero(gd_.size());
+        Vector Dx_dl = Vector::Zero(gx_.size());
 
+        for (iters_ = 0; iters_ < max_iters_; ++iters_) {
+          // dx_{k+1} = (M+K)^{-1} (gx - Dx' dl_k) and for dD we get
+          collision_->product_jacobian_x(dl_k, Dx_dl, true);
 
-        x = solver_.solve(b);
+          x = solver_.solve(gx_ - Dx_dl);
+
+          // dD_{k+1} = (Hd)^{-1} (gd - Ds' dl_k) and for dl we get
+          collision_->product_hessian_inv(gd_ + dl_k, dD_k);
+
+          // dl_{k+1} = dl_k - (Dx dx_{k+1} + Ds dD_{k+1}) - gl
+          collision_->product_jacobian_x(x, Dx_dx, false);
+
+          // operand sizes
+          dl_k += gl_ -(Dx_dx - dD_k);
+
+          std::cout << "gd norm: " << gd_.norm() << std::endl;
+          std::cout << "gl_ norm: " << gl_.norm() << std::endl;
+          std::cout << "x norm: " << x.norm() << std::endl;
+          std::cout << "dl norm: " << dl_k.norm() << std::endl;
+          std::cout << "dD norm: " << dD_k.norm() << std::endl;
+          std::cout << "Dx_dx norm: " << Dx_dx.norm() << std::endl;
+        }
+        if (dl_k.norm() > 1e12) {
+          exit(1);
+        }
       }
    
       template<typename Rhs>
@@ -178,11 +212,15 @@ namespace Eigen {
       SimplicialLLT<MatType, Upper|Lower> solver_;
       const mfem::SimState<DIM>* state_;
       bool is_initialized_;
+      Scalar tol_ = 0;
+      int max_iters_ = 10;
+      mutable int iters_ = 0;
+      mutable Scalar error_;
       MatType L_;
       Vector gx_;
       Vector gd_;
       Vector gl_;
-      const mfem::MixedStretch<DIM>* stretch_ = nullptr;
-      const mfem::MixedCollision<DIM>* collision_ = nullptr;
+      mfem::MixedStretch<DIM>* stretch_ = nullptr;
+      mfem::MixedCollision<DIM>* collision_ = nullptr;
   };
 }

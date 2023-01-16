@@ -368,21 +368,25 @@ namespace ipc {
     // }
 
     // For each remaining element in sets, add elements into new_constraints
-    for (const auto& constraint : ee_set) {
-      new_constraints.ee_constraints.emplace_back(constraint);
-    }
-    for (const auto& constraint : ev_set) {
-      new_constraints.ev_constraints.emplace_back(constraint);
-    }
-    for (const auto& constraint : fv_set) {
-      new_constraints.fv_constraints.emplace_back(constraint);
-    }
-
-    constraint_set = new_constraints;
-    // TODO check if there are any remaining constraints in the ee|ev|fv_sets,
-    // and if there mixed distance is below the dhat value. This happens when
-    // the true distance is greater than dhat, but the mixed still hasn't caught
+    // IF the mixed distance is below the dhat value. This happens when the
+    // true distance is greater than dhat, but the mixed still hasn't caught
     // up. In such a case, we need to NOT remove these constraints, and add them
     // to the new constraint set.
+    for (const auto& constraint : ee_set) {
+      if (constraint.distance < dhat) {
+        new_constraints.ee_constraints.emplace_back(constraint);
+      }
+    }
+    for (const auto& constraint : ev_set) {
+      if (constraint.distance < dhat) {
+        new_constraints.ev_constraints.emplace_back(constraint);
+      }
+    }
+    for (const auto& constraint : fv_set) {
+      if (constraint.distance < dhat) {
+        new_constraints.fv_constraints.emplace_back(constraint);
+      }
+    }
+    constraint_set = new_constraints;
   }
 }

@@ -280,9 +280,6 @@ VectorXd MixedCollision<DIM>::gradient() {
 
 template<int DIM>
 VectorXd MixedCollision<DIM>::gradient_mixed() {
-  if (constraints_.empty()) {
-    grad_.resize(0);
-  }
   return grad_;
 }
 
@@ -321,6 +318,62 @@ void MixedCollision<DIM>::solve(const VectorXd& dx) {
     exit(1);
   }
   data_.timer.stop("local");
+}
+
+template<int DIM>
+void MixedCollision<DIM>::evaluate_constraint(
+    const VectorXd& x, VectorXd& c) {
+  if (constraints_.empty()) {
+    c.resize(0);
+    return;
+  }
+  c = D_ - d_;
+} 
+
+template<int DIM>
+void MixedCollision<DIM>::product_hessian_inv(const VectorXd& x,
+    Ref<VectorXd> out) const {
+  std::cout << "Hinv: " << H_.transpose() << std::endl;
+  std::cout << "g" << g_.transpose() << std::endl;
+  std::cout << "d_: " << d_.transpose() << std::endl;
+  std::cout << "D_: " << D_.transpose() << std::endl;
+  out = x.array() / H_.array();
+}
+
+template<int DIM>
+void MixedCollision<DIM>::product_jacobian_x(const VectorXd& x,
+    Ref<VectorXd> out, bool transposed) const {
+  if (constraints_.empty()) {
+    out.resize(0);
+    return;
+  }
+
+  if (transposed) {
+    assert(x.size() == constraints_.size());
+    std::vector<VectorXd> gloc(constraints_.size()); 
+    #pragma omp parallel for
+    for (size_t i = 0; i < constraints_.size(); ++i) {
+      gloc[i] = Gx_[i] * x(i);
+    }
+    VectorXd prod;
+    vec_assembler_->assemble(gloc, prod);
+    out = prod;
+  } else {
+    out.resize(constraints_.size());
+
+    VectorXd q = mesh_->projection_matrix().transpose() * x;
+    #pragma omp parallel for
+    for (size_t i = 0; i < constraints_.size(); ++i) {
+      // Get frame configuration vector
+      ipc::VectorMax12d qi(Gx_[i].size());
+      for (int j = 0; j < 4; ++j) {
+        if (T_(i,j) == -1) break;
+        qi.segment<DIM>(DIM*j) = q.template segment<DIM>(DIM*T_(i,j));
+      }
+      out(i) = qi.dot(Gx_[i]);
+    }
+  }
+
 }
 
 template<int DIM>

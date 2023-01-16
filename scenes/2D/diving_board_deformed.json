@@ -9,9 +9,9 @@
   "enable_ccd": true,
   "dhat": 0.002,
   "kappa": 1e8,
-  "max_newton_iterations": 50,
+  "max_newton_iterations": 5,
   "max_linesearch_iterations": 20,
-  "initial_state0": {
+  "initial_state": {
     "x_path": "../scenes/2D/data/diving_board/sim_x0_0001.dmat",
     "v_path": "../scenes/2D/data/diving_board/sim_v_0001.dmat"
   },
@@ -46,6 +46,6 @@
       "energy": "FixedCorot"
     }
   ],
-  "mixed_variables": [],
-  "variables": ["stretch","collision"]
+  "mixed_variables": ["mixed-stretch", "mixed-collision"],
+  "variables": []
 }

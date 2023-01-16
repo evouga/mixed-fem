@@ -84,14 +84,14 @@ namespace mfem {
     unsigned int max_iterations = state.config_->ls_iters;
 
     // Compute gradient dot descent direction
-    Scalar gTd = state.x_->gradient().dot(state.x_->delta());
-    for (const auto& var : state.mixed_vars_) {
-      gTd += var->gradient().dot(state.x_->delta())
-           + var->gradient_mixed().dot(var->delta());
-    }
-    for (const auto& var : state.vars_) {
-      gTd += var->gradient().dot(state.x_->delta());
-    }
+    // Scalar gTd = state.x_->gradient().dot(state.x_->delta());
+    // for (const auto& var : state.mixed_vars_) {
+    //   gTd += var->gradient().dot(state.x_->delta())
+    //        + var->gradient_mixed().dot(var->delta());
+    // }
+    // for (const auto& var : state.vars_) {
+    //   gTd += var->gradient().dot(state.x_->delta());
+    // }
 
     Scalar fx0 = energy(0);
     Scalar fx_prev = fx0;
@@ -103,7 +103,7 @@ namespace mfem {
       Scalar fx = energy(alpha);
 
       // Armijo sufficient decrease condition
-      Scalar fxn = fx0 + (alpha * c) * gTd;
+      Scalar fxn = fx0;// + (alpha * c) * gTd;
       if (fx < fxn) {
         break;
       }

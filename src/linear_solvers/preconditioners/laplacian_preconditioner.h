@@ -44,7 +44,7 @@ namespace Eigen {
         const VectorXd& vols = state->mesh_->volumes();
         SparseMatrix<double, RowMajor> W;
 
-        int N = std::pow(state->mesh_->V_.cols(),2);
+        int N = state->mesh_->V_.cols() == 2 ? 3 : 6;
         W.resize(N*vols.size(), N*vols.size());
  
         std::vector<Triplet<double>> trips;

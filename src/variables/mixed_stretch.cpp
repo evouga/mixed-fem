@@ -331,7 +331,8 @@ void MixedStretch<DIM>::post_solve() {
 
 
 template<int DIM>
-void MixedStretch<DIM>::evaluate_constraint(const VectorXd& x, VectorXd& c) {
+void MixedStretch<DIM>::evaluate_constraint(const VectorXd& x,
+    VectorXd& c) {
   c.resize(N() * nelem_);
   Matrix<double,N(),M()> tmp;
   VectorXd def_grad;

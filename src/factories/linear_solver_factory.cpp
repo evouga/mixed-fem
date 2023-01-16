@@ -143,6 +143,21 @@ void LinearSolverFactory<DIM>::register_pd_solvers() {
       }
   );
 
+// Eigen Conjugate gradient with DA preconditioner
+  using SOLVER_EIGEN_CG_DUAL_ASCENT = ConjugateGradient<SpMat, Lower|Upper,
+      DualAscentPreconditioner<Scalar,DIM>>;
+  this->register_type(LinearSolverType::SOLVER_EIGEN_CG_DUAL_ASCENT,
+      "eigen-pcg-dualascent",
+      [](SimState<DIM>* state)->std::unique_ptr<LinearSolver<Scalar, DIM>> { 
+        auto solver = std::make_unique<EigenIterativeSolver<
+            SOLVER_EIGEN_CG_DUAL_ASCENT,
+            SystemMatrixPD<Scalar>, Scalar, DIM>>(state);
+        solver->eigen_solver().preconditioner().init(state);
+        return solver;
+      }
+  );
+
+
   // Eigen Conjugate gradient with block jacobi preconditioner
   using SOLVER_EIGEN_CG_BLOCK_JACOBI = ConjugateGradient<SpMat, Lower|Upper,
       BlockJacobiPreconditioner<Scalar,DIM>>;
