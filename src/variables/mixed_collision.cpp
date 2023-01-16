@@ -242,7 +242,7 @@ void MixedCollision<DIM>::update_derivatives(const MatrixXd& V, double dt) {
   data_.timer.stop("Update RHS");
 
   // Gradient with respect to mixed variable
-  grad_ = g_ + la_; // TODO missing la*mollifier :)
+  grad_ = g_; // TODO missing la*mollifier :)
 }
 
 template<int DIM>

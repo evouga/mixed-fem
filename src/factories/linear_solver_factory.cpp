@@ -9,7 +9,6 @@
 #include "linear_solvers/preconditioners/laplacian_preconditioner.h"
 #include "linear_solvers/preconditioners/block_jacobi.h"
 #include "linear_solvers/preconditioners/gauss_seidel.h"
-#include "linear_solvers/subspace_matrix.h"
 #include "linear_solvers/amgcl_solver.h"
 #include <unsupported/Eigen/IterativeSolvers>
 
@@ -32,43 +31,31 @@ LinearSolverFactory<DIM>::LinearSolverFactory() {
   register_indefinite_solvers();
 
   //// Not subspace, but called subspace solvers
-  using SubspaceMat = typename SubspaceSystem<DIM>::MatrixType;
+  using SubspaceMat = typename DualCondensedSystem<DIM>::MatrixType;
   using SOLVER_SUBSPACE = ConjugateGradient<SubspaceMat, Lower|Upper,
         GaussSeidelPreconditioner<Scalar>>;
   this->register_type(LinearSolverType::SOLVER_SUBSPACE, "subspace-CG",
       [](SimState<DIM>* state)->std::unique_ptr<LinearSolver<Scalar, DIM>>
       { 
         //return std::make_unique<EigenIterativeSolver<
-        //  SOLVER_SUBSPACE, SubspaceSystem<DIM>, Scalar, DIM>>(state);
+        //  SOLVER_SUBSPACE, DualCondensedSystem<DIM>, Scalar, DIM>>(state);
         auto solver = std::make_unique<EigenIterativeSolver<
-          SOLVER_SUBSPACE, SubspaceSystem<DIM>, Scalar, DIM>>(state);
+          SOLVER_SUBSPACE, DualCondensedSystem<DIM>, Scalar, DIM>>(state);
         solver->eigen_solver().preconditioner().setMaxIterations(3);
         return solver;
       }
   );
-  //using SubspaceMat = SubspaceMatrix<DIM>;
-  //using SOLVER_SUBSPACE = ConjugateGradient<SubspaceMat, Lower|Upper,
-  //      LumpedPreconditioner<Scalar,SubspaceMat>>;
-  ////template <typename Scalar, typename MatType>
-  ////class LumpedPreconditioner
-  //this->register_type(LinearSolverType::SOLVER_SUBSPACE, "subspace-CG",
-  //    [](SimState<DIM>* state)->std::unique_ptr<LinearSolver<Scalar, DIM>>
-  //    { 
-  //      return std::make_unique<EigenIterativeSolver<
-  //        SOLVER_SUBSPACE, SubspaceMatrix<DIM>, Scalar, DIM>>(state);
-  //    }
-  //);
 
   this->register_type(LinearSolverType::SOLVER_AMGCL, "subspace-amgcl",
       [](SimState<DIM>* state)->std::unique_ptr<LinearSolver<Scalar, DIM>>
-      {return std::make_unique<AMGCLSolver<SubspaceSystem<DIM>, DIM>>(state);});
+      {return std::make_unique<AMGCLSolver<DualCondensedSystem<DIM>, DIM>>(state);});
 
   using EIGEN_GS = GaussSeidelPreconditioner<double>;
   this->register_type(LinearSolverType::SOLVER_EIGEN_GS, "subspace-gauss_seidel",
       [](SimState<DIM>* state)->std::unique_ptr<LinearSolver<Scalar, DIM>>
       { 
         return std::make_unique<EigenIterativeSolver<
-          EIGEN_GS, SubspaceSystem<DIM>, Scalar, DIM>>(state);
+          EIGEN_GS, DualCondensedSystem<DIM>, Scalar, DIM>>(state);
       }
   );
 }

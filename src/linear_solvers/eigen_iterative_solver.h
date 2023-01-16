@@ -2,6 +2,7 @@
 
 #include "linear_solver.h"
 #include "linear_solvers/preconditioners/laplacian_preconditioner.h"
+#include "linear_solvers/preconditioners/dual_ascent_preconditioner.h"
 namespace mfem {
 
   template <typename Solver, typename SystemMatrix, typename Scalar, int DIM>
@@ -23,14 +24,23 @@ namespace mfem {
       system_matrix_.pre_solve(Base::state_);
 
       solver_.compute(system_matrix_.A());
-      tmp_ = solver_.solve(system_matrix_.b());
+      // tmp_ = solver_.solve(system_matrix_.b());
 
       // std::cout << "Solver will crash on non PD systems!" << std::endl;
-      // double h = Base::state_->x_->integrator()->dt();
-      // tmp_= h * h* Base::state_->mesh_->external_force();
+      // SparseMatrixdRowMajor M = Base::state_->mesh_->mass_matrix();
+      // Minv.compute(Base::state_->mesh_->mass_matrix());
+      // if (Minv.info() != Eigen::Success) {
+      //   std::cerr << "M prefactor failed! " << std::endl;
+      //   exit(1);
+      // }
+      double h = Base::state_->x_->integrator()->dt();
+      const auto& P = Base::state_->mesh_->projection_matrix();
+      tmp_ = -(Base::state_->x_->value() - P*Base::state_->x_->integrator()->x_tilde()) 
+      + h*h*P*Base::state_->mesh_->external_force();  
+      // std::cout << "A * tmp_ norm" << (system_matrix_.A() * tmp_ - system_matrix_.b()).norm() / system_matrix_.b().norm() << std::endl;
       // tmp_.setZero();
       // // tmp_ = guesser_.solve(system_matrix_.b(), tmp_);
-      // tmp_ = solver_.solveWithGuess(system_matrix_.b(), tmp_);
+      tmp_ = solver_.solveWithGuess(system_matrix_.b(), tmp_);
 
       std::cout << "- CG iters: " << solver_.iterations() << std::endl;
       std::cout << "- CG error: " << solver_.error() << std::endl;

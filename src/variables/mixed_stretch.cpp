@@ -169,7 +169,7 @@ void MixedStretch<DIM>::update_derivatives(double dt) {
     const VecN& si = s_.segment<N()>(N()*i);
     MatN H = h2 * mesh_->elements_[i].material_->hessian(si);
     VecN evals;
-    psd_fix_invert(H, Hinv_[i], evals); 
+    psd_fix_invert(H, Hinv_[i], evals, 1e-8); 
     evals_(i) = h2 * evals(N()-1); // store maximum eigenvalue
     g_[i] = h2 * mesh_->elements_[i].material_->gradient(si);
     H_[i] = (1.0 / vol) * (Syminv() * H * Syminv());
@@ -451,37 +451,6 @@ void MixedStretch<DIM>::product_jacobian_mixed(const Eigen::VectorXd& x,
   for (int i = 0; i < nelem_; ++i) {
     double vol = mesh_->volumes()[i];
     out.segment<N()>(N()*i) += vol * Sym() * x.segment<N()>(N()*i);
-  }
-}
-
-template<int DIM>
-void MixedStretch<DIM>::product_hessian_sqrt(const VectorXd& x,
-    Ref<VectorXd> out) const {
-  assert(x.size() == out.size());
-  assert(x.size() == nelem_ * N());
-  #pragma omp parallel for
-  for (int i = 0; i < nelem_; ++i) {
-    SelfAdjointEigenSolver<MatN> es(Hloc_[i]);
-    VecN diag = es.eigenvalues().real().array().sqrt(); 
-    MatN hess = es.eigenvectors().real() * diag.asDiagonal() 
-         * es.eigenvectors().real().transpose();
-    out.segment<N()>(N()*i) += hess * x.segment<N()>(N()*i);
-  }
-}
-
-template<int DIM>
-void MixedStretch<DIM>::product_hessian_sqrt_inv(const VectorXd& x,
-    Ref<VectorXd> out) const {
-  assert(x.size() == out.size());
-  assert(x.size() == nelem_ * N());
-  #pragma omp parallel for
-  for (int i = 0; i < nelem_; ++i) {
-    SelfAdjointEigenSolver<MatN> es(Hloc_[i]);
-    // Note: doing reciprocal sqrt here instead
-    VecN diag = es.eigenvalues().real().array().rsqrt(); 
-    MatN hess = es.eigenvectors().real() * diag.asDiagonal() 
-         * es.eigenvectors().real().transpose();
-    out.segment<N()>(N()*i) += hess * x.segment<N()>(N()*i);
   }
 }
 

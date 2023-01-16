@@ -79,10 +79,6 @@ namespace mfem {
         Eigen::Ref<Eigen::VectorXd> out, bool transposed) const override;
     void product_jacobian_mixed(const Eigen::VectorXd& x,
         Eigen::Ref<Eigen::VectorXd> out) const override;
-    void product_hessian_sqrt(const Eigen::VectorXd& x,
-        Eigen::Ref<Eigen::VectorXd> out) const override;
-    void product_hessian_sqrt_inv(const Eigen::VectorXd& x,
-        Eigen::Ref<Eigen::VectorXd> out) const override;
 
   protected:
 

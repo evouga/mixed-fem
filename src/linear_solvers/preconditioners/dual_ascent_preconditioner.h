@@ -2,6 +2,7 @@
 
 #include "simulation_state.h"
 #include "EigenTypes.h"
+#include "variables/mixed_collision.h"
 #include "variables/mixed_stretch.h"
 
 namespace Eigen {
@@ -54,21 +55,41 @@ namespace Eigen {
       EIGEN_CONSTEXPR Index cols() const EIGEN_NOEXCEPT { return state_->size(); }
 
       void init(const mfem::SimState<DIM>* state) {
-        std::cout << "hey" << std::endl;
-
         if (state->mixed_vars_.size() == 0) {
           throw std::runtime_error("Using ARAP preconditioner without mixed vars");
         }
 
+        for (int i = 0; i < state->mixed_vars_.size(); ++i) {
+          if (const mfem::MixedStretch<DIM>* stretch = dynamic_cast<
+              const mfem::MixedStretch<DIM>*>(state->mixed_vars_[i].get())) {
+            stretch_ = stretch;
+          }
+
+          if (const mfem::MixedCollision<DIM>* collision = dynamic_cast<
+              const mfem::MixedCollision<DIM>*>(state->mixed_vars_[i].get())) {
+            collision_ = collision;
+          }
+        }
+
+        if (stretch_ == nullptr) {
+          throw std::runtime_error("Using DA without stretch");
+        }
+        if (collision_ == nullptr) {
+          throw std::runtime_error("Using DA without collision");
+        }
+
+        // Conjure up some silly stiffness TODO use actual stiffness from maximum of material properties
         double ym = 1e6;
         double pr = 0.45;
         double mu = ym/(2.0*(1.0+pr));
         double k = state->config_->h * state->config_->h;
         k *= mu;
-        SparseMatrixd Gx;
-        state->mixed_vars_[0]->jacobian_x(Gx);
 
-        // TODO double multiplying by areas currently. Make a volume diagonal matrix
+        SparseMatrixd Gx;
+        stretch_->jacobian_x(Gx);
+
+        // Gx has volume in it, so we need to divide by volume
+        // to avoid double multiplying the laplacian
         const VectorXd& vols = state->mesh_->volumes();
         SparseMatrix<double, RowMajor> W;
 
@@ -82,11 +103,14 @@ namespace Eigen {
           }
         }
         W.setFromTriplets(trips.begin(),trips.end());
+
+        // Form laplacian and compute inverse of M + k*L system
         L_ = Gx * W * Gx.transpose();
         solver_.compute(state->mesh_->mass_matrix() + k*L_);
         if (solver_.info() != Eigen::Success) {
-          throw std::runtime_error("ARAP preconditioner factorization failed!");
+          throw std::runtime_error("DualAscentPreconditioner factorization failed!");
         }
+
         std::cout << "post solve " << std::endl;
         is_initialized_ = true;
         state_ = state;
@@ -95,15 +119,9 @@ namespace Eigen {
       void rebuild_factorization() {
         // Conjure up some silly stiffness
         double k = state_->config_->h * state_->config_->h;
-        const mfem::MixedStretch<DIM>* c = dynamic_cast<
-            const mfem::MixedStretch<DIM>*>(state_->mixed_vars_[0].get());
-        if (c) {
-          double max_stress = c->max_stresses().maxCoeff();
-          k *= max_stress;
-        } else {
-          throw std::runtime_error("Using ARAP preconditioner without"
-            " mixed-stretch");
-        }
+        double max_stress = stretch_->max_stresses().maxCoeff();
+        k *= max_stress;
+
         solver_.compute(state_->mesh_->mass_matrix() + k*L_);
         if (solver_.info() != Eigen::Success) {
           throw std::runtime_error("DualAscentPreconditioner factorization"
@@ -111,28 +129,47 @@ namespace Eigen {
         }
       }
    
-      LaplacianPreconditioner& analyzePattern(const MatType&) { return *this; }
-      LaplacianPreconditioner& factorize(const MatType& mat) { return *this; }
-      LaplacianPreconditioner& compute(const MatType& mat) {
+      DualAscentPreconditioner& analyzePattern(const MatType&) { return *this; }
+      DualAscentPreconditioner& factorize(const MatType& mat) { return *this; }
+      DualAscentPreconditioner& compute(const MatType& mat) {
         //  static int step = 5;
         //  if (step == 0) {
         //    rebuild_factorization();
         //  }
         //  step = (step + 1) % 10;
+
         return *this;
       }
    
       template<typename Rhs, typename Dest>
       void _solve_impl(const Rhs& b, Dest& x) const {
+
+        // Build gx
+        gx_ = state_->x_->rhs() + stretch_->rhs();
+
+        // Build gd (collision gradient)
+        gd_ = -collision_->gradient_mixed();
+        
+        gl_ = -collision_->gradient();
+
+
+
+        // dx_{k+1} = (M+K)^{-1} (gx - Dx' dl_k) and for dD we get
+        // dD_{k+1} = (Hd)^{-1} (gd - Ds' dl_k) and for dl we get
+        // 
+        // And for the multiplier update we use:
+        // dl_{k+1} = dl_k - (Dx dx_{k+1} + Ds dD_{k+1}) - gl 
+
+
         x = solver_.solve(b);
       }
    
       template<typename Rhs>
-      inline const Solve<LaplacianPreconditioner, Rhs>
+      inline const Solve<DualAscentPreconditioner, Rhs>
       solve(const MatrixBase<Rhs>& b) const {
         eigen_assert(is_initialized_ && 
-            "LaplacianPreconditioner is not initialized.");
-        return Solve<LaplacianPreconditioner, Rhs>(*this, b.derived());
+            "DualAscentPreconditioner is not initialized.");
+        return Solve<DualAscentPreconditioner, Rhs>(*this, b.derived());
       }
    
       ComputationInfo info() { return Success; }
@@ -142,5 +179,10 @@ namespace Eigen {
       const mfem::SimState<DIM>* state_;
       bool is_initialized_;
       MatType L_;
+      Vector gx_;
+      Vector gd_;
+      Vector gl_;
+      const mfem::MixedStretch<DIM>* stretch_ = nullptr;
+      const mfem::MixedCollision<DIM>* collision_ = nullptr;
   };
 }
