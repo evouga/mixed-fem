@@ -55,6 +55,10 @@ namespace mfem {
       // tmp_ = guesser_.solve(system_matrix_.b());
       tmp_ = solver_.solveWithGuess(system_matrix_.b(), tmp_);
 
+      // TODO support integral types
+      OptimizerData::get().add("Solver iters", double(solver_.iterations()));
+      OptimizerData::get().add("Solver error", solver_.error());
+
       std::cout << "- CG iters: " << solver_.iterations() << std::endl;
       std::cout << "- CG error: " << solver_.error() << std::endl;
       system_matrix_.post_solve(Base::state_, tmp_);

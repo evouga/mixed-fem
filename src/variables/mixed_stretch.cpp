@@ -133,6 +133,25 @@ double MixedStretch<DIM>::constraint_value(const VectorXd& x,
     e += e_l;
   }
   OptimizerData::get().timer.stop("constraint", "MixedStretch");
+
+  // OptimizerData::get().timer.start("constraint2", "MixedStretch");
+  // VectorXd c_tmp_;
+  // c_tmp_.resize(nelem_);
+  // #pragma omp parallel for
+  // for (int i = 0; i < nelem_; ++i) {
+  //   const VecM& F = def_grad.segment<M()>(M()*i);
+  
+  //   MatD R = R_[i];
+  //   VecN stmp;
+  //   polar_svd<DIM,N()>(R, stmp, Map<MatD>(def_grad.segment<M()>(M()*i).data()),
+  //       false, tmp);
+
+  //   const VecN& si = s.segment<N()>(N()*i);
+  //   VecN diff = Sym() * (stmp - si);
+  //   c_tmp_(i) = la_.segment<N()>(N()*i).dot(diff) * mesh_->volumes()[i];
+  // }
+  // double e2 = c_tmp_.sum();
+  // OptimizerData::get().timer.stop("constraint2", "MixedStretch");
   return e;
 }
 

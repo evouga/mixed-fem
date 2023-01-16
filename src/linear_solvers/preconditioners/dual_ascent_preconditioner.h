@@ -157,7 +157,6 @@ namespace Eigen {
       void setTolerance(Scalar tol) { tol_ = tol; }
       void setMaxIterations(int max_iters) { max_iters_ = max_iters; }
    
-   
       template<typename Rhs, typename Dest>
       void _solve_impl(const Rhs& b, Dest& x) const {
 
