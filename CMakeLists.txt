@@ -1,6 +1,6 @@
-cmake_minimum_required(VERSION 3.0.0)
+cmake_minimum_required(VERSION 3.18)
 
-project("libIGL polyscope example project")
+project("mfem" LANGUAGES CXX CUDA)
 
 if (NOT CMAKE_BUILD_TYPE)
   message (STATUS "No build type selected, default to Release")
@@ -21,9 +21,7 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 ### Compiler options
-set( CMAKE_EXPORT_COMPILE_COMMANDS 1 ) # Emit a compile flags file to support completion engines 
-
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_EXPORT_COMPILE_COMMANDS 1 ) # Emit a compile flags file to support completion engines 
 
 if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
   # using Clang (linux or apple) or GCC
@@ -41,10 +39,12 @@ if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" OR "${CMAKE_CXX_COMPILER_ID}" STR
     message("Setting gcc-specific options")
     SET(DISABLED_WARNINGS "${DISABLED_WARNINGS} -Wno-maybe-uninitialized -Wreorder \
       -Wuninitialized -Wunused-result -Wunused-local-typedefs -Wsign-compare  \
-      -Wno-format-zero-length -Wno-unused-but-set-parameter -Wno-unused-but-set-variable")
+      -Wno-format-zero-length -Wno-unused-but-set-parameter -Wno-unused-but-set-variable \
+      -Wno-pedantic")
   endif()
 
 
+  SET(CMAKE_C_FLAGS "${DISABLED_WARNINGS} -Wno-pedantic")
   SET(CMAKE_CXX_FLAGS "${BASE_CXX_FLAGS} ${DISABLED_WARNINGS}")
   #SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TRACE_INCLUDES}") # uncomment if you need to track down where something is getting included from
   SET(CMAKE_CXX_FLAGS_DEBUG          "${CMAKE_CXX_FLAGS_DEBUG} -g3")
@@ -103,25 +103,33 @@ find_package(LAPACK)
 find_package(CHOLMOD)
 find_package(SuiteSparse)
 
+
+add_subdirectory("deps/thrust")
+thrust_create_target(Thrust)
+
+# Create a thrust target that only uses the serial CPP backend.
+# See thrust/thrust/cmake/README.md for details and additional options:
+thrust_create_target(ThrustCPP HOST CPP DEVICE CPP)
+
+# To test for optional systems, first call thrust_update_system_found_flags to
+# set the THRUST_${system}_FOUND flags in current scope.
+# Required due to CMake scoping rules.
+thrust_update_system_found_flags()
+
+# YO CMAKE WHY YOU IGNORE MY NVCC FLAGS HUH?
+set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -std=c++14 -Xcompiler -fPIC)
+set(CUDA_NVCC_FLAGS -Xcudafe "--diag_suppress=cc_clobber_ignored " ;
+    -Xcudafe " --diag_suppress=set_but_not_used " ;
+    ${CUDA_NVCC_FLAGS} " --extended-lambda ")
+set(CMAKE_CUDA_FLAGS ${CMAKE_CUDA_FLAGS} "--extended-lambda")
+
 # Add polyscope
 message("\n\n == CMAKE recursively building Polyscope\n")
 add_subdirectory("deps/polyscope")
-# Add libIGL
-# With these lines commented out, we use libIGL in "header only" mode.  Uncomment to recurse and get the full package.
-# (and see the libIGL build documentation)
-#message("\n\n == CMAKE recursively building libIGL\n")
-#set(LIBIGL_WITH_EMBREE            OFF CACHE BOOL "Use Embree")
-#set(LIBIGL_WITH_OPENGL            OFF CACHE BOOL "Use OpenGL")
-#set(LIBIGL_WITH_OPENGL            OFF CACHE BOOL "Use OpenGL")
-#set(LIBIGL_WITH_OPENGL_GLFW       OFF CACHE BOOL "Use GLFW"  )
-#set(LIBIGL_WITH_OPENGL_GLFW_IMGUI OFF CACHE BOOL "Use ImGui" )
-#add_subdirectory("deps/libIGL")
-
-# set(NASOQ_BLAS_BACKEND  "OpenBLAS")
-# set(NASOQ_USE_CLAPACK  ON)
-# set(NASOQ_WITH_EIGEN OFF)
-# add_subdirectory("deps/nasoq")
 add_subdirectory("deps/amgcl")
+
+# file(GLOB CUDA_SRC  ${PROJECT_SOURCE_DIR}/src/variables/*.cu)
+# cuda_compile(cuda_objs ${CUDA_SRC})
 
 file(GLOB SOURCES 
     ${PROJECT_SOURCE_DIR}/src/*.cpp 
@@ -130,6 +138,7 @@ file(GLOB SOURCES
     ${PROJECT_SOURCE_DIR}/src/energies/*.cpp
     ${PROJECT_SOURCE_DIR}/src/optimizers/*.cpp
     ${PROJECT_SOURCE_DIR}/src/variables/*.cpp
+    ${PROJECT_SOURCE_DIR}/src/variables/*.cu
     ${PROJECT_SOURCE_DIR}/src/linear_solvers/*.cpp
     ${PROJECT_SOURCE_DIR}/src/time_integrators/*.cpp
     ${PROJECT_SOURCE_DIR}/src/factories/*.cpp
@@ -137,7 +146,6 @@ file(GLOB SOURCES
     ${PROJECT_SOURCE_DIR}/src/utils/collision/*.cpp
     ${PROJECT_SOURCE_DIR}/src/mesh/*.cpp)
 
-# message("SOURCES" ${SOURCES})
 add_library(mixed_fem_lib SHARED ${SOURCES})
 
 include(FetchContent)
@@ -165,7 +173,28 @@ FetchContent_Declare(
     GIT_TAG main
 )
 FetchContent_MakeAvailable(ipc_toolkit)
+
 target_link_libraries(mixed_fem_lib ipc::toolkit)
+
+set(CMAKE_CXX_STANDARD 17)
+
+# Create and use a Thrust target configured to use CUDA acceleration if CUDA
+# is available:
+if (THRUST_CUDA_FOUND)
+  enable_language(CUDA)
+  thrust_create_target(ThrustCUDA HOST CPP DEVICE CUDA)
+  # add_executable(ExecWithCUDA dummy.cu)
+  target_link_libraries(mixed_fem_lib ThrustCUDA cusparse)
+  # set_target_properties(mixed_fem_lib 
+  #     PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+  set_target_properties(mixed_fem_lib PROPERTIES 
+      POSITION_INDEPENDENT_CODE ON 
+      CUDA_SEPARABLE_COMPILATION ON 
+      CUDA_RESOLVE_DEVICE_SYMBOLS ON
+      CUDA_RUNTIME_LIBRARY shared)
+else()
+  target_link_libraries(mixed_fem_lib Thrust)
+endif()
 
 # Add OMP library and includes
 if(OpenMP_CXX_FOUND)
@@ -230,18 +259,22 @@ target_include_directories(mixed_fem_lib SYSTEM PUBLIC
 target_link_libraries(mixed_fem_lib polyscope Eigen3::Eigen amgcl::amgcl)
 
 # Create an executable
-add_executable(convergence apps/convergence.cpp ${SOURCES})
+add_executable(convergence apps/convergence.cpp)
 target_link_libraries(convergence mixed_fem_lib)
 
-add_executable(convergence_iterative apps/convergence_iterative.cpp ${SOURCES})
+add_executable(convergence_iterative apps/convergence_iterative.cpp )
 target_link_libraries(convergence_iterative mixed_fem_lib)
 
-add_executable(convergence_collision apps/convergence_collision.cpp ${SOURCES})
+add_executable(convergence_collision apps/convergence_collision.cpp)
 target_link_libraries(convergence_collision mixed_fem_lib)
 
-add_executable(sim2d apps/sim2d.cpp ${SOURCES})
-target_link_libraries(sim2d mixed_fem_lib)
+add_executable(sim2d apps/sim2d.cpp)
+target_link_libraries(sim2d PUBLIC mixed_fem_lib)
 
-add_executable(sim3d apps/sim3d.cpp ${SOURCES})
+add_executable(sim3d apps/sim3d.cpp)
+set_target_properties(sim3d PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 target_link_libraries(sim3d mixed_fem_lib)
 #add_subdirectory(tests)
+
+set_property(TARGET mixed_fem_lib PROPERTY BUILD_RPATH ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
+set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)

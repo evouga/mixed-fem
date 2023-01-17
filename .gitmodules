@@ -10,3 +10,6 @@
 [submodule "deps/amgcl"]
 	path = deps/amgcl
 	url = https://github.com/ddemidov/amgcl
+[submodule "deps/thrust"]
+	path = deps/thrust
+	url = https://github.com/NVIDIA/thrust.git

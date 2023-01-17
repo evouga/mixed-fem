@@ -21,6 +21,7 @@ namespace mfem {
     VAR_COLLISION,
     VAR_FRICTION,
     VAR_MIXED_STRETCH,
+    VAR_MIXED_STRETCH_GPU,
     VAR_MIXED_COLLISION
   };
 

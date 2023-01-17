@@ -1,6 +1,7 @@
 #include "variable_factory.h"
 #include "variables/mixed_collision.h"
 #include "variables/mixed_stretch.h"
+#include "variables/mixed_stretch_gpu.h"
 #include "variables/stretch.h"
 #include "variables/collision.h"
 #include "variables/friction.h"
@@ -24,6 +25,13 @@ MixedVariableFactory<DIM>::MixedVariableFactory() {
       [](std::shared_ptr<Mesh> mesh, std::shared_ptr<SimConfig> config)
       ->std::unique_ptr<MixedVariable<DIM>>
       {return std::make_unique<MixedCollision<DIM>>(mesh, config);}); 
+
+  this->register_type(VariableType::VAR_MIXED_STRETCH_GPU,
+      MixedStretchGpu<DIM>::name(),
+      [](std::shared_ptr<Mesh> mesh, std::shared_ptr<SimConfig> config)
+      ->std::unique_ptr<MixedVariable<DIM>>
+      {return std::make_unique<MixedStretchGpu<DIM>>(mesh);});
+
 }
 
 template<int DIM>
