@@ -38,6 +38,8 @@ namespace {
            0.5*(S(1,0) + S(0,1)),
            0.5*(S(2,0) + S(0,2)),
            0.5*(S(2,1) + S(1,2));
+      // R^T F = S
+      // d(R^T F)/dF = dR^T/dF F + R^T dF/dF
 
       // dS/dF where S is 9x1 flattened 3x3 matrix
       Matrix9d J = sim::flatten_multiply<Matrix3d>(R.transpose()) *

@@ -136,9 +136,11 @@ file(GLOB SOURCES
     ${PROJECT_SOURCE_DIR}/src/svd/*.cpp 
     ${PROJECT_SOURCE_DIR}/src/boundary_conditions/*.cpp 
     ${PROJECT_SOURCE_DIR}/src/energies/*.cpp
+    ${PROJECT_SOURCE_DIR}/src/energies/*.cu
     ${PROJECT_SOURCE_DIR}/src/optimizers/*.cpp
     ${PROJECT_SOURCE_DIR}/src/variables/*.cpp
     ${PROJECT_SOURCE_DIR}/src/variables/*.cu
+    ${PROJECT_SOURCE_DIR}/src/utils/*.cu
     ${PROJECT_SOURCE_DIR}/src/linear_solvers/*.cpp
     ${PROJECT_SOURCE_DIR}/src/time_integrators/*.cpp
     ${PROJECT_SOURCE_DIR}/src/factories/*.cpp
@@ -184,7 +186,7 @@ if (THRUST_CUDA_FOUND)
   enable_language(CUDA)
   thrust_create_target(ThrustCUDA HOST CPP DEVICE CUDA)
   # add_executable(ExecWithCUDA dummy.cu)
-  target_link_libraries(mixed_fem_lib ThrustCUDA cusparse)
+  target_link_libraries(mixed_fem_lib ThrustCUDA cusparse cusolver)
   # set_target_properties(mixed_fem_lib 
   #     PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
   set_target_properties(mixed_fem_lib PROPERTIES 
