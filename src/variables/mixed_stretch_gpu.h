@@ -5,6 +5,7 @@
 #include "mixed_variable.h"
 #include <cusparse.h>
 #include "utils/sparse_matrix_gpu.h"
+#include "utils/sparse_utils.h"
 
 namespace mfem {
 
@@ -29,6 +30,11 @@ namespace mfem {
       return DIM * DIM;
     }
 
+    __host__ __device__
+    static constexpr int Aloc_N() {
+      return DIM == 3 ? (DIM*4) : DIM*3;
+    }
+
     // Matrix and vector data types
     using MatD  = Eigen::Matrix<double, DIM, DIM>; // 3x3 or 2x2
     using VecN  = Eigen::Vector<double, N()>;      // 6x1 or 3x1
@@ -39,14 +45,18 @@ namespace mfem {
 
     __host__ __device__
     static constexpr MatN Syminv() {
-      MatN m; 
+      VecN v;
+      MatN m; m.setZero();
+      // NOTE: asDiagonal returning NaNs in cuda
       if constexpr (DIM == 3) {
-        m = (VecN() << 1,1,1,0.5,0.5,0.5).finished().asDiagonal();
+        v << 1,1,1,0.5,0.5,0.5;
       } else {
-        m = (VecN() << 1,1,0.5).finished().asDiagonal();
+        v << 1,1,0.5;
       }
+      m.diagonal() = v;
       return m;
     }
+
 
   public:
 
@@ -57,11 +67,6 @@ namespace mfem {
     }
 
     void reset();
-    void init_variables(int i, double* si_data);
-    void local_derivatives(int i, double* s, double* g,
-        double* H, double* Hinv, double* dSdF, double* Jloc, double* Aloc,
-        double* vols);
-
     double energy(const Eigen::VectorXd& x, const Eigen::VectorXd& s) override {return 0.0;}
     double constraint_value(const Eigen::VectorXd& x,
         const Eigen::VectorXd& s) override{return 0.0;}
@@ -112,12 +117,34 @@ namespace mfem {
     void product_jacobian_mixed(const Eigen::VectorXd& x,
         Eigen::Ref<Eigen::VectorXd> out) const override {}
 
+
+    struct derivative_functor {
+
+      derivative_functor(double* _s, double* _g, double* _H, double* _Hinv,
+          double* _dSdF, double* _Jloc, double* _Aloc, double* _vols)
+        : s(_s), g(_g), H(_H), Hinv(_Hinv), dSdF(_dSdF), Jloc(_Jloc),
+          Aloc(_Aloc), vols(_vols) {}
+      
+      void operator()(int i) const;
+
+      double* s;
+      double* g;
+      double* H;
+      double* Hinv;
+      double* dSdF;
+      double* Jloc;
+      double* Aloc;
+      double* vols;
+    };
+
   protected:
 
-    double local_energy(const VecN& S, double mu);
-    VecN local_gradient(const VecN& S, double mu);
-    MatN local_hessian(const VecN& S, double mu);
+    static double local_energy(const VecN& S, double mu);
+    static VecN local_gradient(const VecN& S, double mu);
+    static MatN local_hessian(const VecN& S, double mu);
 
+    void update_rotations(int i, double* F, double* R, double* S, double* dSdF);
+    
     using Base::mesh_;
 
     int nelem_;          // number of elements, |E|
@@ -142,6 +169,8 @@ namespace mfem {
 
     SparseMatrixGpu J_gpu_;
     MatrixBatchInverseGpu<N()> Hinv_gpu_;
+    std::shared_ptr<Assembler<double,DIM,-1>> assembler_;
+
 
   };
 }

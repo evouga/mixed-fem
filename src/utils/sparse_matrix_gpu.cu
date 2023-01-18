@@ -26,6 +26,44 @@ using namespace mfem;
         }                                                                                          \
     } while (0)
 
+namespace {
+
+  template<int N>
+  struct inverse_functor {
+      inverse_functor(double* V, double* W, double* A,
+      double* Ainv) : V_(V), W_(W), A_(A), Ainv_(Ainv) {}
+
+      __device__
+      void operator()(int i) const {
+          Map<Matrix<double, N, N>> Ainvi(Ainv_ + i*N*N);
+          Map<Matrix<double, N, N>> Vi(V_ + i*N*N);
+          Map<Matrix<double, N, N>> Ai(A_ + i*N*N);
+          Map<Matrix<double, N, 1>> Wi(W_ + i*N);
+          
+          Matrix<double, N, 1> Wi_inv;
+          for (int j = 0; j < N; ++j) {
+            // PSD fix
+            if (Wi(j) < 1e-8) {
+              Wi(j) = 1e-8;
+            }
+            Wi_inv(j) = 1.0 / Wi(j);
+          }
+          Ai = Vi * Wi.asDiagonal() * Vi.transpose();
+          Ainvi = Vi * Wi_inv.asDiagonal() * Vi.transpose();
+          // printf("Wi %f", Wi(0));
+          // printf("Ai %f", Ai(0, 0));
+          // printf("Vi %f", Vi(0, 0));
+      }
+
+  private:
+      double *V_;
+      double *W_;
+      double *A_;
+      double *Ainv_;
+  };
+
+}
+
 SparseMatrixGpu::SparseMatrixGpu(const SparseMatrix<double, RowMajor>& A) {
   init(A);
 }
@@ -69,14 +107,13 @@ void SparseMatrixGpu::product(double* dx, double** y) {
   cusparseDnVecDescr_t vecX;
   cusparseCreateDnVec(&vecX, cols_, dx, CUDA_R_64F);
 
-  void* dBuffer = NULL;
-  size_t bufferSize = 0;
-
   // allocate an external buffer if needed
-  cusparseSpMV_bufferSize(handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
-                          &alpha, matA, vecX, &beta, vecY, CUDA_R_64F,
-                          CUSPARSE_SPMV_ALG_DEFAULT, &bufferSize);
-  cudaMalloc(&dBuffer, bufferSize);
+  if (dBuffer == NULL) {
+    cusparseSpMV_bufferSize(handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
+                            &alpha, matA, vecX, &beta, vecY, CUDA_R_64F,
+                            CUSPARSE_SPMV_ALG_DEFAULT, &bufferSize);
+    cudaMalloc(&dBuffer, bufferSize);
+  }
 
   // execute SpMV
   cusparseSpMV(handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
@@ -84,9 +121,6 @@ void SparseMatrixGpu::product(double* dx, double** y) {
               CUSPARSE_SPMV_ALG_DEFAULT, dBuffer);
 
   cusparseDestroyDnVec(vecX);
-  if (dBuffer) {
-    cudaFree(dBuffer);
-  }
   *y = d_y;
 }
 
@@ -100,8 +134,8 @@ MatrixBatchInverseGpu<N>::MatrixBatchInverseGpu(int batch_size)
   /* step 1: create cusolver handle, bind a stream */
   CUSOLVER_CHECK(cusolverDnCreate(&cusolverH));
 
-  // CUDA_CHECK(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
-  // CUSOLVER_CHECK(cusolverDnSetStream(cusolverH, stream));
+  CUDA_CHECK(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
+  CUSOLVER_CHECK(cusolverDnSetStream(cusolverH, stream));
 
   /* step 2: configuration of syevj */
   CUSOLVER_CHECK(cusolverDnCreateSyevjInfo(&syevj_params));
@@ -133,35 +167,12 @@ MatrixBatchInverseGpu<N>::MatrixBatchInverseGpu(int batch_size)
 }
 
 template<int N>
-__device__ 
-void MatrixBatchInverseGpu<N>::invert(int i, double* V, double* W, double* A,
-    double* Ainv) {
-  
-  Map<Matrix<double, N, N>> Ainvi(Ainv + i*N*N);
-  Map<Matrix<double, N, N>> Vi(V + i*N*N);
-  Map<Matrix<double, N, N>> Ai(A + i*N*N);
-  Map<Matrix<double, N, 1>> Wi(V + i*N);
-
-  Matrix<double, N, 1> Wi_inv;
-  for (int j = 0; j < N; ++j) {
-    // PSD fix
-    if (Wi(j) < 1e-8) {
-      Wi(j) = 1e-8;
-    }
-    Wi_inv(j) = 1.0 / Wi(j);
-  }
-
-  Ai = Vi * Wi.asDiagonal() * Vi.transpose();
-  Ainvi = Vi * Wi_inv.asDiagonal() * Vi.transpose();
-}
-
-template<int N>
 void MatrixBatchInverseGpu<N>::compute(double* A, double* Ainv) {
   // Copy device input to d_A (which will be overwritten)
   int size_A = N * N * batch_size_;
   int size_W = N * batch_size_;
-  CUDA_CHECK(cudaMemcpy(
-      d_A, A, sizeof(double) * size_A, cudaMemcpyDeviceToDevice));
+  CUDA_CHECK(cudaMemcpyAsync(
+      d_A, A, sizeof(double) * size_A, cudaMemcpyDeviceToDevice, stream));
   
   // Compute eigen-pairs. Eigenvectors are in d_A and eigenvalues in d_W
   CUSOLVER_CHECK(cusolverDnDsyevjBatched(
@@ -172,8 +183,12 @@ void MatrixBatchInverseGpu<N>::compute(double* A, double* Ainv) {
   // CUDA_CHECK(cudaMemcpy(info.data(), d_info, sizeof(int) * batch_size_,
   //       cudaMemcpyDeviceToHost));
 
+  // std::vector<double> W(size_W, 0.0);
+  // CUDA_CHECK(
+  //       cudaMemcpyAsync(W.data(), d_W, sizeof(double) * W.size(), cudaMemcpyDeviceToHost, stream));
   // // OKAY we have eigenvector and eigenvalues. Now we compute
   // // the inverse
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   // for (int i = 0; i < batch_size_; i++) {
   //   if (0 == info[i]) {
@@ -190,10 +205,14 @@ void MatrixBatchInverseGpu<N>::compute(double* A, double* Ainv) {
   //   }
   // }
 
+  // for (int i = 0; i < W.size(); ++i) {
+  //   std::cout << "W[i] " << W[i] << std::endl;
+  // }
+
+  // std::cout << "BATCH SIZE: " << batch_size_ << std::endl;
   thrust::for_each(thrust::counting_iterator<int>(0),
       thrust::counting_iterator<int>(batch_size_),
-      std::bind(&MatrixBatchInverseGpu::invert, this, std::placeholders::_1,
-          d_A, d_W, A, Ainv));
+      inverse_functor<N>(d_A, d_W, A, Ainv));
 }
 
 template class mfem::MatrixBatchInverseGpu<6>; // 6x6 matrices

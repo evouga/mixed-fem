@@ -27,6 +27,8 @@ namespace mfem {
       cudaFree(d_csr_columns);
       cudaFree(d_csr_values);
       cudaFree(d_y);
+      cudaFree(dBuffer);
+
     }
 
     int rows() const { return rows_; }
@@ -37,7 +39,8 @@ namespace mfem {
     cusparseHandle_t     handle = NULL;
     cusparseSpMatDescr_t matA;
     cusparseDnVecDescr_t vecY;
-
+    void* dBuffer = NULL;
+    size_t bufferSize = 0;
     int rows_, cols_;
     double alpha = 1.0f;
     double beta  = 0.0f;
