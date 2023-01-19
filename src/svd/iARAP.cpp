@@ -1,5 +1,6 @@
 #include "iARAP.h"
 #include "quartic.h"
+#include <iostream>
 
 using namespace Eigen;
 
@@ -203,9 +204,10 @@ Matrix3d iARAP::rotation(const Matrix3d &F, bool compute_gradients,
   {
     std::swap(sig2, sig3);
   }
-  double f1 = (2 * f * f + 2 * i1) / (4 * f * f * f - 4 * i1 * f - 8 * J);
-  double f2 = -2 / (4 * f * f * f - 4 * i1 * f - 8 * J);
-  double fJ = (8 * f) / (4 * f * f * f - 4 * i1 * f - 8 * J);
+  double alpha = 4 * f * f * f - 4 * i1 * f - 8 * J;
+  double f1 = (2 * f * f + 2 * i1) / alpha;
+  double f2 = -2                   / alpha;
+  double fJ = (8 * f)              / alpha;
   Eigen::Matrix3d g1 = 2 * F;
   Eigen::Matrix3d g2 = 4 * F * F.transpose() * F;
   Eigen::Matrix3d gJ;
@@ -214,7 +216,7 @@ Matrix3d iARAP::rotation(const Matrix3d &F, bool compute_gradients,
   gJ.col(2) = F.col(0).cross(F.col(1));
   Matrix3d R = f1 * g1 + f2 * g2 + fJ * gJ;
   Matrix3d S = R.transpose() * F;
-
+std::cout << "S iarap: " << S << std::endl;
   if (compute_gradients) {
     Vector3d V0, V1, V2;
 

@@ -64,6 +64,36 @@ Matrix3d MixedStretchGpu<2>::local_hessian(const Vector3d& s, double mu) {
 }
 
 
+template<int DIM> template<bool COMPUTE_GRADIENTS> __device__
+void MixedStretchGpu<DIM>::
+rotation_functor<COMPUTE_GRADIENTS>::operator()(int i) const {
+
+  Map<MatD> Fi(F + M()*i);
+  Map<MatD> Ri(R + M()*i);
+  Map<VecN> Si(S + N()*i);
+  Map<MatMN> dSdFi(dSdF + M()*N()*i);
+
+  if constexpr (DIM == 3) {
+    MatM dRdF;
+    // if (i < 100)
+        // printf("COMPUTE_GRADIENTS = %d", COMPUTE_GRADIENTS);
+    Ri = rotation<double>(Fi, COMPUTE_GRADIENTS, dRdF);
+    MatD S3D = Ri.transpose() * Fi;
+    Si << S3D(0,0), S3D(1,1), S3D(2,2),
+        0.5*(S3D(1,0) + S3D(0,1)),
+        0.5*(S3D(2,0) + S3D(0,2)),
+        0.5*(S3D(2,1) + S3D(1,2));
+    // if (i < 100) {
+    //   printf("Si = %f %f %f %f %f %f", Si(0), Si(1), Si(2), Si(3), Si(4), Si(5));
+    // }
+  }
+  // Ri.setIdentity();
+  // Eigen::Matrix3d rotation(const Eigen::Matrix3d &F);
+
+  // double J = Fi.determinant();
+  // printf("J = %f",J);
+}
+
 template<int DIM> __device__
 void MixedStretchGpu<DIM>::derivative_functor::operator()(int i) const {
   double vol = vols[i];
@@ -124,26 +154,6 @@ MixedStretchGpu<DIM>::MixedStretchGpu(std::shared_ptr<Mesh> mesh)
 }
 
 template<int DIM>
-__device__ 
-void MixedStretchGpu<DIM>::update_rotations(int i, double* F, double* R, double* S, double* dSdF) {
-  Map<MatD> Fi(F + M()*i);
-  Map<MatD> Ri(R + M()*i);
-  Map<VecN> Si(S + N()*i);
-  Map<MatMN> dSdFi(dSdF + M()*N()*i);
-
-  if constexpr (DIM == 3) {
-    MatD Ractual = rotation(Fi);
-    Ri = Ractual;
-  }
-Ri.setIdentity();
-  // Eigen::Matrix3d rotation(const Eigen::Matrix3d &F);
-
-  double J = Fi.determinant();
-  printf("J = %f",J);
-}
-
-
-template<int DIM>
 void MixedStretchGpu<DIM>::update(const Eigen::VectorXd& x, double dt) {
   VectorXd def_grad;
   mesh_->deformation_gradient(x, def_grad);
@@ -178,19 +188,20 @@ void MixedStretchGpu<DIM>::update(const Eigen::VectorXd& x, double dt) {
     exit(-1);
   }
 
-  // TODO rotations
+  // Compute rotations and rotation derivatives (dSdF)
   OptimizerData::get().timer.start("rotations", "MixedStretchGpu");
-  thrust::for_each(thrust::counting_iterator<int>(0), thrust::counting_iterator<int>(nelem_),
-      std::bind(&MixedStretchGpu::update_rotations, this, std::placeholders::_1, F, 
+  thrust::for_each(thrust::counting_iterator<int>(0),
+      thrust::counting_iterator<int>(nelem_),
+      rotation_functor<true>(F,
           thrust::raw_pointer_cast(R_.data()), 
           thrust::raw_pointer_cast(S_.data()), 
           thrust::raw_pointer_cast(dSdF_.data())
       ));
-
-  // for (int i = 0; i < R_.size(); ++i) {
-    // std::cout << "R: " << R_[i] << " F: " << F3[i] << std::endl;
-  // }
   OptimizerData::get().timer.stop("rotations", "MixedStretchGpu");
+  for (int i = 0; i < 100; ++i) {
+    std::cout << "R: " << R_[i] << " F: " << F3[i] << std::endl;
+  }
+  // exit(0);
 
   std::cout << "Update local hessians and gradient" << std::endl;
   OptimizerData::get().timer.start("gradients", "MixedStretchGpu");

@@ -42,16 +42,31 @@ namespace {
       // d(R^T F)/dF = dR^T/dF F + R^T dF/dF
 
       // dS/dF where S is 9x1 flattened 3x3 matrix
-      Matrix9d J = sim::flatten_multiply<Matrix3d>(R.transpose()) *
-        (Matrix9d::Identity() - sim::flatten_multiply_right<Matrix3d>(S)*dRdF);
 
-      // ds/dF where s is 6x1
-      dsdF.row(0) = J.row(0);
-      dsdF.row(1) = J.row(4);
-      dsdF.row(2) = J.row(8);
-      dsdF.row(3) = 0.5*(J.row(1) + J.row(3));
-      dsdF.row(4) = 0.5*(J.row(2) + J.row(6));
-      dsdF.row(5) = 0.5*(J.row(5) + J.row(7));
+      if (compute_gradients) {
+        Matrix9d J = sim::flatten_multiply<Matrix3d>(R.transpose()) *
+          (Matrix9d::Identity() - sim::flatten_multiply_right<Matrix3d>(S)*dRdF);
+
+        // Matrix9d J2 = Matrix9d::Zero();
+        // J2.block<3,3>(0,0) = R.transpose();
+        // J2.block<3,3>(3,3) = R.transpose();
+        // J2.block<3,3>(6,6) = R.transpose();
+        // for (int i = 0; i < 9; ++i) {
+        //   Vector9d flat = dRdF.row(i).transpose();
+        //   Matrix3d dRdFi = Matrix3d(flat.data());
+        //   Matrix3d Ji = R.transpose() * (dRdFi*S);
+        //   J2.col(i) -= Vector9d(Ji.data());
+        // }
+
+        // ds/dF where s is 6x1
+        dsdF.row(0) = J.row(0);
+        dsdF.row(1) = J.row(4);
+        dsdF.row(2) = J.row(8);
+        dsdF.row(3) = 0.5*(J.row(1) + J.row(3));
+        dsdF.row(4) = 0.5*(J.row(2) + J.row(6));
+        dsdF.row(5) = 0.5*(J.row(5) + J.row(7));
+      }
+
 
     } else {
       // Initial SVD computation

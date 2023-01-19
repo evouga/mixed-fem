@@ -277,7 +277,8 @@ target_link_libraries(sim2d PUBLIC mixed_fem_lib)
 add_executable(sim3d apps/sim3d.cpp)
 set_target_properties(sim3d PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 target_link_libraries(sim3d mixed_fem_lib)
-#add_subdirectory(tests)
+
+add_subdirectory(tests)
 
 set_property(TARGET mixed_fem_lib PROPERTY BUILD_RPATH ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
 set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)

@@ -117,6 +117,20 @@ namespace mfem {
     void product_jacobian_mixed(const Eigen::VectorXd& x,
         Eigen::Ref<Eigen::VectorXd> out) const override {}
 
+    template <bool COMPUTE_GRADIENTS = false>
+    struct rotation_functor {
+
+      rotation_functor(double* _F, double* _R, double* _S,
+          double* _dSdF)
+        : F(_F), R(_R), S(_S), dSdF(_dSdF) {}
+      
+      void operator()(int i) const;
+
+      double* F;
+      double* R;
+      double* S;
+      double* dSdF;
+    };
 
     struct derivative_functor {
 
@@ -142,8 +156,6 @@ namespace mfem {
     static double local_energy(const VecN& S, double mu);
     static VecN local_gradient(const VecN& S, double mu);
     static MatN local_hessian(const VecN& S, double mu);
-
-    void update_rotations(int i, double* F, double* R, double* S, double* dSdF);
     
     using Base::mesh_;
 

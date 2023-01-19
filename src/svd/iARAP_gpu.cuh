@@ -8,21 +8,27 @@
 
 namespace mfem {
 
-  void ComputeEigenvector0(double a00, double a01, double a02, double a11,
-      double a12, double a22, double eval0, Eigen::Vector3d &evec0);
+  template<typename Scalar>  __device__
+  void ComputeEigenvector0(Scalar a00, Scalar a01, Scalar a02, Scalar a11,
+      Scalar a12, Scalar a22, Scalar eval0,
+      Eigen::Matrix<Scalar, 3, 1> &evec0);
 
-  void ComputeOrthogonalComplement(Eigen::Vector3d const &W,
-                                  Eigen::Vector3d &U, Eigen::Vector3d &V);
+  template<typename Scalar> __device__
+  void ComputeOrthogonalComplement(Eigen::Matrix<Scalar, 3, 1> const &W,
+    Eigen::Matrix<Scalar, 3, 1> &U,
+    Eigen::Matrix<Scalar, 3, 1> &V);
 
-  void ComputeEigenvector1(double a00, double a01, double a02, double a11,
-      double a12, double a22, Eigen::Vector3d const &evec0,
-      double eval1, Eigen::Vector3d &evec1);
-
-  // Compute the tr(F'R) term seen in the ARAP energy
-  double trace_S(const Eigen::Matrix3d &F);
+  template<typename Scalar> __device__
+  void ComputeEigenvector1(Scalar a00, Scalar a01, Scalar a02, Scalar a11,
+      Scalar a12, Scalar a22, Eigen::Matrix<Scalar, 3, 1> const &evec0,
+      Scalar eval1, Eigen::Matrix<Scalar, 3, 1> &evec1);
 
   // Compute rotation
-  Eigen::Matrix3d rotation(const Eigen::Matrix3d &F);
-  Eigen::Matrix3d rotation(const Eigen::Matrix3d &F, bool compute_gradients,
-      Eigen::Matrix<double, 9, 9>& dRdF);
+  template<typename Scalar> __device__
+  Eigen::Matrix<Scalar, 3, 3> rotation(const Eigen::Matrix<Scalar, 3, 3> &F);
+
+  template<typename Scalar> __device__
+  Eigen::Matrix<Scalar, 3, 3> rotation(const Eigen::Matrix<Scalar, 3, 3> &F,
+      bool compute_gradients, Eigen::Matrix<Scalar, 9, 9>& dRdF);
+
 }
