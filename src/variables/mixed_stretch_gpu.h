@@ -127,8 +127,8 @@ namespace mfem {
     struct energy_functor {
 
       energy_functor(double* _s, double* _F, double* _la, 
-          double* _vols)
-        : s(_s), F(_F), la(_la), vols(_vols) {}
+          double* _vols, double* _mu, double* _lambda)
+        : s(_s), F(_F), la(_la), vols(_vols), mu(_mu), lambda(_lambda) {}
         
       double operator()(int i) const;
 
@@ -136,6 +136,8 @@ namespace mfem {
       double* la;
       double* F;
       double* vols;
+      double* mu;
+      double* lambda;
     };
 
     template <bool COMPUTE_GRADIENTS = false>
@@ -155,21 +157,23 @@ namespace mfem {
 
     struct derivative_functor {
 
-      derivative_functor(double* _s, double* _g, double* _H, double* _Hinv,
-          double* _dSdF, double* _Jloc, double* _Aloc, double* _vols)
-        : s(_s), g(_g), H(_H), Hinv(_Hinv), dSdF(_dSdF), Jloc(_Jloc),
-          Aloc(_Aloc), vols(_vols) {}
+      derivative_functor(double* _s, double* _g, double* _H,
+          double* _dSdF, double* _Jloc, double* _Aloc, double* _vols,
+          double* _mu, double* _lambda)
+        : s(_s), g(_g), H(_H), dSdF(_dSdF), Jloc(_Jloc),
+          Aloc(_Aloc), vols(_vols), mu(_mu), lambda(_lambda) {}
       
       void operator()(int i) const;
 
       double* s;
       double* g;
       double* H;
-      double* Hinv;
       double* dSdF;
       double* Jloc;
       double* Aloc;
       double* vols;
+      double* mu;
+      double* lambda;
     };
 
     struct rhs_functor {
@@ -212,13 +216,18 @@ namespace mfem {
 
   protected:
 
-    static double local_energy(const VecN& S, double mu);
-    static VecN local_gradient(const VecN& S, double mu);
-    static MatN local_hessian(const VecN& S, double mu);
+    // static double local_energy(const VecN& S, double mu);
+    // static VecN local_gradient(const VecN& S, double mu);
+    // static MatN local_hessian(const VecN& S, double mu);
     
     using Base::mesh_;
 
     int nelem_;          // number of elements, |E|
+
+    struct params {
+      vector<double> mu;
+      vector<double> lambda;
+    } params_;
 
     Eigen::SparseMatrix<double, Eigen::RowMajor> dummy_A_;
     Eigen::VectorXd dummy_;

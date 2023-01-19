@@ -26,12 +26,15 @@ MixedVariableFactory<DIM>::MixedVariableFactory() {
       ->std::unique_ptr<MixedVariable<DIM>>
       {return std::make_unique<MixedCollision<DIM>>(mesh, config);}); 
 
-  this->register_type(VariableType::VAR_MIXED_STRETCH_GPU,
-      MixedStretchGpu<DIM>::name(),
-      [](std::shared_ptr<Mesh> mesh, std::shared_ptr<SimConfig> config)
-      ->std::unique_ptr<MixedVariable<DIM>>
-      {return std::make_unique<MixedStretchGpu<DIM>>(mesh);});
 
+  // GPU versions only supported in 3D
+  if constexpr (DIM == 3) {
+    this->register_type(VariableType::VAR_MIXED_STRETCH_GPU,
+        MixedStretchGpu<DIM>::name(),
+        [](std::shared_ptr<Mesh> mesh, std::shared_ptr<SimConfig> config)
+        ->std::unique_ptr<MixedVariable<DIM>>
+        {return std::make_unique<MixedStretchGpu<DIM>>(mesh);});
+  }
 }
 
 template<int DIM>

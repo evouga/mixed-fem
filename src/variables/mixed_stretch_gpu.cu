@@ -3,10 +3,11 @@
 #include "utils/sparse_matrix_gpu.h"
 #include "energies/material_model.h"
 #include "optimizers/optimizer_data.h"
-#include "svd/iARAP_gpu.cuh"
 #include "svd/svd3_cuda_polar.cuh"
 #include <thrust/transform_reduce.h>
 #include <thrust/functional.h>
+#include <thrust/host_vector.h>
+#include "energies/arap.cuh"
 
 using namespace Eigen;
 using namespace mfem;
@@ -15,72 +16,21 @@ using namespace thrust::placeholders;
 namespace {
 }
 
-// Right now just ARAP energy supported on GPU
-template<> __device__  
-double MixedStretchGpu<3>::local_energy(const Vector6d& S, double mu) {
-  return (mu*(pow(S(0)-1.0,2.0)+pow(S(1)-1.0,2.0)+pow(S(2)-1.0,2.0)
-      +(S(3)*S(3))*2.0+(S(4)*S(4))*2.0+(S(5)*S(5))*2.0))/2.0;
-}
-
-template<> __device__  
-Vector6d MixedStretchGpu<3>::local_gradient(const Vector6d& S, double mu) {
-  Vector6d g;
-  g(0) = (mu*(S(0)*2.0-2.0))/2.0;
-  g(1) = (mu*(S(1)*2.0-2.0))/2.0;
-  g(2) = (mu*(S(2)*2.0-2.0))/2.0;
-  g(3) = S(3)*mu*2.0;
-  g(4) = S(4)*mu*2.0;
-  g(5) = S(5)*mu*2.0;
-  return g;
-}
-
-template<> __device__  
-Matrix6d MixedStretchGpu<3>::local_hessian(const Vector6d& S, double mu) {
-  Vector6d tmp; tmp << 1,1,1,2,2,2;
-  Matrix6d tmp2; tmp2.setZero();
-  tmp2.diagonal() = tmp;
-  return tmp2 * mu;
-}
-
-template<> __device__  
-double MixedStretchGpu<2>::local_energy(const Vector3d& s, double mu) {
-  return (mu*(pow(s(0)-1.0,2.0)+pow(s(1)-1.0,2.0)+(s(2)*s(2))*2.0))/2.0;
-}
-
-template<> __device__ 
-Vector3d MixedStretchGpu<2>::local_gradient(const Vector3d& s, double mu) {
-  Vector3d g;
-  g(0) = (mu*(s(0)*2.0-2.0))/2.0;
-  g(1) = (mu*(s(1)*2.0-2.0))/2.0;
-  g(2) = s(2)*mu*2.0;
-  return g;
-}
-
-template<> __device__ 
-Matrix3d MixedStretchGpu<2>::local_hessian(const Vector3d& s, double mu) {
-  Matrix3d H;
-  H.setZero();
-  H(0,0) = mu;
-  H(1,1) = mu;
-  H(2,2) = mu*2.0;
-  return H;
-}
-
-
 template<int DIM> __device__
 double MixedStretchGpu<DIM>::energy_functor::operator()(int i) const {
   Map<VecN> si(s + N()*i);
   Map<MatD> Fi(F + M()*i);
   Map<VecN> lai(la + N()*i);
   double vol = vols[i];
-  double mu = 10344.8;
+  // double mu = 10344.8;
+  double mui = mu[i];
+  double lambdai = lambda[i];
   double h2 = 0.0333 * 0.0333;
 
   double e = 0.0;
   // void svd_polar(const Eigen::Matrix3d& Ad, Eigen::Matrix3f& R) {
   if constexpr (DIM == 3) {
     Matrix<float,DIM,DIM> Rf;
-// void svd_polar(const Eigen::Matrix3d& Ad, Eigen::Matrix3f& R) {
 
     svd_polar(Fi, Rf);
     MatD Ri = Rf.template cast<double>();
@@ -95,11 +45,7 @@ double MixedStretchGpu<DIM>::energy_functor::operator()(int i) const {
 
     MatN sym = Sym();
     VecN diff = sym * (Si - si);
-    // e = local_energy(si,mu);
-    // e = vol * local_energy(si,mu); // fails
-    // e = lai.dot(diff); // fails
-    // e = vol * (lai.dot(diff)));
-    e = vol * (lai.dot(diff)/h2 + local_energy(si, mu));
+    e = vol * (lai.dot(diff)/h2 + local_energy<double>(si, mui));
   }
   return e;
   
@@ -129,44 +75,32 @@ rotation_functor<COMPUTE_GRADIENTS>::operator()(int i) const {
         0.5*(S3D(2,1) + S3D(1,2));
     
     dSdFi = dSdFf.transpose().cast<double>();
-    // if (i < 3) {
-    //   printf("Si = %f %f %f %f %f %f\n", Si(0), Si(1), Si(2), Si(3), Si(4), Si(5));
-    //   // Print dSdFf
-    //   printf("dSdFf:\n");
-    //   printf("1%f %f %f %f %f %f %f %f %f\n", dSdFf(0,0), dSdFf(0,1), dSdFf(0,2), dSdFf(0,3), dSdFf(0,4), dSdFf(0,5), dSdFf(0,6), dSdFf(0,7), dSdFf(0,8));
-    //   printf("2%f %f %f %f %f %f %f %f %f\n", dSdFf(1,0), dSdFf(1,1), dSdFf(1,2), dSdFf(1,3), dSdFf(1,4), dSdFf(1,5), dSdFf(1,6), dSdFf(1,7), dSdFf(1,8));
-    //   printf("3%f %f %f %f %f %f %f %f %f\n", dSdFf(2,0), dSdFf(2,1), dSdFf(2,2), dSdFf(2,3), dSdFf(2,4), dSdFf(2,5), dSdFf(2,6), dSdFf(2,7), dSdFf(2,8));
-    //   printf("4%f %f %f %f %f %f %f %f %f\n", dSdFf(3,0), dSdFf(3,1), dSdFf(3,2), dSdFf(3,3), dSdFf(3,4), dSdFf(3,5), dSdFf(3,6), dSdFf(3,7), dSdFf(3,8));
-    //   printf("5%f %f %f %f %f %f %f %f %f\n", dSdFf(4,0), dSdFf(4,1), dSdFf(4,2), dSdFf(4,3), dSdFf(4,4), dSdFf(4,5), dSdFf(4,6), dSdFf(4,7), dSdFf(4,8));
-    //   printf("6%f %f %f %f %f %f %f %f %f\n", dSdFf(5,0), dSdFf(5,1), dSdFf(5,2), dSdFf(5,3), dSdFf(5,4), dSdFf(5,5), dSdFf(5,6), dSdFf(5,7), dSdFf(5,8));
-    //   printf("\n\n");
-    // }
   }
 }
 
 template<int DIM> __device__
 void MixedStretchGpu<DIM>::derivative_functor::operator()(int i) const {
   double vol = vols[i];
+  double mui = mu[i];
+  double lambdai = lambda[i];
   Map<VecN> si(s + N()*i);
   Map<VecN> gi(g + N()*i);
   Map<MatN> Hi(H + N()*N()*i);
-  Map<MatN> Hinvi(Hinv + N()*N()*i);
   Map<MatMN> dSdFi(dSdF + M()*N()*i);
 
   Map<Matrix<double, Aloc_N(), Aloc_N()>> Aloci(Aloc + Aloc_N()*Aloc_N()*i);
   Map<Matrix<double, M(), Aloc_N()>> Jloci(Jloc + M()*Aloc_N()*i);
   
-  // TODO input material parameters
-  // Look at how AMGCL does runtime selection of GPU stuff...
-  double mu = 10344.8;
+  // TODO better selection
+  // Look at how AMGCL or GINKGO does runtime selection of GPU stuff...
   double h2 = 0.0333 * 0.0333;
-  // MatN syminv = Syminv();
-  Hi = h2 * local_hessian(si, mu);
-  gi = h2 * local_gradient(si, mu);
+  // mui = 10344.8;
+
+  Hi = h2 * local_hessian<double>(si, mui);
+  gi = h2 * local_gradient<double>(si, mui);
   // Aloci = vol * Jloci.transpose() * (dSdFi 
     // * (syminv * Hi * syminv) * dSdFi.transpose()) * Jloci;
-  Aloci = vol * Jloci.transpose() * (dSdFi 
-    * Hi * dSdFi.transpose()) * Jloci;
+  Aloci = vol * Jloci.transpose() * (dSdFi * Hi * dSdFi.transpose()) * Jloci;
 }
 
 template<int DIM> __device__
@@ -229,7 +163,9 @@ double MixedStretchGpu<DIM>::energy(const VectorXd& x, const VectorXd& s) {
     thrust::counting_iterator<int>(nelem_),
     energy_functor(d_s, F,
         thrust::raw_pointer_cast(la_.data()), 
-        thrust::raw_pointer_cast(vols_.data())),
+        thrust::raw_pointer_cast(vols_.data()),
+        thrust::raw_pointer_cast(params_.mu.data()),
+        thrust::raw_pointer_cast(params_.lambda.data())),
         0.0, thrust::plus<double>());
   OptimizerData::get().timer.stop("energy", "MixedStretchGpu");
   cudaFree(d_x);
@@ -295,17 +231,28 @@ void MixedStretchGpu<DIM>::update(const VectorXd& x, double dt) {
   std::cout << "Update local hessians and gradient" << std::endl;
   OptimizerData::get().timer.start("gradients", "MixedStretchGpu");
   // Compute local hessians and gradients
+
+  //   double vol = vols[i];
+  // double mu = mu[i];
+  // double lambda = lambda[i];
+  // Map<VecN> si(s + N()*i);
+  // Map<VecN> gi(g + N()*i);
+  // Map<MatN> Hi(H + N()*N()*i);
+  // Map<MatN> Hinvi(Hinv + N()*N()*i);
+  // Map<MatMN> dSdFi(dSdF + M()*N()*i);
+
   thrust::for_each(thrust::counting_iterator<int>(0),
       thrust::counting_iterator<int>(nelem_),
       derivative_functor(
           thrust::raw_pointer_cast(s_.data()), 
           thrust::raw_pointer_cast(g_.data()), 
           thrust::raw_pointer_cast(H_.data()), 
-          thrust::raw_pointer_cast(Hinv_.data()), 
           thrust::raw_pointer_cast(dSdF_.data()), 
           thrust::raw_pointer_cast(Jloc_.data()), 
           thrust::raw_pointer_cast(Aloc_.data()),
-          thrust::raw_pointer_cast(vols_.data())));
+          thrust::raw_pointer_cast(vols_.data()),
+          thrust::raw_pointer_cast(params_.mu.data()),
+          thrust::raw_pointer_cast(params_.lambda.data())));
   OptimizerData::get().timer.stop("gradients", "MixedStretchGpu");
 
   // for (int i = 0; i < 50; ++i) {
@@ -397,8 +344,6 @@ void MixedStretchGpu<DIM>::solve(const Eigen::VectorXd& dx) {
   cudaFree(d_dx);
 }
 
-
-
 template<int DIM>
 MixedStretchGpu<DIM>::MixedStretchGpu(std::shared_ptr<Mesh> mesh)
     : MixedVariable<DIM>(mesh), Hinv_gpu_(mesh->T_.rows()) {
@@ -439,17 +384,34 @@ MixedStretchGpu<DIM>::MixedStretchGpu(std::shared_ptr<Mesh> mesh)
   const VectorXd& vols = mesh_->volumes();
   vols_ = thrust::device_vector<double>(vols.begin(), vols.end());
 
-  // Initialize deformation gradient matrix on the gpu
+  // Initialize deformation gradient jacobian matrix on the gpu
   const Eigen::SparseMatrix<double, RowMajor>& A =
       mesh_->template jacobian<JacobianType::FULL>();
   J_gpu_.init(A);
 
+  // Weight jacobian matrix transposed initialization
   const Eigen::SparseMatrix<double, RowMajor>& PJW = mesh_->jacobian();
   JW_gpu_.init(PJW);
   JWT_gpu_.init(PJW.transpose());
-
+  
+  // initialize RHS vector
   rhs_.resize(PJW.rows());
   rhs_tmp_.resize(M() * nelem_);
+
+  // initialize material parameters
+  // params_.mu.resize(nelem_);
+  // params_.lambda.resize(nelem_);
+
+  // Copy material parameters to host vectors
+  thrust::host_vector<double> mu_h(nelem_);
+  thrust::host_vector<double> lambda_h(nelem_);
+  for (int i = 0; i < nelem_; i++) {
+    // mesh_->material(i)->get_parameters(mu_h[i], lambda_h[i]);
+    mu_h[i] = mesh_->elements_[i].material_->config()->mu;
+    lambda_h[i] = mesh_->elements_[i].material_->config()->la;
+  }
+  params_.mu = mu_h;
+  params_.lambda = lambda_h;
 
   // Init CPU assembler
   assembler_ = std::make_shared<Assembler<double,DIM,-1>>(
@@ -531,4 +493,3 @@ void MixedStretchGpu<DIM>::post_solve() {
 }
 
 template class mfem::MixedStretchGpu<3>; // 3D
-template class mfem::MixedStretchGpu<2>; // 2D
