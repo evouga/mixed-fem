@@ -55,14 +55,16 @@ void Displacement<DIM>::update(const Eigen::VectorXd&, double) {}
 
 template<int DIM>
 VectorXd Displacement<DIM>::rhs() {
-  data_.timer.start("RHS - x");
+  OptimizerData::get().timer.start("rhs", "Displacement");
   rhs_ = -gradient();
-  data_.timer.stop("RHS - x");
+  OptimizerData::get().timer.stop("rhs", "Displacement");
   return rhs_;
 }
 
 template<int DIM>
 VectorXd Displacement<DIM>::gradient() {
+  OptimizerData::get().timer.start("gradient", "Displacement");
+
   double h = integrator_->dt();
   const auto& P = mesh_->projection_matrix();
   VectorXd xt = P.transpose()*x_ + b_;
@@ -71,6 +73,7 @@ VectorXd Displacement<DIM>::gradient() {
 
   const auto& PM = mesh_->template mass_matrix<MatrixType::PROJECT_ROWS>();
   grad_ = PM * diff;
+  OptimizerData::get().timer.stop("gradient", "Displacement");
   return grad_;
 }
 

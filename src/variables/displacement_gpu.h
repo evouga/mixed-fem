@@ -5,6 +5,8 @@
 #include "time_integrators/implicit_integrator.h"
 #include "utils/sparse_utils.h"
 #include "mesh/mesh.h"
+#include <thrust/device_vector.h>
+#include "EigenTypes.h"
 
 namespace mfem {
 
@@ -12,13 +14,34 @@ namespace mfem {
 
   // Nodal displacement variable
   template<int DIM>
-  class Displacement : public Variable<DIM> {
+  class DisplacementGpu : public Variable<DIM> {
 
     typedef Variable<DIM> Base;
 
+    // Number of degrees of freedom per element
+    // For DIM == 3 we have 6 DOFs per element, and
+    // 3 DOFs for DIM == 2;
+    __host__ __device__
+    static constexpr int N() {
+      return DIM == 3 ? 12 : 9;
+    }
+
+    __host__ __device__
+    static constexpr int M() {
+      return DIM * DIM;
+    }
+
+    // Matrix and vector data types
+    using VecD  = Eigen::Matrix<double, DIM, 1>;   // 3x1 or 2x1
+    using MatD  = Eigen::Matrix<double, DIM, DIM>; // 3x3 or 2x2
+    using VecN  = Eigen::Vector<double, N()>;      // 6x1 or 3x1
+    using VecM  = Eigen::Vector<double, M()>;      // 9x1
+    using MatN  = Eigen::Matrix<double, N(), N()>; // 6x6 or 3x3
+    using MatMN = Eigen::Matrix<double, M(), N()>; // 9x6 or 4x3
+
   public:
 
-    Displacement(std::shared_ptr<Mesh> mesh,
+    DisplacementGpu(std::shared_ptr<Mesh> mesh,
           std::shared_ptr<SimConfig> config);
 
     double energy(const Eigen::VectorXd& s) override;
@@ -34,11 +57,11 @@ namespace mfem {
     }
 
     Eigen::VectorXd& delta() override {
-      return dx_;
+      return dx_h_;
     }
 
     Eigen::VectorXd& value() override {
-      return x_;
+      return x_h_;
     }
 
     const std::shared_ptr<ImplicitIntegrator> integrator() const {
@@ -53,7 +76,7 @@ namespace mfem {
     void unproject(Eigen::VectorXd& x) const {
       const auto& P = mesh_->projection_matrix();
       assert(x.size() == P.rows());
-      x = P.transpose() * x + b_;
+      x = P.transpose() * x + b_h_;
     }
 
     int size() const override {
@@ -68,26 +91,6 @@ namespace mfem {
 
   private:
 
-    // Number of degrees of freedom per element
-    // For DIM == 3 we have 6 DOFs per element, and
-    // 3 DOFs for DIM == 2;
-    static constexpr int N() {
-      return DIM == 3 ? 12 : 9;
-    }
-
-    static constexpr int M() {
-      return DIM * DIM;
-    }
-
-    // Matrix and vector data types
-    using VecD  = Eigen::Matrix<double, DIM, 1>;   // 3x1 or 2x1
-    using MatD  = Eigen::Matrix<double, DIM, DIM>; // 3x3 or 2x2
-    using VecN  = Eigen::Vector<double, N()>;      // 6x1 or 3x1
-    using VecM  = Eigen::Vector<double, M()>;      // 9x1
-    using MatN  = Eigen::Matrix<double, N(), N()>; // 6x6 or 3x3
-    using MatMN = Eigen::Matrix<double, M(), N()>; // 9x6 or 4x3
-
-
     using Base::mesh_;
 
     std::shared_ptr<SimConfig> config_;
@@ -95,10 +98,10 @@ namespace mfem {
 
     Eigen::SparseMatrix<double, Eigen::RowMajor> lhs_;
 
-    Eigen::VectorXd x_;       // displacement variables
-    Eigen::VectorXd b_;       // dirichlet values
-    Eigen::VectorXd dx_;      // displacement deltas
-    Eigen::VectorXd rhs_;     // right-hand-side vector
-    Eigen::VectorXd grad_;    // Gradient with respect to 's' variables
+    Eigen::VectorXd x_h_;       // displacement variables
+    Eigen::VectorXd b_h_;       // dirichlet values
+    Eigen::VectorXd dx_h_;      // displacement deltas
+    Eigen::VectorXd rhs_h_;     // right-hand-side vector
+    Eigen::VectorXd grad_h_;    // Gradient with respect to 's' variables
   };
 }

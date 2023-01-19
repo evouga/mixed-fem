@@ -275,7 +275,6 @@ VectorXd MixedStretch<DIM>::rhs() {
   //std::cout << "la norm " << la_.norm() << std::endl;
   //std::cout << "s norm " << s_.norm() << std::endl;
   OptimizerData::get().timer.stop("rhs", "MixedStretch");
-  std::cout << "RHS norm " << rhs_.norm() << std::endl;
   return rhs_;
 }
 

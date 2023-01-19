@@ -17,6 +17,7 @@ namespace mfem {
 
   enum VariableType {
     VAR_DISPLACEMENT,
+    VAR_DISPLACEMENT_GPU,
     VAR_STRETCH,
     VAR_COLLISION,
     VAR_FRICTION,
