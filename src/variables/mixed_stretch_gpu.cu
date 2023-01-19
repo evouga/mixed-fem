@@ -160,14 +160,13 @@ void MixedStretchGpu<DIM>::derivative_functor::operator()(int i) const {
   // Look at how AMGCL does runtime selection of GPU stuff...
   double mu = 10344.8;
   double h2 = 0.0333 * 0.0333;
-  MatN syminv = Syminv();
+  // MatN syminv = Syminv();
   Hi = h2 * local_hessian(si, mu);
   gi = h2 * local_gradient(si, mu);
+  // Aloci = vol * Jloci.transpose() * (dSdFi 
+    // * (syminv * Hi * syminv) * dSdFi.transpose()) * Jloci;
   Aloci = vol * Jloci.transpose() * (dSdFi 
-    * (syminv * Hi * syminv) * dSdFi.transpose()) * Jloci;
-  // Hi = h2 * (syminv * local_hessian(si, mu) * syminv) / vol;
-  // Aloci = vol * vol * Jloci.transpose() 
-  //     * (dSdFi * Hi * dSdFi.transpose()) * Jloci;
+    * Hi * dSdFi.transpose()) * Jloci;
 }
 
 template<int DIM> __device__
@@ -179,8 +178,9 @@ void MixedStretchGpu<DIM>::rhs_functor::operator()(int i) const {
   Map<MatN> Hi(H + N()*N()*i);
   Map<MatMN> dSdFi(dSdF + M()*N()*i);
   Map<VecM> rhsi(rhs + M()*i);
-  MatN syminv = Syminv();
-  VecN gl = syminv * (Hi * (Si - si) + gi);
+  // MatN syminv = Syminv();
+  // VecN gl = syminv * (Hi * (Si - si) + gi);
+  VecN gl = (Hi * (Si - si) + gi);
   rhsi = -dSdFi * gl;
 }
 
@@ -196,7 +196,7 @@ void MixedStretchGpu<DIM>::solve_functor::operator()(int i) const {
   Map<VecM> Jdxi(Jdx + M()*i);
   Map<MatMN> dSdFi(dSdF + M()*N()*i);
   MatN syminv = Syminv();
-  MatN sym = Sym();
+  // MatN sym = Sym();
 
   dsi = (Si - si + dSdFi.transpose()*Jdxi/vol);
   lai = syminv * (Hi * dsi + gi);
@@ -392,6 +392,8 @@ void MixedStretchGpu<DIM>::solve(const Eigen::VectorXd& dx) {
   ds_h_.resize(ds_.size());
   cudaMemcpy(ds_h_.data(), thrust::raw_pointer_cast(ds_.data()),
       ds_.size()*sizeof(double), cudaMemcpyDeviceToHost);
+
+  // std::cout << " gpu solve norm: " << ds_h_.norm() << "\n " << ds_h_.head(100).transpose() << std::endl;
   cudaFree(d_dx);
 }
 
@@ -521,6 +523,11 @@ template<int DIM>
 Eigen::VectorXd& MixedStretchGpu<DIM>::lambda() {
   std::cout << "Lambda not implemented for MixedStretchGpu" << std::endl;
   return dummy_;
+}
+
+template<int DIM>
+void MixedStretchGpu<DIM>::post_solve() {
+  thrust::fill(la_.begin(), la_.end(), 0.0);
 }
 
 template class mfem::MixedStretchGpu<3>; // 3D

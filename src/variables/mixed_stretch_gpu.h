@@ -86,6 +86,7 @@ namespace mfem {
         const Eigen::VectorXd& s) override{return 0.0;}
     void update(const Eigen::VectorXd& x, double dt) override;
     void solve(const Eigen::VectorXd& dx) override;
+    void post_solve() override;
 
     const Eigen::SparseMatrix<double, Eigen::RowMajor>& lhs() override {
       return assembler_->A;
@@ -208,7 +209,6 @@ namespace mfem {
       double* la;
       double* vols;
     };
-
 
   protected:
 

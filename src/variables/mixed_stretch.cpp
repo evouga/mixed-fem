@@ -288,18 +288,19 @@ void MixedStretch<DIM>::solve(const VectorXd& dx) {
 
   #pragma omp parallel for 
   for (int i = 0; i < nelem_; ++i) {
-    la_.segment<N()>(N()*i) += H_[i] * (dSdF_[i].transpose()
-        * Jdx_.segment<M()>(M()*i));        
-    ds_.segment<N()>(N()*i) = -Hinv_[i]
-        * (g_[i] - Sym() * la_.segment<N()>(N()*i));
-
-    
-    // double vol = mesh_->volumes()[i];
-    // VecN ds2 = (S_[i] - s_.segment<N()>(N()*i))
-    //     + Syminv() * dSdF_[i].transpose() * Jdx_.segment<M()>(M()*i) / vol;
-    // std::cout << "ds_[i] " << (ds_.segment<N()>(N()*i)-ds2).norm() << std::endl;
-    // std::cout << "ds2 " << ds2.transpose() << std::endl;
+    double vol = mesh_->volumes()[i];
+    // la_.segment<N()>(N()*i) += H_[i] * (dSdF_[i].transpose()
+    //     * Jdx_.segment<M()>(M()*i));        
+    // ds_.segment<N()>(N()*i) = -Hinv_[i]
+    //     * (g_[i] - Sym() * la_.segment<N()>(N()*i));
+    //     Hloc_[i] = vol * H;
+    ds_.segment<N()>(N()*i) = (S_[i] - s_.segment<N()>(N()*i))
+        + Syminv() * dSdF_[i].transpose() * Jdx_.segment<M()>(M()*i) / vol;
+    la_.segment<N()>(N()*i) = Syminv() 
+        * (Hloc_[i]/vol *ds_.segment<N()>(N()*i) + g_[i]);
   }
+  // std::cout << " cpu solve norm: " << ds_.norm() << "\n " << ds_.head(100).transpose() << std::endl;
+
   OptimizerData::get().timer.stop("solve", "MixedStretch");
 }
 
