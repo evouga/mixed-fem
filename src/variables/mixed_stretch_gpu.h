@@ -44,6 +44,20 @@ namespace mfem {
     using MatMN = Eigen::Matrix<double, M(), N()>; // 9x6 or 4x3
 
     __host__ __device__
+    static constexpr MatN Sym() {
+      VecN v;
+      MatN m; m.setZero();
+      // NOTE: asDiagonal returning NaNs in cuda
+      if constexpr (DIM == 3) {
+        v << 1,1,1,2,2,2;
+      } else {
+        v << 1,1,2;
+      }
+      m.diagonal() = v;
+      return m;
+    }
+
+    __host__ __device__
     static constexpr MatN Syminv() {
       VecN v;
       MatN m; m.setZero();
@@ -67,31 +81,23 @@ namespace mfem {
     }
 
     void reset();
-    double energy(const Eigen::VectorXd& x, const Eigen::VectorXd& s) override {return 0.0;}
+    double energy(const Eigen::VectorXd& x, const Eigen::VectorXd& s) override;
     double constraint_value(const Eigen::VectorXd& x,
         const Eigen::VectorXd& s) override{return 0.0;}
     void update(const Eigen::VectorXd& x, double dt) override;
-    void solve(const Eigen::VectorXd& dx) override {}
+    void solve(const Eigen::VectorXd& dx) override;
 
     const Eigen::SparseMatrix<double, Eigen::RowMajor>& lhs() override {
-      return dummy_A_;
+      return assembler_->A;
     }
-    Eigen::VectorXd rhs() override { return dummy_; }
+    Eigen::VectorXd rhs() override;
     Eigen::VectorXd gradient() override { return dummy_; }
     Eigen::VectorXd gradient_mixed() override { return dummy_; }
     Eigen::VectorXd gradient_dual() override { return dummy_; }
 
-    Eigen::VectorXd& delta() override {
-      return dummy_;
-    }
-
-    Eigen::VectorXd& value() override {
-      return dummy_;
-    }
-
-    Eigen::VectorXd& lambda() override {
-      return dummy_;
-    }
+    Eigen::VectorXd& delta();
+    Eigen::VectorXd& value() override;
+    Eigen::VectorXd& lambda() override;
     
     int size() const override {
       return 0;// s_.size() * N();
@@ -116,6 +122,20 @@ namespace mfem {
         Eigen::Ref<Eigen::VectorXd> out, bool transposed) const override {}
     void product_jacobian_mixed(const Eigen::VectorXd& x,
         Eigen::Ref<Eigen::VectorXd> out) const override {}
+
+    struct energy_functor {
+
+      energy_functor(double* _s, double* _F, double* _la, 
+          double* _vols)
+        : s(_s), F(_F), la(_la), vols(_vols) {}
+        
+      double operator()(int i) const;
+
+      double* s;
+      double* la;
+      double* F;
+      double* vols;
+    };
 
     template <bool COMPUTE_GRADIENTS = false>
     struct rotation_functor {
@@ -151,6 +171,45 @@ namespace mfem {
       double* vols;
     };
 
+    struct rhs_functor {
+
+      rhs_functor(double* _rhs, double* _s, double* _S, double* _g, double* _H,
+          double* _dSdF, double* _vols)
+        : rhs(_rhs), s(_s), S(_S), g(_g), H(_H), dSdF(_dSdF),
+          vols(_vols) {}
+      
+      void operator()(int i) const;
+
+      double* rhs;
+      double* s;
+      double* S;
+      double* g;
+      double* H;
+      double* dSdF;
+      double* vols;
+    };
+
+    struct solve_functor {
+
+      solve_functor(double* _Jdx, double* _S, double* _s, double* _g, double* _H,
+          double* _dSdF, double* _ds, double* _la, double* _vols)
+        : Jdx(_Jdx), S(_S), s(_s), g(_g), H(_H), dSdF(_dSdF),
+          ds(_ds), la(_la), vols(_vols) {}
+
+      void operator()(int i) const;
+  
+      double* Jdx;
+      double* S;
+      double* s;
+      double* g;
+      double* H;
+      double* dSdF;
+      double* ds;
+      double* la;
+      double* vols;
+    };
+
+
   protected:
 
     static double local_energy(const VecN& S, double mu);
@@ -164,7 +223,7 @@ namespace mfem {
     Eigen::SparseMatrix<double, Eigen::RowMajor> dummy_A_;
     Eigen::VectorXd dummy_;
     vector<double> rhs_; // RHS for primal condensation system
-
+    vector<double> rhs_tmp_;
     // Per element data
     vector<double> s_;     // deformation variable        N|E| x 1
     vector<double> ds_;    // deformation variable deltas N|E| x 1
@@ -178,8 +237,15 @@ namespace mfem {
     vector<double> Aloc_;  // local stiffness matrices
     vector<double> Jloc_;  // local jacobians
     vector<double> vols_;  // element volumes |E| x 1
+    Eigen::VectorXd ds_h_;
+    Eigen::VectorXd s_h_;
+    vector<double> energy_tmp_;
 
     SparseMatrixGpu J_gpu_;
+    SparseMatrixGpu JW_gpu_; // projected, weighted jacobian
+
+    // TODO should just do transpose-multiply
+    SparseMatrixGpu JWT_gpu_; // projected, weighted jacobian, transposed
     MatrixBatchInverseGpu<N()> Hinv_gpu_;
     std::shared_ptr<Assembler<double,DIM,-1>> assembler_;
 

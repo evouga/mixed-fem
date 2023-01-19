@@ -150,25 +150,6 @@ double MixedStretch<DIM>::constraint_value(const VectorXd& x,
     e += e_l;
   }
   OptimizerData::get().timer.stop("constraint", "MixedStretch");
-
-  // OptimizerData::get().timer.start("constraint2", "MixedStretch");
-  // VectorXd c_tmp_;
-  // c_tmp_.resize(nelem_);
-  // #pragma omp parallel for
-  // for (int i = 0; i < nelem_; ++i) {
-  //   const VecM& F = def_grad.segment<M()>(M()*i);
-  
-  //   MatD R = R_[i];
-  //   VecN stmp;
-  //   polar_svd<DIM,N()>(R, stmp, Map<MatD>(def_grad.segment<M()>(M()*i).data()),
-  //       false, tmp);
-
-  //   const VecN& si = s.segment<N()>(N()*i);
-  //   VecN diff = Sym() * (stmp - si);
-  //   c_tmp_(i) = la_.segment<N()>(N()*i).dot(diff) * mesh_->volumes()[i];
-  // }
-  // double e2 = c_tmp_.sum();
-  // OptimizerData::get().timer.stop("constraint2", "MixedStretch");
   return e;
 }
 
@@ -196,6 +177,12 @@ void MixedStretch<DIM>::update_rotations(const Eigen::VectorXd& x) {
     Matrix<double, N(), M()> Js;
     polar_svd<DIM,N()>(R_[i], S_[i],
         Map<MatD>(def_grad.segment<M()>(M()*i).data()), true, Js);
+    
+    if (i < 3) {
+      // std::cout << "S: " << std::endl << S_[i].transpose() << std::endl;
+      // std::cout << "Js: " << std::endl << Js << std::endl;
+    }
+
     dSdF_[i] = Js.transpose()*Sym();
   }
   OptimizerData::get().timer.stop("rotations", "MixedStretch");
@@ -288,6 +275,7 @@ VectorXd MixedStretch<DIM>::rhs() {
   //std::cout << "la norm " << la_.norm() << std::endl;
   //std::cout << "s norm " << s_.norm() << std::endl;
   OptimizerData::get().timer.stop("rhs", "MixedStretch");
+  std::cout << "RHS norm " << rhs_.norm() << std::endl;
   return rhs_;
 }
 
@@ -304,6 +292,13 @@ void MixedStretch<DIM>::solve(const VectorXd& dx) {
         * Jdx_.segment<M()>(M()*i));        
     ds_.segment<N()>(N()*i) = -Hinv_[i]
         * (g_[i] - Sym() * la_.segment<N()>(N()*i));
+
+    
+    // double vol = mesh_->volumes()[i];
+    // VecN ds2 = (S_[i] - s_.segment<N()>(N()*i))
+    //     + Syminv() * dSdF_[i].transpose() * Jdx_.segment<M()>(M()*i) / vol;
+    // std::cout << "ds_[i] " << (ds_.segment<N()>(N()*i)-ds2).norm() << std::endl;
+    // std::cout << "ds2 " << ds2.transpose() << std::endl;
   }
   OptimizerData::get().timer.stop("solve", "MixedStretch");
 }
