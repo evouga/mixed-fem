@@ -37,7 +37,8 @@ namespace mfem {
       if (it != str_type_map_.end()) {
         return str_type_map_[name];
       }
-      std::cerr << "Factory type_by_name: type not found" << std::endl;
+      std::cerr << "Factory type_by_name: type with name " 
+          << name << " not found!" << std::endl;
       return (TypeEnum)0;
     }
 

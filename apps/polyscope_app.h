@@ -78,7 +78,7 @@ namespace mfem {
     return ret;
   }
 
-  template <int DIM>
+  template <int DIM, StorageType STORAGE = STORAGE_EIGEN>
   struct PolyscopeApp {
     
     // Helper to display a little (?) mark which shows a tooltip when hovered.
@@ -231,7 +231,7 @@ namespace mfem {
       //ImGui::SetNextItemOpen(true, ImGuiCond_Once);
       if (ImGui::TreeNode("Variables")) {
 
-        if (FactoryCheckbox<MixedVariableFactory<DIM>, VariableType>(
+        if (FactoryCheckbox<MixedVariableFactory<DIM,STORAGE>, VariableType>(
             "Mixed Variables", config->mixed_variables)) {
 
           auto& vars = optimizer->state().mixed_vars_;
@@ -270,7 +270,7 @@ namespace mfem {
         // Optimizer parameters
         if (FactoryCombo<OptimizerFactory<DIM>, OptimizerType>(
             "Optimizer", config->optimizer)) {
-          SimState<DIM>& state = optimizer->state();
+          SimState<DIM,STORAGE>& state = optimizer->state();
           optimizer = optimizer_factory.create(config->optimizer, state);
           optimizer->reset();
         }
@@ -316,7 +316,7 @@ namespace mfem {
           optimizer->reset();
         }
 
-        if (FactoryCombo<IntegratorFactory, TimeIntegratorType>(
+        if (FactoryCombo<IntegratorFactory<STORAGE>, TimeIntegratorType>(
             "Integrator", config->ti_type)) {
           optimizer->reset();
         }
@@ -358,23 +358,29 @@ namespace mfem {
           char buffer[50];
           int n;
 
-          const SimState<DIM>& state = optimizer->state();
-          Eigen::VectorXd x0 = state.x_->integrator()->x_prev();
-          Eigen::VectorXd v0 = state.x_->integrator()->v_prev();
-          Eigen::MatrixXd X = Eigen::Map<Eigen::MatrixXd>(x0.data(), DIM,
-              state.mesh_->V_.rows());
-          X.transposeInPlace();
-          Eigen::MatrixXd V = Eigen::Map<Eigen::MatrixXd>(v0.data(), DIM,
-              state.mesh_->V_.rows());
-          V.transposeInPlace();
+          if constexpr (STORAGE == STORAGE_EIGEN) {
+            const SimState<DIM,STORAGE>& state = optimizer->state();
+            Eigen::VectorXd x0 = state.x_->integrator()->x_prev();
+            Eigen::VectorXd v0 = state.x_->integrator()->v_prev();
+            Eigen::MatrixXd X = Eigen::Map<Eigen::MatrixXd>(x0.data(), DIM,
+                state.mesh_->V_.rows());
+            X.transposeInPlace();
+            Eigen::MatrixXd V = Eigen::Map<Eigen::MatrixXd>(v0.data(), DIM,
+                state.mesh_->V_.rows());
+            V.transposeInPlace();
 
-          n = sprintf(buffer, "../output/sim_x0_%04d.dmat", step); 
-          buffer[n] = 0;
-          igl::writeDMAT(std::string(buffer), X);
+            n = sprintf(buffer, "../output/sim_x0_%04d.dmat", step); 
+            buffer[n] = 0;
+            igl::writeDMAT(std::string(buffer), X);
 
-          n = sprintf(buffer, "../output/sim_v_%04d.dmat", step); 
-          buffer[n] = 0;
-          igl::writeDMAT(std::string(buffer), V);
+            n = sprintf(buffer, "../output/sim_v_%04d.dmat", step); 
+            buffer[n] = 0;
+            igl::writeDMAT(std::string(buffer), V);
+          } else {
+            std::cout << "save_substeps with STORAGE_THRUST not implemented"
+                << std::endl;
+          }
+
         }
 
       }
@@ -405,13 +411,13 @@ namespace mfem {
 
     MaterialModelFactory material_factory;
     VariableFactory<DIM> variable_factory;
-    MixedVariableFactory<DIM> mixed_variable_factory;
-    OptimizerFactory<DIM> optimizer_factory;
+    MixedVariableFactory<DIM,STORAGE> mixed_variable_factory;
+    OptimizerFactory<DIM,STORAGE> optimizer_factory;
     LinearSolverFactory<DIM> solver_factory;
 
     std::shared_ptr<MaterialConfig> material_config;
     std::shared_ptr<MaterialModel> material;
-    std::shared_ptr<Optimizer<DIM>> optimizer;
+    std::shared_ptr<Optimizer<DIM,STORAGE>> optimizer;
     std::shared_ptr<SimConfig> config;
     std::shared_ptr<Mesh> mesh;
   };

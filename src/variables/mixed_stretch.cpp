@@ -108,7 +108,7 @@ namespace {
 }
 
 template<int DIM>
-double MixedStretch<DIM>::energy(const VectorXd& x, const VectorXd& s) {
+double MixedStretch<DIM>::energy(VectorXd& x, VectorXd& s) {
   OptimizerData::get().timer.start("energy", "MixedStretch");
   double e = 0;
 
@@ -154,7 +154,7 @@ double MixedStretch<DIM>::constraint_value(const VectorXd& x,
 }
 
 template<int DIM>
-void MixedStretch<DIM>::update(const Eigen::VectorXd& x, double dt) {
+void MixedStretch<DIM>::update(Eigen::VectorXd& x, double dt) {
   update_rotations(x);
   update_derivatives(dt);
   evaluate_constraint(x, grad_la_);
@@ -279,7 +279,7 @@ VectorXd MixedStretch<DIM>::rhs() {
 }
 
 template<int DIM>
-void MixedStretch<DIM>::solve(const VectorXd& dx) {
+void MixedStretch<DIM>::solve(VectorXd& dx) {
   OptimizerData::get().timer.start("solve", "MixedStretch");
   Jdx_ = mesh_->jacobian().transpose() * dx;
   la_ = gl_;

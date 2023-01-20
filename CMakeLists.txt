@@ -116,11 +116,11 @@ thrust_create_target(ThrustCPP HOST CPP DEVICE CPP)
 # Required due to CMake scoping rules.
 thrust_update_system_found_flags()
 
-# YO CMAKE WHY YOU IGNORE MY NVCC FLAGS HUH?
+# CMAKE IS MY NIGHTMARE
 set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -std=c++14 -Xcompiler -fPIC)
 set(CUDA_NVCC_FLAGS -Xcudafe "--diag_suppress=cc_clobber_ignored " ;
     -Xcudafe " --diag_suppress=set_but_not_used " ;
-    ${CUDA_NVCC_FLAGS} " --extended-lambda ")
+    ${CUDA_NVCC_FLAGS} " --extended-lambda --disable-warnings")
 set(CMAKE_CUDA_FLAGS ${CMAKE_CUDA_FLAGS} "--extended-lambda")
 
 # Add polyscope
@@ -134,20 +134,21 @@ add_subdirectory("deps/amgcl")
 file(GLOB SOURCES 
     ${PROJECT_SOURCE_DIR}/src/*.cpp 
     ${PROJECT_SOURCE_DIR}/src/svd/*.cpp 
-    ${PROJECT_SOURCE_DIR}/src/svd/*.cu 
     ${PROJECT_SOURCE_DIR}/src/boundary_conditions/*.cpp 
     ${PROJECT_SOURCE_DIR}/src/energies/*.cpp
-    ${PROJECT_SOURCE_DIR}/src/energies/*.cu
     ${PROJECT_SOURCE_DIR}/src/optimizers/*.cpp
     ${PROJECT_SOURCE_DIR}/src/variables/*.cpp
-    ${PROJECT_SOURCE_DIR}/src/variables/*.cu
-    ${PROJECT_SOURCE_DIR}/src/utils/*.cu
     ${PROJECT_SOURCE_DIR}/src/linear_solvers/*.cpp
     ${PROJECT_SOURCE_DIR}/src/time_integrators/*.cpp
     ${PROJECT_SOURCE_DIR}/src/factories/*.cpp
     ${PROJECT_SOURCE_DIR}/src/utils/*.cpp
     ${PROJECT_SOURCE_DIR}/src/utils/collision/*.cpp
-    ${PROJECT_SOURCE_DIR}/src/mesh/*.cpp)
+    ${PROJECT_SOURCE_DIR}/src/mesh/*.cpp
+    ${PROJECT_SOURCE_DIR}/src/svd/*.cu 
+    ${PROJECT_SOURCE_DIR}/src/energies/*.cu
+    ${PROJECT_SOURCE_DIR}/src/optimizers/*.cu
+    ${PROJECT_SOURCE_DIR}/src/variables/*.cu
+    ${PROJECT_SOURCE_DIR}/src/utils/*.cu)
 
 add_library(mixed_fem_lib SHARED ${SOURCES})
 
@@ -277,6 +278,10 @@ target_link_libraries(sim2d PUBLIC mixed_fem_lib)
 add_executable(sim3d apps/sim3d.cpp)
 set_target_properties(sim3d PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 target_link_libraries(sim3d mixed_fem_lib)
+
+add_executable(sim3d_gpu apps/sim3d_gpu.cpp)
+set_target_properties(sim3d_gpu PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+target_link_libraries(sim3d_gpu mixed_fem_lib)
 
 add_subdirectory(tests)
 

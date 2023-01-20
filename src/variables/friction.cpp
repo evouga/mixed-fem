@@ -7,7 +7,7 @@ using namespace Eigen;
 using namespace mfem;
 
 template<int DIM>
-double Friction<DIM>::energy(const VectorXd& x) {
+double Friction<DIM>::energy(VectorXd& x) {
 
   // Convert configuration vector to matrix form
   MatrixXd V = Map<const MatrixXd>(x.data(), DIM, mesh_->V_.rows());
@@ -26,7 +26,7 @@ double Friction<DIM>::energy(const VectorXd& x) {
 }
 
 template<int DIM>
-void Friction<DIM>::update(const Eigen::VectorXd& x, double dt) {
+void Friction<DIM>::update(Eigen::VectorXd& x, double dt) {
   // Get collision frames
   dt_ = dt;
 

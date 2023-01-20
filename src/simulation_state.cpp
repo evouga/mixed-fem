@@ -42,8 +42,8 @@ namespace {
 
 // Read 2D Mesh
 // TODO separate 3D or maybe even templated loading
-template <int DIM>
-void SimState<DIM>::load_mesh(const std::string& path, MatrixXd& V,
+template <int DIM, StorageType STORAGE>
+void SimState<DIM, STORAGE>::load_mesh(const std::string& path, MatrixXd& V,
     MatrixXi& T, bool normalize_vertices) {
   if constexpr (DIM == 2) {
     MatrixXd NV;
@@ -74,8 +74,8 @@ void SimState<DIM>::load_mesh(const std::string& path, MatrixXd& V,
   }
 }
 
-template <int DIM>
-bool SimState<DIM>::load(const std::string& json_file) {
+template <int DIM, StorageType STORAGE>
+bool SimState<DIM, STORAGE>::load(const std::string& json_file) {
   // Confirm file is .json
   if (std::filesystem::path(json_file).extension() != ".json") {
     throw std::runtime_error("File: " + json_file + " needs to be json");
@@ -92,8 +92,8 @@ bool SimState<DIM>::load(const std::string& json_file) {
   return load(args);
 }
 
-template <int DIM>
-bool SimState<DIM>::load(const nlohmann::json& args) {
+template <int DIM, StorageType STORAGE>
+bool SimState<DIM, STORAGE>::load(const nlohmann::json& args) {
 
   config_ = std::make_shared<SimConfig>();
   load_params(args);
@@ -104,7 +104,7 @@ bool SimState<DIM>::load(const nlohmann::json& args) {
     config_->optimizer = optimizer_factory.type_by_name(name);
   }
 
-  IntegratorFactory integrator_factory;
+  IntegratorFactory<STORAGE> integrator_factory;
   if (const auto& it = args.find("time_integrator"); it != args.end()) {
     std::string name = it->get<std::string>();
     config_->ti_type = integrator_factory.type_by_name(name);
@@ -295,7 +295,7 @@ bool SimState<DIM>::load(const nlohmann::json& args) {
     }
   }
   mesh_ = std::make_shared<Meshes>(meshes);
-  x_ = std::make_unique<Displacement<DIM>>(mesh_, config_);
+  x_ = std::make_unique<PositionType>(mesh_, config_);
 
   if (const auto& it = args.find("initial_state"); it != args.end()) {
     
@@ -345,7 +345,7 @@ bool SimState<DIM>::load(const nlohmann::json& args) {
   }
 
 
-  MixedVariableFactory<DIM> mixed_variable_factory;
+  MixedVariableFactory<DIM,STORAGE> mixed_variable_factory;
   std::set<VariableType> mixed_variables;
   if (const auto& it = args.find("mixed_variables"); it != args.end()) {
     for(const auto& name : it->get<std::vector<std::string>>()) {
@@ -377,8 +377,8 @@ bool SimState<DIM>::load(const nlohmann::json& args) {
   return true;
 }
 
-template <int DIM>
-void SimState<DIM>::load_params(const nlohmann::json& args) {
+template <int DIM, StorageType STORAGE>
+void SimState<DIM, STORAGE>::load_params(const nlohmann::json& args) {
 
 
   if (const auto& it = args.find("body_force"); it != args.end()) {
@@ -404,5 +404,6 @@ void SimState<DIM>::load_params(const nlohmann::json& args) {
   read_and_assign(args, "iterative_solver_tolerance", config_->itr_tol);
 }
 
-template class mfem::SimState<3>; // 3D
-template class mfem::SimState<2>; // 2D
+template class mfem::SimState<3, STORAGE_THRUST>; // 3D
+template class mfem::SimState<3, STORAGE_EIGEN>; // 3D
+template class mfem::SimState<2, STORAGE_EIGEN>; // 2D

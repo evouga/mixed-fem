@@ -9,7 +9,7 @@ using namespace Eigen;
 using namespace mfem;
 
 template<int DIM>
-double MixedCollision<DIM>::energy(const VectorXd& x, const VectorXd& d) {
+double MixedCollision<DIM>::energy(VectorXd& x, VectorXd& d) {
 
   ipc::Candidates& candidates = mesh_->collision_candidates();
   if (candidates.size() == 0) {
@@ -88,7 +88,7 @@ double MixedCollision<DIM>::constraint_value(const VectorXd& x,
 }
 
 template<int DIM>
-void MixedCollision<DIM>::update(const Eigen::VectorXd& x, double dt) {
+void MixedCollision<DIM>::update(Eigen::VectorXd& x, double dt) {
   // Get collision frames
   dt_ = dt;
 
@@ -286,7 +286,7 @@ VectorXd MixedCollision<DIM>::gradient_mixed() {
 }
 
 template<int DIM>
-void MixedCollision<DIM>::solve(const VectorXd& dx) {
+void MixedCollision<DIM>::solve(VectorXd& dx) {
   if (constraints_.empty()) {
     return;
   }

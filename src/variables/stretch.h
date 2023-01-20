@@ -23,8 +23,8 @@ namespace mfem {
       return "stretch";
     }
 
-    double energy(const Eigen::VectorXd& s) override;
-    void update(const Eigen::VectorXd& x, double dt) override;
+    double energy(Eigen::VectorXd& s) override;
+    void update(Eigen::VectorXd& x, double dt) override;
     void reset() override;
     void post_solve() override;
 

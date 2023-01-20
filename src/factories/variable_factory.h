@@ -8,9 +8,10 @@ namespace mfem {
 
   class Mesh;
 
-  template<int DIM>
+  template<int DIM, StorageType STORAGE = STORAGE_EIGEN>
   class MixedVariableFactory : public Factory<VariableType,
-      MixedVariable<DIM>, std::shared_ptr<Mesh>, std::shared_ptr<SimConfig>> {
+      MixedVariable<DIM,STORAGE>, std::shared_ptr<Mesh>,
+      std::shared_ptr<SimConfig>> {
   public:
     MixedVariableFactory();
   };

@@ -1,16 +1,22 @@
 #pragma once
 
-#include "EigenTypes.h"
+#include "config.h"
 #include <memory>
+#include "EigenTypes.h"
+#include <type_traits>
+#include <thrust/device_vector.h>
 
 namespace mfem {
 
   class Mesh;
 
   // Base class for fem degrees of freedom.
-  template<int DIM>
+  template<int DIM, StorageType STORAGE = STORAGE_EIGEN>
   class Variable {
+
   public:
+
+    using VectorType = typename Traits<STORAGE>::VectorType;
 
     Variable(std::shared_ptr<Mesh> mesh) : mesh_(mesh) {
     }
@@ -19,12 +25,12 @@ namespace mfem {
 
     // Evaluate the energy associated with the variable
     // x - variable value
-    virtual double energy(const Eigen::VectorXd& x) { return 0.0; }
+    virtual double energy(VectorType& x) { return 0.0; }
 
     // Update the state given a new set of displacements
     // x  - Nodal displacements
     // dt - Timestep size
-    virtual void update(const Eigen::VectorXd& x, double dt) = 0;
+    virtual void update(VectorType& x, double dt) = 0;
 
     // Resets the state
     virtual void reset() = 0;
@@ -37,19 +43,19 @@ namespace mfem {
 
     // Build and return the right-hand-side of schur-complement
     // reduced system of equations
-    virtual Eigen::VectorXd rhs() = 0;
+    virtual VectorType rhs() = 0;
 
     // Gradient of the energy
-    virtual Eigen::VectorXd gradient() = 0;
+    virtual VectorType gradient() = 0;
 
     // Left-hand-side of the system
     virtual const Eigen::SparseMatrix<double, Eigen::RowMajor>& lhs() = 0;
 
     // Returns the updates from the solves
-    virtual Eigen::VectorXd& delta() = 0;
+    virtual VectorType& delta() = 0;
 
     // Returns variable values
-    virtual Eigen::VectorXd& value() = 0;
+    virtual VectorType& value() = 0;
 
     // Return number of degrees of freedom 
     virtual int size() const = 0;

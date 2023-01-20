@@ -1,9 +1,37 @@
 #pragma once
 
 #include <EigenTypes.h>
+#include <thrust/device_vector.h>
 #include <set>
 
 namespace mfem {
+
+  // Traits for storage type. Used to get the return data types of functions
+  // for a particular storage. Same function as traits in Eigen
+  // namespace internal {
+  //   template<typename Derived>
+  //   struct traits {
+  //     typedef typename Derived::Scalar Scalar;
+  //     typedef typename Derived::VectorType VectorType;
+  //   };
+  // }
+  enum StorageType {
+    STORAGE_EIGEN,
+    STORAGE_THRUST
+  };
+
+  template <StorageType _storage, class = void>
+  struct Traits;
+
+  template <StorageType _storage>
+  struct Traits<_storage, std::enable_if_t<(_storage == STORAGE_EIGEN)>> { 
+    using VectorType = Eigen::VectorXd;
+  };
+
+  template <StorageType _storage>
+  struct Traits<_storage, std::enable_if_t<(_storage == STORAGE_THRUST)>> { 
+    using VectorType = thrust::device_vector<double>;
+  };
 
   // Converts Young's modulus and Poisson's ratio to Lame parameters
   // E      - young's modulus (in pascals)

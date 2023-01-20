@@ -14,9 +14,9 @@ namespace mfem {
 
   // Nodal displacement variable
   template<int DIM>
-  class DisplacementGpu : public Variable<DIM> {
+  class DisplacementGpu : public Variable<DIM, STORAGE_THRUST> {
 
-    typedef Variable<DIM> Base;
+    typedef Variable<DIM, STORAGE_THRUST> Base;
 
     // Number of degrees of freedom per element
     // For DIM == 3 we have 6 DOFs per element, and
@@ -41,46 +41,44 @@ namespace mfem {
 
   public:
 
+    using typename Base::VectorType;
+
     DisplacementGpu(std::shared_ptr<Mesh> mesh,
           std::shared_ptr<SimConfig> config);
 
-    double energy(const Eigen::VectorXd& s) override;
-    void update(const Eigen::VectorXd& x, double dt) override;
+    double energy(VectorType&) override;
+    void update(VectorType& x, double dt) override;
     void reset() override;
     void post_solve() override;
 
-    Eigen::VectorXd rhs() override;
-    Eigen::VectorXd gradient() override;
+    VectorType rhs() override;
+    VectorType gradient() override;
 
     const Eigen::SparseMatrix<double, Eigen::RowMajor>& lhs() override {
       return lhs_;
     }
 
-    Eigen::VectorXd& delta() override {
-      return dx_h_;
+    VectorType& delta() override {
+      return dx_;
+    }
+    VectorType& value() override {
+      return x_;
     }
 
-    Eigen::VectorXd& value() override {
-      return x_h_;
-    }
-
-    const std::shared_ptr<ImplicitIntegrator> integrator() const {
+    const std::shared_ptr<ImplicitIntegrator<STORAGE_THRUST>> integrator()
+        const {
       return integrator_;
     }
 
-    std::shared_ptr<ImplicitIntegrator> integrator() {
+    std::shared_ptr<ImplicitIntegrator<STORAGE_THRUST>> integrator() {
       return integrator_;
     }
 
     // "Unproject" out of reduced space with dirichlet BCs removed
-    void unproject(Eigen::VectorXd& x) const {
-      const auto& P = mesh_->projection_matrix();
-      assert(x.size() == P.rows());
-      x = P.transpose() * x + b_h_;
-    }
+    void unproject(VectorType& x) const;
 
     int size() const override {
-      return x_.size();
+      return x_h_.size();
     }
 
     void product_hessian(const Eigen::VectorXd& x,
@@ -94,10 +92,14 @@ namespace mfem {
     using Base::mesh_;
 
     std::shared_ptr<SimConfig> config_;
-    std::shared_ptr<ImplicitIntegrator> integrator_;
+    std::shared_ptr<ImplicitIntegrator<STORAGE_THRUST>> integrator_;
 
     Eigen::SparseMatrix<double, Eigen::RowMajor> lhs_;
-
+    
+    VectorType dx_;
+    VectorType x_;
+    VectorType grad_;
+    VectorType rhs_;
     Eigen::VectorXd x_h_;       // displacement variables
     Eigen::VectorXd b_h_;       // dirichlet values
     Eigen::VectorXd dx_h_;      // displacement deltas

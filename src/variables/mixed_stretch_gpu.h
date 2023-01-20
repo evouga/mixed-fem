@@ -9,10 +9,10 @@
 
 namespace mfem {
 
-  template<int DIM>
-  class MixedStretchGpu : public MixedVariable<DIM> {
+  template<int DIM, StorageType STORAGE>
+  class MixedStretchGpu : public MixedVariable<DIM,STORAGE> {
 
-    typedef MixedVariable<DIM> Base;
+    typedef MixedVariable<DIM,STORAGE> Base;
 
     template <typename T>
     using vector = thrust::device_vector<T>;
@@ -74,6 +74,8 @@ namespace mfem {
 
   public:
 
+    using typename Base::VectorType;
+
     MixedStretchGpu(std::shared_ptr<Mesh> mesh);
 
     static std::string name() {
@@ -81,24 +83,25 @@ namespace mfem {
     }
 
     void reset();
-    double energy(const Eigen::VectorXd& x, const Eigen::VectorXd& s) override;
-    double constraint_value(const Eigen::VectorXd& x,
-        const Eigen::VectorXd& s) override{return 0.0;}
-    void update(const Eigen::VectorXd& x, double dt) override;
-    void solve(const Eigen::VectorXd& dx) override;
+    double energy(VectorType& x, VectorType& s) override;
+    double constraint_value(const VectorType& x,
+        const VectorType& s) override{return 0.0;}
+    void update(VectorType& x, double dt) override;
+    void solve(VectorType& dx) override;
     void post_solve() override;
 
     const Eigen::SparseMatrix<double, Eigen::RowMajor>& lhs() override {
       return assembler_->A;
     }
-    Eigen::VectorXd rhs() override;
-    Eigen::VectorXd gradient() override { return dummy_; }
+    VectorType rhs() override;
+    VectorType gradient() override;
+    
     Eigen::VectorXd gradient_mixed() override { return dummy_; }
     Eigen::VectorXd gradient_dual() override { return dummy_; }
 
-    Eigen::VectorXd& delta();
-    Eigen::VectorXd& value() override;
-    Eigen::VectorXd& lambda() override;
+    VectorType& delta();
+    VectorType& value() override;
+    VectorType& lambda() override;
     
     int size() const override {
       return 0;// s_.size() * N();

@@ -18,7 +18,7 @@ Displacement<DIM>::Displacement(std::shared_ptr<Mesh> mesh,
 }
 
 template<int DIM>
-double Displacement<DIM>::energy(const VectorXd& x) {
+double Displacement<DIM>::energy(VectorXd& x) {
 
   double h = integrator_->dt();
   const auto& P = mesh_->projection_matrix();
@@ -51,7 +51,7 @@ void Displacement<DIM>::post_solve() {
 }
 
 template<int DIM>
-void Displacement<DIM>::update(const Eigen::VectorXd&, double) {}
+void Displacement<DIM>::update(Eigen::VectorXd&, double) {}
 
 template<int DIM>
 VectorXd Displacement<DIM>::rhs() {
@@ -86,7 +86,7 @@ void Displacement<DIM>::reset() {
   tmp = mesh_->initial_velocity_.transpose();
   VectorXd v0 = Map<VectorXd>(tmp.data(), mesh_->V_.size());
 
-  IntegratorFactory factory;
+  IntegratorFactory<STORAGE_EIGEN> factory;
   integrator_ = factory.create(config_->ti_type, x_, v0, config_->h);  
   
   // Project out Dirichlet boundary conditions

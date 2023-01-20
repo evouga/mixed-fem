@@ -12,7 +12,7 @@ Stretch<DIM>::Stretch(std::shared_ptr<Mesh> mesh)
 }
 
 template<int DIM>
-double Stretch<DIM>::energy(const VectorXd& x) {
+double Stretch<DIM>::energy(VectorXd& x) {
 
   VectorXd def_grad;
   mesh_->deformation_gradient(x, def_grad);
@@ -30,7 +30,7 @@ template<int DIM>
 void Stretch<DIM>::post_solve() {}
 
 template<int DIM>
-void Stretch<DIM>::update(const Eigen::VectorXd& x, double h) {
+void Stretch<DIM>::update(Eigen::VectorXd& x, double h) {
 
   double h2 = h*h;
   VectorXd def_grad;

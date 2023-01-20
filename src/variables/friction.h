@@ -27,8 +27,8 @@ namespace mfem {
       return "friction";
     }
 
-    double energy(const Eigen::VectorXd& x) override;
-    void update(const Eigen::VectorXd& x, double dt) override;
+    double energy(Eigen::VectorXd& x) override;
+    void update(Eigen::VectorXd& x, double dt) override;
     void reset() override;
     void pre_solve() override;
 

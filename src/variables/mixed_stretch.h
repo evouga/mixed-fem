@@ -9,7 +9,7 @@ namespace mfem {
   // Variable for DIMxDIM symmetric deformation stretch matrix
   // from polar decomposition of deformation gradient (F = RS) 
   template<int DIM>
-  class MixedStretch : public MixedVariable<DIM> {
+  class MixedStretch : public MixedVariable<DIM,STORAGE_EIGEN> {
 
     typedef MixedVariable<DIM> Base;
 
@@ -22,10 +22,10 @@ namespace mfem {
       return "mixed-stretch";
     }
 
-    double energy(const Eigen::VectorXd& x, const Eigen::VectorXd& s) override;
+    double energy(Eigen::VectorXd& x, Eigen::VectorXd& s) override;
     double constraint_value(const Eigen::VectorXd& x,
         const Eigen::VectorXd& s) override;
-    void update(const Eigen::VectorXd& x, double dt) override;
+    void update(Eigen::VectorXd& x, double dt) override;
     void reset() override;
     void post_solve() override;
 
@@ -38,7 +38,7 @@ namespace mfem {
       return A_;
     }
 
-    void solve(const Eigen::VectorXd& dx) override;
+    void solve(Eigen::VectorXd& dx) override;
 
     Eigen::VectorXd& delta() override {
       return ds_;

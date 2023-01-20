@@ -11,7 +11,8 @@
 using namespace mfem;
 using namespace Eigen;
 
-template <int DIM> void NewtonOptimizer<DIM>::step() {
+template <int DIM> 
+void NewtonOptimizer<DIM>::step() {
   
   OptimizerData::get().clear();
 
@@ -68,7 +69,7 @@ template <int DIM> void NewtonOptimizer<DIM>::step() {
       state.x_->unproject(x0);
 
       for (const auto& var : state.mixed_vars_) {
-        const Eigen::VectorXd si = var->value() + a * var->delta();
+        Eigen::VectorXd si = var->value() + a * var->delta();
         val += h2 * var->energy(x0, si) + var->constraint_value(x0, si);  
       }
       for (const auto& var : state.vars_) {

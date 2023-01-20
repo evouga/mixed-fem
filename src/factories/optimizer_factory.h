@@ -8,9 +8,9 @@ namespace mfem {
 
   class Mesh;
 
-  template<int DIM>
+  template<int DIM, StorageType STORAGE = STORAGE_EIGEN>
   class OptimizerFactory : public Factory<OptimizerType,
-      Optimizer<DIM>, SimState<DIM>&> {
+      Optimizer<DIM,STORAGE>, SimState<DIM,STORAGE>&> {
   public:
     OptimizerFactory();
   };

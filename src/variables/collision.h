@@ -26,8 +26,8 @@ namespace mfem {
       return "collision";
     }
 
-    double energy(const Eigen::VectorXd& x) override;
-    void update(const Eigen::VectorXd& x, double dt) override;
+    double energy(Eigen::VectorXd& x) override;
+    void update(Eigen::VectorXd& x, double dt) override;
     void reset() override;
 
     Eigen::VectorXd rhs() override;

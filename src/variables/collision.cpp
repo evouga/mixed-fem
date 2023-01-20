@@ -7,7 +7,7 @@ using namespace Eigen;
 using namespace mfem;
 
 template<int DIM>
-double Collision<DIM>::energy(const VectorXd& x) {
+double Collision<DIM>::energy(VectorXd& x) {
 
   ipc::Candidates& candidates = mesh_->collision_candidates();
   if (candidates.size() == 0) {
@@ -48,7 +48,7 @@ double Collision<DIM>::energy(const VectorXd& x) {
 }
 
 template<int DIM>
-void Collision<DIM>::update(const Eigen::VectorXd& x, double dt) {
+void Collision<DIM>::update(Eigen::VectorXd& x, double dt) {
   // Get collision frames
   dt_ = dt;
 

@@ -3,14 +3,16 @@
 using namespace mfem;
 using namespace Eigen;
 
+// typedef DisplacementGpu<DIM>::VectorType VectorType;
+
 template<int DIM>
 DisplacementGpu<DIM>::DisplacementGpu(std::shared_ptr<Mesh> mesh,
     std::shared_ptr<SimConfig> config)
-    : Variable<DIM>(mesh), config_(config) {
+    : Variable<DIM,STORAGE_THRUST>(mesh), config_(config) {
 }
 
 template<int DIM>
-double DisplacementGpu<DIM>::energy(const VectorXd& x) {
+double DisplacementGpu<DIM>::energy(VectorType& x) {
   return 0;
 }
 
@@ -19,20 +21,21 @@ void DisplacementGpu<DIM>::post_solve() {
 }
 
 template<int DIM>
-void DisplacementGpu<DIM>::update(const Eigen::VectorXd&, double) {}
+void DisplacementGpu<DIM>::update(VectorType&, double) {}
 
 template<int DIM>
-VectorXd DisplacementGpu<DIM>::rhs() {
+DisplacementGpu<DIM>::VectorType DisplacementGpu<DIM>::rhs() {
   OptimizerData::get().timer.start("rhs", "DisplacementGpu");
-  rhs_ = -gradient();
+  // rhs_ = -gradient();
   OptimizerData::get().timer.stop("rhs", "DisplacementGpu");
   return rhs_;
 }
 
 template<int DIM>
-VectorXd DisplacementGpu<DIM>::gradient() {
+DisplacementGpu<DIM>::VectorType DisplacementGpu<DIM>::gradient() {
   OptimizerData::get().timer.start("gradient", "DisplacementGpu");
-  OptimizerData::get().timer.start("gradient", "DisplacementGpu");
+  std::cout << "Displacement gradient not implemented yet" << std::endl;
+  OptimizerData::get().timer.stop("gradient", "DisplacementGpu");
   return grad_;
 }
 

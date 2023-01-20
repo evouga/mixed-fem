@@ -21,8 +21,8 @@ namespace mfem {
     Displacement(std::shared_ptr<Mesh> mesh,
           std::shared_ptr<SimConfig> config);
 
-    double energy(const Eigen::VectorXd& s) override;
-    void update(const Eigen::VectorXd& x, double dt) override;
+    double energy(Eigen::VectorXd& s) override;
+    void update(Eigen::VectorXd& x, double dt) override;
     void reset() override;
     void post_solve() override;
 
@@ -41,11 +41,12 @@ namespace mfem {
       return x_;
     }
 
-    const std::shared_ptr<ImplicitIntegrator> integrator() const {
+    const std::shared_ptr<ImplicitIntegrator<STORAGE_EIGEN>> integrator()
+        const {
       return integrator_;
     }
 
-    std::shared_ptr<ImplicitIntegrator> integrator() {
+    std::shared_ptr<ImplicitIntegrator<STORAGE_EIGEN>> integrator() {
       return integrator_;
     }
 
@@ -91,7 +92,7 @@ namespace mfem {
     using Base::mesh_;
 
     std::shared_ptr<SimConfig> config_;
-    std::shared_ptr<ImplicitIntegrator> integrator_;
+    std::shared_ptr<ImplicitIntegrator<STORAGE_EIGEN>> integrator_;
 
     Eigen::SparseMatrix<double, Eigen::RowMajor> lhs_;
 

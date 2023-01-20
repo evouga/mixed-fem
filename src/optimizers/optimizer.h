@@ -13,10 +13,10 @@ namespace mfem {
 
   auto default_optimizer_callback = [](auto& state){};
 
-  template <int DIM>
+  template <int DIM, StorageType STORAGE = STORAGE_EIGEN>
   class Optimizer {
   public:
-    Optimizer(SimState<DIM>& state) : state_(std::move(state)) {
+    Optimizer(SimState<DIM,STORAGE>& state) : state_(std::move(state)) {
       callback = default_optimizer_callback;
     }
 
@@ -29,15 +29,15 @@ namespace mfem {
     virtual void reset();
     virtual void step() = 0;
     
-    SimState<DIM>& state() {
+    SimState<DIM,STORAGE>& state() {
       return state_;
     }
 
-    std::function<void(const SimState<DIM>& state)> callback;
+    std::function<void(const SimState<DIM,STORAGE>& state)> callback;
 
   protected:
 
-    SimState<DIM> state_;
+    SimState<DIM,STORAGE> state_;
     
   };        
   

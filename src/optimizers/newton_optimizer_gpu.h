@@ -11,14 +11,14 @@ namespace mfem {
 
   // Mixed FEM Sequential Quadratic Program
   template <int DIM>
-  class NewtonOptimizer : public Optimizer<DIM,STORAGE_EIGEN> {
+  class NewtonOptimizerGpu : public Optimizer<DIM,STORAGE_THRUST> {
 
-    typedef Optimizer<DIM,STORAGE_EIGEN> Base;
+    typedef Optimizer<DIM,STORAGE_THRUST> Base;
 
   public:
     
-    NewtonOptimizer(SimState<DIM,STORAGE_EIGEN>& state)
-        : Optimizer<DIM,STORAGE_EIGEN>(state) {}
+    NewtonOptimizerGpu(SimState<DIM,STORAGE_THRUST>& state)
+        : Optimizer<DIM,STORAGE_THRUST>(state) {}
 
     static std::string name() {
       return "newton";

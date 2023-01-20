@@ -8,29 +8,34 @@ namespace mfem {
   class Mesh;
 
   // Base class for mixed fem variables.
-  template<int DIM>
-  class MixedVariable : public Variable<DIM> {
+  template<int DIM, StorageType STORAGE = STORAGE_EIGEN>
+  class MixedVariable : public Variable<DIM, STORAGE> {
+
+    typedef Variable<DIM, STORAGE> Base;
+
   public:
-    
-    MixedVariable(std::shared_ptr<Mesh> mesh) : Variable<DIM>(mesh) {
+
+    using typename Base::VectorType;
+
+    MixedVariable(std::shared_ptr<Mesh> mesh) : Variable<DIM, STORAGE>(mesh) {
     }
 
     // Evaluate the energy associated with the variable
     // x - Nodal displacements 
     // y - Mixed variable
-    virtual double energy(const Eigen::VectorXd& x,
-        const Eigen::VectorXd& y) = 0;
+    virtual double energy(VectorType& x,
+        VectorType& y) = 0;
 
     // Evaluate the energy associated with the mixed variable constraint
     // x - Nodal displacements 
     // y - Mixed variable
-    virtual double constraint_value(const Eigen::VectorXd& x,
-        const Eigen::VectorXd& y) = 0;
+    virtual double constraint_value(const VectorType& x,
+        const VectorType& y) = 0;
 
     // Update the state given a new set of displacements
     // x  - Nodal displacements
     // dt - Timestep size
-    virtual void update(const Eigen::VectorXd& x, double dt) = 0;
+    virtual void update(VectorType& x, double dt) = 0;
 
     // Gradient of the energy with respect to mixed variable
     virtual Eigen::VectorXd gradient_mixed() = 0;
@@ -41,10 +46,10 @@ namespace mfem {
     // Given the solution for displacements, solve the updates of the
     // mixed variables
     // dx - nodal displacement deltas
-    virtual void solve(const Eigen::VectorXd& dx) = 0;
+    virtual void solve(VectorType& dx) = 0;
 
     // Returns lagrange multipliers
-    virtual Eigen::VectorXd& lambda() = 0;
+    virtual VectorType& lambda() = 0;
 
     // Returns number of dual variables
     virtual int size_dual() const = 0;

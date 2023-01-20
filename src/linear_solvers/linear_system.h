@@ -31,7 +31,7 @@ namespace mfem {
     }
 
     template<int DIM>
-    void post_solve(const SimState<DIM>* state, const Eigen::VectorXd& dx) {
+    void post_solve(const SimState<DIM>* state, Eigen::VectorXd& dx) {
       // TODO projected external force not full one!
       // double h = state->x_->integrator()->dt();
       // double fac = h*h*(1.0 - state->config_->inertia_blend_factor);
@@ -86,7 +86,7 @@ namespace mfem {
       assert(rhs_.size() == curr_row);
     }
 
-    void post_solve(const SimState<DIM>* state, const Eigen::VectorXd& dx) {
+    void post_solve(const SimState<DIM>* state, Eigen::VectorXd& dx) {
 
       state->x_->delta() = dx.head(state->x_->size());
 
@@ -177,7 +177,7 @@ namespace mfem {
       assert(rhs_.size() == curr_row);
     }
 
-    void post_solve(const mfem::SimState<DIM>* state, const Eigen::VectorXd& dx)
+    void post_solve(const mfem::SimState<DIM>* state, Eigen::VectorXd& dx)
     {
       state->x_->delta().setZero();
 
