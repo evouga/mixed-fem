@@ -1,5 +1,6 @@
 #include "integrator_factory.h"
 #include "time_integrators/BDF.h"
+#include "time_integrators/BDF_gpu.h"
 
 using namespace mfem;
 using namespace Eigen;
@@ -46,14 +47,14 @@ IntegratorFactory<STORAGE_EIGEN>::IntegratorFactory() {
 
 template<>
 IntegratorFactory<STORAGE_THRUST>::IntegratorFactory() {
-
-    // // BDF1
+    // BDF1
     // register_type(TimeIntegratorType::TI_BDF1, "BDF1",
-    //     [](Eigen::VectorXd x0, Eigen::VectorXd v0, double h)
-    //     ->std::unique_ptr<ImplicitIntegrator<STORAGE_EIGEN>>
-    //     {return std::make_unique<BDF<1>>(x0,v0,h);});
+    //     [](thrust::device_vector<double> x0,
+    //        thrust::device_vector<double> v0, double h)
+    //     ->std::unique_ptr<ImplicitIntegrator<STORAGE_THRUST>>
+    //     {return std::make_unique<BDFGpu<1>>(x0,v0,h);});
 
-    // // BDF2
+    // BDF2
     // register_type(TimeIntegratorType::TI_BDF2, "BDF2",
     //     [](Eigen::VectorXd x0, Eigen::VectorXd v0, double h)
     //     ->std::unique_ptr<ImplicitIntegrator<STORAGE_EIGEN>>

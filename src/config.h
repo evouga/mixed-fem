@@ -8,13 +8,6 @@ namespace mfem {
 
   // Traits for storage type. Used to get the return data types of functions
   // for a particular storage. Same function as traits in Eigen
-  // namespace internal {
-  //   template<typename Derived>
-  //   struct traits {
-  //     typedef typename Derived::Scalar Scalar;
-  //     typedef typename Derived::VectorType VectorType;
-  //   };
-  // }
   enum StorageType {
     STORAGE_EIGEN,
     STORAGE_THRUST
@@ -24,12 +17,12 @@ namespace mfem {
   struct Traits;
 
   template <StorageType _storage>
-  struct Traits<_storage, std::enable_if_t<(_storage == STORAGE_EIGEN)>> { 
+  struct Traits<_storage, std::enable_if_t<(_storage == STORAGE_EIGEN)>> {
     using VectorType = Eigen::VectorXd;
   };
 
   template <StorageType _storage>
-  struct Traits<_storage, std::enable_if_t<(_storage == STORAGE_THRUST)>> { 
+  struct Traits<_storage, std::enable_if_t<(_storage == STORAGE_THRUST)>> {
     using VectorType = thrust::device_vector<double>;
   };
 

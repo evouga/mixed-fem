@@ -17,15 +17,16 @@ namespace mfem {
     }
 
     BDF(Eigen::VectorXd x0, Eigen::VectorXd v0, double h)
-        : ImplicitIntegrator<STORAGE_EIGEN>(x0, v0, h) {
+        : ImplicitIntegrator<STORAGE_EIGEN>(h) {
       static_assert(I >= 1 && I <= 6, "Only BDF1 - BDF6 are supported");
       for (int i = 0; i < I; ++i) {
         x_prevs_.push_front(x0);
         v_prevs_.push_front(v0);
       }
+      x_tilde_ = weighted_sum(x_prevs_) + dt() * weighted_sum(v_prevs_);
     }
 
-    Eigen::VectorXd x_tilde() const override;
+    const Eigen::VectorXd& x_tilde() const override;
     double dt() const override;
     void update(const Eigen::VectorXd& x) override;
 
@@ -49,6 +50,7 @@ namespace mfem {
 
     std::deque<Eigen::VectorXd> x_prevs_;
     std::deque<Eigen::VectorXd> v_prevs_;
+    Eigen::VectorXd x_tilde_;
   };
 
 }

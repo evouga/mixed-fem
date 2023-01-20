@@ -4,8 +4,8 @@ using namespace mfem;
 using namespace Eigen;
 
 template <int I>
-Eigen::VectorXd BDF<I>::x_tilde() const {
-  return weighted_sum(x_prevs_) + dt() * weighted_sum(v_prevs_);
+const Eigen::VectorXd& BDF<I>::x_tilde() const {
+  return x_tilde_;
 }
 
 template <int I>
@@ -24,6 +24,7 @@ void BDF<I>::update(const VectorXd& x) {
     x_prevs_.pop_back();
     v_prevs_.pop_back();
   }
+  x_tilde_ = weighted_sum(x_prevs_) + dt() * weighted_sum(v_prevs_);
 }
 
 template <int I>

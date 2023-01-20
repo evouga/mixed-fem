@@ -145,6 +145,7 @@ file(GLOB SOURCES
     ${PROJECT_SOURCE_DIR}/src/utils/collision/*.cpp
     ${PROJECT_SOURCE_DIR}/src/mesh/*.cpp
     ${PROJECT_SOURCE_DIR}/src/svd/*.cu 
+    ${PROJECT_SOURCE_DIR}/src/time_integrators/*.cu
     ${PROJECT_SOURCE_DIR}/src/energies/*.cu
     ${PROJECT_SOURCE_DIR}/src/optimizers/*.cu
     ${PROJECT_SOURCE_DIR}/src/variables/*.cu
