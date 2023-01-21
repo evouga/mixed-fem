@@ -87,7 +87,8 @@ void Displacement<DIM>::reset() {
   VectorXd v0 = Map<VectorXd>(tmp.data(), mesh_->V_.size());
 
   IntegratorFactory<STORAGE_EIGEN> factory;
-  integrator_ = factory.create(config_->ti_type, x_, v0, config_->h);  
+  integrator_ = factory.create(config_->ti_type, x_, v0, x_.size(),
+      config_->h);  
   
   // Project out Dirichlet boundary conditions
   const auto& P = mesh_->projection_matrix();

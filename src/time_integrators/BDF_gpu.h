@@ -18,16 +18,15 @@ namespace mfem {
       return std::string(buf);
     }
 
-    BDFGpu(thrust::device_vector<double> x0,
-        thrust::device_vector<double> v0, double h);
+    BDFGpu(double* x0, double* v0, int size, double h);
 
-    const thrust::device_vector<double>& x_tilde() const override;
+    double* const& x_tilde() const override;
     double dt() const override;
-    void update(const thrust::device_vector<double>& x) override;
+    void update(double* const & x) override;
     void reset() override;
 
-    const thrust::device_vector<double>& x_prev() const override;
-    const thrust::device_vector<double>& v_prev() const override;
+    double* const& x_prev() const override;
+    double* const& v_prev() const override;
 
   private:
 
@@ -35,6 +34,10 @@ namespace mfem {
     constexpr std::array<double,I> alphas() const;
     constexpr double beta() const;
     thrust::device_vector<double> x_tilde_;
+    double* x_tilde_ptr_; // underyling pointer for x_tilde_
+    double* x0_ptr; // underyling pointer for x0_
+    double* v0_ptr; // underyling pointer for v0_
+    int size_;
 
     thrust::device_vector<double> x0_;
     thrust::device_vector<double> x1_;

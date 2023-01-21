@@ -180,27 +180,6 @@ double MixedStretchGpu<DIM,STORAGE>::energy(VectorType& x,
   return e;
 }
 
-// double MixedStretchGpu<3,STORAGE_THRUST>::energy(const VectorType& x,
-//     const VectorType& s) {
-//   // compute deformation gradient
-//   OptimizerData::get().timer.start("energy-F", "MixedStretchGpu");
-//   double* F;
-//   J_gpu_.product(thrust::raw_pointer_cast(x.data()), &F);
-//   OptimizerData::get().timer.stop("energy-F", "MixedStretchGpu");
-//   OptimizerData::get().timer.start("energy", "MixedStretchGpu");
-//   // // call energy functor
-//   double e = thrust::transform_reduce(thrust::counting_iterator<int>(0),
-//     thrust::counting_iterator<int>(nelem_),
-//     energy_functor(thrust::raw_pointer_cast(s.data()), F,
-//         thrust::raw_pointer_cast(la_.data()), 
-//         thrust::raw_pointer_cast(vols_.data()),
-//         thrust::raw_pointer_cast(params_.mu.data()),
-//         thrust::raw_pointer_cast(params_.lambda.data())),
-//         0.0, thrust::plus<double>());
-//   OptimizerData::get().timer.stop("energy", "MixedStretchGpu");
-//   return e;
-// }
-
 template<int DIM, StorageType STORAGE>
 void MixedStretchGpu<DIM,STORAGE>::update(VectorType& x, double dt) {
 

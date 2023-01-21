@@ -16,18 +16,18 @@ namespace mfem {
     template <StorageType _storage>
     struct IntegratorTraits<_storage,
         std::enable_if_t<(_storage == STORAGE_EIGEN)>> { 
-      using RetType = Eigen::VectorXd;
+      using Vector = Eigen::VectorXd;
     };
 
     template <StorageType _storage>
     struct IntegratorTraits<_storage,
         std::enable_if_t<(_storage == STORAGE_THRUST)>> { 
-      using RetType = double*;
+      using Vector = double*;
     };
 
   public:
-    using Vector = typename Traits<STORAGE>::VectorType;
-    using RetType = typename IntegratorTraits<STORAGE>::RetType;
+    // using Vector = typename Traits<STORAGE>::VectorType;
+    using Vector = typename IntegratorTraits<STORAGE>::Vector;
 
     ImplicitIntegrator(double h) : h_(h) {}
         

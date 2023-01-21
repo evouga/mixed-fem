@@ -9,7 +9,7 @@ namespace mfem {
   class IntegratorFactory : public Factory<TimeIntegratorType,
       ImplicitIntegrator<STORAGE>,
       typename ImplicitIntegrator<STORAGE>::Vector,
-      typename ImplicitIntegrator<STORAGE>::Vector, double> {
+      typename ImplicitIntegrator<STORAGE>::Vector, int, double> {
   public:
     IntegratorFactory();
   };

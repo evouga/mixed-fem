@@ -104,7 +104,7 @@ namespace mfem {
     VectorType& lambda() override;
     
     int size() const override {
-      return 0;// s_.size() * N();
+      return s_.size();
     }
 
     int size_dual() const override {

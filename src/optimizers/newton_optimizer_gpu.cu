@@ -10,6 +10,7 @@
 
 using namespace mfem;
 using namespace Eigen;
+using namespace thrust::placeholders;
 
 template <int DIM> 
 void NewtonOptimizerGpu<DIM>::step() {
@@ -34,6 +35,15 @@ void NewtonOptimizerGpu<DIM>::step() {
   // not been run yet. Happens for first timestep, so
   // we may end up missing collisions
 
+
+  // Copy to thrust vector
+  thrust::device_vector<double> x(state_.mesh_->V_.size());
+  thrust::device_vector<double> x_full(state_.mesh_->V_.size());
+  std::vector<thrust::device_vector<double>> tmps(state_.mixed_vars_.size());
+  for (int i = 0; i < state_.mixed_vars_.size(); ++i) {
+    tmps[i].resize(state_.mixed_vars_[i]->size());
+  }
+
   do {
     Base::callback(state_);
 
@@ -45,48 +55,54 @@ void NewtonOptimizerGpu<DIM>::step() {
 
     double alpha = 1.0;
 
-    // If collisions enabled, perform CCD
-    // TODO enable_ccd in simulate_state initialization
-    // if (state_.config_->enable_ccd) {
-    //   OptimizerData::get().timer.start("ACCD");
-    //   VectorXd x1 = state_.x_->value();
-    //   state_.x_->unproject(x1);
-    //   VectorXd p = state_.mesh_->projection_matrix().transpose() 
-    //       * state_.x_->delta();
-    //   alpha = 0.9 * ipc::additive_ccd<DIM>(x1, p,
-    //       state_.mesh_->collision_mesh(),
-    //       state_.mesh_->collision_candidates(),
-    //       state_.config_->dhat);
-    //   OptimizerData::get().add("ACCD ", alpha);
-    //   OptimizerData::get().timer.stop("ACCD");
-    // }
+    auto energy_func = [&state = state_](double a) {
+      double h2 = std::pow(state.x_->integrator()->dt(), 2);
+      return 0;
+      // // x = x0 + a * p
+      // thrust::transform(state.x_->value().begin(), state.x_->value().end(),
+      //     state.x_->delta().begin(), x.begin(), _1 + a * _2);
 
-    // auto energy_func = [&state = state_](double a) {
-    //   double h2 = std::pow(state.x_->integrator()->dt(), 2);
-    //   //TODO bunch of unneccessary copies
-    //   Eigen::VectorXd x0 = state.x_->value() + a * state.x_->delta();
-    //   double val = state.x_->energy(x0);
-    //   state.x_->unproject(x0);
+      // double* x_full_ptr = state.x_->to_full(x);
 
-    //   for (const auto& var : state.mixed_vars_) {
-    //     const Eigen::VectorXd si = var->value() + a * var->delta();
-    //     val += h2 * var->energy(x0, si) + var->constraint_value(x0, si);  
-    //   }
-    //   for (const auto& var : state.vars_) {
-    //     val += h2 * var->energy(x0);  
-    //   }
-    //   return val;
-    // };
+      // // Copy cuda x_full to thrust vector
+      // cudaMemcpy(thrust::raw_pointer_cast(x_full.data()), x_full_ptr,
+      //     state.mesh_->V_.size() * sizeof(double), cudaMemcpyDeviceToDevice);
+
+      // double val = state.x_->energy(x_full);
+
+      // for (const auto& var : state.mixed_vars_) {
+      //   // si = s + a * p
+      //   thrust::transform(var->value().begin(), var->value().end(),
+      //       var->delta().begin(), tmps[i].begin(), _1 + a * _2);
+
+      //   val += h2 * var->energy(x_full, tmps[i]);  
+      // }
+      // return val;
+    };
 
     // // Record initial energies
-    // E = energy_func(0.0);
-    // res = std::abs((E - E_prev) / (E+1e-6));
-    // E_prev = E;
+    E = energy_func(0.0);
+    res = std::abs((E - E_prev) / (E+1e-6));
+    E_prev = E;
 
     // // Linesearch on descent direction
-    // OptimizerData::get().timer.start("LS");
-    // auto status = linesearch_backtracking(state_, alpha, energy_func,0.0,0.5);
-    // OptimizerData::get().timer.stop("LS");
+    OptimizerData::get().timer.start("LS");
+    auto status = linesearch_backtracking2(state_, alpha, energy_func, 0.0,0.5);
+    OptimizerData::get().timer.stop("LS");
+
+    if (status == SolverExitStatus::CONVERGED) {
+      // x->value() += alpha * x->delta()
+      thrust::transform(state_.x_->value().begin(), state_.x_->value().end(),
+          state_.x_->delta().begin(), state_.x_->value().begin(),
+           _1 + alpha * _2);
+      for (auto& var : state_.mixed_vars_) {
+        // si->value() += alpha * si->delta()
+        thrust::transform(var->value().begin(), var->value().end(),
+            var->delta().begin(), var->value().begin(),
+             _1 + alpha * _2);
+      }
+
+    }
 
     // Record some data
     OptimizerData::get().add(" Iteration", i+1);
@@ -122,22 +138,22 @@ template <int DIM>
 void NewtonOptimizerGpu<DIM>::update_system() {
   OptimizerData::get().timer.start("update");
 
-  // // Get full configuration vector
-  // VectorXd x = state_.x_->value();
-  // state_.x_->unproject(x);
-  // //std::cout << std::setprecision(10) << std::endl;
-  // //std::cout << "x norm: " << x.norm() << std::endl;
+  double* x_full = state_.x_->to_full(state_.x_->value());
 
-  // if (!state_.mesh_->fixed_jacobian()) {
-  //   state_.mesh_->update_jacobian(x);
-  // }
+  // Copy to thrust vector
+  thrust::device_vector<double> x(state_.mesh_->V_.size());
 
-  // for (auto& var : state_.vars_) {
-  //   var->update(x, state_.x_->integrator()->dt());
-  // }
-  // for (auto& var : state_.mixed_vars_) {
-  //   var->update(x, state_.x_->integrator()->dt());
-  // }
+  // Copy cuda x_full to thrust vector
+  cudaMemcpy(thrust::raw_pointer_cast(x.data()), x_full,
+      state_.mesh_->V_.size() * sizeof(double), cudaMemcpyDeviceToDevice);
+
+  for (auto& var : state_.vars_) {
+    std::cout << "NewtonOptimizer doesn't support position"
+        " dependent vars yet" << std::endl;
+  }
+  for (auto& var : state_.mixed_vars_) {
+    var->update(x, state_.x_->integrator()->dt());
+  }
   OptimizerData::get().timer.stop("update");
 }
 

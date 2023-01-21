@@ -10,24 +10,41 @@ using namespace Eigen;
 using namespace thrust::placeholders;
 
 template <int I>
-BDFGpu<I>::BDFGpu(thrust::device_vector<double> x0,
-    thrust::device_vector<double> v0, double h) 
-    : ImplicitIntegrator<STORAGE_THRUST>(h) {
-    //   static_assert(I >= 1 && I <= 6, "Only BDF1 - BDF2 are supported");
-    //   for (int i = 0; i < I; ++i) {
-    //     x_prevs_.push_front(x0);
-    //     v_prevs_.push_front(v0);
-    //   }
-    // }
-    // x0_ = x0;
-    // x1_ = x0;
-    // v0_ = v0;
-    // v1_ = v0;
+BDFGpu<I>::BDFGpu(double* x0, double* v0, int size, double h) 
+    : ImplicitIntegrator<STORAGE_THRUST>(h), size_(size) {
+
+  // Init device vectors
+  wx_.resize(size);
+  wv_.resize(size);
+  x0_.resize(size);
+  x1_.resize(size);
+  v0_.resize(size);
+  v1_.resize(size);
+  x0_ptr = thrust::raw_pointer_cast(x0_.data());
+  v0_ptr = thrust::raw_pointer_cast(v0_.data());
+
+  // Copy x0 to x0_ and x1_
+  cudaMemcpy(thrust::raw_pointer_cast(x0_.data()), x0,
+      size * sizeof(double), cudaMemcpyDeviceToDevice);
+  cudaMemcpy(thrust::raw_pointer_cast(x1_.data()), x0,
+      size * sizeof(double), cudaMemcpyDeviceToDevice);
+
+  // Copy v0 to v0_ and v1_
+  cudaMemcpy(thrust::raw_pointer_cast(v0_.data()), v0,
+      size * sizeof(double), cudaMemcpyDeviceToDevice);
+  cudaMemcpy(thrust::raw_pointer_cast(v1_.data()), v0,
+      size * sizeof(double), cudaMemcpyDeviceToDevice);
+  
+  // Initialize x_tilde_
+  x_tilde_.resize(size);
+  x_tilde_ptr_ = thrust::raw_pointer_cast(x_tilde_.data());
+  thrust::transform(x0_.begin(), x0_.end(), v0_.begin(), x_tilde_.begin(),
+      _1 + dt() * _2);
 }
 
 template <int I>
-const thrust::device_vector<double>& BDFGpu<I>::x_tilde() const {
-  return x_tilde_;
+double* const & BDFGpu<I>::x_tilde() const {
+  return x_tilde_ptr_;
 }
 
 template <int I>
@@ -36,15 +53,22 @@ double BDFGpu<I>::dt() const {
 }
 
 template <int I>
-void BDFGpu<I>::update(const thrust::device_vector<double>& x) {
+void BDFGpu<I>::update(double* const& x) {
   // BDF1
   if constexpr (I == 1) {
-    // wx_ = x0_;
+    wx_ = x0_;
 
-    // wx = x0
-    // x0 = x
+    // Copy x to x0_
+    cudaMemcpy(thrust::raw_pointer_cast(x0_.data()), x,
+        size_ * sizeof(double), cudaMemcpyDeviceToDevice);
+
     // v0 = (x - wx) / h
+    thrust::transform(x0_.begin(), x0_.end(), wx_.begin(), v0_.begin(),
+        (_1 - _2) / h_);
+
     // x_tilde = x0 + dt * v0
+    thrust::transform(x0_.begin(), x0_.end(), v0_.begin(), x_tilde_.begin(),
+        _1 + dt() * _2);
 
   } else {
     std::cout << "BDF2 currently unsupported! ! ! Exiting " << std::endl;
@@ -69,13 +93,13 @@ void BDFGpu<I>::reset() {
 }
 
 template <int I>
-const thrust::device_vector<double>& BDFGpu<I>::x_prev() const {
-  return x0_;
+double* const& BDFGpu<I>::x_prev() const {
+  return x0_ptr;
 }
 
 template <int I>
-const thrust::device_vector<double>& BDFGpu<I>::v_prev() const {
-  return v0_;
+double* const& BDFGpu<I>::v_prev() const {
+  return v0_ptr;
 }
 
 // Specializations for each BDF integrator

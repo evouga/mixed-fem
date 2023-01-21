@@ -127,4 +127,35 @@ namespace mfem {
         ? SolverExitStatus::MAX_ITERATIONS_REACHED 
         : SolverExitStatus::CONVERGED);
   }
+
+
+  // Like linesearch backtracing, but 2
+  template <int DIM, StorageType STORAGE, typename Scalar, typename EnergyFunc,
+      typename Callback = decltype(default_linesearch_callback)>
+  SolverExitStatus linesearch_backtracking2(const SimState<DIM,STORAGE>& state,
+      Scalar& alpha,  const EnergyFunc energy, Scalar c=1e-4, Scalar p=0.5,
+      const Callback func = default_linesearch_callback) {
+    
+    unsigned int max_iterations = state.config_->ls_iters;
+
+    Scalar fx0 = energy(0);
+    Scalar fx_prev = fx0;
+    Scalar alpha_prev = alpha;
+
+    int iter = 0;
+    while (iter < max_iterations) {
+      Scalar fx = energy(alpha);
+      Scalar fxn = fx0;
+      if (fx < fxn) {
+        break;
+      }
+      alpha = alpha * p;
+      ++iter;
+    }
+    // std::cout << "ALPHA: " << alpha << std::endl;
+
+    return (iter == max_iterations 
+        ? SolverExitStatus::MAX_ITERATIONS_REACHED 
+        : SolverExitStatus::CONVERGED);
+  }
 }

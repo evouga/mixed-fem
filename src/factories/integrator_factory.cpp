@@ -10,37 +10,37 @@ IntegratorFactory<STORAGE_EIGEN>::IntegratorFactory() {
 
     // BDF1
     register_type(TimeIntegratorType::TI_BDF1, "BDF1",
-        [](Eigen::VectorXd x0, Eigen::VectorXd v0, double h)
+        [](Eigen::VectorXd x0, Eigen::VectorXd v0, int size, double h)
         ->std::unique_ptr<ImplicitIntegrator<STORAGE_EIGEN>>
         {return std::make_unique<BDF<1>>(x0,v0,h);});
 
     // BDF2
     register_type(TimeIntegratorType::TI_BDF2, "BDF2",
-        [](Eigen::VectorXd x0, Eigen::VectorXd v0, double h)
+        [](Eigen::VectorXd x0, Eigen::VectorXd v0, int size, double h)
         ->std::unique_ptr<ImplicitIntegrator<STORAGE_EIGEN>>
         {return std::make_unique<BDF<2>>(x0,v0,h);});
 
     // BDF3
     register_type(TimeIntegratorType::TI_BDF3, "BDF3",
-        [](Eigen::VectorXd x0, Eigen::VectorXd v0, double h)
+        [](Eigen::VectorXd x0, Eigen::VectorXd v0, int size, double h)
         ->std::unique_ptr<ImplicitIntegrator<STORAGE_EIGEN>>
         {return std::make_unique<BDF<3>>(x0,v0,h);});
 
     // BDF4
     register_type(TimeIntegratorType::TI_BDF4, "BDF4",
-        [](Eigen::VectorXd x0, Eigen::VectorXd v0, double h)
+        [](Eigen::VectorXd x0, Eigen::VectorXd v0, int size, double h)
         ->std::unique_ptr<ImplicitIntegrator<STORAGE_EIGEN>>
         {return std::make_unique<BDF<4>>(x0,v0,h);});
 
     // BDF5
     register_type(TimeIntegratorType::TI_BDF5, "BDF5",
-        [](Eigen::VectorXd x0, Eigen::VectorXd v0, double h)
+        [](Eigen::VectorXd x0, Eigen::VectorXd v0, int size, double h)
         ->std::unique_ptr<ImplicitIntegrator<STORAGE_EIGEN>>
         {return std::make_unique<BDF<5>>(x0,v0,h);});
 
     // BDF6
     register_type(TimeIntegratorType::TI_BDF6, "BDF6",
-        [](Eigen::VectorXd x0, Eigen::VectorXd v0, double h)
+        [](Eigen::VectorXd x0, Eigen::VectorXd v0, int size, double h)
         ->std::unique_ptr<ImplicitIntegrator<STORAGE_EIGEN>>
         {return std::make_unique<BDF<6>>(x0,v0,h);});
 }
@@ -48,11 +48,10 @@ IntegratorFactory<STORAGE_EIGEN>::IntegratorFactory() {
 template<>
 IntegratorFactory<STORAGE_THRUST>::IntegratorFactory() {
     // BDF1
-    // register_type(TimeIntegratorType::TI_BDF1, "BDF1",
-    //     [](thrust::device_vector<double> x0,
-    //        thrust::device_vector<double> v0, double h)
-    //     ->std::unique_ptr<ImplicitIntegrator<STORAGE_THRUST>>
-    //     {return std::make_unique<BDFGpu<1>>(x0,v0,h);});
+    register_type(TimeIntegratorType::TI_BDF1, "BDF1",
+        [](double* x0, double* v0, int size, double h)
+        ->std::unique_ptr<ImplicitIntegrator<STORAGE_THRUST>>
+        {return std::make_unique<BDFGpu<1>>(x0,v0,size,h);});
 
     // BDF2
     // register_type(TimeIntegratorType::TI_BDF2, "BDF2",

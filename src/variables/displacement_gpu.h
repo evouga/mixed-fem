@@ -7,6 +7,7 @@
 #include "mesh/mesh.h"
 #include <thrust/device_vector.h>
 #include "EigenTypes.h"
+#include "utils/sparse_matrix_gpu.h"
 
 namespace mfem {
 
@@ -54,6 +55,14 @@ namespace mfem {
     VectorType rhs() override;
     VectorType gradient() override;
 
+    enum class ProjectionType {
+      WITH_DIRICHLET,
+      WITHOUT_DIRICHLET
+    };
+
+    double* to_full(VectorType& x,
+        ProjectionType type = ProjectionType::WITH_DIRICHLET);
+
     const Eigen::SparseMatrix<double, Eigen::RowMajor>& lhs() override {
       return lhs_;
     }
@@ -90,6 +99,8 @@ namespace mfem {
   private:
 
     using Base::mesh_;
+    int full_size_;
+    int reduced_size_;
 
     std::shared_ptr<SimConfig> config_;
     std::shared_ptr<ImplicitIntegrator<STORAGE_THRUST>> integrator_;
@@ -100,10 +111,21 @@ namespace mfem {
     VectorType x_;
     VectorType grad_;
     VectorType rhs_;
+    VectorType b_;
+
+    VectorType x_tilde_;
+    VectorType f_ext_;
+
     Eigen::VectorXd x_h_;       // displacement variables
     Eigen::VectorXd b_h_;       // dirichlet values
     Eigen::VectorXd dx_h_;      // displacement deltas
     Eigen::VectorXd rhs_h_;     // right-hand-side vector
     Eigen::VectorXd grad_h_;    // Gradient with respect to 's' variables
+
+    SparseMatrixGpu P_gpu_;   // projection matrix
+    SparseMatrixGpu PT_gpu_;  // projection matrix, transposed
+    SparseMatrixGpu PM_gpu_;  // projected mass matrix (from the left) P * M
+    SparseMatrixGpu M_gpu_;   // mass matrix
+
   };
 }
