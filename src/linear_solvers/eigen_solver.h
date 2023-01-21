@@ -5,14 +5,16 @@
 
 namespace mfem {
 
-  template <typename Solver, typename SystemMatrix, typename Scalar, int DIM>
-  class EigenSolver : public LinearSolver<Scalar, DIM> {
+  template <typename Solver, typename SystemMatrix, typename Scalar, int DIM,
+      StorageType STORAGE = STORAGE_EIGEN>
+  class EigenSolver : public LinearSolver<Scalar, DIM, STORAGE> {
 
-    typedef LinearSolver<Scalar, DIM> Base;
+    typedef LinearSolver<Scalar, DIM, STORAGE> Base;
 
   public:
 
-    EigenSolver(SimState<DIM>* state) : LinearSolver<Scalar,DIM>(state),
+    EigenSolver(SimState<DIM,STORAGE>* state)
+        : LinearSolver<Scalar,DIM,STORAGE>(state),
         has_init_(false) {}
 
     void solve() override {

@@ -7,9 +7,9 @@
 
 namespace mfem {
 
-  template<int DIM>
+  template<int DIM, StorageType STORAGE = STORAGE_EIGEN>
   class LinearSolverFactory : public Factory<LinearSolverType,
-      LinearSolver<double,DIM>, SimState<DIM>*> {
+      LinearSolver<double,DIM,STORAGE>, SimState<DIM,STORAGE>*> {
   public:
     LinearSolverFactory();
   private:

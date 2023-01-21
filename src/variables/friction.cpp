@@ -82,12 +82,13 @@ void Friction<DIM>::update_derivatives(const MatrixXd& U, double dt) {
 
   // Assemble gradient
   vec_assembler_->assemble(gloc, grad_);
+  rhs_ = -grad_;
 }
 
 template<int DIM>
-VectorXd Friction<DIM>::rhs() {
+VectorXd& Friction<DIM>::rhs() {
   data_.timer.start("RHS - s");
-  return -gradient();
+  return rhs_;
 }
 
 template<int DIM>

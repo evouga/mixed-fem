@@ -30,7 +30,7 @@ namespace mfem {
     void update(Eigen::VectorXd& x, double dt) override;
     void reset() override;
 
-    Eigen::VectorXd rhs() override;
+    Eigen::VectorXd& rhs() override;
     Eigen::VectorXd gradient() override;
 
     const Eigen::SparseMatrix<double, Eigen::RowMajor>& lhs() override {
@@ -81,6 +81,7 @@ namespace mfem {
     OptimizerData data_;     // Stores timing results
     double dt_;
     Eigen::VectorXd grad_;   // Gradient with respect to 'd' variables
+    Eigen::VectorXd rhs_;   // Gradient with respect to 'd' variables
 
     std::shared_ptr<SimConfig> config_;
     Eigen::SparseMatrix<double, Eigen::RowMajor> A_;

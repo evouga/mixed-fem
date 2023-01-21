@@ -7,6 +7,7 @@
 #include "utils/additive_ccd.h"
 #include "ipc/ipc.hpp"
 #include "igl/edges.h"
+#include <thrust/inner_product.h>
 
 using namespace mfem;
 using namespace Eigen;
@@ -37,10 +38,10 @@ void NewtonOptimizerGpu<DIM>::step() {
 
 
   // Copy to thrust vector
-  thrust::device_vector<double> x(state_.mesh_->V_.size());
+  thrust::device_vector<double> x(state_.x_->value().size()); 
   thrust::device_vector<double> x_full(state_.mesh_->V_.size());
   std::vector<thrust::device_vector<double>> tmps(state_.mixed_vars_.size());
-  for (int i = 0; i < state_.mixed_vars_.size(); ++i) {
+  for (size_t i = 0; i < state_.mixed_vars_.size(); ++i) {
     tmps[i].resize(state_.mixed_vars_[i]->size());
   }
 
@@ -55,29 +56,28 @@ void NewtonOptimizerGpu<DIM>::step() {
 
     double alpha = 1.0;
 
-    auto energy_func = [&state = state_](double a) {
-      double h2 = std::pow(state.x_->integrator()->dt(), 2);
-      return 0;
-      // // x = x0 + a * p
-      // thrust::transform(state.x_->value().begin(), state.x_->value().end(),
-      //     state.x_->delta().begin(), x.begin(), _1 + a * _2);
+    auto energy_func = [&](double a) {
+      double h2 = std::pow(state_.x_->integrator()->dt(), 2);
+      // x = x0 + a * p
+      thrust::transform(state_.x_->value().begin(), state_.x_->value().end(),
+          state_.x_->delta().begin(), x.begin(), _1 + a * _2);
 
-      // double* x_full_ptr = state.x_->to_full(x);
+      double* x_full_ptr = state_.x_->to_full(x);
 
-      // // Copy cuda x_full to thrust vector
-      // cudaMemcpy(thrust::raw_pointer_cast(x_full.data()), x_full_ptr,
-      //     state.mesh_->V_.size() * sizeof(double), cudaMemcpyDeviceToDevice);
+      // Copy cuda x_full to thrust vector
+      cudaMemcpy(thrust::raw_pointer_cast(x_full.data()), x_full_ptr,
+          state_.mesh_->V_.size() * sizeof(double), cudaMemcpyDeviceToDevice);
 
-      // double val = state.x_->energy(x_full);
+      double val = state_.x_->energy(x_full);
 
-      // for (const auto& var : state.mixed_vars_) {
-      //   // si = s + a * p
-      //   thrust::transform(var->value().begin(), var->value().end(),
-      //       var->delta().begin(), tmps[i].begin(), _1 + a * _2);
-
-      //   val += h2 * var->energy(x_full, tmps[i]);  
-      // }
-      // return val;
+      for (size_t i = 0; i < state_.mixed_vars_.size(); ++i) {
+        // si = s + a * p
+        auto& var = state_.mixed_vars_[i];
+        thrust::transform(var->value().begin(), var->value().end(),
+            var->delta().begin(), tmps[i].begin(), _1 + a * _2);
+        val += h2 * var->energy(x_full, tmps[i]);  
+      }
+      return val;
     };
 
     // // Record initial energies
@@ -101,7 +101,14 @@ void NewtonOptimizerGpu<DIM>::step() {
             var->delta().begin(), var->value().begin(),
              _1 + alpha * _2);
       }
+    }
 
+    // check for error
+    cudaDeviceSynchronize();
+    cudaError_t error = cudaGetLastError();
+    if(error != cudaSuccess) {
+      printf("CUDA error: %s\n", cudaGetErrorString(error));
+      exit(-1);
     }
 
     // Record some data
@@ -160,10 +167,12 @@ void NewtonOptimizerGpu<DIM>::update_system() {
 template <int DIM>
 void NewtonOptimizerGpu<DIM>::substep(double& decrement) {
   // Solve linear system
-  // OptimizerData::get().timer.start("linsolve");
-  // linear_solver_->solve();
-  // OptimizerData::get().timer.stop("linsolve");
+  OptimizerData::get().timer.start("linsolve");
+  linear_solver_->solve();
+  OptimizerData::get().timer.stop("linsolve");
 
+  decrement = thrust::inner_product(state_.x_->delta().begin(),
+      state_.x_->delta().end(), state_.x_->delta().begin(), 0.0);
   // // Use infinity norm of deltas as termination criteria
   // decrement = state_.x_->delta().template lpNorm<Infinity>();
   // for (auto& var : state_.mixed_vars_) {
@@ -185,8 +194,8 @@ std::cout << "2" << std::endl;
   }
 std::cout << "3" << std::endl;
 
-  // LinearSolverFactory<DIM> solver_factory;
-  // linear_solver_ = solver_factory.create(state_.config_->solver_type, &state_);
+  LinearSolverFactory<DIM,STORAGE_THRUST> solver_factory;
+  linear_solver_ = solver_factory.create(state_.config_->solver_type, &state_);
 }
 
 template class mfem::NewtonOptimizerGpu<3>;

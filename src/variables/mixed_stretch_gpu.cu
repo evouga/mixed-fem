@@ -97,8 +97,6 @@ void MixedStretchGpu<DIM,STORAGE>::derivative_functor::operator()(int i)
 
   Hi = h2 * local_hessian<double>(si, mui);
   gi = h2 * local_gradient<double>(si, mui);
-  // Aloci = vol * Jloci.transpose() * (dSdFi 
-    // * (syminv * Hi * syminv) * dSdFi.transpose()) * Jloci;
   Aloci = vol * Jloci.transpose() * (dSdFi * Hi * dSdFi.transpose()) * Jloci;
 }
 
@@ -290,10 +288,7 @@ void MixedStretchGpu<DIM,STORAGE>::update(VectorType& x, double dt) {
   assembler_->update_matrix(Aloc);
   OptimizerData::get().timer.stop("assemble2", "MixedStretchGpu");
 
-
-  std::cout << "Done update " << std::endl;
-  OptimizerData::get().print_data(true);
-
+  // OptimizerData::get().print_data(true);
   if constexpr (STORAGE == STORAGE_EIGEN) {
     cudaFree(d_x);
   }
@@ -311,8 +306,6 @@ void MixedStretchGpu<DIM,STORAGE>::solve(VectorType& dx) {
   } else {
     d_dx = thrust::raw_pointer_cast(dx.data());
   }
-  // cudaMalloc(&d_dx, dx.size()*sizeof(double));
-  // cudaMemcpy(d_dx, dx.data(), dx.size()*sizeof(double), cudaMemcpyHostToDevice);
 
   // Compute Jdx
   double* Jdx;
@@ -332,13 +325,14 @@ void MixedStretchGpu<DIM,STORAGE>::solve(VectorType& dx) {
           thrust::raw_pointer_cast(vols_.data())));
   OptimizerData::get().timer.stop("solve", "MixedStretchGpu");
 
-  // Copy ds to host
-  ds_h_.resize(ds_.size());
-  cudaMemcpy(ds_h_.data(), thrust::raw_pointer_cast(ds_.data()),
-      ds_.size()*sizeof(double), cudaMemcpyDeviceToHost);
-
-  // std::cout << " gpu solve norm: " << ds_h_.norm() << "\n " << ds_h_.head(100).transpose() << std::endl;
-  cudaFree(d_dx);
+  if constexpr (STORAGE == STORAGE_EIGEN) {
+    // std::cout << " gpu solve norm: " << ds_h_.norm() << "\n " << ds_h_.head(100).transpose() << std::endl;
+    // Copy ds to host
+    ds_h_.resize(ds_.size());
+    cudaMemcpy(ds_h_.data(), thrust::raw_pointer_cast(ds_.data()),
+        ds_.size()*sizeof(double), cudaMemcpyDeviceToHost);
+    cudaFree(d_dx);
+  }
 }
 
 template<int DIM, StorageType STORAGE>
@@ -358,12 +352,6 @@ MixedStretchGpu<DIM,STORAGE>::MixedStretchGpu(std::shared_ptr<Mesh> mesh)
   energy_tmp_.resize(nelem_);
 
   std::cout << "Assuming triangles in 2D and tetrahedra in 3D" << std::endl;
-  // int N_loc; // size of local stiffness matrix
-  // if constexpr (DIM == 2) {
-  //   N_loc = DIM * 3;
-  // } else {
-  //   N_loc = DIM * 4;
-  // }
   Aloc_.resize(Aloc_N()*Aloc_N()*nelem_);
 }
 
@@ -447,12 +435,13 @@ void MixedStretchGpu<DIM,STORAGE>::reset() {
 }
 
 template<int DIM, StorageType STORAGE>
-MixedStretchGpu<DIM,STORAGE>::VectorType MixedStretchGpu<DIM,STORAGE>::rhs() { 
+MixedStretchGpu<DIM,STORAGE>::VectorType& MixedStretchGpu<DIM,STORAGE>::rhs()
+{ 
   if constexpr (STORAGE == STORAGE_EIGEN) {
-    VectorXd rhs(rhs_.size());
-    cudaMemcpy(rhs.data(), thrust::raw_pointer_cast(rhs_.data()),
+    rhs_h_.resize(rhs_.size());
+    cudaMemcpy(rhs_h_.data(), thrust::raw_pointer_cast(rhs_.data()),
         rhs_.size()*sizeof(double), cudaMemcpyDeviceToHost);
-    return rhs;
+    return rhs_h_;
   } else {
     return rhs_;
   }
@@ -482,22 +471,17 @@ MixedStretchGpu<DIM,STORAGE>::value() {
   } else {
     return s_;
   }
-  // s_h_.resize(s_.size());
-  // cudaMemcpy(s_h_.data(), thrust::raw_pointer_cast(s_.data()),
-  //     s_.size()*sizeof(double), cudaMemcpyDeviceToHost);
-  // return s_h_;
 }
 
 template<int DIM, StorageType STORAGE>
 MixedStretchGpu<DIM,STORAGE>::VectorType&
  MixedStretchGpu<DIM,STORAGE>::lambda() {
   if constexpr (STORAGE == STORAGE_EIGEN) {
+    std::cout << "Lambda not implemented for MixedStretchGpu" << std::endl;
     return dummy_;
   } else {
     return la_;
   }
-  // std::cout << "Lambda not implemented for MixedStretchGpu" << std::endl;
-  // return dummy_;
 }
 
 template<int DIM, StorageType STORAGE>

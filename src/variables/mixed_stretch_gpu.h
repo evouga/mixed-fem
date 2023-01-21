@@ -93,7 +93,7 @@ namespace mfem {
     const Eigen::SparseMatrix<double, Eigen::RowMajor>& lhs() override {
       return assembler_->A;
     }
-    VectorType rhs() override;
+    VectorType& rhs() override;
     VectorType gradient() override;
     
     Eigen::VectorXd gradient_mixed() override { return dummy_; }
@@ -234,6 +234,7 @@ namespace mfem {
 
     Eigen::SparseMatrix<double, Eigen::RowMajor> dummy_A_;
     Eigen::VectorXd dummy_;
+    Eigen::VectorXd rhs_h_;
     vector<double> rhs_; // RHS for primal condensation system
     vector<double> rhs_tmp_;
     // Per element data

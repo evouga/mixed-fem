@@ -26,7 +26,7 @@ namespace mfem {
     void reset() override;
     void post_solve() override;
 
-    Eigen::VectorXd rhs() override;
+    Eigen::VectorXd& rhs() override;
     Eigen::VectorXd gradient() override;
 
     const Eigen::SparseMatrix<double, Eigen::RowMajor>& lhs() override {

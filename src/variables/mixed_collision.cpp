@@ -249,7 +249,7 @@ void MixedCollision<DIM>::update_derivatives(const MatrixXd& V, double dt) {
 }
 
 template<int DIM>
-VectorXd MixedCollision<DIM>::rhs() {
+VectorXd& MixedCollision<DIM>::rhs() {
   OptimizerData::get().timer.start("rhs", "MixedCollision");
   assert(D_.size() == d_.size());
 

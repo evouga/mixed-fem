@@ -61,6 +61,27 @@ namespace mfem {
     VectorType rhs_;       
   };
 
+  template<typename Scalar>
+  class SystemMatrixThrust {
+
+  public:
+
+    typedef Eigen::SparseMatrix<Scalar, Eigen::RowMajor> MatrixType;
+    typedef Eigen::VectorXx<Scalar> VectorType;
+
+    void pre_solve(const SimState<3,STORAGE_THRUST>* state);
+
+    void post_solve(const SimState<3,STORAGE_THRUST>* state,
+        Eigen::VectorXd& dx);
+
+    const MatrixType& A() const { return lhs_; }
+    const VectorType& b() const { return rhs_; }
+
+  private:
+    MatrixType lhs_; // linear system left hand side
+    VectorType rhs_; // linear system right hand side       
+  };
+
   template<typename Scalar, int DIM>
   class SystemMatrixIndefinite {
   public:

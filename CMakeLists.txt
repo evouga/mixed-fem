@@ -102,6 +102,7 @@ find_package(BLAS)
 find_package(LAPACK)
 find_package(CHOLMOD)
 find_package(SuiteSparse)
+find_package(Ginkgo REQUIRED)
 
 
 add_subdirectory("deps/thrust")
@@ -146,6 +147,7 @@ file(GLOB SOURCES
     ${PROJECT_SOURCE_DIR}/src/mesh/*.cpp
     ${PROJECT_SOURCE_DIR}/src/svd/*.cu 
     ${PROJECT_SOURCE_DIR}/src/time_integrators/*.cu
+    ${PROJECT_SOURCE_DIR}/src/linear_solvers/*.cu
     ${PROJECT_SOURCE_DIR}/src/energies/*.cu
     ${PROJECT_SOURCE_DIR}/src/optimizers/*.cu
     ${PROJECT_SOURCE_DIR}/src/variables/*.cu
@@ -260,8 +262,11 @@ target_include_directories(mixed_fem_lib SYSTEM PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope/deps/args"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope/deps/json/include")
 
+target_compile_options(mixed_fem_lib
+  PRIVATE "$<$<COMPILE_LANGUAGE:CUDA>:${GINKGO_CUDA_ARCH_FLAGS}>")
+
 # Link settings
-target_link_libraries(mixed_fem_lib polyscope Eigen3::Eigen amgcl::amgcl)
+target_link_libraries(mixed_fem_lib polyscope Eigen3::Eigen amgcl::amgcl Ginkgo::ginkgo)
 
 # Create an executable
 add_executable(convergence apps/convergence.cpp)

@@ -29,7 +29,7 @@ namespace mfem {
     void reset() override;
     void post_solve() override;
 
-    Eigen::VectorXd rhs() override;
+    Eigen::VectorXd& rhs() override;
     Eigen::VectorXd gradient() override { return grad_x_; }
     Eigen::VectorXd gradient_mixed() override { return grad_; }
     Eigen::VectorXd gradient_dual() override { return grad_la_; }

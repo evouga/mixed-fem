@@ -52,7 +52,7 @@ namespace mfem {
     void reset() override;
     void post_solve() override;
 
-    VectorType rhs() override;
+    VectorType& rhs() override;
     VectorType gradient() override;
 
     enum class ProjectionType {

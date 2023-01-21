@@ -43,7 +43,7 @@ namespace mfem {
 
     // Build and return the right-hand-side of schur-complement
     // reduced system of equations
-    virtual VectorType rhs() = 0;
+    virtual VectorType& rhs() = 0;
 
     // Gradient of the energy
     virtual VectorType gradient() = 0;

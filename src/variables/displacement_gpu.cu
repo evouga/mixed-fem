@@ -70,21 +70,33 @@ void DisplacementGpu<DIM>::post_solve() {
       b_h_.segment<DIM>(DIM*i) = mesh_->V_.row(i).transpose();
     }
   }
+  // TODO update b_ on thrust
 
-  double* x_full_ptr = to_full(x_, ProjectionType::WITHOUT_DIRICHLET);
+  double* x_full_ptr = to_full(x_);
   integrator_->update(x_full_ptr);
+  double* const x_tilde = integrator_->x_tilde();
+  double* x_tilde_ptr = thrust::raw_pointer_cast(x_tilde_.data());
+  cudaMemcpy(x_tilde_ptr, x_tilde, full_size_*sizeof(double),
+      cudaMemcpyDeviceToDevice);
 
   // Copy x to CPU and write to mesh->V_
   MatrixXd V(mesh_->V_.cols(), mesh_->V_.rows());
   cudaMemcpy(V.data(), x_full_ptr, V.size()*sizeof(double),
       cudaMemcpyDeviceToHost);
+  std::cout << "V0 min x1: " << mesh_->V_.col(0).minCoeff() << std::endl;
+  std::cout << "V0 min x2: " << mesh_->V_.col(1).minCoeff() << std::endl;
+  std::cout << "V0 min x3: " << mesh_->V_.col(2).minCoeff() << std::endl;    
+  std::cout << "V min x1: " << V.row(0).minCoeff() << std::endl;
+  std::cout << "V min x2: " << V.row(1).minCoeff() << std::endl;
+  std::cout << "V min x3: " << V.row(2).minCoeff() << std::endl;
+  mesh_->V_ = V.transpose();
 }
 
 template<int DIM>
 void DisplacementGpu<DIM>::update(VectorType&, double) {}
 
 template<int DIM>
-DisplacementGpu<DIM>::VectorType DisplacementGpu<DIM>::rhs() {
+DisplacementGpu<DIM>::VectorType& DisplacementGpu<DIM>::rhs() {
   OptimizerData::get().timer.start("rhs", "DisplacementGpu");
 
   double h2 = integrator_->dt() * integrator_->dt();
@@ -151,8 +163,8 @@ void DisplacementGpu<DIM>::reset() {
   const auto& P = mesh_->projection_matrix();
   full_size_ = P.cols();
   reduced_size_ = P.rows();
-  std::cout << "Full size: " << full_size_ << std::endl;
-  std::cout << "Reduced size: " << reduced_size_ << std::endl;
+  // std::cout << "Full size: " << full_size_ << std::endl;
+  // std::cout << "Reduced size: " << reduced_size_ << std::endl;
   P_gpu_.init(P);
   PT_gpu_.init(P.transpose());
 
@@ -173,7 +185,7 @@ void DisplacementGpu<DIM>::reset() {
 
   // Initialize dx to 0
   dx_ = VectorType(x_.size(), 0);
-
+  rhs_.resize(x_.size(), 0);
   lhs_ = mesh_->template mass_matrix<MatrixType::PROJECTED>();
 
   // Copy mesh external force to f_ext_

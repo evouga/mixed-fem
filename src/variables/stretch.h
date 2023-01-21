@@ -28,7 +28,7 @@ namespace mfem {
     void reset() override;
     void post_solve() override;
 
-    Eigen::VectorXd rhs() override;
+    Eigen::VectorXd& rhs() override;
     Eigen::VectorXd gradient() override;
 
     const Eigen::SparseMatrix<double, Eigen::RowMajor>& lhs() override {
@@ -84,6 +84,7 @@ namespace mfem {
     Eigen::SparseMatrix<double, Eigen::RowMajor> K_;   // stiffness matrix
 
     Eigen::VectorXd grad_;               // Gradient with respect to x
+    Eigen::VectorXd rhs_;
     std::vector<Eigen::VectorXd> g_;     // per-element gradients
     std::vector<Eigen::MatrixXd> H_;     // per-element hessians
     std::vector<Eigen::MatrixXd> Aloc_;

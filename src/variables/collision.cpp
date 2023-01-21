@@ -136,12 +136,13 @@ void Collision<DIM>::update_derivatives(const MatrixXd& V, double dt) {
 
   // Assemble gradient
   vec_assembler_->assemble(gloc, grad_);
+  rhs_ = -grad_;
 }
 
 template<int DIM>
-VectorXd Collision<DIM>::rhs() {
+VectorXd& Collision<DIM>::rhs() {
   data_.timer.start("RHS - s");
-  return -gradient();
+  return rhs_;
 }
 
 template<int DIM>

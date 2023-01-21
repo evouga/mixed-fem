@@ -56,12 +56,13 @@ void Stretch<DIM>::update(Eigen::VectorXd& x, double h) {
   VectorXd g;
   vec_assembler_->assemble(g_, g);
   grad_ = g;
+  rhs_ = -g;
   data_.timer.stop("RHS - stretch");
 }
 
 template<int DIM>
-VectorXd Stretch<DIM>::rhs() {
-  return -gradient();
+VectorXd& Stretch<DIM>::rhs() {
+  return rhs_;
 }
 
 template<int DIM>

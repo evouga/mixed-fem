@@ -54,7 +54,7 @@ template<int DIM>
 void Displacement<DIM>::update(Eigen::VectorXd&, double) {}
 
 template<int DIM>
-VectorXd Displacement<DIM>::rhs() {
+VectorXd& Displacement<DIM>::rhs() {
   OptimizerData::get().timer.start("rhs", "Displacement");
   rhs_ = -gradient();
   OptimizerData::get().timer.stop("rhs", "Displacement");

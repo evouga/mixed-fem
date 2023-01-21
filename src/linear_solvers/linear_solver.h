@@ -5,19 +5,19 @@
 
 namespace mfem {
 
-  template <typename Scalar, int DIM>
+  template <typename Scalar, int DIM, StorageType STORAGE = STORAGE_EIGEN>
   class LinearSolver {
 
   public:
 
-    LinearSolver(SimState<DIM>* state) : state_(state) {}
+    LinearSolver(SimState<DIM,STORAGE>* state) : state_(state) {}
     
     virtual void solve() = 0;
 
     virtual ~LinearSolver() = default;
 
   protected:
-    SimState<DIM>* state_;
+    SimState<DIM,STORAGE>* state_;
   };
 
 }

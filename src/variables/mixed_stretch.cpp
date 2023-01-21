@@ -247,7 +247,7 @@ void MixedStretch<DIM>::update_derivatives(double dt) {
 }
 
 template<int DIM>
-VectorXd MixedStretch<DIM>::rhs() {
+VectorXd& MixedStretch<DIM>::rhs() {
   OptimizerData::get().timer.start("rhs", "MixedStretch");
 
   rhs_.resize(mesh_->jacobian().rows());
@@ -265,15 +265,6 @@ VectorXd MixedStretch<DIM>::rhs() {
   }
   rhs_ = -mesh_->jacobian() * tmp;
   //std::cout << "RHS norm" << rhs_.norm() << std::endl;
-  //double g_norm = 0.0, diff_norm = 0.0;
-  //for (int i = 0; i < nelem_; ++i) {
-  //  g_norm += g_[i].squaredNorm();
-  //  diff_norm += (S_[i] - s_.segment<N()>(N()*i)).squaredNorm();
-  //}
-  //std::cout << "g norm " << g_norm << std::endl;
-  //std::cout << "diff norm " << diff_norm << std::endl;
-  //std::cout << "la norm " << la_.norm() << std::endl;
-  //std::cout << "s norm " << s_.norm() << std::endl;
   OptimizerData::get().timer.stop("rhs", "MixedStretch");
   return rhs_;
 }
