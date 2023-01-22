@@ -83,12 +83,6 @@ void DisplacementGpu<DIM>::post_solve() {
   MatrixXd V(mesh_->V_.cols(), mesh_->V_.rows());
   cudaMemcpy(V.data(), x_full_ptr, V.size()*sizeof(double),
       cudaMemcpyDeviceToHost);
-  std::cout << "V0 min x1: " << mesh_->V_.col(0).minCoeff() << std::endl;
-  std::cout << "V0 min x2: " << mesh_->V_.col(1).minCoeff() << std::endl;
-  std::cout << "V0 min x3: " << mesh_->V_.col(2).minCoeff() << std::endl;    
-  std::cout << "V min x1: " << V.row(0).minCoeff() << std::endl;
-  std::cout << "V min x2: " << V.row(1).minCoeff() << std::endl;
-  std::cout << "V min x3: " << V.row(2).minCoeff() << std::endl;
   mesh_->V_ = V.transpose();
 }
 

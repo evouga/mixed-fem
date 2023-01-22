@@ -311,7 +311,7 @@ namespace mfem {
           ImGui::InputDouble("kappa", &config->kappa,0,0,"%.5g");
         }
 
-        if (FactoryCombo<LinearSolverFactory<DIM>, LinearSolverType>(
+        if (FactoryCombo<LinearSolverFactory<DIM,STORAGE>, LinearSolverType>(
             "Linear Solver", config->solver_type)) {
           optimizer->reset();
         }
@@ -413,7 +413,7 @@ namespace mfem {
     VariableFactory<DIM> variable_factory;
     MixedVariableFactory<DIM,STORAGE> mixed_variable_factory;
     OptimizerFactory<DIM,STORAGE> optimizer_factory;
-    LinearSolverFactory<DIM> solver_factory;
+    LinearSolverFactory<DIM,STORAGE> solver_factory;
 
     std::shared_ptr<MaterialConfig> material_config;
     std::shared_ptr<MaterialModel> material;

@@ -251,6 +251,7 @@ namespace mfem {
     vector<double> Jloc_;  // local jacobians
     vector<double> vols_;  // element volumes |E| x 1
     Eigen::VectorXd ds_h_;
+    Eigen::VectorXd la_h_;
     Eigen::VectorXd s_h_;
     vector<double> energy_tmp_;
 

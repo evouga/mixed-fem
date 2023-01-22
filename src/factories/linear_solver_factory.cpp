@@ -11,6 +11,7 @@
 #include "linear_solvers/preconditioners/gauss_seidel.h"
 #include "linear_solvers/amgcl_solver.h"
 #include <unsupported/Eigen/IterativeSolvers>
+#include "linear_solvers/ginkgo_solver.h"
 
 #if defined(SIM_USE_CHOLMOD)
 #include <Eigen/CholmodSupport>
@@ -179,8 +180,17 @@ void LinearSolverFactory<DIM,STORAGE>::register_pd_solvers() {
         [](SimState<DIM,STORAGE>* state)
         ->std::unique_ptr<LinearSolver<Scalar, DIM,STORAGE>>
         {return std::make_unique<EigenSolver<CHOLMOD,
-            SystemMatrixThrust<Scalar>,
+            SystemMatrixThrustCpu<Scalar>,
             Scalar, DIM, STORAGE>>(state);});
+
+
+    using GINKGO = GinkgoSolver<SystemMatrixThrustGpu<Scalar>,
+        Scalar, DIM, STORAGE>;
+    this->register_type(LinearSolverType::SOLVER_EIGEN_CG_BLOCK_JACOBI,
+        "cg-block-jacobi",
+        [](SimState<DIM,STORAGE>* state)
+        ->std::unique_ptr<LinearSolver<Scalar,DIM,STORAGE>>
+        {return std::make_unique<GINKGO>(state);});
   }
 }
 

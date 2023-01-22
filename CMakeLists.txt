@@ -120,9 +120,9 @@ thrust_update_system_found_flags()
 # CMAKE IS MY NIGHTMARE
 set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -std=c++14 -Xcompiler -fPIC)
 set(CUDA_NVCC_FLAGS -Xcudafe "--diag_suppress=cc_clobber_ignored " ;
-    -Xcudafe " --diag_suppress=set_but_not_used " ;
+    -Xcudafe -use_fast_math " --diag_suppress=set_but_not_used " ;
     ${CUDA_NVCC_FLAGS} " --extended-lambda --disable-warnings")
-set(CMAKE_CUDA_FLAGS ${CMAKE_CUDA_FLAGS} "--extended-lambda")
+set(CMAKE_CUDA_FLAGS ${CMAKE_CUDA_FLAGS} "--extended-lambda" )
 
 # Add polyscope
 message("\n\n == CMAKE recursively building Polyscope\n")

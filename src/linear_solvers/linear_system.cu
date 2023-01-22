@@ -5,7 +5,7 @@ using namespace Eigen;
 
 
 template <typename Scalar>
-void SystemMatrixThrust<Scalar>::pre_solve(
+void SystemMatrixThrustCpu<Scalar>::pre_solve(
     const SimState<3,STORAGE_THRUST>* state) {
   // Add LHS and RHS from each variable
   lhs_ = state->x_->lhs();
@@ -39,7 +39,7 @@ void SystemMatrixThrust<Scalar>::pre_solve(
 }
 
 template <typename Scalar>
-void SystemMatrixThrust<Scalar>::post_solve(
+void SystemMatrixThrustCpu<Scalar>::post_solve(
     const SimState<3,STORAGE_THRUST>* state, VectorXd& dx) {
 
   // std::cout << "dx norm: " << dx.norm() << std::endl;
@@ -55,5 +55,5 @@ void SystemMatrixThrust<Scalar>::post_solve(
   }
 }
 
-template void mfem::SystemMatrixThrust<double>::pre_solve(const SimState<3, STORAGE_THRUST>*);
-template void mfem::SystemMatrixThrust<double>::post_solve(const SimState<3, STORAGE_THRUST>*, VectorXd&);
+template void mfem::SystemMatrixThrustCpu<double>::pre_solve(const SimState<3, STORAGE_THRUST>*);
+template void mfem::SystemMatrixThrustCpu<double>::post_solve(const SimState<3, STORAGE_THRUST>*, VectorXd&);

@@ -326,11 +326,17 @@ void MixedStretchGpu<DIM,STORAGE>::solve(VectorType& dx) {
   OptimizerData::get().timer.stop("solve", "MixedStretchGpu");
 
   if constexpr (STORAGE == STORAGE_EIGEN) {
-    // std::cout << " gpu solve norm: " << ds_h_.norm() << "\n " << ds_h_.head(100).transpose() << std::endl;
     // Copy ds to host
     ds_h_.resize(ds_.size());
     cudaMemcpy(ds_h_.data(), thrust::raw_pointer_cast(ds_.data()),
         ds_.size()*sizeof(double), cudaMemcpyDeviceToHost);
+
+    // Copy la to host
+    la_h_.resize(la_.size());
+    cudaMemcpy(la_h_.data(), thrust::raw_pointer_cast(la_.data()),
+        la_.size()*sizeof(double), cudaMemcpyDeviceToHost);
+
+    std::cout << "ds norm: " << ds_h_.norm() << " la norm: " << la_h_.norm() << std::endl;
     cudaFree(d_dx);
   }
 }
@@ -441,6 +447,7 @@ MixedStretchGpu<DIM,STORAGE>::VectorType& MixedStretchGpu<DIM,STORAGE>::rhs()
     rhs_h_.resize(rhs_.size());
     cudaMemcpy(rhs_h_.data(), thrust::raw_pointer_cast(rhs_.data()),
         rhs_.size()*sizeof(double), cudaMemcpyDeviceToHost);
+    std::cout << " rhs norm: " << rhs_h_.norm() << std::endl;
     return rhs_h_;
   } else {
     return rhs_;

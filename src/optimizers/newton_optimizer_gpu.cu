@@ -196,6 +196,8 @@ std::cout << "3" << std::endl;
 
   LinearSolverFactory<DIM,STORAGE_THRUST> solver_factory;
   linear_solver_ = solver_factory.create(state_.config_->solver_type, &state_);
+std::cout << "4" << std::endl;
+
 }
 
 template class mfem::NewtonOptimizerGpu<3>;
