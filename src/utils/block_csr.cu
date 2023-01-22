@@ -51,20 +51,40 @@ void BlockMatrix<Scalar,DIM,N>::pairs_functor::operator()(int i) {
 
 template<typename Scalar, int DIM, int N> __device__
 void BlockMatrix<Scalar,DIM,N>::update_functor::operator()(int i) {
-  // i is the index of the block in the matrix
-  // block_indices[i] is the index of the block in the sorted list of blocks
-  int idx = block_indices[i];
-  if (idx < 0) return;
+  // i is the element index
+  // const int* nelem;
+  // const double* blocks;
+  // const int* block_indices;
+  // MatD* blocks_with_duplicates;
+  for (int r = 0; r < N; ++r) {
+    for (int c = 0; c < N; ++c) {
+      // Get the global index of the block
+      int block_index = i * N * N + r * N + c;
 
-  // Copy blocks to blocks_with_duplicates MatD
-  MatD& block = blocks_with_duplicates[idx];
-  for (int j = 0; j < DIM; ++j) {
-    for (int k = 0; k < DIM; ++k) {
-      block(j, k) = blocks[i * DIM * DIM + j * DIM + k];
+      int idx = block_indices[block_index];
+      if (idx < 0) continue;
+
+      MatD& block = blocks_with_duplicates[idx];
+      // blocks is a |E|*N*DIM*N*DIM array of blocks each of size
+      // (N*DIM) x (N*DIM) and i = 1 : |E|*N*N, so we need to extract
+      // the DIMxDIM block for the i-th block
+      
+      int col_start = 
+          i * N * N * DIM * DIM // start of element matrix
+          + c * DIM * DIM * N    // start of local block column
+          + r * DIM;             // row for current dimension
+      
+      for (int col = 0; col < DIM; ++col) {
+        int row_start = col_start + col * N * DIM;
+        for (int row = 0; row < DIM; ++row) {
+          block(row, col) = blocks[row_start + row];
+        }
+      }
+        
+
     }
   }
 }
-
 
 template<typename Scalar, int DIM, int N>
 BlockMatrix<Scalar,DIM,N>::BlockMatrix(const Eigen::MatrixXi& E,
@@ -86,7 +106,7 @@ BlockMatrix<Scalar,DIM,N>::BlockMatrix(const Eigen::MatrixXi& E,
   thrust::device_vector<int> free_map_d(free_map); // free_map to device memory
 
   // Get maximum value in free_map
-  nnodes_ = *thrust::max_element(free_map_d.begin(), free_map_d.end());
+  nnodes_ = *thrust::max_element(free_map_d.begin(), free_map_d.end()) + 1;
 
   // Fill in the block row, column, and is_free vectors from all pair-wise
   // combinations of nodes in each element.
@@ -118,6 +138,11 @@ BlockMatrix<Scalar,DIM,N>::BlockMatrix(const Eigen::MatrixXi& E,
               block_col_indices_.end(),
               sorted_block_map.end())), is_not_free());
 
+  // for (int i = 0; i < 120; ++i) {
+  //   std::cout << "i: "<< i << " (r,c,map): " << block_row_indices_[i] << " " << block_col_indices_[i] << " "
+  //     << sorted_block_map[i] <<  std::endl; 
+  // }
+
   // Erase the removed elements using new_end
   auto Tend =  new_end.get_iterator_tuple();;
   block_row_indices_.erase(thrust::get<0>(Tend), block_row_indices_.end());
@@ -143,10 +168,20 @@ BlockMatrix<Scalar,DIM,N>::BlockMatrix(const Eigen::MatrixXi& E,
   // For each block in the matrix, get the index of the block in the sorted
   // list of blocks
   block_indices_.resize(E.rows() * N * N, -1.0);
-  thrust::device_vector<int> seq(E.rows() * N * N);
-  thrust::sequence(seq.begin(), seq.end());
-  thrust::gather(sorted_block_map.begin(), sorted_block_map.end(),
-      seq.begin(), block_indices_.begin());
+  // thrust::device_vector<int> seq(E.rows() * N * N);
+  // thrust::sequence(seq.begin(), seq.end());
+  // thrust::gather(sorted_block_map.begin(), sorted_block_map.end(),
+  //     seq.begin(), block_indices_.begin());
+  // sorted_block_indices is a set of indices now form the inverse map
+  // that go from the indices to the map to the index in the sorted_block_indices
+  thrust::scatter(thrust::make_counting_iterator(0),
+      thrust::make_counting_iterator(0) + sorted_block_map.size(),
+      sorted_block_map.begin(), block_indices_.begin());
+
+  // for (int i = 0; i < 10; ++i) {
+  //   std::cout << "i: "<< i << " (r,c,map,block_indices): " << block_row_indices_[i] << " " << block_col_indices_[i] << " "
+  //     << sorted_block_map[i] << " " << block_indices_[sorted_block_map[i]] << std::endl;
+  // }
 
   // ----------------------------------------------------------------------- //
   // 2. Building row offsets
@@ -166,12 +201,17 @@ BlockMatrix<Scalar,DIM,N>::BlockMatrix(const Eigen::MatrixXi& E,
           row_indices.end(),
           col_indices_.end())));
   
+  // std::cout << "size 0 " << row_indices.size() << std::endl;
   // Resize unique_rows and unique_cols to the new size
   auto Tend2 = iter.get_iterator_tuple();
   row_indices.resize(thrust::get<0>(Tend2) - row_indices.begin());
   col_indices_.resize(thrust::get<1>(Tend2) - col_indices_.begin());
   blocks_.resize(row_indices.size());
 
+  // std::cout << "size 1 " << row_indices.size() << std::endl;
+  // for (int i = 0; i < 50; ++i) {
+  //   std::cout << "i: "<< i << " (r,c): " << row_indices[i] << " " << col_indices_[i] << std::endl;
+  // }
   // Now count the number of occurrences of each row value
   // TODO this will not work if num of offsets is not equal to matrix rows
   // Need to do a prefix sum on the row_offsets to get the final offsets
@@ -182,9 +222,19 @@ BlockMatrix<Scalar,DIM,N>::BlockMatrix(const Eigen::MatrixXi& E,
   auto pair_end = thrust::reduce_by_key(row_indices.begin(), row_indices.end(),
       thrust::constant_iterator<int>(1), row_indices.begin(), row_offsets_.begin());
 
+  // for (int i = 0; i < 8; ++i) {
+  //   std::cout << "i: "<< i << " (row,count): " << row_indices[i] << " " <<  row_offsets_[i] << std::endl;
+  // }
+
   // Now compute the row offsets by doing a prefix sum
   row_offsets_.resize(pair_end.second - row_offsets_.begin() + 1);
   thrust::inclusive_scan(row_offsets_.begin(), pair_end.second, row_offsets_.begin()+1);
+  row_offsets_[0] = 0;
+
+  // std::cout << "row offsets size " << row_offsets_.size() << std::endl;
+  // for (int i = 0; i < 8; ++i) {
+  //   std::cout << "i: "<< i << " offset: " << row_offsets_[i] << std::endl;
+  // }
 }
 
 template<typename Scalar, int DIM, int N>
@@ -194,12 +244,17 @@ void BlockMatrix<Scalar,DIM,N>::update_matrix(
   // Blocks is vector of size |E| x (N*N*DIM*DIM)
   // For each DIMxDIM block, write to blocks_with_duplicates using block_indices
   thrust::for_each(thrust::counting_iterator<int>(0),
-      thrust::counting_iterator<int>(nelem_*N*N),
+      thrust::counting_iterator<int>(nelem_),
       update_functor(
         thrust::raw_pointer_cast(blocks.data()),
         thrust::raw_pointer_cast(block_indices_.data()),
         thrust::raw_pointer_cast(blocks_with_duplicates_.data())));
 
+  // for (int i = 0; i < 10; ++i) {
+  //   std::cout << "i: " << i << std::endl;
+  //   std::cout << "  row col: " << block_row_indices_[i] << " " << block_col_indices_[i] << std::endl;
+  //   std::cout << "  block \n " << blocks_with_duplicates_[i] << std::endl;
+  // }
   // Using sorted block_row_indices and block_col_indices, do a reduction
   // over the duplicates
   thrust::device_vector<int> row_indices = block_row_indices_;
@@ -227,20 +282,26 @@ BlockMatrix<Scalar,DIM,N>::to_eigen_csr() {
   thrust::host_vector<MatD> h_blocks = blocks_;
 
   // Convert to Eigen
-  A_.resize(nnodes_*DIM, nnodes_*DIM);
-
-  for(int i=0; i<h_row_offsets.size()-1; i++) {
-    for(int j=h_row_offsets[i]; j<h_row_offsets[i+1]; j++) {
+  // A_.resize(nnodes_*DIM, nnodes_*DIM);
+  A_ = Eigen::SparseMatrix<Scalar, Eigen::RowMajor>(nnodes_*DIM, nnodes_*DIM);
+  std::vector<Eigen::Triplet<Scalar>> triplets;
+  // std::cout << "nnodes: " << nnodes_ << std::endl;
+  for(int i=0; i<h_row_offsets.size()-1; ++i) {
+    // std::cout << "row: " << i << " offset: " << h_row_offsets[i] << std::endl;
+    for(int j=h_row_offsets[i]; j<h_row_offsets[i+1]; ++j) {
       int row = i;
       int col = h_col_indices[j];
+      // std::cout << "row: " << row << " col: " << col << std::endl;
       MatD block = h_blocks[j];
       for(int k=0; k<DIM; k++) {
         for(int l=0; l<DIM; l++) {
-          A_.insert(row*DIM+k, col*DIM+l) = block(k,l);
+          triplets.push_back(Eigen::Triplet<Scalar>(
+              row*DIM+k, col*DIM+l, block(k,l)));
         }
       }
     }
   }
+  A_.setFromTriplets(triplets.begin(), triplets.end());
   return A_;
 }
 

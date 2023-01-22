@@ -272,28 +272,34 @@ void MixedStretchGpu<DIM,STORAGE>::update(VectorType& x, double dt) {
       rhs, rhs_.size()*sizeof(double), cudaMemcpyDeviceToDevice);
   OptimizerData::get().timer.stop("rhs-2", "MixedStretchGpu");
 
-  OptimizerData::get().timer.start("assemble1", "MixedStretchGpu");
-  // Copy Aloc from device to host
-  std::vector<double> Aloc_tmp(Aloc_.size());
-  cudaMemcpy(Aloc_tmp.data(), thrust::raw_pointer_cast(Aloc_.data()),
-      Aloc_.size()*sizeof(double), cudaMemcpyDeviceToHost);
+  // OptimizerData::get().timer.start("assemble1", "MixedStretchGpu");
+  // // Copy Aloc from device to host
+  // std::vector<double> Aloc_tmp(Aloc_.size());
+  // cudaMemcpy(Aloc_tmp.data(), thrust::raw_pointer_cast(Aloc_.data()),
+  //     Aloc_.size()*sizeof(double), cudaMemcpyDeviceToHost);
 
-  std::vector<MatrixXd> Aloc(nelem_);
-  for (int i = 0; i < nelem_; ++i) {
-    Aloc[i] = Map<MatrixXd>(Aloc_tmp.data() + Aloc_N()*Aloc_N()*i,
-        Aloc_N(), Aloc_N());
-  }
-  OptimizerData::get().timer.stop("assemble1", "MixedStretchGpu");
-  OptimizerData::get().timer.start("assemble2", "MixedStretchGpu");
-  assembler_->update_matrix(Aloc);
-  OptimizerData::get().timer.stop("assemble2", "MixedStretchGpu");
+  // std::vector<MatrixXd> Aloc(nelem_);
+  // for (int i = 0; i < nelem_; ++i) {
+  //   Aloc[i] = Map<MatrixXd>(Aloc_tmp.data() + Aloc_N()*Aloc_N()*i,
+  //       Aloc_N(), Aloc_N());
+  // }
+  // OptimizerData::get().timer.stop("assemble1", "MixedStretchGpu");
+  // OptimizerData::get().timer.start("assemble2", "MixedStretchGpu");
+  // assembler_->update_matrix(Aloc);
+  // OptimizerData::get().timer.stop("assemble2", "MixedStretchGpu");
 
+  OptimizerData::get().timer.start("assemble3", "MixedStretchGpu");
+  assembler2_->update_matrix(Aloc_);
+  OptimizerData::get().timer.stop("assemble3", "MixedStretchGpu");
+
+  // std::cout << "Top left1 : \n" << assembler_->A.block(0,0,10,10) << std::endl;
+  // std::cout << "Top left2: \n" << assembler2_->to_eigen_csr().block(0,0,10,10) << std::endl;
+  // std::cout << "DIFF: " <<  (assembler_->A - assembler2_->to_eigen_csr()).norm() << std::endl;
   // OptimizerData::get().print_data(true);
   if constexpr (STORAGE == STORAGE_EIGEN) {
     cudaFree(d_x);
   }
 }
-
 
 template<int DIM, StorageType STORAGE>
 void MixedStretchGpu<DIM,STORAGE>::solve(VectorType& dx) {
@@ -438,6 +444,12 @@ void MixedStretchGpu<DIM,STORAGE>::reset() {
   // Init CPU assembler
   assembler_ = std::make_shared<Assembler<double,DIM,-1>>(
       mesh_->T_, mesh_->free_map_);
+
+  std::cout << "Assembler 2: " <<std::endl;
+  assembler2_ = std::make_shared<BlockMatrix<double,DIM,4>>(
+      mesh_->T_, mesh_->free_map_);
+      std::cout << "Assembler 2 done" <<std::endl;
+  
 }
 
 template<int DIM, StorageType STORAGE>

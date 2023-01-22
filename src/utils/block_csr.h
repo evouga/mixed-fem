@@ -35,7 +35,7 @@ namespace mfem {
         blocks_with_duplicates(_blocks_with_duplicates) {}
 
       void operator()(int i);
-
+      
       const double* blocks;
       const int* block_indices;
       MatD* blocks_with_duplicates;

@@ -6,6 +6,7 @@
 #include <cusparse.h>
 #include "utils/sparse_matrix_gpu.h"
 #include "utils/sparse_utils.h"
+#include "utils/block_csr.h"
 
 namespace mfem {
 
@@ -91,7 +92,7 @@ namespace mfem {
     void post_solve() override;
 
     const Eigen::SparseMatrix<double, Eigen::RowMajor>& lhs() override {
-      return assembler_->A;
+      return assembler2_->to_eigen_csr();
     }
     VectorType& rhs() override;
     VectorType gradient() override;
@@ -262,7 +263,7 @@ namespace mfem {
     SparseMatrixGpu JWT_gpu_; // projected, weighted jacobian, transposed
     MatrixBatchInverseGpu<N()> Hinv_gpu_;
     std::shared_ptr<Assembler<double,DIM,-1>> assembler_;
-
+    std::shared_ptr<BlockMatrix<double,DIM,4>> assembler2_;
 
   };
 }
