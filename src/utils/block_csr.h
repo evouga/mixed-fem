@@ -23,10 +23,53 @@ namespace mfem {
     }
 
     using MatM  = Eigen::Matrix<Scalar, M(), M()>;
+    using MatD = Eigen::Matrix<Scalar, DIM, DIM>;
 
   public:
 
-    using MatD = Eigen::Matrix<Scalar, DIM, DIM>;
+    struct update_functor {
+
+      update_functor(const double* _blocks, const int* _block_indices,
+          MatD* _blocks_with_duplicates) :
+        blocks(_blocks), block_indices(_block_indices),
+        blocks_with_duplicates(_blocks_with_duplicates) {}
+
+      void operator()(int i);
+
+      const double* blocks;
+      const int* block_indices;
+      MatD* blocks_with_duplicates;
+    };
+
+    struct pairs_functor {
+
+      pairs_functor(int* _E_d, int* _free_map_d, int* _block_row_indices,
+          int* _block_col_indices, int* _block_is_free)
+          : E_d(_E_d), free_map_d(_free_map_d),
+          block_row_indices(_block_row_indices),
+          block_col_indices(_block_col_indices),
+          block_is_free(_block_is_free)
+          {}
+
+      void operator()(int i);
+
+      int * E_d;
+      int * free_map_d;
+      int * block_row_indices;
+      int * block_col_indices;
+      int * block_is_free;
+    };
+
+    struct zip_comparator {
+      __host__ __device__
+      bool operator() (const thrust::tuple<int, int>& a,
+        const thrust::tuple<int, int>& b) const {
+        if(a.head < b.head) return true;
+        if(a.head == b.head) return a.tail < b.tail;
+        return false;
+      }
+    };
+
 
     // Initialize assembler / analyze sparsity of system
     // None of this wonderfully optimized since we only have to do it once
@@ -37,21 +80,29 @@ namespace mfem {
 
     // Update entries of matrix using per-element blocks
     // blocks   - |nelem| N*DIM x N*DIM blocks to update assembly matrix
+    void update_matrix(const thrust::device_vector<double>& blocks);
     // void update_matrix(const std::vector<MatM>& blocks);
 
-    // Element IDs, global, and local coordinates. Each of these vectors
-    // is of the same size.
-    // std::vector<int> element_ids;
-    // std::vector<std::pair<int,int>> global_pairs;
-    // std::vector<std::pair<int,int>> local_pairs;
+    Eigen::SparseMatrix<Scalar, Eigen::RowMajor>& to_eigen_csr();
 
-    // std::vector<int> multiplicity; // number of pairs to sum over for a node
-    // std::vector<int> row_offsets;  // each entry is index into new row
-    // std::vector<int> offsets;      // unique pairs
-    // Eigen::SparseMatrix<Scalar, Eigen::RowMajor> A;
+    Eigen::SparseMatrix<Scalar, Eigen::RowMajor> A_;
 
+    // All DIMxDIM blocks, row major sorted.
+    thrust::device_vector<MatD> blocks_with_duplicates_;
+    thrust::device_vector<int> block_indices_;
+
+    // Compressed set of DIMxDIM blocks, corresponding to a reduction
+    // over the duplicate entries.
     thrust::device_vector<MatD> blocks_;
+
+    thrust::device_vector<int> block_row_indices_;
+    thrust::device_vector<int> block_col_indices_;
+
+    // Block CSR data
     thrust::device_vector<int> col_indices_;
     thrust::device_vector<int> row_offsets_;
+
+    int nelem_;
+    int nnodes_;
   };
 }
