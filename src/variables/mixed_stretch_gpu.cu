@@ -136,32 +136,29 @@ void MixedStretchGpu<DIM,STORAGE>::solve_functor::operator()(int i) const {
 template<int DIM, StorageType STORAGE>
 double MixedStretchGpu<DIM,STORAGE>::energy(VectorType& x,
     VectorType& s) {
-  OptimizerData::get().timer.start("energy-transfer", "MixedStretchGpu");
   // copy x and s to the GPU
   double* d_x; // device x vector
   double* d_s; // device s vector
   if constexpr (STORAGE == STORAGE_EIGEN) {
+    OptimizerData::get().timer.start("energy-transfer", "MixedStretchGpu");
     cudaMalloc((void**)&d_x, sizeof(double) * x.size());
     cudaMalloc((void**)&d_s, sizeof(double) * s.size());
     cudaMemcpy(d_x, x.data(), sizeof(double) * x.size(),
         cudaMemcpyHostToDevice);
     cudaMemcpy(d_s, s.data(), sizeof(double) * s.size(),
         cudaMemcpyHostToDevice);
+    OptimizerData::get().timer.stop("energy-transfer", "MixedStretchGpu");
   } else {
     d_x = thrust::raw_pointer_cast(x.data());
     d_s = thrust::raw_pointer_cast(s.data());
   }
 
-  OptimizerData::get().timer.stop("energy-transfer", "MixedStretchGpu");
-
   // compute deformation gradient
-  OptimizerData::get().timer.start("energy-F", "MixedStretchGpu");
+  OptimizerData::get().timer.start("energy", "MixedStretchGpu");
   double* F;
   J_gpu_.product(d_x, &F);
-  OptimizerData::get().timer.stop("energy-F", "MixedStretchGpu");
-  OptimizerData::get().timer.start("energy", "MixedStretchGpu");
 
-  // // call energy functor
+  // call energy functor
   double e = thrust::transform_reduce(thrust::counting_iterator<int>(0),
     thrust::counting_iterator<int>(nelem_),
     energy_functor(d_s, F,
@@ -224,7 +221,6 @@ void MixedStretchGpu<DIM,STORAGE>::update(VectorType& x, double dt) {
           thrust::raw_pointer_cast(dSdF_.data())
       ));
   OptimizerData::get().timer.stop("rotations", "MixedStretchGpu");
-  std::cout << "Update local hessians and gradient" << std::endl;
   OptimizerData::get().timer.start("gradients", "MixedStretchGpu");
 
   // Compute local hessians and gradients
@@ -253,7 +249,7 @@ void MixedStretchGpu<DIM,STORAGE>::update(VectorType& x, double dt) {
   OptimizerData::get().timer.stop("invert H", "MixedStretchGpu");
 
   // Compute RHS
-  OptimizerData::get().timer.start("rhs-1", "MixedStretchGpu");
+  OptimizerData::get().timer.start("rhs", "MixedStretchGpu");
   thrust::for_each(thrust::counting_iterator<int>(0),
       thrust::counting_iterator<int>(nelem_),
       rhs_functor(
@@ -264,13 +260,11 @@ void MixedStretchGpu<DIM,STORAGE>::update(VectorType& x, double dt) {
           thrust::raw_pointer_cast(H_.data()), 
           thrust::raw_pointer_cast(dSdF_.data()), 
           thrust::raw_pointer_cast(vols_.data())));
-  OptimizerData::get().timer.stop("rhs-1", "MixedStretchGpu");
-  OptimizerData::get().timer.start("rhs-2", "MixedStretchGpu");
   double* rhs;
   JW_gpu_.product(thrust::raw_pointer_cast(rhs_tmp_.data()), &rhs);
   cudaMemcpy(thrust::raw_pointer_cast(rhs_.data()),
       rhs, rhs_.size()*sizeof(double), cudaMemcpyDeviceToDevice);
-  OptimizerData::get().timer.stop("rhs-2", "MixedStretchGpu");
+  OptimizerData::get().timer.stop("rhs", "MixedStretchGpu");
 
   // OptimizerData::get().timer.start("assemble1", "MixedStretchGpu");
   // // Copy Aloc from device to host
@@ -288,9 +282,9 @@ void MixedStretchGpu<DIM,STORAGE>::update(VectorType& x, double dt) {
   // assembler_->update_matrix(Aloc);
   // OptimizerData::get().timer.stop("assemble2", "MixedStretchGpu");
 
-  OptimizerData::get().timer.start("assemble3", "MixedStretchGpu");
+  OptimizerData::get().timer.start("assemble", "MixedStretchGpu");
   assembler2_->update_matrix(Aloc_);
-  OptimizerData::get().timer.stop("assemble3", "MixedStretchGpu");
+  OptimizerData::get().timer.stop("assemble", "MixedStretchGpu");
 
   // std::cout << "Top left1 : \n" << assembler_->A.block(0,0,10,10) << std::endl;
   // std::cout << "Top left2: \n" << assembler2_->to_eigen_csr().block(0,0,10,10) << std::endl;
@@ -451,6 +445,12 @@ void MixedStretchGpu<DIM,STORAGE>::reset() {
       std::cout << "Assembler 2 done" <<std::endl;
   
 }
+
+// template<int DIM, StorageType STORAGE>
+// void MixedStretchGpu<DIM,STORAGE>::apply(double* x, double* y) {
+//   // Can't put ginkgo shit in here
+// }
+
 
 template<int DIM, StorageType STORAGE>
 MixedStretchGpu<DIM,STORAGE>::VectorType& MixedStretchGpu<DIM,STORAGE>::rhs()

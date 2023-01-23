@@ -201,6 +201,19 @@ void DisplacementGpu<DIM>::reset() {
 
   const auto& PM = mesh_->template mass_matrix<MatrixType::PROJECT_ROWS>();
   PM_gpu_.init(PM);
+
+  const auto& PMP = mesh_->template mass_matrix<MatrixType::PROJECTED>();
+  PMP_gpu_.init(PMP);
+}
+
+template<int DIM>
+void DisplacementGpu<DIM>::apply(double* x, const double* b) {
+  // Multiply rhs (b) against the mass matrix with Dirichlet BCs projected out
+  double* out;
+  PMP_gpu_.product(b, &out);
+
+  // Copy result of product to x
+  cudaMemcpy(x, out, reduced_size_*sizeof(double), cudaMemcpyDeviceToDevice);
 }
 
 template class mfem::DisplacementGpu<3>; // 3D

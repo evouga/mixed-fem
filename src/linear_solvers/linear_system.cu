@@ -3,7 +3,6 @@
 using namespace mfem;
 using namespace Eigen;
 
-
 template <typename Scalar>
 void SystemMatrixThrustCpu<Scalar>::pre_solve(
     const SimState<3,STORAGE_THRUST>* state) {
@@ -54,6 +53,40 @@ void SystemMatrixThrustCpu<Scalar>::post_solve(
     var->solve(state->x_->delta());
   }
 }
+
+template <typename Scalar>
+void SystemMatrixThrustGpu<Scalar>::pre_solve(
+    const SimState<3,STORAGE_THRUST>* state) {
+  // RHS from each variable
+  auto& rhs = state->x_->rhs();
+  rhs_.resize(rhs.size());
+
+  // Copy from rhs to rhs_
+  thrust::copy(rhs.begin(), rhs.end(), rhs_.begin());
+
+  for (auto& var : state->mixed_vars_) {
+    // Add mixed variable rhs_s to rhs_
+    auto& rhs_s = var->rhs();
+    thrust::transform(rhs_.begin(), rhs_.end(), rhs_s.begin(), rhs_.begin(),
+        thrust::plus<double>());
+  }
+}
+
+template <typename Scalar>
+void SystemMatrixThrustGpu<Scalar>::post_solve(
+    const SimState<3,STORAGE_THRUST>* state, double* dx) {
+
+  // Copy device dx to x_->delta()
+  thrust::copy(dx, dx+state->x_->delta().size(), state->x_->delta().begin());
+
+  for (auto& var : state->mixed_vars_) {
+    var->solve(state->x_->delta());
+  }
+}
+
+
+template void mfem::SystemMatrixThrustGpu<double>::pre_solve(const SimState<3, STORAGE_THRUST>*);
+template void mfem::SystemMatrixThrustGpu<double>::post_solve(const SimState<3, STORAGE_THRUST>*, double*);
 
 template void mfem::SystemMatrixThrustCpu<double>::pre_solve(const SimState<3, STORAGE_THRUST>*);
 template void mfem::SystemMatrixThrustCpu<double>::post_solve(const SimState<3, STORAGE_THRUST>*, VectorXd&);

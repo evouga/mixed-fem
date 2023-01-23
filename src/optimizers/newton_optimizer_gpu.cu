@@ -45,6 +45,7 @@ void NewtonOptimizerGpu<DIM>::step() {
     tmps[i].resize(state_.mixed_vars_[i]->size());
   }
 
+  bool ls_done = false;
   do {
     Base::callback(state_);
 
@@ -101,6 +102,8 @@ void NewtonOptimizerGpu<DIM>::step() {
             var->delta().begin(), var->value().begin(),
              _1 + alpha * _2);
       }
+    } else {
+      ls_done = true;
     }
 
     // check for error
@@ -122,7 +125,8 @@ void NewtonOptimizerGpu<DIM>::step() {
 
   } while (i < state_.config_->outer_steps
       && grad_norm > state_.config_->newton_tol
-      && (res > 1e-12)); 
+      && (res > 1e-12)
+      && !ls_done); 
 
   if (state_.config_->show_data) {
     OptimizerData::get().print_data(state_.config_->show_timing);
@@ -183,21 +187,15 @@ void NewtonOptimizerGpu<DIM>::substep(double& decrement) {
 template <int DIM>
 void NewtonOptimizerGpu<DIM>::reset() {
   Base::reset();
-std::cout << "reset" << std::endl;
   state_.x_->reset();
-std::cout << "2" << std::endl;
   for (auto& var : state_.vars_) {
     var->reset();
   }
   for (auto& var : state_.mixed_vars_) {
     var->reset();
   }
-std::cout << "3" << std::endl;
-
   LinearSolverFactory<DIM,STORAGE_THRUST> solver_factory;
   linear_solver_ = solver_factory.create(state_.config_->solver_type, &state_);
-std::cout << "4" << std::endl;
-
 }
 
 template class mfem::NewtonOptimizerGpu<3>;

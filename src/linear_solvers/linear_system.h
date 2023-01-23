@@ -3,6 +3,7 @@
 #include "EigenTypes.h"
 #include "simulation_state.h"
 #include "block_matrix.h"
+#include <thrust/device_vector.h>
 
 namespace mfem {
 
@@ -87,15 +88,15 @@ namespace mfem {
 
   public:
 
-    void pre_solve(const SimState<3,STORAGE_THRUST>* state) {}
+    void pre_solve(const SimState<3,STORAGE_THRUST>* state);
 
     void post_solve(const SimState<3,STORAGE_THRUST>* state,
-        Eigen::VectorXd& dx) {}
+        double* dx);
 
-    // const MatrixType& A() const { return lhs_; }
-    // const VectorType& b() const { return rhs_; }
+    const thrust::device_vector<double>& b() const { return rhs_; }
 
   private:
+    thrust::device_vector<double> rhs_;
     // MatrixType lhs_; // linear system left hand side
     // VectorType rhs_; // linear system right hand side       
   };

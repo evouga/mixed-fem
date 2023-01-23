@@ -96,6 +96,8 @@ namespace mfem {
       out += lhs_ * x;
     }
 
+    void apply(double* x, const double* b) override;
+
   private:
 
     using Base::mesh_;
@@ -125,6 +127,7 @@ namespace mfem {
     SparseMatrixGpu P_gpu_;   // projection matrix
     SparseMatrixGpu PT_gpu_;  // projection matrix, transposed
     SparseMatrixGpu PM_gpu_;  // projected mass matrix (from the left) P * M
+    SparseMatrixGpu PMP_gpu_;  // projected mass matrix (from the left) P * M
     SparseMatrixGpu M_gpu_;   // mass matrix
 
   };

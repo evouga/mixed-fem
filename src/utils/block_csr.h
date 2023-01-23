@@ -12,20 +12,22 @@ namespace mfem {
   template <typename Scalar, int DIM, int N>
   class BlockMatrix {
 
-    // Returns the size of the local blocks for assembly. If N is dynamic
-    // M() returns -1
-    static constexpr int M() {
-      if (N == -1) {
-        return -1;
-      } else {
-        return DIM * N;
-      }
-    }
-
-    using MatM  = Eigen::Matrix<Scalar, M(), M()>;
     using MatD = Eigen::Matrix<Scalar, DIM, DIM>;
 
   public:
+
+    // Initialize assembler / analyze sparsity of system
+    // None of this wonderfully optimized since we only have to do it once
+    // E        - elements nelem x 4 for tetrahedra
+    // free_map - |nnodes| maps node to its position in unpinned vector
+    //            equals -1 if node is pinned
+    BlockMatrix(const Eigen::MatrixXi& E, const std::vector<int>& free_map);
+
+    // Update entries of matrix using per-element blocks
+    // blocks   - |nelem| N*DIM x N*DIM blocks to update assembly matrix
+    void update_matrix(const thrust::device_vector<double>& blocks);
+
+    Eigen::SparseMatrix<Scalar, Eigen::RowMajor>& to_eigen_csr();
 
     struct update_functor {
 
@@ -70,37 +72,57 @@ namespace mfem {
       }
     };
 
+    const int* row_offsets() {
+      return thrust::raw_pointer_cast(row_offsets_.data());
+    }
 
-    // Initialize assembler / analyze sparsity of system
-    // None of this wonderfully optimized since we only have to do it once
-    // E        - elements nelem x 4 for tetrahedra
-    // free_map - |nnodes| maps node to its position in unpinned vector
-    //            equals -1 if node is pinned
-    BlockMatrix(const Eigen::MatrixXi& E, const std::vector<int>& free_map);
+    const int* col_indices() {
+      return thrust::raw_pointer_cast(col_indices_.data());
+    }
 
-    // Update entries of matrix using per-element blocks
-    // blocks   - |nelem| N*DIM x N*DIM blocks to update assembly matrix
-    void update_matrix(const thrust::device_vector<double>& blocks);
-    // void update_matrix(const std::vector<MatM>& blocks);
+    const double* values() { 
+      return reinterpret_cast<double *>(thrust::raw_pointer_cast(blocks_.data()));
+    }
+    
+    int num_row_blocks() const {
+      return nnodes_ + 1;
+    }
+    int num_col_indices() const {
+      return col_indices_.size();
+    }
+    int num_values() const {
+      return blocks_.size() * DIM * DIM;
+    }
 
-    Eigen::SparseMatrix<Scalar, Eigen::RowMajor>& to_eigen_csr();
+
+    int num_blocks() const {
+      return blocks_.size();
+    }
+
+    int size() const {
+      return nnodes_ * DIM;
+    }
+  protected:
 
     Eigen::SparseMatrix<Scalar, Eigen::RowMajor> A_;
 
     // All DIMxDIM blocks, row major sorted.
     thrust::device_vector<MatD> blocks_with_duplicates_;
+
+    // Map from local hessian block to sorted block index in
+    // block_with_duplicates_ vector
     thrust::device_vector<int> block_indices_;
 
-    // Compressed set of DIMxDIM blocks, corresponding to a reduction
-    // over the duplicate entries.
-    thrust::device_vector<MatD> blocks_;
-
+    // Uncompressed row and col indices
     thrust::device_vector<int> block_row_indices_;
     thrust::device_vector<int> block_col_indices_;
 
     // Block CSR data
     thrust::device_vector<int> col_indices_;
     thrust::device_vector<int> row_offsets_;
+    // Compressed set of DIMxDIM blocks, corresponding to a reduction
+    // over the duplicate entries.
+    thrust::device_vector<MatD> blocks_;
 
     int nelem_;
     int nnodes_;

@@ -184,11 +184,9 @@ void LinearSolverFactory<DIM,STORAGE>::register_pd_solvers() {
             Scalar, DIM, STORAGE>>(state);});
 
 
-    using GINKGO = GinkgoSolver<SystemMatrixThrustGpu<Scalar>,
-        Scalar, DIM, STORAGE>;
+    using GINKGO = GinkgoSolver<Scalar, DIM, STORAGE>;
     this->register_type(LinearSolverType::SOLVER_EIGEN_CG_BLOCK_JACOBI,
-        "cg-block-jacobi",
-        [](SimState<DIM,STORAGE>* state)
+        "cg-block-jacobi", [](SimState<DIM,STORAGE>* state)
         ->std::unique_ptr<LinearSolver<Scalar,DIM,STORAGE>>
         {return std::make_unique<GINKGO>(state);});
   }

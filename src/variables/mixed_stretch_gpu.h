@@ -7,6 +7,7 @@
 #include "utils/sparse_matrix_gpu.h"
 #include "utils/sparse_utils.h"
 #include "utils/block_csr.h"
+#include <ginkgo/ginkgo.hpp>
 
 namespace mfem {
 
@@ -112,6 +113,11 @@ namespace mfem {
       return 0;//la_.size() * N();
     }
 
+    void apply(double* x, const double* b) override;
+    void set_executor(std::shared_ptr<const gko::Executor> exec) {
+      exec_ = exec;
+    }
+
     void evaluate_constraint(const Eigen::VectorXd& x,
         Eigen::VectorXd&) override {}
     void hessian(Eigen::SparseMatrix<double>&) override {}
@@ -137,8 +143,8 @@ namespace mfem {
       double operator()(int i) const;
 
       double* s;
-      double* la;
       double* F;
+      double* la;
       double* vols;
       double* mu;
       double* lambda;
@@ -265,5 +271,6 @@ namespace mfem {
     std::shared_ptr<Assembler<double,DIM,-1>> assembler_;
     std::shared_ptr<BlockMatrix<double,DIM,4>> assembler2_;
 
+    std::shared_ptr<const gko::Executor> exec_; // ginkgo executor
   };
 }

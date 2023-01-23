@@ -17,6 +17,7 @@ namespace mfem {
     void init(Eigen::SparseMatrix<double, Eigen::RowMajor> A);
 
     void product(double* dx, double** y);
+    void product(const double* dx, double** y);
 
     ~SparseMatrixGpu() {
       // destroy matrix/vector descriptors

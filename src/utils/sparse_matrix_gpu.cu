@@ -124,6 +124,27 @@ void SparseMatrixGpu::product(double* dx, double** y) {
   *y = d_y;
 }
 
+void SparseMatrixGpu::product(const double* dx, double** y) {
+  cusparseConstDnVecDescr_t vecX;
+  cusparseCreateConstDnVec(&vecX, cols_, dx, CUDA_R_64F);
+
+  // allocate an external buffer if needed
+  if (dBuffer == NULL) {
+    cusparseSpMV_bufferSize(handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
+                            &alpha, matA, vecX, &beta, vecY, CUDA_R_64F,
+                            CUSPARSE_SPMV_ALG_DEFAULT, &bufferSize);
+    cudaMalloc(&dBuffer, bufferSize);
+  }
+
+  // execute SpMV
+  cusparseSpMV(handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
+              &alpha, matA, vecX, &beta, vecY, CUDA_R_64F,
+              CUSPARSE_SPMV_ALG_DEFAULT, dBuffer);
+
+  cusparseDestroyDnVec(vecX);
+  *y = d_y;
+}
+
 template<int N>
 MatrixBatchInverseGpu<N>::MatrixBatchInverseGpu(int batch_size) 
     : batch_size_(batch_size) {

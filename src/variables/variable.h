@@ -68,6 +68,10 @@ namespace mfem {
     // Output written to "out" vector
     virtual void product_hessian(const Eigen::VectorXd& x,
         Eigen::Ref<Eigen::VectorXd> out) const = 0;
+    virtual void apply(double* x, const double* b) {}
+
+    // Extract diagonal blocks of the hessian
+    virtual void extract_diagonal() {}
 
   protected:
 
