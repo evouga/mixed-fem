@@ -70,12 +70,16 @@ void NewtonOptimizerGpu<DIM>::step() {
           state_.mesh_->V_.size() * sizeof(double), cudaMemcpyDeviceToDevice);
 
       double val = state_.x_->energy(x_full);
+      // std::cout << "x energy: " << val << std::endl;
 
       for (size_t i = 0; i < state_.mixed_vars_.size(); ++i) {
         // si = s + a * p
         auto& var = state_.mixed_vars_[i];
         thrust::transform(var->value().begin(), var->value().end(),
             var->delta().begin(), tmps[i].begin(), _1 + a * _2);
+        
+        // std::cout << "Mixed energy: " <<  h2 * var->energy(x_full, tmps[i]) << std::endl;
+
         val += h2 * var->energy(x_full, tmps[i]);  
       }
       return val;

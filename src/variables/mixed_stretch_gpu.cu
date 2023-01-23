@@ -8,7 +8,7 @@
 #include <thrust/functional.h>
 #include <thrust/host_vector.h>
 #include "energies/arap.cuh"
-
+#include <thrust/inner_product.h>
 using namespace Eigen;
 using namespace mfem;
 using namespace thrust::placeholders;
@@ -43,6 +43,7 @@ double MixedStretchGpu<DIM,STORAGE>::energy_functor::operator()(int i) const {
     MatN sym = Sym();
     VecN diff = sym * (Si - si);
     e = vol * (lai.dot(diff)/h2 + local_energy<double>(si, mui));
+    // e = vol * (local_energy<double>(si, mui));
   }
   return e;
   
@@ -132,6 +133,25 @@ void MixedStretchGpu<DIM,STORAGE>::solve_functor::operator()(int i) const {
   dsi = (Si - si + dSdFi.transpose()*Jdxi/vol);
   lai = syminv * (Hi * dsi + gi);
 }
+
+template<int DIM, StorageType STORAGE> __device__
+void MixedStretchGpu<DIM,STORAGE>::extract_diagonal_functor
+    ::operator()(int i) const {
+  Map<MatD> diag_i(diag + M()*i);
+
+  int row_beg = row_offsets[i];
+  int row_end = row_offsets[i+1];
+
+  for (int j = row_beg; j < row_end; j++) {
+    int col = col_indices[j];
+    if (col == i) {
+      Map<const MatD> values_diag_i(values + M()*j);
+      diag_i += values_diag_i;
+      return;
+    }
+  }
+}
+
 
 template<int DIM, StorageType STORAGE>
 double MixedStretchGpu<DIM,STORAGE>::energy(VectorType& x,
@@ -266,6 +286,10 @@ void MixedStretchGpu<DIM,STORAGE>::update(VectorType& x, double dt) {
       rhs, rhs_.size()*sizeof(double), cudaMemcpyDeviceToDevice);
   OptimizerData::get().timer.stop("rhs", "MixedStretchGpu");
 
+  // Compute RHS norm
+  double out = thrust::inner_product(rhs_.begin(), rhs_.end(), rhs_.begin(), 
+      0.0, thrust::plus<double>(), thrust::multiplies<double>());
+
   // OptimizerData::get().timer.start("assemble1", "MixedStretchGpu");
   // // Copy Aloc from device to host
   // std::vector<double> Aloc_tmp(Aloc_.size());
@@ -338,8 +362,25 @@ void MixedStretchGpu<DIM,STORAGE>::solve(VectorType& dx) {
 
     std::cout << "ds norm: " << ds_h_.norm() << " la norm: " << la_h_.norm() << std::endl;
     cudaFree(d_dx);
+    std::cout << "LHS A matrix not being assembled on CPU version!" << std::endl;
   }
 }
+
+template<int DIM, StorageType STORAGE>
+void MixedStretchGpu<DIM,STORAGE>::extract_diagonal(double* diag) {
+
+  MatD* diag_out = (MatD*)diag;
+  int num_rows = assembler2_->num_row_blocks() - 1;
+
+  // Get DIM x DIM diagonals from block CSR matrix
+  thrust::for_each(thrust::counting_iterator<int>(0),
+      thrust::counting_iterator<int>(num_rows),
+      extract_diagonal_functor(
+          diag, assembler2_->values(),
+          assembler2_->row_offsets(),
+          assembler2_->col_indices()));
+}
+
 
 template<int DIM, StorageType STORAGE>
 MixedStretchGpu<DIM,STORAGE>::MixedStretchGpu(std::shared_ptr<Mesh> mesh)

@@ -114,6 +114,8 @@ namespace mfem {
     }
 
     void apply(double* x, const double* b) override;
+    void extract_diagonal(double* diag) override;
+
     void set_executor(std::shared_ptr<const gko::Executor> exec) {
       exec_ = exec;
     }
@@ -222,6 +224,20 @@ namespace mfem {
       double* ds;
       double* la;
       double* vols;
+    };
+
+    struct extract_diagonal_functor {
+      double* diag;
+      const double* values;
+      const int* row_offsets;
+      const int* col_indices;
+
+      extract_diagonal_functor(double* _diag, const double* _values,
+          const int* _row_offsets, const int* _col_indices)
+        : diag(_diag), values(_values), row_offsets(_row_offsets),
+          col_indices(_col_indices) {}
+
+      void operator()(int i) const;
     };
 
   protected:

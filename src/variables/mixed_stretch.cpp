@@ -290,7 +290,9 @@ void MixedStretch<DIM>::solve(VectorXd& dx) {
         * (Hloc_[i]/vol *ds_.segment<N()>(N()*i) + g_[i]);
   }
   // std::cout << " cpu solve norm: " << ds_.norm() << "\n " << ds_.head(100).transpose() << std::endl;
+  std::cout << "CPU: dx norm: " << dx.norm() << std::endl;
   std::cout << "CPU: ds norm: " << ds_.norm() << " la norm: " << la_.norm() << std::endl;
+  std::cout << "CPU: lhs_.norm() : " << lhs_.norm() << std::endl;
   OptimizerData::get().timer.stop("solve", "MixedStretch");
 }
 

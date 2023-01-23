@@ -8,6 +8,7 @@
 #include <thrust/device_vector.h>
 #include "EigenTypes.h"
 #include "utils/sparse_matrix_gpu.h"
+#include <thrust/host_vector.h>
 
 namespace mfem {
 
@@ -97,6 +98,7 @@ namespace mfem {
     }
 
     void apply(double* x, const double* b) override;
+    void extract_diagonal(double* diag) override;
 
   private:
 
@@ -129,6 +131,7 @@ namespace mfem {
     SparseMatrixGpu PM_gpu_;  // projected mass matrix (from the left) P * M
     SparseMatrixGpu PMP_gpu_;  // projected mass matrix (from the left) P * M
     SparseMatrixGpu M_gpu_;   // mass matrix
+    thrust::device_vector<double> diag_gpu_; // diagonal of the mass matrix
 
   };
 }

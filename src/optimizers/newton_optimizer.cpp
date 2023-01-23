@@ -71,7 +71,8 @@ void NewtonOptimizer<DIM>::step() {
 
       for (const auto& var : state.mixed_vars_) {
         Eigen::VectorXd si = var->value() + a * var->delta();
-        std::cout << "Mixed energy: " <<  h2 * var->energy(x0, si) + var->constraint_value(x0, si) << std::endl;
+        std::cout << "Mixed energy: " <<  h2 * var->energy(x0, si)  << std::endl;
+        std::cout << "Mixed constraint: " << var->constraint_value(x0, si) << std::endl;
         val += h2 * var->energy(x0, si) + var->constraint_value(x0, si);  
       }
       for (const auto& var : state.vars_) {

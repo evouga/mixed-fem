@@ -70,7 +70,9 @@ void DisplacementGpu<DIM>::post_solve() {
       b_h_.segment<DIM>(DIM*i) = mesh_->V_.row(i).transpose();
     }
   }
-  // TODO update b_ on thrust
+  cudaMemcpy(thrust::raw_pointer_cast(b_.data()),
+      b_h_.data(), b_h_.size()*sizeof(double),
+      cudaMemcpyHostToDevice);
 
   double* x_full_ptr = to_full(x_);
   integrator_->update(x_full_ptr);
@@ -129,6 +131,12 @@ DisplacementGpu<DIM>::VectorType DisplacementGpu<DIM>::gradient() {
 }
 
 template<int DIM>
+void DisplacementGpu<DIM>::extract_diagonal(double* diag) {
+  // Copy diag_gpu to diag
+  cudaMemcpy(diag, thrust::raw_pointer_cast(diag_gpu_.data()),
+      diag_gpu_.size()*sizeof(double), cudaMemcpyDeviceToDevice);
+}
+template<int DIM>
 void DisplacementGpu<DIM>::reset() {
   // Initial positions from mesh
   MatrixXd tmp = mesh_->V_.transpose();
@@ -181,6 +189,20 @@ void DisplacementGpu<DIM>::reset() {
   dx_ = VectorType(x_.size(), 0);
   rhs_.resize(x_.size(), 0);
   lhs_ = mesh_->template mass_matrix<MatrixType::PROJECTED>();
+
+  // Block diagonal host
+  thrust::host_vector<MatD> diag_h;
+  diag_h.resize(lhs_.rows() / DIM);
+  for (int i = 0; i < diag_h.size(); ++i) {
+    diag_h[i] = lhs_.block(i*DIM, i*DIM, DIM, DIM);
+  }
+  // Copy diag_h to diag_gpu
+  diag_gpu_.resize(diag_h.size()*DIM*DIM);
+
+  // Copy diag_h to diag gpu
+  cudaMemcpy(thrust::raw_pointer_cast(diag_gpu_.data()),
+      diag_h.data(), diag_h.size()*DIM*DIM*sizeof(double),
+      cudaMemcpyHostToDevice);
 
   // Copy mesh external force to f_ext_
   const VectorXd& f_ext = mesh_->external_force();

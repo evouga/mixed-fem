@@ -369,7 +369,7 @@ bool SimState<DIM, STORAGE>::load(const nlohmann::json& args) {
     vars_.push_back(variable_factory.create(type, mesh_, config_));
   }
 
-  LinearSolverFactory<DIM> solver_factory;
+  LinearSolverFactory<DIM,STORAGE> solver_factory;
   if (const auto& it = args.find("linear_solver"); it != args.end()) {
     std::string name = it->get<std::string>();
     config_->solver_type = solver_factory.type_by_name(name);
