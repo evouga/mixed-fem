@@ -4,6 +4,8 @@
 #include "variables/mixed_stretch_gpu.h"
 #include "simulation_state.h"
 #include <thrust/device_vector.h>
+#include <thrust/sequence.h>
+// #include <thrust/execution_policy.h>
 
 namespace mfem {
 
@@ -24,6 +26,7 @@ namespace mfem {
 
       if (state != nullptr) {
         x_tmp_ = vec::create(exec, gko::dim<2>{size[0], 1});
+        x_tmp2_ = vec::create(exec, gko::dim<2>{size[0], 1});
 
         // Cast mixed variable to stretch gpu variable
         auto stretch_var = dynamic_cast<MixedStretchGpu<DIM,STORAGE_THRUST>*>(
@@ -92,18 +95,18 @@ namespace mfem {
                     const gko::LinOp* beta, gko::LinOp* x) const override {
       auto dense_b = gko::as<vec>(b);
       auto dense_x = gko::as<vec>(x);
-      auto tmp_x = dense_x->clone();
-      this->apply_impl(b, lend(tmp_x));
+      // auto tmp_x = dense_x->clone();
+      this->apply_impl(b, lend(x_tmp2_));
       dense_x->scale(beta);
-      dense_x->add_scaled(alpha, lend(tmp_x));
+      dense_x->add_scaled(alpha, lend(x_tmp2_));
     }
   private:
     State* state_;
     std::shared_ptr<vec> one_;
     std::shared_ptr<vec> x_tmp_;
+    std::shared_ptr<vec> x_tmp2_;
 
   };
-
 
   template<typename Scalar, int DIM>
   class GkoBlockJacobiPreconditioner 
@@ -114,7 +117,12 @@ namespace mfem {
   public:
 
     using vec = gko::matrix::Dense<Scalar>;
+    using array = gko::array<int>;
     using State = SimState<DIM,STORAGE_THRUST>;
+
+    static void init_block_csr(int* row_offsets, int* col_indices, int nrows);
+
+    static void compute_inv(double* diag, int nrows);
 
     static void apply_inv_diag(const double* diag, const double* b,
         double* x, int nrows);
@@ -124,13 +132,29 @@ namespace mfem {
         : gko::EnableLinOp<GkoBlockJacobiPreconditioner<Scalar,DIM>>(
             exec, size), state_(state)
     {
-      one_ = gko::initialize<vec>({1.0}, exec);
-
       if (state != nullptr) {
-        int nrows = size[0] / DIM;
-        std::cout << "nrows: " << nrows << std::endl;
-        diag_ = vec::create(exec, gko::dim<2>{nrows * DIM * DIM, 1});
-        diag_ptr_ = diag_->get_values();
+        nrows_ = size[0] / DIM;
+        x_tmp_ = vec::create(exec, gko::dim<2>{size[0], 1});
+
+        // diag_ = vec::create(exec, gko::dim<2>{nrows_ * DIM * DIM, 1});
+        diag_ = gko::array<Scalar>(exec, nrows_ * DIM * DIM);
+        col_indices_ = gko::array<int>(exec, nrows_);
+        row_offsets_ = gko::array<int>(exec, nrows_ + 1);
+
+        // // Initialize col_indices to sequence
+        init_block_csr(row_offsets_.get_data(), col_indices_.get_data(), nrows_);
+        diag_ptr_ = diag_.get_data();
+
+
+        matrix_ = gko::matrix::Fbcsr<Scalar,int>::create_const(
+            exec, gko::dim<2>{nrows_ * DIM, nrows_ * DIM}, DIM,
+            diag_.as_const_view(), col_indices_.as_const_view(),
+            row_offsets_.as_const_view());
+            
+
+            // std::move(col_indices_), std::move(row_offsets_),
+            // std::move(diag_));
+
         update();
       }
     }
@@ -147,6 +171,8 @@ namespace mfem {
         std::cout << "extracting stretch diagonal" << std::endl;
         stretch_var->extract_diagonal(diag_ptr_);
       }
+      compute_inv(diag_ptr_, nrows_);
+
       OptimizerData::get().timer.stop("preconditioner_update", "GKO");
 
     }
@@ -158,42 +184,51 @@ namespace mfem {
       auto dense_x = gko::as<vec>(x);
 
       // functor to apply assembly free multiply
-      struct multiply_operation : gko::Operation {
-        multiply_operation(const vec* b, vec* x, Scalar* diag)
-            : b{b}, x{x}, diag{diag}
-        {}
-        // TODO compute inv separately
-        void run(std::shared_ptr<const gko::CudaExecutor> exec) const override {
-          // Get device pointers for input and output
-          const Scalar* b_ptr = b->get_const_values();
-          Scalar* x_ptr = x->get_values();
-          apply_inv_diag(diag, b_ptr, x_ptr, b->get_size()[0] / DIM);
-        }
+      // struct multiply_operation : gko::Operation {
+      //   multiply_operation(const vec* b, vec* x, Scalar* diag)
+      //       : b{b}, x{x}, diag{diag}
+      //   {}
+      //   // TODO compute inv separately
+      //   void run(std::shared_ptr<const gko::CudaExecutor> exec) const override {
+      //     // Get device pointers for input and output
+      //     const Scalar* b_ptr = b->get_const_values();
+      //     Scalar* x_ptr = x->get_values();
+      //     apply_inv_diag(diag, b_ptr, x_ptr, b->get_size()[0] / DIM);
+      //   }
+      //   Scalar* diag;
+      //   const vec* b;
+      //   vec* x;
+      // };
+      // OptimizerData::get().timer.start("preconditioner", "GKO");
+      // this->get_executor()->run(multiply_operation(dense_b, dense_x, diag_ptr_));
+      // OptimizerData::get().timer.stop("preconditioner", "GKO");
 
-        Scalar* diag;
-        const vec* b;
-        vec* x;
-      };
       OptimizerData::get().timer.start("preconditioner", "GKO");
-      this->get_executor()->run(multiply_operation(dense_b, dense_x, diag_ptr_));
+      matrix_->apply(lend(dense_b), lend(dense_x));
       OptimizerData::get().timer.stop("preconditioner", "GKO");
-
     }
 
     void apply_impl(const gko::LinOp* alpha, const gko::LinOp* b,
                     const gko::LinOp* beta, gko::LinOp* x) const override {
       auto dense_b = gko::as<vec>(b);
       auto dense_x = gko::as<vec>(x);
-      auto tmp_x = dense_x->clone();
-      this->apply_impl(b, lend(tmp_x));
+      // auto tmp_x = dense_x->clone();
+      this->apply_impl(b, lend(x_tmp_));
       dense_x->scale(beta);
-      dense_x->add_scaled(alpha, lend(tmp_x));
+      dense_x->add_scaled(alpha, lend(x_tmp_));
     }
   private:
     State* state_;
-    std::shared_ptr<vec> one_;
-    // thrust::device_vector<Scalar> diag_;
-    std::shared_ptr<vec> diag_;
+    int nrows_;
+    gko::array<Scalar> diag_;
+    gko::array<int> col_indices_;
+    gko::array<int> row_offsets_;
     Scalar* diag_ptr_; // just using thrust for memory management :p
+
+    // Fbcsr matrix
+    std::shared_ptr<const gko::matrix::Fbcsr<Scalar,int>> matrix_;
+    std::shared_ptr<vec> x_tmp_;
+
+
   };
 }

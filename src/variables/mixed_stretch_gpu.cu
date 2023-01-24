@@ -8,6 +8,7 @@
 #include <thrust/functional.h>
 #include <thrust/host_vector.h>
 #include "energies/arap.cuh"
+// #include "energies/fixed_corotational.cuh"
 #include <thrust/inner_product.h>
 using namespace Eigen;
 using namespace mfem;
@@ -25,7 +26,6 @@ double MixedStretchGpu<DIM,STORAGE>::energy_functor::operator()(int i) const {
   double h2 = 0.0333 * 0.0333;
 
   double e = 0.0;
-  // void svd_polar(const Eigen::Matrix3d& Ad, Eigen::Matrix3f& R) {
   if constexpr (DIM == 3) {
     Matrix<float,DIM,DIM> Rf;
 
@@ -42,8 +42,7 @@ double MixedStretchGpu<DIM,STORAGE>::energy_functor::operator()(int i) const {
 
     MatN sym = Sym();
     VecN diff = sym * (Si - si);
-    e = vol * (lai.dot(diff)/h2 + local_energy<double>(si, mui));
-    // e = vol * (local_energy<double>(si, mui));
+    e = vol * (lai.dot(diff)/h2 + local_energy<double>(si, mui, lambdai));
   }
   return e;
   
@@ -87,17 +86,14 @@ void MixedStretchGpu<DIM,STORAGE>::derivative_functor::operator()(int i)
   Map<VecN> gi(g + N()*i);
   Map<MatN> Hi(H + N()*N()*i);
   Map<MatMN> dSdFi(dSdF + M()*N()*i);
-
   Map<Matrix<double, Aloc_N(), Aloc_N()>> Aloci(Aloc + Aloc_N()*Aloc_N()*i);
   Map<Matrix<double, M(), Aloc_N()>> Jloci(Jloc + M()*Aloc_N()*i);
   
   // TODO better selection
   // Look at how AMGCL or GINKGO does runtime selection of GPU stuff...
-  double h2 = 0.0333 * 0.0333;
-  // mui = 10344.8;
-
-  Hi = h2 * local_hessian<double>(si, mui);
-  gi = h2 * local_gradient<double>(si, mui);
+  double h2 = 0.0333 * 0.0333; // TODO use constant memory?
+  Hi = h2 * local_hessian<double>(si, mui, lambdai);
+  gi = h2 * local_gradient<double>(si, mui, lambdai);
   Aloci = vol * Jloci.transpose() * (dSdFi * Hi * dSdFi.transpose()) * Jloci;
 }
 
@@ -263,7 +259,7 @@ void MixedStretchGpu<DIM,STORAGE>::update(VectorType& x, double dt) {
   // } exit(1);
   OptimizerData::get().timer.start("invert H", "MixedStretchGpu");
   // TODO Hinv is just 1/H (diagonal) for ARAP
-  Hinv_gpu_.compute(
+  psd_fixer_.compute(
       thrust::raw_pointer_cast(H_.data()), 
       thrust::raw_pointer_cast(Hinv_.data()));
   OptimizerData::get().timer.stop("invert H", "MixedStretchGpu");
@@ -383,8 +379,10 @@ void MixedStretchGpu<DIM,STORAGE>::extract_diagonal(double* diag) {
 
 
 template<int DIM, StorageType STORAGE>
-MixedStretchGpu<DIM,STORAGE>::MixedStretchGpu(std::shared_ptr<Mesh> mesh)
-    : MixedVariable<DIM,STORAGE>(mesh), Hinv_gpu_(mesh->T_.rows()) {
+MixedStretchGpu<DIM,STORAGE>::MixedStretchGpu(std::shared_ptr<Mesh> mesh,
+    std::shared_ptr<SimConfig> config)
+    : MixedVariable<DIM,STORAGE>(mesh),psd_fixer_(mesh->T_.rows(),
+    config->spd_jacobi_tol, config->spd_jacobi_sweeps) {
   nelem_ = mesh_->T_.rows();
 
   s_.resize(N()*nelem_);

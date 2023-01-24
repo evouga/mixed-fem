@@ -29,13 +29,13 @@ using namespace mfem;
 namespace {
 
   template<int N>
-  struct inverse_functor {
-      inverse_functor(double* V, double* W, double* A,
+  struct psd_fix_functor {
+      psd_fix_functor(double* V, double* W, double* A,
       double* Ainv) : V_(V), W_(W), A_(A), Ainv_(Ainv) {}
 
       __device__
       void operator()(int i) const {
-          Map<Matrix<double, N, N>> Ainvi(Ainv_ + i*N*N);
+          // Map<Matrix<double, N, N>> Ainvi(Ainv_ + i*N*N);
           Map<Matrix<double, N, N>> Vi(V_ + i*N*N);
           Map<Matrix<double, N, N>> Ai(A_ + i*N*N);
           Map<Matrix<double, N, 1>> Wi(W_ + i*N);
@@ -49,7 +49,7 @@ namespace {
             Wi_inv(j) = 1.0 / Wi(j);
           }
           Ai = Vi * Wi.asDiagonal() * Vi.transpose();
-          Ainvi = Vi * Wi_inv.asDiagonal() * Vi.transpose();
+          // Ainvi = Vi * Wi_inv.asDiagonal() * Vi.transpose();
           // printf("Wi %f", Wi(0));
           // printf("Ai %f", Ai(0, 0));
           // printf("Vi %f", Vi(0, 0));
@@ -146,8 +146,9 @@ void SparseMatrixGpu::product(const double* dx, double** y) {
 }
 
 template<int N>
-MatrixBatchInverseGpu<N>::MatrixBatchInverseGpu(int batch_size) 
-    : batch_size_(batch_size) {
+MatrixBatchInverseGpu<N>::MatrixBatchInverseGpu(int batch_size, double solver_tol,
+    int max_sweeps) 
+    : batch_size_(batch_size), solver_tol_(solver_tol), max_sweeps_(max_sweeps) {
 
   std::cout << "MatrixBatchInverseGpu::MatrixBatchInverseGpu()" << std::endl;
   std::vector<int> info(batch_size, 0); 
@@ -162,10 +163,10 @@ MatrixBatchInverseGpu<N>::MatrixBatchInverseGpu(int batch_size)
   CUSOLVER_CHECK(cusolverDnCreateSyevjInfo(&syevj_params));
 
   /* default value of tolerance is machine zero */
-  CUSOLVER_CHECK(cusolverDnXsyevjSetTolerance(syevj_params, tol));
+  CUSOLVER_CHECK(cusolverDnXsyevjSetTolerance(syevj_params, solver_tol_));
 
   /* default value of max. sweeps is 100 */
-  CUSOLVER_CHECK(cusolverDnXsyevjSetMaxSweeps(syevj_params, max_sweeps));
+  CUSOLVER_CHECK(cusolverDnXsyevjSetMaxSweeps(syevj_params, max_sweeps_));
 
   /* disable sorting */
   CUSOLVER_CHECK(cusolverDnXsyevjSetSortEig(syevj_params, sort_eig));
@@ -184,7 +185,6 @@ MatrixBatchInverseGpu<N>::MatrixBatchInverseGpu(int batch_size)
 
   CUDA_CHECK(cudaMalloc(reinterpret_cast<void **>(&d_work), sizeof(double) * lwork)); 
   std::cout << "MatrixBatchInverseGpu() done" << std::endl;
-
 }
 
 template<int N>
@@ -192,8 +192,8 @@ void MatrixBatchInverseGpu<N>::compute(double* A, double* Ainv) {
   // Copy device input to d_A (which will be overwritten)
   int size_A = N * N * batch_size_;
   int size_W = N * batch_size_;
-  CUDA_CHECK(cudaMemcpyAsync(
-      d_A, A, sizeof(double) * size_A, cudaMemcpyDeviceToDevice, stream));
+  CUDA_CHECK(cudaMemcpyAsync(d_A, A, sizeof(double) * size_A,
+      cudaMemcpyDeviceToDevice, stream));
   
   // Compute eigen-pairs. Eigenvectors are in d_A and eigenvalues in d_W
   CUSOLVER_CHECK(cusolverDnDsyevjBatched(
@@ -230,10 +230,9 @@ void MatrixBatchInverseGpu<N>::compute(double* A, double* Ainv) {
   //   std::cout << "W[i] " << W[i] << std::endl;
   // }
 
-  // std::cout << "BATCH SIZE: " << batch_size_ << std::endl;
   thrust::for_each(thrust::counting_iterator<int>(0),
       thrust::counting_iterator<int>(batch_size_),
-      inverse_functor<N>(d_A, d_W, A, Ainv));
+      psd_fix_functor<N>(d_A, d_W, A, Ainv));
 }
 
 template class mfem::MatrixBatchInverseGpu<6>; // 6x6 matrices

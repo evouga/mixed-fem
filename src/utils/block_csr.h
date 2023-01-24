@@ -43,6 +43,21 @@ namespace mfem {
       MatD* blocks_with_duplicates;
     };
 
+    struct update_functor2 {
+
+      update_functor2(const double* _blocks, const int* _block_indices,
+          MatD* _blocks_with_duplicates, int _nelem) :
+        blocks(_blocks), block_indices(_block_indices),
+        blocks_with_duplicates(_blocks_with_duplicates), nelem(_nelem) {}
+
+      void operator()(int i);
+      
+      const double* blocks;
+      const int* block_indices;
+      MatD* blocks_with_duplicates;
+      int nelem;
+    };
+
     struct pairs_functor {
 
       pairs_functor(int* _E_d, int* _free_map_d, int* _block_row_indices,
@@ -124,6 +139,7 @@ namespace mfem {
     // over the duplicate entries.
     thrust::device_vector<MatD> blocks_;
 
+    thrust::device_vector<int> row_indices_tmp_;
     int nelem_;
     int nnodes_;
   };

@@ -60,11 +60,11 @@ namespace mfem {
 
   public:
 
-    MatrixBatchInverseGpu(int batch_size);
+    MatrixBatchInverseGpu(int batch_size, double solver_tol=1e-7,
+        int max_sweeps=15);
 
     void compute(double* A, double* Ainv);
     // void init(Eigen::SparseMatrix<double, Eigen::RowMajor> A);
-
     // void product(double* dx, double** y);
 
     ~MatrixBatchInverseGpu() {
@@ -92,8 +92,8 @@ namespace mfem {
     int lwork = 0;            /* size of workspace */
 
     /* configuration of syevj  */
-    const double tol = 1.e-7;
-    const int max_sweeps = 15;
+    const double solver_tol_ = 1.e-7;
+    const int max_sweeps_ = 15;
     const int sort_eig = 0;    /* don't sort eigenvalues */
     
     cusolverDnHandle_t cusolverH = NULL;

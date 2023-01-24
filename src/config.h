@@ -84,7 +84,8 @@ namespace mfem {
     SOLVER_AMGCL,
     SOLVER_EIGEN_CG_LAPLACIAN,
     SOLVER_EIGEN_CG_DUAL_ASCENT,
-    SOLVER_EIGEN_CG_BLOCK_JACOBI
+    SOLVER_EIGEN_CG_BLOCK_JACOBI,
+    SOLVER_EIGEN_BICG_BLOCK_JACOBI
   };
 
   enum MaterialModelType { 
@@ -152,6 +153,8 @@ namespace mfem {
     OptimizerType optimizer = OPTIMIZER_NEWTON;
     int max_iterative_solver_iters = 500;
     double itr_tol = 1e-4;
+    double spd_jacobi_tol = 1e-7;
+    int spd_jacobi_sweeps = 15;
     LinearSolverType solver_type = SOLVER_EIGEN_LLT;
     TimeIntegratorType ti_type = TI_BDF1;
     std::set<VariableType> variables = {};

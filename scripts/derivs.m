@@ -20,8 +20,8 @@ S = [s(1) s(4) s(5);
 I3=det(F);
 I2=trace(F'*F);
 I1=trace(sqrt(F'*F));
-% I3=det(S);
-% I2=trace(S'*S);
+I3=det(S);
+I2=trace(S'*S);
 % I2 = sum(sval.^2);
 % I3 = prod(sval);
 
@@ -83,6 +83,7 @@ g=gradient(fixed_corot,s(:));
 ccode(fixed_corot)
 ccode((H))
 ccode(g)
+matlabFunction(H, 'vars', {s(:),mu,la},'File','fcr_hessian','Optimize',true)
 
 vol_ratio = 0.5*la*(I3-1)^2;
 H=hessian(vol_ratio,F(:));

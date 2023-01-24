@@ -402,6 +402,8 @@ void SimState<DIM, STORAGE>::load_params(const nlohmann::json& args) {
   read_and_assign(args, "max_iterative_solver_iters",
       config_->max_iterative_solver_iters);
   read_and_assign(args, "iterative_solver_tolerance", config_->itr_tol);
+  read_and_assign(args, "spd_jacobi_tolerance", config_->spd_jacobi_tol);
+  read_and_assign(args, "spd_jacobi_sweeps", config_->spd_jacobi_sweeps);
 }
 
 template class mfem::SimState<3, STORAGE_THRUST>; // 3D

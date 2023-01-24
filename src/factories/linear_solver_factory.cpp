@@ -173,6 +173,37 @@ void LinearSolverFactory<DIM,STORAGE>::register_pd_solvers() {
           return solver;
         }
     );
+
+    // Eigen Conjugate gradient with block jacobi preconditioner
+    // using SOLVER_EIGEN_BICG_BLOCK_JACOBI = MINRES<SpMat,Lower|Upper,
+    //     BlockJacobiPreconditioner<Scalar,DIM>>;
+    using SOLVER_EIGEN_BICG_BLOCK_JACOBI = BiCGSTAB<SpMat,
+        BlockJacobiPreconditioner<Scalar,DIM>>;
+    this->register_type(LinearSolverType::SOLVER_EIGEN_BICG_BLOCK_JACOBI,
+        "eigen-pbicg-block_jacobi",
+        [](SimState<DIM>* state)->std::unique_ptr<LinearSolver<Scalar, DIM>> { 
+          auto solver = std::make_unique<EigenIterativeSolver<
+              SOLVER_EIGEN_BICG_BLOCK_JACOBI,
+              SystemMatrixPD<Scalar>, Scalar, DIM>>(state);
+          solver->eigen_solver().preconditioner().init(state);
+          return solver;
+        }
+    );
+
+
+    using EIGEN_GS = GaussSeidelPreconditioner<double>;
+    // using EIGEN_GS = SSORPreconditioner<double>;
+    // using EIGEN_GS = ConjugateGradient<SpMat, Lower|Upper,
+        // SSORPreconditioner<Scalar>>;
+    this->register_type(LinearSolverType::SOLVER_EIGEN_GS, "cg-gauss_seidel",
+        [](SimState<DIM>* state)->std::unique_ptr<LinearSolver<Scalar, DIM>>
+        { 
+          return std::make_unique<EigenIterativeSolver<
+            EIGEN_GS, SystemMatrixPD<Scalar>, Scalar, DIM>>(state);
+        }
+    );
+
+
   } else if constexpr (STORAGE == STORAGE_THRUST) {
 
     using CHOLMOD = CholmodSupernodalLLT<SpMat>;

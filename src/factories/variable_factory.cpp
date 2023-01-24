@@ -40,7 +40,7 @@ MixedVariableFactory<DIM,STORAGE>::MixedVariableFactory() {
     this->register_type(VariableType::VAR_MIXED_STRETCH_GPU, name,
         [](std::shared_ptr<Mesh> mesh, std::shared_ptr<SimConfig> config)
         ->std::unique_ptr<MixedVariable<DIM,STORAGE>>
-        {return std::make_unique<MixedStretchGpu<DIM,STORAGE>>(mesh);});
+        {return std::make_unique<MixedStretchGpu<DIM,STORAGE>>(mesh,config);});
   }
 
 

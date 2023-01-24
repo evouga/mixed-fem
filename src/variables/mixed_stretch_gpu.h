@@ -78,7 +78,8 @@ namespace mfem {
 
     using typename Base::VectorType;
 
-    MixedStretchGpu(std::shared_ptr<Mesh> mesh);
+    MixedStretchGpu(std::shared_ptr<Mesh> mesh,
+        std::shared_ptr<SimConfig> config);
 
     static std::string name() {
       return "mixed-stretch-gpu";
@@ -283,7 +284,7 @@ namespace mfem {
 
     // TODO should just do transpose-multiply
     SparseMatrixGpu JWT_gpu_; // projected, weighted jacobian, transposed
-    MatrixBatchInverseGpu<N()> Hinv_gpu_;
+    MatrixBatchInverseGpu<N()> psd_fixer_;
     std::shared_ptr<Assembler<double,DIM,-1>> assembler_;
     std::shared_ptr<BlockMatrix<double,DIM,4>> assembler2_;
 

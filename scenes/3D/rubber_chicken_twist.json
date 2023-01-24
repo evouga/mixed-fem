@@ -21,17 +21,22 @@
         "ratio": 0.2,
         "velocity": 0.2,
         "axis": 0
+      },
+      "external_force": {
+        "type": "area",
+        "is_body_force": true,
+        "force": [0.0, 0.0, 0.0]
       }
     }
   ],
   "material_models": [
     {
-      "youngs_modulus": 4e5,
+      "youngs_modulus": 4e6,
       "poissons_ratio": 0.45,
       "density": 1e3,
       "energy": "Stable-Neohookean"
     }
   ],
-  "mixed_variables": [],
-  "variables": ["stretch"]
+  "mixed_variables": ["mixed-stretch"],
+  "variables": []
 }

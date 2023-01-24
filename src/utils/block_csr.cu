@@ -8,6 +8,7 @@
 #include <thrust/host_vector.h>
 #include <thrust/for_each.h>
 #include <thrust/iterator/zip_iterator.h>
+#include "optimizers/optimizer_data.h"
 
 using namespace Eigen;
 using namespace mfem;
@@ -52,10 +53,6 @@ void BlockMatrix<Scalar,DIM,N>::pairs_functor::operator()(int i) {
 template<typename Scalar, int DIM, int N> __device__
 void BlockMatrix<Scalar,DIM,N>::update_functor::operator()(int i) {
   // i is the element index
-  // const int* nelem;
-  // const double* blocks;
-  // const int* block_indices;
-  // MatD* blocks_with_duplicates;
   for (int r = 0; r < N; ++r) {
     for (int c = 0; c < N; ++c) {
       // Get the global index of the block
@@ -80,11 +77,45 @@ void BlockMatrix<Scalar,DIM,N>::update_functor::operator()(int i) {
           block(row, col) = blocks[row_start + row];
         }
       }
-        
-
     }
   }
 }
+
+
+template<typename Scalar, int DIM, int N> __device__
+void BlockMatrix<Scalar,DIM,N>::update_functor2::operator()(int i) {
+  // i = 1: |E|*N*N
+  // Get the element index
+  int elem = i / (N * N);
+  // Get the local row and column indices
+  int r = (i / N) % N;
+  int c = i % N;
+
+  // Get the global index of the block
+  // int block_index = i * N * N + r * N + c;
+  int block_index = i;
+
+  int idx = block_indices[block_index];
+  if (idx < 0) return;;
+
+  MatD& block = blocks_with_duplicates[idx];
+  // blocks is a |E|*N*DIM*N*DIM array of blocks each of size
+  // (N*DIM) x (N*DIM) and i = 1 : |E|*N*N, so we need to extract
+  // the DIMxDIM block for the i-th block
+  
+  int col_start = 
+      elem * N * N * DIM * DIM // start of element matrix
+      + c * DIM * DIM * N      // start of local block column
+      + r * DIM;               // row for current dimension
+  
+  for (int col = 0; col < DIM; ++col) {
+    int row_start = col_start + col * N * DIM;
+    for (int row = 0; row < DIM; ++row) {
+      block(row, col) = blocks[row_start + row];
+    }
+  }
+}
+
 
 template<typename Scalar, int DIM, int N>
 BlockMatrix<Scalar,DIM,N>::BlockMatrix(const Eigen::MatrixXi& E,
@@ -215,6 +246,7 @@ BlockMatrix<Scalar,DIM,N>::BlockMatrix(const Eigen::MatrixXi& E,
   // Now count the number of occurrences of each row value
   // TODO this will not work if num of offsets is not equal to matrix rows
   // Need to do a prefix sum on the row_offsets to get the final offsets
+  // Do a scatter to the full size row offsets, then prefix sum over that
   row_offsets_.resize(row_indices.size());
 
   // Count the number of matching row indices and write to row_offsets
@@ -240,16 +272,25 @@ BlockMatrix<Scalar,DIM,N>::BlockMatrix(const Eigen::MatrixXi& E,
 template<typename Scalar, int DIM, int N>
 void BlockMatrix<Scalar,DIM,N>::update_matrix(
     const thrust::device_vector<double>& blocks) {
-
+  // OptimizerData::get().timer.start("assemble1", "MixedStretchGpu");
   // Blocks is vector of size |E| x (N*N*DIM*DIM)
   // For each DIMxDIM block, write to blocks_with_duplicates using block_indices
+  // thrust::for_each(thrust::counting_iterator<int>(0),
+  //     thrust::counting_iterator<int>(nelem_),
+  //     update_functor(
+  //       thrust::raw_pointer_cast(blocks.data()),
+  //       thrust::raw_pointer_cast(block_indices_.data()),
+  //       thrust::raw_pointer_cast(blocks_with_duplicates_.data())));
+  // OptimizerData::get().timer.stop("assemble1", "MixedStretchGpu");
+
+  // OptimizerData::get().timer.start("assemble1v2", "MixedStretchGpu");
   thrust::for_each(thrust::counting_iterator<int>(0),
-      thrust::counting_iterator<int>(nelem_),
-      update_functor(
+      thrust::counting_iterator<int>(nelem_*N*N),
+      update_functor2(
         thrust::raw_pointer_cast(blocks.data()),
         thrust::raw_pointer_cast(block_indices_.data()),
-        thrust::raw_pointer_cast(blocks_with_duplicates_.data())));
-
+        thrust::raw_pointer_cast(blocks_with_duplicates_.data()), nelem_));
+  // OptimizerData::get().timer.stop("assemble1v2", "MixedStretchGpu");
   // for (int i = 0; i < 10; ++i) {
   //   std::cout << "i: " << i << std::endl;
   //   std::cout << "  row col: " << block_row_indices_[i] << " " << block_col_indices_[i] << std::endl;
@@ -257,8 +298,10 @@ void BlockMatrix<Scalar,DIM,N>::update_matrix(
   // }
   // Using sorted block_row_indices and block_col_indices, do a reduction
   // over the duplicates
-  thrust::device_vector<int> row_indices = block_row_indices_;
-
+  if (row_indices_tmp_.size() == 0) {
+    row_indices_tmp_.resize(col_indices_.size());
+  }
+  
   thrust::reduce_by_key(
       thrust::make_zip_iterator(thrust::make_tuple(
           block_row_indices_.begin(),
@@ -268,7 +311,7 @@ void BlockMatrix<Scalar,DIM,N>::update_matrix(
           block_col_indices_.end())),
       blocks_with_duplicates_.begin(),
       thrust::make_zip_iterator(thrust::make_tuple(
-          row_indices.begin(),
+          row_indices_tmp_.begin(),
           col_indices_.begin())),
       blocks_.begin());
 }
