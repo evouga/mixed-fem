@@ -61,7 +61,10 @@ namespace mfem {
       WITHOUT_DIRICHLET
     };
 
-    double* to_full(VectorType& x,
+    double* to_full(const VectorType& x,
+        ProjectionType type = ProjectionType::WITH_DIRICHLET);
+
+    void to_full(const VectorType& x, VectorType& out,
         ProjectionType type = ProjectionType::WITH_DIRICHLET);
 
     const Eigen::SparseMatrix<double, Eigen::RowMajor>& lhs() override {
@@ -83,9 +86,6 @@ namespace mfem {
     std::shared_ptr<ImplicitIntegrator<STORAGE_THRUST>> integrator() {
       return integrator_;
     }
-
-    // "Unproject" out of reduced space with dirichlet BCs removed
-    void unproject(VectorType& x) const;
 
     int size() const override {
       return x_h_.size();

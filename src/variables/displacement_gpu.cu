@@ -8,7 +8,8 @@ using namespace Eigen;
 using namespace thrust::placeholders;
 
 template<int DIM>
-double* DisplacementGpu<DIM>::to_full(VectorType& x, ProjectionType type) {
+double* DisplacementGpu<DIM>::to_full(const VectorType& x,
+    ProjectionType type) {
   double* x_full;
   PT_gpu_.product(thrust::raw_pointer_cast(x.data()), &x_full);
 
@@ -19,6 +20,18 @@ double* DisplacementGpu<DIM>::to_full(VectorType& x, ProjectionType type) {
         x_full_ptr, thrust::plus<double>());
   }
   return x_full;
+}
+
+template<int DIM>
+void DisplacementGpu<DIM>::to_full(const VectorType& x, VectorType& out,
+    ProjectionType type) {
+  assert(x.size() == out.size());
+  double* x_full = to_full(x, type);
+
+  // Copy cuda x_full to thrust vector
+  cudaMemcpy(thrust::raw_pointer_cast(out.data()), x_full,
+      mesh_->V_.size() * sizeof(double),
+      cudaMemcpyDeviceToDevice);
 }
 
 template<int DIM>

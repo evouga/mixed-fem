@@ -12,9 +12,6 @@ if (CMAKE_BINARY_DIR STREQUAL CMAKE_SOURCE_DIR)
     message(FATAL_ERROR "Source and build directories cannot be the same. Go use the /build directory.")
 endif()
 
-# For nasoq
-# set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-
 ### Configure output locations
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -104,21 +101,8 @@ find_package(CHOLMOD)
 find_package(SuiteSparse)
 find_package(Ginkgo REQUIRED)
 
-
-add_subdirectory("deps/thrust")
-thrust_create_target(Thrust)
-
-# Create a thrust target that only uses the serial CPP backend.
-# See thrust/thrust/cmake/README.md for details and additional options:
-thrust_create_target(ThrustCPP HOST CPP DEVICE CPP)
-
-# To test for optional systems, first call thrust_update_system_found_flags to
-# set the THRUST_${system}_FOUND flags in current scope.
-# Required due to CMake scoping rules.
-thrust_update_system_found_flags()
-
 # CMAKE IS MY NIGHTMARE
-set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -std=c++14 -Xcompiler -fPIC)
+set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -std=c++14 -Xcompiler -fPIC -arch=sm_86)
 set(CUDA_NVCC_FLAGS -Xcudafe "--diag_suppress=cc_clobber_ignored " ;
     -Xcudafe -use_fast_math " --diag_suppress=set_but_not_used " ;
     ${CUDA_NVCC_FLAGS} " --extended-lambda --disable-warnings")
@@ -128,9 +112,6 @@ set(CMAKE_CUDA_FLAGS ${CMAKE_CUDA_FLAGS} "--extended-lambda" )
 message("\n\n == CMAKE recursively building Polyscope\n")
 add_subdirectory("deps/polyscope")
 add_subdirectory("deps/amgcl")
-
-# file(GLOB CUDA_SRC  ${PROJECT_SOURCE_DIR}/src/variables/*.cu)
-# cuda_compile(cuda_objs ${CUDA_SRC})
 
 file(GLOB SOURCES 
     ${PROJECT_SOURCE_DIR}/src/*.cpp 
@@ -153,7 +134,7 @@ file(GLOB SOURCES
     ${PROJECT_SOURCE_DIR}/src/variables/*.cu
     ${PROJECT_SOURCE_DIR}/src/utils/*.cu)
 
-add_library(mixed_fem_lib SHARED ${SOURCES})
+add_library(mixed_fem_lib STATIC ${SOURCES})
 
 include(FetchContent)
 FetchContent_Declare(
@@ -172,11 +153,13 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(Catch2)
 
+
+set(IPC_TOOLKIT_WITH_CUDA ON CACHE BOOL "Enable CUDA Implementation" FORCE)
 include(FetchContent)
 FetchContent_Declare(
     ipc_toolkit
     GIT_REPOSITORY https://github.com/tytrusty/ipc-toolkit
-    GIT_SHALLOW TRUE
+    GIT_SHALLOW FALSE
     GIT_TAG main
 )
 FetchContent_MakeAvailable(ipc_toolkit)
@@ -185,27 +168,23 @@ target_link_libraries(mixed_fem_lib ipc::toolkit)
 
 set(CMAKE_CXX_STANDARD 17)
 
-# Create and use a Thrust target configured to use CUDA acceleration if CUDA
-# is available:
-if (THRUST_CUDA_FOUND)
-  enable_language(CUDA)
-  thrust_create_target(ThrustCUDA HOST CPP DEVICE CUDA)
-  # add_executable(ExecWithCUDA dummy.cu)
-  target_link_libraries(mixed_fem_lib ThrustCUDA cusparse cusolver)
-  # set_target_properties(mixed_fem_lib 
-  #     PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
-  set_target_properties(mixed_fem_lib PROPERTIES 
+set_target_properties(mixed_fem_lib PROPERTIES 
       POSITION_INDEPENDENT_CODE ON 
-      CUDA_SEPARABLE_COMPILATION ON 
-      CUDA_RESOLVE_DEVICE_SYMBOLS ON
-      CUDA_RUNTIME_LIBRARY shared)
-else()
-  target_link_libraries(mixed_fem_lib Thrust)
-endif()
+      CUDA_SEPARABLE_COMPILATION ON)
+
+find_library(CUDA_RUNTIME_LIBS_DYNAMIC cudart
+    HINT ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})   
+
+target_link_libraries(mixed_fem_lib ${CUDA_RUNTIME_LIBS} 
+    ${CUDA_cusparse_LIBRARY}
+    ${CUDA_cusolver_LIBRARY}
+    ${CUDA_LIBRARIES}
+    )
+set(CMAKE_CUDA_ARCHITECTURES 86)
+set_target_properties(mixed_fem_lib PROPERTIES CUDA_ARCHITECTURES "86")
 
 # Add OMP library and includes
 if(OpenMP_CXX_FOUND)
-
     if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
         execute_process(
             COMMAND brew --prefix libomp 
@@ -222,7 +201,6 @@ if(OpenMP_CXX_FOUND)
         target_link_libraries(mixed_fem_lib OpenMP::OpenMP_CXX)
         target_compile_definitions(mixed_fem_lib PUBLIC -DSIM_USE_OPENMP)
     endif()
-    
 endif()
 
 # Blas, lapack, and cholmod
@@ -252,19 +230,17 @@ elseif ()
 ENDIF()
 
 # Include settings
-#target_include_directories(mixed_fem_lib PUBLIC 
-# "${CMAKE_CURRENT_SOURCE_DIR}/src")
-
 target_include_directories(mixed_fem_lib SYSTEM PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}/src"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/Bartels/include"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/libigl/include" 
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope/deps/args"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope/deps/json/include")
+target_include_directories(mixed_fem_lib SYSTEM PUBLIC "/usr/local/cuda/include")
 
 target_compile_options(mixed_fem_lib
   PRIVATE "$<$<COMPILE_LANGUAGE:CUDA>:${GINKGO_CUDA_ARCH_FLAGS}>")
-
+  #--generate-code=arch=compute_86,code=sm_86
 # Link settings
 target_link_libraries(mixed_fem_lib polyscope Eigen3::Eigen amgcl::amgcl Ginkgo::ginkgo)
 
@@ -290,6 +266,3 @@ set_target_properties(sim3d_gpu PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 target_link_libraries(sim3d_gpu mixed_fem_lib)
 
 add_subdirectory(tests)
-
-set_property(TARGET mixed_fem_lib PROPERTY BUILD_RPATH ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
-set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)

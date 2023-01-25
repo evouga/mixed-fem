@@ -424,7 +424,7 @@ void MixedStretchGpu<DIM,STORAGE>::reset() {
   double* si_data = thrust::raw_pointer_cast(s_.data());
   thrust::for_each(thrust::counting_iterator<int>(0),
       thrust::counting_iterator<int>(nelem_),
-      [this, si_data] __device__ (const int i) {
+      [this, si_data] __device__ __host__ (const int i) {
         Map<VecN> si(si_data + N()*i);
         if constexpr (DIM == 2) {
             si << 1, 1, 0;

@@ -260,7 +260,7 @@ BlockMatrix<Scalar,DIM,N>::BlockMatrix(const Eigen::MatrixXi& E,
 
   // Now compute the row offsets by doing a prefix sum
   row_offsets_.resize(pair_end.second - row_offsets_.begin() + 1);
-  thrust::inclusive_scan(row_offsets_.begin(), pair_end.second, row_offsets_.begin()+1);
+  thrust::inclusive_scan(thrust::device, row_offsets_.begin(), pair_end.second, row_offsets_.begin()+1);
   row_offsets_[0] = 0;
 
   // std::cout << "row offsets size " << row_offsets_.size() << std::endl;

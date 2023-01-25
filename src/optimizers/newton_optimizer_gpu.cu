@@ -18,7 +18,7 @@ void NewtonOptimizerGpu<DIM>::step() {
   
   OptimizerData::get().clear();
 
-  // Pre operations for variables
+  // Pre solve operations for variables
   state_.x_->pre_solve();
   for (auto& var : state_.mixed_vars_) {
     var->pre_solve();
@@ -36,20 +36,25 @@ void NewtonOptimizerGpu<DIM>::step() {
   // not been run yet. Happens for first timestep, so
   // we may end up missing collisions
 
-
-  // Copy to thrust vector
-  thrust::device_vector<double> x(state_.x_->value().size()); 
-  thrust::device_vector<double> x_full(state_.mesh_->V_.size());
   std::vector<thrust::device_vector<double>> tmps(state_.mixed_vars_.size());
   for (size_t i = 0; i < state_.mixed_vars_.size(); ++i) {
     tmps[i].resize(state_.mixed_vars_[i]->size());
   }
+
+  // Compute z = x + a * y
+  auto axpy_func = [](const thrust::device_vector<double>& x, double a,
+      const thrust::device_vector<double>& y,
+      thrust::device_vector<double>& z) {
+    thrust::transform(x.begin(), x.end(), y.begin(), z.begin(), _1 + a * _2);
+  };
 
   bool ls_done = false;
   do {
     Base::callback(state_);
 
     // Update gradient and hessian
+    state_.x_->to_full(state_.x_->value(), x_full_);
+
     update_system();
 
     // Solve linear system
@@ -60,27 +65,21 @@ void NewtonOptimizerGpu<DIM>::step() {
     auto energy_func = [&](double a) {
       double h2 = std::pow(state_.x_->integrator()->dt(), 2);
       // x = x0 + a * p
-      thrust::transform(state_.x_->value().begin(), state_.x_->value().end(),
-          state_.x_->delta().begin(), x.begin(), _1 + a * _2);
+      axpy_func(state_.x_->value(), a, state_.x_->delta(), x_);
 
-      double* x_full_ptr = state_.x_->to_full(x);
+      // From reduced coordinates to full (with dirichlet BCs)
+      state_.x_->to_full(x_, x_full_);
 
-      // Copy cuda x_full to thrust vector
-      cudaMemcpy(thrust::raw_pointer_cast(x_full.data()), x_full_ptr,
-          state_.mesh_->V_.size() * sizeof(double), cudaMemcpyDeviceToDevice);
-
-      double val = state_.x_->energy(x_full);
+      // Inertial energy
+      double val = state_.x_->energy(x_full_);
       // std::cout << "x energy: " << val << std::endl;
 
       for (size_t i = 0; i < state_.mixed_vars_.size(); ++i) {
         // si = s + a * p
-        auto& var = state_.mixed_vars_[i];
-        thrust::transform(var->value().begin(), var->value().end(),
-            var->delta().begin(), tmps[i].begin(), _1 + a * _2);
-        
+        axpy_func(state_.mixed_vars_[i]->value(), a,
+                  state_.mixed_vars_[i]->delta(), tmps[i]);
         // std::cout << "Mixed energy: " <<  h2 * var->energy(x_full, tmps[i]) << std::endl;
-
-        val += h2 * var->energy(x_full, tmps[i]);  
+        val += h2 * state_.mixed_vars_[i]->energy(x_full_, tmps[i]);
       }
       return val;
     };
@@ -96,15 +95,12 @@ void NewtonOptimizerGpu<DIM>::step() {
     OptimizerData::get().timer.stop("LS");
 
     if (status == SolverExitStatus::CONVERGED) {
-      // x->value() += alpha * x->delta()
-      thrust::transform(state_.x_->value().begin(), state_.x_->value().end(),
-          state_.x_->delta().begin(), state_.x_->value().begin(),
-           _1 + alpha * _2);
+      // x += alpha * dx
+      axpy_func(state_.x_->value(), alpha, state_.x_->delta(),
+                state_.x_->value());
       for (auto& var : state_.mixed_vars_) {
-        // si->value() += alpha * si->delta()
-        thrust::transform(var->value().begin(), var->value().end(),
-            var->delta().begin(), var->value().begin(),
-             _1 + alpha * _2);
+        // s += alpha * ds
+        axpy_func(var->value(), alpha, var->delta(), var->value());
       }
     } else {
       ls_done = true;
@@ -153,21 +149,12 @@ template <int DIM>
 void NewtonOptimizerGpu<DIM>::update_system() {
   OptimizerData::get().timer.start("update");
 
-  double* x_full = state_.x_->to_full(state_.x_->value());
-
-  // Copy to thrust vector
-  thrust::device_vector<double> x(state_.mesh_->V_.size());
-
-  // Copy cuda x_full to thrust vector
-  cudaMemcpy(thrust::raw_pointer_cast(x.data()), x_full,
-      state_.mesh_->V_.size() * sizeof(double), cudaMemcpyDeviceToDevice);
-
   for (auto& var : state_.vars_) {
     std::cout << "NewtonOptimizer doesn't support position"
         " dependent vars yet" << std::endl;
   }
   for (auto& var : state_.mixed_vars_) {
-    var->update(x, state_.x_->integrator()->dt());
+    var->update(x_full_, state_.x_->integrator()->dt());
   }
   OptimizerData::get().timer.stop("update");
 }
@@ -198,6 +185,10 @@ void NewtonOptimizerGpu<DIM>::reset() {
   for (auto& var : state_.mixed_vars_) {
     var->reset();
   }
+
+  x_.resize(state_.x_->value().size());
+  x_full_.resize(state_.mesh_->V_.size());
+
   LinearSolverFactory<DIM,STORAGE_THRUST> solver_factory;
   linear_solver_ = solver_factory.create(state_.config_->solver_type, &state_);
 }

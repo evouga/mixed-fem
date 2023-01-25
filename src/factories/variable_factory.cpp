@@ -6,6 +6,7 @@
 #include "variables/collision.h"
 #include "variables/friction.h"
 #include "variables/displacement_gpu.h"
+#include "variables/mixed_collision_gpu.h"
 #include "mesh/mesh.h"
 
 using namespace mfem;
