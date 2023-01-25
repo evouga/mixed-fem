@@ -43,6 +43,16 @@ double MixedStretchGpu<DIM,STORAGE>::energy_functor::operator()(int i) const {
     MatN sym = Sym();
     VecN diff = sym * (Si - si);
     e = vol * (lai.dot(diff)/h2 + local_energy<double>(si, mui, lambdai));
+    // printf("i: %d\n" , i);
+    // printf("Fi: %f %f %f %f %f %f %f %f %f  ", Fi(0,0), Fi(1,1), Fi(2,2), Fi(1,0), Fi(0,1), Fi(2,0), Fi(2,1), Fi(1,2), Fi(0,2));
+    // printf("  Ri: %f %f %f %f %f %f %f %f %f\n", Ri(0,0), Ri(1,1), Ri(2,2), Ri(1,0), Ri(0,1), Ri(2,0), Ri(2,1), Ri(1,2), Ri(0,2));
+    // printf("S3D: %f %f %f %f %f %f  ", S3D(0,0), S3D(1,1), S3D(2,2), S3D(1,0), S3D(0,1), S3D(2,0));
+    // printf("la: %f %f %f %f %f %f\n", lai(0), lai(1), lai(2), lai(3), lai(4), lai(5));
+    // printf("diff: %f %f %f %f %f %f\n", diff(0), diff(1), diff(2), diff(3), diff(4), diff(5));
+    // printf("Si: %f %f %f %f %f %f\n", Si(0), Si(1), Si(2), Si(3), Si(4), Si(5));
+    // printf("si: %f %f %f %f %f %f\n", si(0), si(1), si(2), si(3), si(4), si(5));
+    // e = vol * (lai.dot(diff)/h2);
+    // e = vol * local_energy<double>(si, mui, lambdai);
   }
   return e;
   
@@ -168,6 +178,10 @@ double MixedStretchGpu<DIM,STORAGE>::energy(VectorType& x,
     d_x = thrust::raw_pointer_cast(x.data());
     d_s = thrust::raw_pointer_cast(s.data());
   }
+  // std::cout << " X SIZE: " << x.size() << std::endl;
+  // for (int i = 0; i < x.size(); i++) {
+  //   std::cout << " X[" << i << "] = " << x[i] << std::endl;
+  // }
 
   // compute deformation gradient
   OptimizerData::get().timer.start("energy", "MixedStretchGpu");
@@ -283,8 +297,8 @@ void MixedStretchGpu<DIM,STORAGE>::update(VectorType& x, double dt) {
   OptimizerData::get().timer.stop("rhs", "MixedStretchGpu");
 
   // Compute RHS norm
-  double out = thrust::inner_product(rhs_.begin(), rhs_.end(), rhs_.begin(), 
-      0.0, thrust::plus<double>(), thrust::multiplies<double>());
+  // double out = thrust::inner_product(rhs_.begin(), rhs_.end(), rhs_.begin(), 
+  //     0.0, thrust::plus<double>(), thrust::multiplies<double>());
 
   // OptimizerData::get().timer.start("assemble1", "MixedStretchGpu");
   // // Copy Aloc from device to host

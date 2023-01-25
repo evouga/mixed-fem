@@ -39,6 +39,7 @@ namespace mfem {
 
     std::unique_ptr<LinearSolver<double,DIM,STORAGE_THRUST>> linear_solver_;
     thrust::device_vector<double> x_full_;
+    thrust::device_vector<double> x2_full_;
     thrust::device_vector<double> x_;
   };
 }

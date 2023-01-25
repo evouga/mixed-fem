@@ -8,6 +8,7 @@
 #include "ipc/ipc.hpp"
 #include "igl/edges.h"
 #include <thrust/inner_product.h>
+#include "utils/ccd_gpu.h"
 
 using namespace mfem;
 using namespace Eigen;
@@ -42,7 +43,7 @@ void NewtonOptimizerGpu<DIM>::step() {
   }
 
   // Compute z = x + a * y
-  auto axpy_func = [](const thrust::device_vector<double>& x, double a,
+  auto add_vec = [](const thrust::device_vector<double>& x, double a,
       const thrust::device_vector<double>& y,
       thrust::device_vector<double>& z) {
     thrust::transform(x.begin(), x.end(), y.begin(), z.begin(), _1 + a * _2);
@@ -62,23 +63,57 @@ void NewtonOptimizerGpu<DIM>::step() {
 
     double alpha = 1.0;
 
+    // If collisions enabled, perform CCD
+    if (state_.config_->enable_ccd) {
+      // Compute x2 = x + a * dx, and use this for CCD
+      add_vec(state_.x_->value(), 1.0, state_.x_->delta(), x_);
+      state_.x_->to_full(x_, x2_full_);
+      // alpha = ipc::accd_gpu<double,DIM>(x_full_, x2_full_,
+      //     state_.mesh_->collision_mesh(), state_.config_->dhat);
+    }
+
     auto energy_func = [&](double a) {
       double h2 = std::pow(state_.x_->integrator()->dt(), 2);
       // x = x0 + a * p
-      axpy_func(state_.x_->value(), a, state_.x_->delta(), x_);
+      add_vec(state_.x_->value(), a, state_.x_->delta(), x_);
+
+
+      // std::cout << " DELTA " << std::endl;
+      // for (int i = 0; i < x_.size(); ++i) {
+      //   const auto& xval = state_.x_->value();
+      //   std::cout << "x_->value()[" << i << "] = " << xval[i] << std::endl;
+      // }
+
+
+      // std::cout << " DELTA " << std::endl;
+      // for (int i = 0; i < x_.size(); ++i) {
+      //   std::cout << "x_->delta()[" << i << "] = " << state_.x_->delta()[i] << std::endl;
+      // }
+
+      //       std::cout << " B4 " << std::endl;
+      // for (int i = 0; i < x_full_.size(); ++i) {
+      //   std::cout << "x_full_[" << i << "] = " << x_full_[i] << std::endl;
+      // }
 
       // From reduced coordinates to full (with dirichlet BCs)
       state_.x_->to_full(x_, x_full_);
+    
+      // xfull after
+      // std::cout << " AFTER " << std::endl;
+      // for (int i = 0; i < x_full_.size(); ++i) {
+      //   std::cout << "x_full_[" << i << "] = " << x_full_[i] << std::endl;
+      // }
 
       // Inertial energy
       double val = state_.x_->energy(x_full_);
-      // std::cout << "x energy: " << val << std::endl;
+      std::cout << "Displacement energy: " << val << std::endl;
 
       for (size_t i = 0; i < state_.mixed_vars_.size(); ++i) {
         // si = s + a * p
-        axpy_func(state_.mixed_vars_[i]->value(), a,
+        add_vec(state_.mixed_vars_[i]->value(), a,
                   state_.mixed_vars_[i]->delta(), tmps[i]);
-        // std::cout << "Mixed energy: " <<  h2 * var->energy(x_full, tmps[i]) << std::endl;
+        std::cout << "  Mixed energy: " << 
+            h2 * state_.mixed_vars_[i]->energy(x_full_, tmps[i]) << std::endl;
         val += h2 * state_.mixed_vars_[i]->energy(x_full_, tmps[i]);
       }
       return val;
@@ -96,14 +131,14 @@ void NewtonOptimizerGpu<DIM>::step() {
 
     if (status == SolverExitStatus::CONVERGED) {
       // x += alpha * dx
-      axpy_func(state_.x_->value(), alpha, state_.x_->delta(),
+      add_vec(state_.x_->value(), alpha, state_.x_->delta(),
                 state_.x_->value());
       for (auto& var : state_.mixed_vars_) {
         // s += alpha * ds
-        axpy_func(var->value(), alpha, var->delta(), var->value());
+        add_vec(var->value(), alpha, var->delta(), var->value());
       }
     } else {
-      ls_done = true;
+      // ls_done = true;
     }
 
     // check for error
@@ -148,7 +183,7 @@ void NewtonOptimizerGpu<DIM>::step() {
 template <int DIM>
 void NewtonOptimizerGpu<DIM>::update_system() {
   OptimizerData::get().timer.start("update");
-
+  
   for (auto& var : state_.vars_) {
     std::cout << "NewtonOptimizer doesn't support position"
         " dependent vars yet" << std::endl;
@@ -188,6 +223,7 @@ void NewtonOptimizerGpu<DIM>::reset() {
 
   x_.resize(state_.x_->value().size());
   x_full_.resize(state_.mesh_->V_.size());
+  x2_full_.resize(state_.mesh_->V_.size());
 
   LinearSolverFactory<DIM,STORAGE_THRUST> solver_factory;
   linear_solver_ = solver_factory.create(state_.config_->solver_type, &state_);

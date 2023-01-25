@@ -118,6 +118,7 @@ namespace mfem {
     VectorType b_;
 
     VectorType x_tilde_;
+    VectorType tmp_;
     VectorType f_ext_;
 
     Eigen::VectorXd x_h_;       // displacement variables

@@ -25,7 +25,6 @@ double* DisplacementGpu<DIM>::to_full(const VectorType& x,
 template<int DIM>
 void DisplacementGpu<DIM>::to_full(const VectorType& x, VectorType& out,
     ProjectionType type) {
-  assert(x.size() == out.size());
   double* x_full = to_full(x, type);
 
   // Copy cuda x_full to thrust vector
@@ -50,24 +49,24 @@ double DisplacementGpu<DIM>::energy(VectorType& x_full) {
   // NOTE: using data from to_full(), which is safe
   // double* x_full_ptr = to_full(x, ProjectionType::WITH_DIRICHLET);
   // thrust::device_ptr<double> x_full(x_full_ptr);
-  double* x_full_ptr = thrust::raw_pointer_cast(x_full.data());
+  // double* x_full_ptr = thrust::raw_pointer_cast(x_full.data());
 
   // Compute x_full - x_tilde, storing result in x_full
   thrust::transform(x_full.begin(), x_full.end(), x_tilde_.begin(),
-      x_full.begin(), thrust::minus<double>());
+      tmp_.begin(), thrust::minus<double>());
 
   // - h^2 fext_
-  thrust::transform(x_full.begin(), x_full.end(), f_ext_.begin(),
-      x_full.begin(), _1 - h2 * _2);
+  thrust::transform(tmp_.begin(), tmp_.end(), f_ext_.begin(),
+      tmp_.begin(), _1 - h2 * _2);
 
   // Compute M * (x_full - x_tilde - h^2 fext_)
   double* prod;
-  M_gpu_.product(x_full_ptr, &prod);
+  M_gpu_.product(thrust::raw_pointer_cast(tmp_.data()), &prod);
   thrust::device_ptr<double> prod_ptr(prod);
 
-  // Dot this against x_full to get energy
-  double energy = 0.5 * thrust::inner_product(x_full.begin(),
-      x_full.end(), prod_ptr, 0.0);
+  // Dot this against tmp_ to get energy
+  double energy = 0.5 * thrust::inner_product(tmp_.begin(),
+      tmp_.end(), prod_ptr, 0.0);
 
   OptimizerData::get().timer.stop("energy", "DisplacementGpu");
   return energy;
@@ -188,6 +187,7 @@ void DisplacementGpu<DIM>::reset() {
   double* b_ptr = thrust::raw_pointer_cast(b_.data());
   cudaMemcpy(b_ptr, b_h_.data(), b_h_.size()*sizeof(double),
       cudaMemcpyHostToDevice);
+  tmp_.resize(b_.size());
 
   // Project out Dirichlet boundary conditions
   double* x_reduce;
