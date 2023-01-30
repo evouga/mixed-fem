@@ -9,13 +9,15 @@
 
 namespace mfem {
 
-  template <typename Scalar, int DIM, StorageType STORAGE = STORAGE_THRUST>
+  template <typename Solver, 
+      typename Scalar, int DIM, StorageType STORAGE = STORAGE_THRUST>
   class GinkgoSolver : public LinearSolver<Scalar,DIM,STORAGE> {
 
     typedef LinearSolver<Scalar, DIM, STORAGE> Base;
     using vec = gko::matrix::Dense<Scalar>;
     using preconditioner_type = gko::preconditioner::Jacobi<Scalar, int>;
-    using cg = gko::solver::Cg<Scalar>;
+    // using cg = gko::solver::Cg<Scalar>;
+    // using solver = gko::solver::Minres<Scalar>;
     using bj = GkoBlockJacobiPreconditioner<Scalar,DIM>;
     using ResidualCriterionFactory =
         typename gko::stop::ResidualNorm<Scalar>::Factory;
@@ -49,7 +51,7 @@ namespace mfem {
       precond_ = GkoBlockJacobiPreconditioner<Scalar,DIM>::create(cuda_exec_,
           gko::dim<2>{size}, Base::state_);
 
-      solver_ = cg::build()
+      solver_ = Solver::build()
           .with_criteria(
               residual_criterion_,
               gko::stop::Iteration::build()
@@ -111,7 +113,7 @@ namespace mfem {
     // Solver solver_;
     bool has_init_;
     std::shared_ptr<vec> x_;
-    std::shared_ptr<cg> solver_;
+    std::shared_ptr<Solver> solver_;
     std::shared_ptr<bj> precond_;
 
   };

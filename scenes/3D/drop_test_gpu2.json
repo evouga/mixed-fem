@@ -1,38 +1,45 @@
 {
   "dt": 0.0333,
-  "body_force": [0.0, -9.8, 0.0],
   "print_timing": true,
   "print_stats": true,
   "optimizer": "newton",
   "time_integrator": "BDF1",
-  "linear_solver": "eigen-pcg-diag",
-  "enable_ccd": false,
+  "linear_solver": "cg-block-jacobi",
+  "enable_ccd": true,
   "dhat": 0.001,
-  "kappa": 1e10,
+  "kappa": 1e8,
   "boundary_condition": "hangends",
-  "max_newton_iterations": 5,
+  "max_newton_iterations": 1,
   "max_linesearch_iterations": 20,
-  "inertia_blend_factor": 1.0,
-  "iterative_solver_tolerance": 0.1,
   "objects": [
     {
-      "path": "../models/mesh/octopus.mesh",
-      "offset": [-0.2, 2.0, 0.0],
+      "path": "../models/mesh/cube_14.mesh",
+      "offset": [0.0, 0.0, 0.0],
+      "material_index": 0,
+      "boundary_condition": {
+        "type": "hangends",
+        "ratio": 0.4,
+        "axis": 1
+      }
+    },
+    {
+      "path": "../models/mesh/dragon.mesh",
+      "offset": [-0.5, 3.0, 0.0],
       "material_index": 1
     }
   ],
   "material_models": [
     {
-      "youngs_modulus": 1e5,
+      "youngs_modulus": 1e6,
       "poissons_ratio": 0.45,
       "density": 1e3,
-      "energy": "FixedCorot"
+      "energy": "ARAP"
     },
     {
       "youngs_modulus": 1e5,
       "poissons_ratio": 0.45,
       "density": 1e3,
-      "energy": "FixedCorot"
+      "energy": "ARAP"
     }
   ],
   "mixed_variables": ["mixed-stretch"],

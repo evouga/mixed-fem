@@ -53,10 +53,12 @@ void NewtonOptimizer<DIM>::step() {
       state_.x_->unproject(x1);
       VectorXd p = state_.mesh_->projection_matrix().transpose() 
           * state_.x_->delta();
-      alpha = 0.9 * ipc::additive_ccd<DIM>(x1, p,
+      alpha = ipc::additive_ccd<DIM>(x1, p,
           state_.mesh_->collision_mesh(),
           state_.mesh_->collision_candidates(),
           state_.config_->dhat);
+      if (alpha < 1.0) 
+        alpha *= 0.9;
       OptimizerData::get().add("ACCD ", alpha);
       OptimizerData::get().timer.stop("ACCD");
     }
@@ -67,13 +69,13 @@ void NewtonOptimizer<DIM>::step() {
       Eigen::VectorXd x0 = state.x_->value() + a * state.x_->delta();
       double val = state.x_->energy(x0);
       state.x_->unproject(x0);
-      std::cout << "Displacement energy: " << val << std::endl;
+      // std::cout << "Displacement energy: " << val << std::endl;
 
       for (const auto& var : state.mixed_vars_) {
         Eigen::VectorXd si = var->value() + a * var->delta();
-        std::cout << "  Mixed energy: " <<  h2 * var->energy(x0, si)  << std::endl;
-        std::cout << "  Mixed constraint: " << var->constraint_value(x0, si) << std::endl;
-        std::cout << "  Total mixed: " <<  h2 * var->energy(x0, si) + var->constraint_value(x0, si) << std::endl;
+        // std::cout << "  Mixed energy: " <<  h2 * var->energy(x0, si)  << std::endl;
+        // std::cout << "  Mixed constraint: " << var->constraint_value(x0, si) << std::endl;
+        // std::cout << "  Total mixed: " <<  h2 * var->energy(x0, si) + var->constraint_value(x0, si) << std::endl;
         val += h2 * var->energy(x0, si) + var->constraint_value(x0, si);  
       }
       for (const auto& var : state.vars_) {

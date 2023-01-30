@@ -153,7 +153,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(Catch2)
 
-
+set(GPUTI_WITH_DOUBLE_PRECISION ON CACHE BOOL "Enable Double Precision" FORCE)
 set(IPC_TOOLKIT_WITH_CUDA ON CACHE BOOL "Enable CUDA Implementation" FORCE)
 include(FetchContent)
 FetchContent_Declare(

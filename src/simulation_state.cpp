@@ -220,7 +220,7 @@ bool SimState<DIM, STORAGE>::load(const nlohmann::json& args) {
               materials));
         } else {
           meshes.push_back(std::make_shared<TetrahedralMesh>(V, T,
-              materials[idx]));
+              materials[idx], idx));
         }
       }
 
@@ -288,8 +288,8 @@ bool SimState<DIM, STORAGE>::load(const nlohmann::json& args) {
         read_and_assign(*it, "target_velocity", cfg.target_velocity);
         read_and_assign(*it, "max_displacement", cfg.max_displacement);
 
-        //read_and_assign(*it, "duration", cfg.duration);
-        //read_and_assign(*it, "flip", cfg.flip);
+        read_and_assign(*it, "pause_duration", cfg.pause_duration);
+        read_and_assign(*it, "flip", cfg.flip);
         meshes.back()->ext_config_ = cfg;
       }
     }

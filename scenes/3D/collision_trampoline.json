@@ -1,7 +1,6 @@
 {
   "dt": 0.0333,
-  "body_force": [0.0, -9.8, 0.0],
-  "print_timing": false,
+  "print_timing": true,
   "print_stats": true,
   "optimizer": "newton",
   "time_integrator": "BDF1",
@@ -9,54 +8,44 @@
   "enable_ccd": true,
   "dhat": 0.001,
   "kappa": 1e10,
-  "boundary_condition": "hangends",
   "max_newton_iterations": 30,
   "max_linesearch_iterations": 20,
-  "initial_state0": {
-    "x_path": "../output/sim_x0_0061.dmat",
-    "v_path": "../output/sim_v_0061.dmat"
-  },
   "objects": [
     {
-      "path": "../models/mesh/cube_14.mesh",
+      "path": "../models/mesh/slab.mesh",
       "offset": [0.0, 0.0, 0.0],
       "material_index": 0,
+      "normalize": false,
       "boundary_condition": {
         "type": "hangends",
-        "ratio": 0.9,
-        "axis": 0
-      }
+        "ratio": 0.05,
+        "axis": 2
+      },
+      "transformation": [
+        0.3,0,0,
+        0,0.8,0,
+        0,0,0.6
+      ]
     },
     {
       "path": "../models/mesh/spot.mesh",
-      "offset": [-0.2, 2.0, 0.0],
+      "offset": [0, 9.0, -3.5],
       "material_index": 1,
       "skinning_mesh": "../models/obj/spot_triangulated.obj"
-    },
-    {
-      "path": "../models/mesh/cube_14.mesh",
-      "offset": [0.0, 6.0, 0.0],
-      "material_index": 2
     }
   ],
   "material_models": [
     {
-      "youngs_modulus": 1e9,
+      "youngs_modulus": 4e9,
       "poissons_ratio": 0.45,
       "density": 1e3,
-      "energy": "Stable-Neohookean"
+      "energy": "FixedCorot"
     },
     {
-      "youngs_modulus": 4e5,
+      "youngs_modulus": 1e6,
       "poissons_ratio": 0.45,
-      "density": 1e3,
-      "energy": "Stable-Neohookean"
-    },
-    {
-      "youngs_modulus": 1e9,
-      "poissons_ratio": 0.45,
-      "density": 2e4,
-      "energy": "Stable-Neohookean"
+      "density": 1e4,
+      "energy": "FixedCorot"
     }
   ],
   "mixed_variables": ["mixed-stretch", "mixed-collision"],

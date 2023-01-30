@@ -28,10 +28,11 @@ Mesh::Mesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
 
 
 Mesh::Mesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
-    std::shared_ptr<MaterialModel> material)
+    std::shared_ptr<MaterialModel> material, int material_id)
     : V_(V), Vref_(V), Vinit_(V), T_(T), material_(material) {
 
-  mat_ids_.resize(0);
+  mat_ids_.resize(T_.rows());
+  mat_ids_.setConstant(material_id);
 
   for (int i = 0; i < T_.rows(); ++i) {
     elements_.push_back(Element(material));

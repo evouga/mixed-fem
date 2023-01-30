@@ -6,6 +6,7 @@
 #include "boundary_conditions/moving_boundary_condition.h"
 #include "boundary_conditions/twist_and_stretch_boundary_condition.h"
 #include "boundary_conditions/press_force.h"
+#include "boundary_conditions/torque_force.h"
 
 using namespace mfem;
 using namespace Eigen;
@@ -84,5 +85,10 @@ ExternalForceFactory::ExternalForceFactory() {
       [](Eigen::MatrixXd V, ExternalForceConfig cfg)
       ->std::unique_ptr<ExternalForce>
       {return std::make_unique<MechanicalPress>(V, cfg);});
+
+  register_type(EXT_TWIST, "torque", 
+      [](Eigen::MatrixXd V, ExternalForceConfig cfg)
+      ->std::unique_ptr<ExternalForce>
+      {return std::make_unique<Torque>(V, cfg);});
 
 }

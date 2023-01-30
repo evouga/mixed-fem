@@ -225,7 +225,10 @@ void MixedCollision<DIM>::update_derivatives(const MatrixXd& V, double dt) {
     // dphi2(d^2)/d^2 = 2g(d^2) + 4d^2 H(d^2)
     g_[i] = config_->kappa * (g * d_(i) * 2);
     H_[i] = config_->kappa * (ipc::barrier_hessian(d2, dhat_sqr)*4*d2 + 2*g);
-    H_(i) = std::max(H_(i), 1e-8);
+    // H_(i) = std::max(H_(i), 1e-8);
+    if (H_(i) < 0) {
+      std::cout << " i: " << i << " H: " << H_(i) << std::endl;
+    }
 
     double Gd_inv_sqr = 1.0 / (Gd_(i) * Gd_(i));
     Aloc[i] = Gd_inv_sqr * Gx_[i] * H_(i) * Gx_[i].transpose();
@@ -308,15 +311,42 @@ void MixedCollision<DIM>::solve(VectorXd& dx) {
     double Gd_inv_sqr = 1.0 / (Gd_(i) * Gd_(i));
     Gdx_(i) = Gd_inv_sqr * qi.dot(Gx_[i]);
   }
+  delta_ = (D_ - d_ + Gdx_);
+  la_ = H_.array() * delta_.array() + g_.array();
+  std::cout << "DIFF: " << (D_ - d_).norm() << std::endl;
   // Update lagrange multipliers
-  la_ = gl_.array() + (H_.array() * Gdx_.array());
+  // la_ = gl_.array() + (H_.array() * Gdx_.array());
 
-  // Compute mixed variable descent direction
-  delta_ = -(g_.array() + Gd_.array()*la_.array()) / H_.array();
+  // // Compute mixed variable descent direction
+  // delta_ = -(g_.array() + Gd_.array()*la_.array()) / H_.array();
   if (delta_.hasNaN()) {
-    std::cout << "la_: " << la_ << std::endl;
-    std::cout << "g_: " << g_ << std::endl;
-    std::cout << "H_: " << H_ << std::endl;
+    // std::cout << "la_: " << la_ << std::endl;
+    // std::cout << "g_: " << g_ << std::endl;
+    // std::cout << "H_: " << H_ << std::endl;
+    if (H_.hasNaN()) {
+      std::cout << "H has NaN" << std::endl;
+    }
+    if (g_.hasNaN()) {
+      std::cout << "g has NaN" << std::endl;
+    }
+    if (la_.hasNaN()) {
+      std::cout << "la has NaN" << std::endl;
+    }
+    if (d_.hasNaN()) {
+      std::cout << "d has NaN" << std::endl;
+    }
+    if (D_.hasNaN()) {
+      std::cout << "D has NaN" << std::endl;
+    }
+    if (Gdx_.hasNaN()) {
+      std::cout << "Gdx has NaN" << std::endl;
+    }
+    if (dx.hasNaN()) {
+      std::cout << "dx has NaN" << std::endl;
+    }
+    // std::cout << "ITS PROBABLY THE PRECONDITIONER" << std::endl;l
+    // std::cout << "D_: " << D_ << std::endl;
+    // std::cout << "d_: " << d_ << std::endl;
     exit(1);
   }
   OptimizerData::get().timer.stop("solve", "MixedCollision");

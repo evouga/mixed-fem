@@ -12,6 +12,7 @@
 #include "linear_solvers/amgcl_solver.h"
 #include <unsupported/Eigen/IterativeSolvers>
 #include "linear_solvers/ginkgo_solver.h"
+#include "linear_solvers/deflated_solver.h"
 
 #if defined(SIM_USE_CHOLMOD)
 #include <Eigen/CholmodSupport>
@@ -190,11 +191,28 @@ void LinearSolverFactory<DIM,STORAGE>::register_pd_solvers() {
         }
     );
 
+  // using SOLVER_MINRES_ID = MINRES<SpMat,Lower|Upper,
+  //       BlockJacobiPreconditioner<Scalar,DIM>>;
+  using SOLVER_MINRES_ID = GMRES<SpMat,
+        BlockJacobiPreconditioner<Scalar,DIM>>;
+  this->register_type(LinearSolverType::SOLVER_MINRES_ID,
+      "minres",
+      [](SimState<DIM>* state)->std::unique_ptr<LinearSolver<Scalar, DIM>> { 
+        auto solver = std::make_unique<EigenIterativeSolver<
+            SOLVER_MINRES_ID,
+            SystemMatrixPD<Scalar>, Scalar, DIM>>(state);
+        solver->eigen_solver().preconditioner().init(state);
+        return solver;
+      }
+  );
 
-    using EIGEN_GS = GaussSeidelPreconditioner<double>;
+
+    // using EIGEN_GS = GaussSeidelPreconditioner<double>;
     // using EIGEN_GS = SSORPreconditioner<double>;
     // using EIGEN_GS = ConjugateGradient<SpMat, Lower|Upper,
         // SSORPreconditioner<Scalar>>;
+    using EIGEN_GS = GMRES<SpMat,
+        GaussSeidelPreconditioner<double>>;
     this->register_type(LinearSolverType::SOLVER_EIGEN_GS, "cg-gauss_seidel",
         [](SimState<DIM>* state)->std::unique_ptr<LinearSolver<Scalar, DIM>>
         { 
@@ -202,6 +220,18 @@ void LinearSolverFactory<DIM,STORAGE>::register_pd_solvers() {
             EIGEN_GS, SystemMatrixPD<Scalar>, Scalar, DIM>>(state);
         }
     );
+
+    // Affine Body Dynamics initialized PCG with ARAP preconditioner
+    this->register_type(LinearSolverType::SOLVER_AFFINE_PCG, "affine-bj-pcg",
+        [](SimState<DIM>* state)->std::unique_ptr<LinearSolver<Scalar, DIM>>
+        {
+        auto solver = std::make_unique<DeflatedSolver<
+            ConjugateGradient<SpMat, Lower|Upper,
+            DeflatedBlockJacobiPreconditioner<Scalar,DIM>>,
+            SystemMatrixPD<Scalar>, Scalar, DIM>>(state);
+        solver->eigen_solver().preconditioner().init(state);
+        return solver;
+      });
 
 
   } else if constexpr (STORAGE == STORAGE_THRUST) {
@@ -215,11 +245,17 @@ void LinearSolverFactory<DIM,STORAGE>::register_pd_solvers() {
             Scalar, DIM, STORAGE>>(state);});
 
 
-    using GINKGO = GinkgoSolver<Scalar, DIM, STORAGE>;
+    using GINKGO_CG = GinkgoSolver<gko::solver::Cg<Scalar>, Scalar, DIM, STORAGE>;
     this->register_type(LinearSolverType::SOLVER_EIGEN_CG_BLOCK_JACOBI,
         "cg-block-jacobi", [](SimState<DIM,STORAGE>* state)
         ->std::unique_ptr<LinearSolver<Scalar,DIM,STORAGE>>
-        {return std::make_unique<GINKGO>(state);});
+        {return std::make_unique<GINKGO_CG>(state);});
+
+    using GINKGO_MINRES = GinkgoSolver<gko::solver::Minres<Scalar>, Scalar, DIM, STORAGE>;
+    this->register_type(LinearSolverType::SOLVER_MINRES_ID,
+        "minres-block-jacobi", [](SimState<DIM,STORAGE>* state)
+        ->std::unique_ptr<LinearSolver<Scalar,DIM,STORAGE>>
+        {return std::make_unique<GINKGO_MINRES>(state);});
   }
 }
 

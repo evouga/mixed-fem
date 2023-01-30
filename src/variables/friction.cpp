@@ -20,8 +20,8 @@ double Friction<DIM>::energy(VectorXd& x) {
   V = ipc_mesh.vertices(V);
 
   double e = ipc::compute_friction_potential(
-      ipc_mesh, V0_, V, constraints_, config_->espv * dt_);
-      std::cout << "FRICTION E: " << e << std::endl;
+      ipc_mesh, V0_, V, constraints_, config_->espv * dt_ * dt_);
+      // std::cout << "FRICTION E: " << e << std::endl;
   return e / dt_ / dt_;
 }
 
@@ -61,7 +61,7 @@ void Friction<DIM>::update_derivatives(const MatrixXd& U, double dt) {
   const Eigen::MatrixXi& E = ipc_mesh.edges();
   const Eigen::MatrixXi& F = ipc_mesh.faces();
 
-  double epsv_h = config_->espv * dt_;
+  double epsv_h = config_->espv * dt_ * dt_;
 
   // Hessian and gradient with respect to x
   data_.timer.start("g-H");
@@ -88,6 +88,10 @@ void Friction<DIM>::update_derivatives(const MatrixXd& U, double dt) {
 template<int DIM>
 VectorXd& Friction<DIM>::rhs() {
   data_.timer.start("RHS - s");
+  if (constraints_.empty()) {
+    rhs_.resize(mesh_->jacobian().rows());
+    rhs_.setZero();
+  }
   return rhs_;
 }
 
@@ -135,7 +139,10 @@ void Friction<DIM>::pre_solve() {
   for (size_t i = 0; i < constraints_.size(); ++i) {
     std::array<long, 4> ids = constraints_[i].vertex_indices(E, F);
     for (int j = 0; j < 4; ++j) {
-      T(i,j) = ids[j];
+      T(i,j) = -1;
+      if (ids[j] != -1) {
+        T(i,j) = ipc_mesh.to_full_vertex_id(ids[j]);
+      }
     }
   }
 

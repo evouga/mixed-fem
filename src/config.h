@@ -204,7 +204,7 @@ namespace mfem {
     // whether to reverse after maximally displaced or after reaching the
     // maximum force.
     bool flip = false; 
-    bool pause_duration = 0.0; // before flipping, duration in seconds to pause
+    double pause_duration = 0.0; // before flipping, duration in seconds to pause
   };
 
 }

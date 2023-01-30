@@ -142,6 +142,10 @@ void Collision<DIM>::update_derivatives(const MatrixXd& V, double dt) {
 template<int DIM>
 VectorXd& Collision<DIM>::rhs() {
   data_.timer.start("RHS - s");
+  if (constraints_.empty()) {
+    rhs_.resize(mesh_->jacobian().rows());
+    rhs_.setZero();
+  }
   return rhs_;
 }
 

@@ -1,23 +1,21 @@
 #pragma once
 
 #include "linear_solver.h"
-#include "linear_solvers/preconditioners/laplacian_preconditioner.h"
-#include "linear_solvers/preconditioners/dual_ascent_preconditioner.h"
 #include "utils/additive_ccd.h"
+#include "linear_solvers/preconditioners/deflated_block_jacobi.h"
 
 namespace mfem {
 
   template <typename Solver, typename SystemMatrix, typename Scalar, int DIM>
-  class EigenIterativeSolver : public LinearSolver<Scalar, DIM> {
+  class DeflatedSolver : public LinearSolver<Scalar, DIM> {
 
     typedef LinearSolver<Scalar, DIM> Base;
     // typedef Eigen::LaplacianPreconditioner<Scalar, DIM> InitialGuesser;
-    typedef Eigen::DualAscentPreconditioner<Scalar, DIM> InitialGuesser;
+    // typedef Eigen::DualAscentPreconditioner<Scalar, DIM> InitialGuesser;
 
   public:
 
-    EigenIterativeSolver(SimState<DIM>* state) 
-        : LinearSolver<Scalar,DIM>(state) {
+    DeflatedSolver(SimState<DIM>* state) : LinearSolver<Scalar,DIM>(state) {
       solver_.setMaxIterations(state->config_->max_iterative_solver_iters);
       solver_.setTolerance(state->config_->itr_tol);
       
@@ -50,24 +48,17 @@ namespace mfem {
       // std::cout << "ALPHA: " << alpha << std::endl;
       tmp_ = alpha * P * p; 
 
-  if (tmp_.hasNaN()) {
-    std::cout << " GUESS HAS NAN" << std::endl;
-  }
+      double res_pre = (system_matrix_.A()*tmp_ - system_matrix_.b()).norm();
+      solver_.preconditioner().guess(system_matrix_.b(), tmp_);
+      double res_post = (system_matrix_.A()*tmp_ - system_matrix_.b()).norm();
+      std::cout << "Residual before: " << res_pre << std::endl;
+      std::cout << "Residual after: " << res_post << std::endl;
 
-  if (system_matrix_.b().hasNaN()) {
-    std::cout << " RHS HAS NAN" << std::endl;
-  }
-
-  // if (system_matrix_.A().hasNaN()) {
-  //   std::cout << " A HAS NAN" << std::endl;
-  // }
       // tmp_.setZero();
       // guesser_.update_gradients();
       // tmp_ = guesser_.solve(system_matrix_.b());
       tmp_ = solver_.solveWithGuess(system_matrix_.b(), tmp_);
-  if (tmp_.hasNaN()) {
-    std::cout << " SOL HAS NAN" << std::endl;
-  }
+
       // TODO support integral types
       OptimizerData::get().add("Solver iters", double(solver_.iterations()));
       OptimizerData::get().add("Solver error", solver_.error());
@@ -82,8 +73,6 @@ namespace mfem {
     }
 
   private:
-
-    InitialGuesser guesser_;
     SystemMatrix system_matrix_;
     Solver solver_;
     Eigen::VectorXx<Scalar> tmp_;

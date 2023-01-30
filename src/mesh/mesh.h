@@ -61,7 +61,7 @@ namespace mfem {
         const std::vector<std::shared_ptr<MaterialModel>>& materials);
 
     Mesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
-        std::shared_ptr<MaterialModel> material);
+        std::shared_ptr<MaterialModel> material, int material_id = 0);
     
     virtual void init();
 

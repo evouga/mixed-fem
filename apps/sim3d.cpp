@@ -61,6 +61,22 @@ struct PolyscopTetApp : public PolyscopeApp<3> {
     static int substep = 0;
     static bool show_frames = true;
     ImGui::Checkbox("Show substeps",&show_substeps);
+    ImGui::SameLine();
+    if (ImGui::Button("Export")) {
+      for (int i = 0; i < vertices.size(); ++i) {
+        // std::stringstream ss;
+        // ss << "substep_" << i << ".obj";
+        // igl::writeOBJ(ss.str(), vertices[i], substep_T);
+        size_t start = 0;
+        for (int j = 0; j < srfs.size(); ++j) {
+          std::stringstream ss;
+          ss << "../output/mesh/mesh_" << j << "_substep_" << i << ".obj";
+          size_t sz = meshes[j]->vertices().rows();
+          igl::writeOBJ(ss.str(), vertices[i].block(start,0,sz,3), meshes[j]->F_);
+          start += sz;
+        }
+      }
+    }
 
     if(!show_substeps) return;
     ImGui::InputInt("Substep", &substep);
@@ -273,15 +289,25 @@ struct PolyscopTetApp : public PolyscopeApp<3> {
     material_config = std::make_shared<MaterialConfig>();
 
     // Add export meshes for heterogeneous materials
+    // std::cout << "MAT IDS: " << mesh->mat_ids_ << std::endl;
     if (mesh->mat_ids_.size() > 0) {
       int i = 0;
+      int n = mesh->mat_ids_.maxCoeff() + 1;
       while(true) {
-        MatrixXi T = igl::slice_mask(mesh->T_, mesh->mat_ids_.array() == i, 1);
+        MatrixXi T;
+        // If there is more than one material, then assume the first
+        // two are for the heterogenous mesh
+        if (i == 0 && n > 1) {
+          T = igl::slice_mask(mesh->T_, 
+              mesh->mat_ids_.array() == 0 || mesh->mat_ids_.array() == 1, 1);
+        } else {
+          T = igl::slice_mask(mesh->T_, mesh->mat_ids_.array() == i, 1);
+        } 
         if (T.size() == 0) break;
         // Expect the first material ID to be for the surface mesh
-        if (i == 0) {
-          T = mesh->T_;
-        }
+        // if (i == 0) {
+        //   T = mesh->T_;
+        // }
         MatrixXi F;
         igl::boundary_facets(T,F);
         het_faces.push_back(F);

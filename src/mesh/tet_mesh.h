@@ -15,8 +15,8 @@ namespace mfem {
     }
 
     TetrahedralMesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
-        std::shared_ptr<MaterialModel> material)
-        : Mesh(V,T,material) {
+        std::shared_ptr<MaterialModel> material, int material_id)
+        : Mesh(V,T,material,material_id) {
     }
 
     void volumes(Eigen::VectorXd& vol) override;

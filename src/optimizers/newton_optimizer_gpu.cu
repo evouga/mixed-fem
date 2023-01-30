@@ -65,11 +65,14 @@ void NewtonOptimizerGpu<DIM>::step() {
 
     // If collisions enabled, perform CCD
     if (state_.config_->enable_ccd) {
+      OptimizerData::get().timer.start("CCD");
+
       // Compute x2 = x + a * dx, and use this for CCD
       add_vec(state_.x_->value(), 1.0, state_.x_->delta(), x_);
       state_.x_->to_full(x_, x2_full_);
-      // alpha = ipc::accd_gpu<double,DIM>(x_full_, x2_full_,
-      //     state_.mesh_->collision_mesh(), state_.config_->dhat);
+      alpha = ipc::accd_gpu<double,DIM>(x_full_, x2_full_,
+          state_.mesh_->collision_mesh(), state_.config_->dhat);
+      OptimizerData::get().timer.stop("CCD");
     }
 
     auto energy_func = [&](double a) {
@@ -77,43 +80,19 @@ void NewtonOptimizerGpu<DIM>::step() {
       // x = x0 + a * p
       add_vec(state_.x_->value(), a, state_.x_->delta(), x_);
 
-
-      // std::cout << " DELTA " << std::endl;
-      // for (int i = 0; i < x_.size(); ++i) {
-      //   const auto& xval = state_.x_->value();
-      //   std::cout << "x_->value()[" << i << "] = " << xval[i] << std::endl;
-      // }
-
-
-      // std::cout << " DELTA " << std::endl;
-      // for (int i = 0; i < x_.size(); ++i) {
-      //   std::cout << "x_->delta()[" << i << "] = " << state_.x_->delta()[i] << std::endl;
-      // }
-
-      //       std::cout << " B4 " << std::endl;
-      // for (int i = 0; i < x_full_.size(); ++i) {
-      //   std::cout << "x_full_[" << i << "] = " << x_full_[i] << std::endl;
-      // }
-
       // From reduced coordinates to full (with dirichlet BCs)
       state_.x_->to_full(x_, x_full_);
-    
-      // xfull after
-      // std::cout << " AFTER " << std::endl;
-      // for (int i = 0; i < x_full_.size(); ++i) {
-      //   std::cout << "x_full_[" << i << "] = " << x_full_[i] << std::endl;
-      // }
 
       // Inertial energy
       double val = state_.x_->energy(x_full_);
-      std::cout << "Displacement energy: " << val << std::endl;
+      // std::cout << "Displacement energy: " << val << std::endl;
 
       for (size_t i = 0; i < state_.mixed_vars_.size(); ++i) {
         // si = s + a * p
         add_vec(state_.mixed_vars_[i]->value(), a,
                   state_.mixed_vars_[i]->delta(), tmps[i]);
-        std::cout << "  Mixed energy: " << 
-            h2 * state_.mixed_vars_[i]->energy(x_full_, tmps[i]) << std::endl;
+        // std::cout << "  Mixed energy: " << 
+        //     h2 * state_.mixed_vars_[i]->energy(x_full_, tmps[i]) << std::endl;
         val += h2 * state_.mixed_vars_[i]->energy(x_full_, tmps[i]);
       }
       return val;

@@ -98,7 +98,7 @@ namespace Eigen {
    
     protected:
       bool is_initialized_;
-      int max_iters_ = 15;
+      int max_iters_ = 1;
       mutable int iters_ = 0;
       mutable Scalar error_;
       Scalar tol_ = 0;

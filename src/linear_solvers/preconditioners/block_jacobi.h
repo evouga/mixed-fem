@@ -3,6 +3,7 @@
 #include "simulation_state.h"
 #include "EigenTypes.h"
 #include "variables/mixed_stretch.h"
+#include "utils/psd_fix.h"
 
 namespace Eigen {
 
@@ -53,6 +54,11 @@ namespace Eigen {
           const Matrix<Scalar, DIM, 1>& bi = b.template segment<DIM>(i*DIM);
           Ref<Matrix<Scalar, DIM, 1>> xi = x.template segment<DIM>(DIM*i);
           xi = Aii.inverse() * bi;
+          // Matrix<Scalar,DIM,DIM> A_inv; 
+          // Matrix<Scalar,DIM,1> evals; 
+          // mfem::psd_fix_invert(Aii, A_inv, evals, 1e-8);
+          // xi = A_inv * bi;
+
           //std::cout << "i : " << i << " bi: \n" << bi << std::endl;
           //std::cout << "i : " << i << " xi: \n" << xi << std::endl;
           //std::cout << "i : " << i << " Aii: \n" << Aii << std::endl;

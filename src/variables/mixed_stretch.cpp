@@ -200,8 +200,9 @@ void MixedStretch<DIM>::update_derivatives(double dt) {
     const VecN& si = s_.segment<N()>(N()*i);
     MatN H = h2 * mesh_->elements_[i].material_->hessian(si);
     VecN evals;
-    psd_fix_invert(H, Hinv_[i], evals, 1e-8); 
-    evals_(i) = h2 * evals(N()-1); // store maximum eigenvalue
+    // psd_fix_invert(H, Hinv_[i], evals, 1e-8); 
+    psd_fix_invert(H, Hinv_[i], evals, 0.0); 
+    evals_(i) = vol * h2 * evals(N()-1); // store maximum eigenvalue
     g_[i] = h2 * mesh_->elements_[i].material_->gradient(si);
     H_[i] = (1.0 / vol) * (Syminv() * H * Syminv());
     Hloc_[i] = vol * H;
