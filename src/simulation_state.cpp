@@ -246,6 +246,26 @@ bool SimState<DIM, STORAGE>::load(const nlohmann::json& args) {
         meshes.back()->skinning_data_ = sd;
       }
 
+      if (const auto& it = obj.find("partitions"); it != obj.end()) {
+        std::string partition_path = it->get<std::string>();
+
+        // Partition file is just |V| x 1 vector of partition ids
+        VectorXi partition_ids(meshes.back()->V_.rows());
+
+        // Open file for reading
+        std::ifstream ifs(partition_path);
+        if (!ifs.is_open()) {
+          std::cerr << "Could not open partition file: " << partition_path
+            << std::endl;
+          return false;
+        }
+        // Read each integer per line and store in partition_ids
+        for (int i = 0; i < partition_ids.size(); ++i) {
+          ifs >> partition_ids(i);
+        }
+        meshes.back()->partition_ids_ = partition_ids;
+      }
+
       // After loading and creating mesh, check if any boundary conditions
       // are specified.
       if (const auto& it = obj.find("boundary_condition"); it != obj.end()) {

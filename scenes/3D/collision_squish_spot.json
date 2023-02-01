@@ -28,10 +28,11 @@
       }
     },
     {
-      "path": "../models/mesh/spot.mesh",
+      "path": "../models/mesh/spot/spot.mesh",
       "offset": [-0.2, 2.0, 0.0],
       "material_index": 1,
-      "skinning_mesh": "../models/obj/spot_triangulated.obj"
+      "skinning_mesh": "../models/obj/spot_triangulated.obj",
+      "partitions": "../models/mesh/spot/metis_spot.mesh.npart.10"
     },
     {
       "path": "../models/mesh/cube_14.mesh",

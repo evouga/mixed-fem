@@ -25,7 +25,7 @@
       }
     },
     {
-      "path": "../models/mesh/beam.mesh",
+      "path": "../models/mesh/beams/beam.mesh",
       "offset": [-0.5, 1.2, 0.0],
       "material_index": 1,
       "transformation": [

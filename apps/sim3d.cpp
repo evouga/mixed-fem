@@ -123,6 +123,7 @@ struct PolyscopTetApp : public PolyscopeApp<3> {
       if (sim_mesh == nullptr) {
         std::cout << "creating sim mesh: " << vertices[substep].rows() << " " << substep_T.rows() << std::endl;
         sim_mesh = polyscope::registerTetMesh("sim_mesh", vertices[substep], substep_T);
+        sim_mesh->addVertexScalarQuantity("partition", mesh->partition_ids_);
       } else {
         sim_mesh->updateVertexPositions(vertices[substep]);
       }

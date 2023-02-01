@@ -6,26 +6,25 @@
   "time_integrator": "BDF1",
   "linear_solver": "cholmod",
   "enable_ccd": false,
-  "boundary_condition": "stretch",
-  "max_newton_iterations": 10,
+  "boundary_condition": "twist",
+  "max_newton_iterations": 1,
   "max_linesearch_iterations": 20,
+  "max_iterative_solver_iters": 100,
   "objects": [
     {
-      "path": "../models/mesh/beams/beam_5k.mesh",
+      "path0": "../models/mesh/beams/beam.mesh",
+      "path0": "../models/mesh/beams/beam_5k.mesh",
+      "path": "../models/mesh/beams/beam_20k.mesh",
       "offset": [0.0, 0.0, 0.0],
       "material_index": 0,
+      "partitions": "../models/mesh/beams/metis_beam_20k.npart.10",
       "boundary_condition": {
-        "type": "stretch",
+        "type": "hangends",
         "ratio": 0.01,
         "velocity": -0.1,
         "axis": 0
-      },
-      "external_force": {
-        "type": "area",
-        "is_body_force": true,
-        "force": [0.0, 0.0, 0.0]
       }
-   }
+    }
   ],
   "material_models": [
     {

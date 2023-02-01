@@ -35,42 +35,6 @@ namespace Eigen {
         is_initialized_ = true;
         state_ = state;
         MatrixXd& V = state_->mesh_->Vref_;
-        // VectorXi G, S;
-        // VectorXd D;
-        // igl::partition(V, num_partitions_, G, S, D);
-        // MatrixXd c(num_partitions_, DIM); // partition centroids
-        // c.setZero();
-        // std::vector<int> partition_sizes(num_partitions_, 0);
-        // // compute centroids
-        // for (int i = 0; i < V.rows(); ++i) {
-        //   c.row(G(i)) += V.row(i);
-        //   ++partition_sizes[G(i)];
-        // }
-
-        // // normalize centroids
-        // for (int i = 0; i < num_partitions_; ++i) {
-        //   c.row(i) /= partition_sizes[i];
-        // }
-
-        // for (int i = 0; i < num_partitions_; ++i) {
-        //   //Wi.resize(3*partition_sizes[i], 12);
-        //   W_[i].resize(V.size(), 12);
-        //   partition_vmap[i].resize(partition_sizes[i], 0);
-        // }
-
-        // // compute basis for each partition
-        // std::vector<int> partition_indices(num_partitions_, 0);
-
-        // for (int i = 0; i < V.rows(); ++i) {
-        //   int g = G(i);
-        //   // int ii = 3*partition_indices[g];
-        //   W_[g].template block<3,3>(3*i, 0) = Matrix3d::Identity()*(V(i,0) - c(g,0));
-        //   W_[g].template block<3,3>(3*i, 3) = Matrix3d::Identity()*(V(i,1) - c(g,1));
-        //   W_[g].template block<3,3>(3*i, 6) = Matrix3d::Identity()*(V(i,2) - c(g,2));
-        //   W_[g].template block<3,3>(3*i, 9) = Matrix3d::Identity();
-        //   // partition_vmap[g][partition_indices[g]] = i;
-        //   ++partition_indices[g];
-        // }
 
         // Cast state mesh to meshes datatype
         const auto& mesh = state_->mesh_;
@@ -81,38 +45,80 @@ namespace Eigen {
           exit(1);
         }
 
-        num_partitions_ = meshes->meshes().size();
-        MatrixXd c(num_partitions_, DIM);
-
-
         // initialize basis matrices for each partition
-        W_.resize(num_partitions_);
-        Winv_.resize(num_partitions_);
-        mu_.resize(num_partitions_);
-        la_.resize(num_partitions_);
+        num_partitions1_ = meshes-> meshes().size();
+        W1_.resize(num_partitions1_);
+        Winv1_.resize(num_partitions1_);
 
         size_t sz_V = 0;
-        for (int i = 0; i < num_partitions_; ++i) {
+        for (int i = 0; i < num_partitions1_; ++i) {
           const auto& mesh = meshes->meshes()[i];
-          W_[i].resize(meshes->Vref_.size(), 12);
+          W1_[i].resize(meshes->Vref_.size(), 12);
+          W1_[i].setZero();
 
           // Compute center of mass
           Matrix3d I;
           Vector3d c;
           double mass = 0;
-          std::cout << "Face size: " << mesh->F_.rows() << std::endl;
           sim::rigid_inertia_com(I, c, mass, mesh->Vref_, mesh->F_, 1.0);
           for (int j = 0; j < mesh->Vref_.rows(); ++j) {
-            W_[i].template block<3,3>(3*(j+sz_V), 0) = Matrix3d::Identity()*(mesh->Vref_(j,0) - c(0));
-            W_[i].template block<3,3>(3*(j+sz_V), 3) = Matrix3d::Identity()*(mesh->Vref_(j,1) - c(1));
-            W_[i].template block<3,3>(3*(j+sz_V), 6) = Matrix3d::Identity()*(mesh->Vref_(j,2) - c(2));
-            W_[i].template block<3,3>(3*(j+sz_V), 9) = Matrix3d::Identity();
+            W1_[i].template block<3,3>(3*(j+sz_V), 0) = Matrix3d::Identity()*(mesh->Vref_(j,0) - c(0));
+            W1_[i].template block<3,3>(3*(j+sz_V), 3) = Matrix3d::Identity()*(mesh->Vref_(j,1) - c(1));
+            W1_[i].template block<3,3>(3*(j+sz_V), 6) = Matrix3d::Identity()*(mesh->Vref_(j,2) - c(2));
+            W1_[i].template block<3,3>(3*(j+sz_V), 9) = Matrix3d::Identity();
           }
           std::cout << "c : " << c.transpose() << std::endl;
           sz_V += mesh->Vref_.rows();
         }
 
+        // Project out dirichlet BCs
+        for (int i = 0; i < W1_.size(); ++i) {
+          W1_[i] = state->mesh_->projection_matrix() * W1_[i];
+        }
+        std::cout << "num partitions 1" << std::endl;
 
+        //---------------------------------------------------------------------
+
+        num_partitions_ = mesh->partition_ids_.maxCoeff() + 1;
+        std::cout << "Num partitions: " << num_partitions_ << std::endl;
+        W_.resize(num_partitions_);
+        Winv_.resize(num_partitions_);
+
+        MatrixXd c(num_partitions_, DIM); // partition centroids
+        c.setZero();
+        const VectorXi& G = mesh->partition_ids_;
+        std::vector<int> partition_sizes(num_partitions_, 0);
+        // compute centroids
+        for (int i = 0; i < V.rows(); ++i) {
+          c.row(G(i)) += V.row(i);
+          ++partition_sizes[G(i)];
+        }
+
+        // normalize centroids
+        for (int i = 0; i < num_partitions_; ++i) {
+          c.row(i) /= partition_sizes[i];
+        }
+
+        for (int i = 0; i < num_partitions_; ++i) {
+          //Wi.resize(3*partition_sizes[i], 12);
+          W_[i].resize(V.size(), 12);
+          W_[i].setZero();
+          // partition_vmap[i].resize(partition_sizes[i], 0);
+        }
+
+        // compute basis for each partition
+        std::vector<int> partition_indices(num_partitions_, 0);
+
+        for (int i = 0; i < V.rows(); ++i) {
+          int g = G(i);
+          // int ii = 3*partition_indices[g];
+          W_[g].template block<3,3>(3*i, 0) = Matrix3d::Identity()*(V(i,0) - c(g,0));
+          W_[g].template block<3,3>(3*i, 3) = Matrix3d::Identity()*(V(i,1) - c(g,1));
+          W_[g].template block<3,3>(3*i, 6) = Matrix3d::Identity()*(V(i,2) - c(g,2));
+          W_[g].template block<3,3>(3*i, 9) = Matrix3d::Identity();
+          // partition_vmap[g][partition_indices[g]] = i;
+          ++partition_indices[g];
+        }
         // Project out dirichlet BCs
         for (int i = 0; i < W_.size(); ++i) {
           W_[i] = state->mesh_->projection_matrix() * W_[i];
@@ -129,12 +135,15 @@ namespace Eigen {
    
       DeflatedBlockJacobiPreconditioner& compute(const MatType& mat) {
         A_ = mat;
-        Q_.resize(num_partitions_);
         // Compute coarse space inverses
+        #pragma omp parallel for
         for (int i = 0; i < num_partitions_; ++i) {
           Matrix12 WKW = W_[i].transpose() * A_ * W_[i];
           Winv_[i] = WKW.inverse();
-          // Q_[i] = W_[i] * Winv_[i] * W_[i].transpose();
+        }
+        for (int i = 0; i < num_partitions1_; ++i) {
+          Matrix12 WKW = W1_[i].transpose() * A_ * W1_[i];
+          Winv1_[i] = WKW.inverse();
         }
         return *this;
       }
@@ -142,18 +151,22 @@ namespace Eigen {
       void guess(const Vector& f, Vector& x0) {
         Vector Au = A_ * x0;
 
+        // Solve at first level
+        for (int i =0; i < num_partitions1_; ++i) {
+          x0 += W1_[i] * (Winv1_[i] * (W1_[i].transpose() * (f - Au)));          
+          // Matrix12 WKW = W1_[i].transpose() * A_ * W1_[i];
+          // x0 += W1_[i] * (WKW.lu().solve((W1_[i].transpose() * (f - Au))));
+        }
+        // Update Au
+        Au = A_ * x0;
+
         // Solve for each partition
         for (int i = 0; i < num_partitions_; ++i) {
-          Vector12 b_i = W_[i].transpose() * Au;
-          Vector12 f_i = W_[i].transpose() * f;
-          Matrix12 WKW = W_[i].transpose() * A_ * W_[i];
-          // auto LU = WKW.lu();
-          // la_[i] = LU.solve(b_i);
-          // mu_[i] = LU.solve(f_i);
-          // x0 += W_[i] * (mu_[i] - la_[i]);
+          x0 += W_[i] * (Winv_[i] * (W_[i].transpose() * (f - Au)));
 
-          mu_[i] = Winv_[i] * (W_[i].transpose() * (f - Au));
-          // x0 += W_[i] * mu_[i];
+          // std::cout << "Affine residual: " << (Winv_[i] * (W_[i].transpose() * (f - Au))) << std::endl;
+          // x0 -= W_[i] * (Winv_[i] * (W_[i].transpose() * Au));
+          //x0 -= W_[i] * (Winv_[i] * (W_[i].transpose() * x0));
         }
       }
    
@@ -172,18 +185,14 @@ namespace Eigen {
           xi = Aii.inverse() * bi;
         }
 
-        Vector Ay = A_ * x;
+        // Vector Ay = A_ * x;
 
         // Apply deflation
         for (int i = 0; i < num_partitions_; ++i) {
           // x += W_[i] * (Winv_[i] * (W_[i].transpose() * (b - Ay)));
-
-          Vector12 Wr = W_[i].transpose() * b;
-          x += W_[i] * (Winv_[i] * Wr);
+          // std::cout << "Affine residual: " << (Winv_[i] * (W_[i].transpose() * (b - Ay))) << std::endl;
+          // x += W_[i] * (Winv_[i] * (W_[i].transpose() * b));
         }
-
-
-
       }
    
       template<typename Rhs>
@@ -203,8 +212,9 @@ namespace Eigen {
       int num_partitions_;
       std::vector<Matrix<Scalar,Dynamic,12>> W_; // per-partition basis
       std::vector<Matrix<Scalar,Dynamic,12>> Winv_; // per-partition basis
-      std::vector<Matrix<Scalar,12,1>> la_;
-      std::vector<Matrix<Scalar,12,1>> mu_;
-      std::vector<MatrixXd> Q_;
+
+      int num_partitions1_;
+      std::vector<Matrix<Scalar,Dynamic,12>> W1_; // per-partition basis
+      std::vector<Matrix<Scalar,Dynamic,12>> Winv1_; // per-partition basis
   };
 }

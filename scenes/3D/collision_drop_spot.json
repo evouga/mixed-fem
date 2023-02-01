@@ -25,7 +25,7 @@
       }
     },
     {
-      "path": "../models/mesh/spot.mesh",
+      "path": "../models/mesh/spot/spot.mesh",
       "offset": [-0.2, 2.0, 0.0],
       "material_index": 1,
       "skinning_mesh": "../models/obj/spot_triangulated.obj"

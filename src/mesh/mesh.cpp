@@ -17,7 +17,9 @@ Mesh::Mesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
     : V_(V), Vref_(V), Vinit_(V), T_(T), mat_ids_(material_ids) {
   assert(materials.size() > 0);
   material_ = materials[0];
-
+  partition_ids_.resize(V_.rows());
+  partition_ids_.setZero();
+  
   for (Eigen::Index i = 0; i < T_.rows(); ++i) {
     elements_.push_back(Element(materials[material_ids(i)]));
   }
@@ -33,6 +35,8 @@ Mesh::Mesh(const Eigen::MatrixXd& V, const Eigen::MatrixXi& T,
 
   mat_ids_.resize(T_.rows());
   mat_ids_.setConstant(material_id);
+  partition_ids_.resize(V_.rows());
+  partition_ids_.setZero();
 
   for (int i = 0; i < T_.rows(); ++i) {
     elements_.push_back(Element(material));

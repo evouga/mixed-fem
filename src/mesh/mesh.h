@@ -164,6 +164,7 @@ namespace mfem {
     Eigen::MatrixXi T_;
     Eigen::MatrixXi F_;
     Eigen::VectorXi mat_ids_;
+    Eigen::VectorXi partition_ids_; // for metis partitions
 
     SkinningData skinning_data_;
 

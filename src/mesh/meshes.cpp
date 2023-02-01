@@ -30,7 +30,10 @@ Meshes::Meshes(const std::vector<std::shared_ptr<Mesh>>& meshes)
   T_.resize(num_T, n);
   mat_ids_.resize(num_T);
   mat_ids_.setZero();
+  partition_ids_.resize(num_V);
+  partition_ids_.setZero();
 
+  int curr_partition = 0;
   size_t start_V = 0;
   size_t start_T = 0;
   for (size_t i = 0; i < meshes_.size(); ++i) {
@@ -45,6 +48,11 @@ Meshes::Meshes(const std::vector<std::shared_ptr<Mesh>>& meshes)
     if (meshes_[i]->mat_ids_.size() > 0) {
       mat_ids_.segment(start_T, sz_T) = meshes_[i]->mat_ids_;
     }
+    if (meshes_[i]->partition_ids_.size() > 0) {
+      partition_ids_.segment(start_V, sz_V) = 
+          (meshes_[i]->partition_ids_.array() + curr_partition);
+    }
+    curr_partition = partition_ids_.segment(start_V, sz_V).maxCoeff() + 1;
     start_V += sz_V;
     start_T += sz_T;
 
@@ -61,11 +69,11 @@ void Meshes::init() {
   }
   Mesh::init();
   // TODO copy starts... don't capture by reference
-  std::vector<size_t> starts(meshes_.size() + 1);
-  starts[0] = 0;
-  for (size_t i = 0; i < meshes_.size(); ++i) {
-    starts[i+1] = starts[i] + meshes_[i]->V_.rows();
-  }
+  // std::vector<size_t> starts(meshes_.size() + 1);
+  // starts[0] = 0;
+  // for (size_t i = 0; i < meshes_.size(); ++i) {
+  //   starts[i+1] = starts[i] + meshes_[i]->V_.rows();
+  // }
 
   // Disable self-collision
   //ipc_mesh_.can_collide = [starts](size_t a, size_t b)->bool {
