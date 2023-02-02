@@ -46,7 +46,9 @@ namespace Eigen {
       void _solve_impl(const Rhs& b, Dest& x) const {
 
         int N = b.size() / DIM;
-        x.resize(b.size());
+        if (x.size() != b.size()) {
+          x.resize(b.size());
+        }
 
         #pragma omp parallel for
         for (int i = 0; i < N; i++) {

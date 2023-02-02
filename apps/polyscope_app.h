@@ -287,6 +287,8 @@ namespace mfem {
             || config->solver_type == LinearSolverType::SOLVER_EIGEN_CG_IC
             || config->solver_type == LinearSolverType::SOLVER_EIGEN_CG_LAPLACIAN
             || config->solver_type == LinearSolverType::SOLVER_EIGEN_CG_BLOCK_JACOBI
+            || config->solver_type == LinearSolverType::SOLVER_PCR_BJ
+            || config->solver_type == LinearSolverType::SOLVER_PCR_BJ_ABD
             || config->solver_type == LinearSolverType::SOLVER_EIGEN_GS
             || config->solver_type == LinearSolverType::SOLVER_SUBSPACE
             || config->solver_type == LinearSolverType::SOLVER_ADMM

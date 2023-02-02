@@ -13,6 +13,7 @@
 #include <unsupported/Eigen/IterativeSolvers>
 #include "linear_solvers/ginkgo_solver.h"
 #include "linear_solvers/deflated_solver.h"
+#include "linear_solvers/pcr.h"
 
 #if defined(SIM_USE_CHOLMOD)
 #include <Eigen/CholmodSupport>
@@ -221,12 +222,36 @@ void LinearSolverFactory<DIM,STORAGE>::register_pd_solvers() {
         }
     );
 
-    // Affine Body Dynamics initialized PCG with ARAP preconditioner
+    // Affine Body Dynamics initialized PCG
     this->register_type(LinearSolverType::SOLVER_AFFINE_PCG, "affine-bj-pcg",
         [](SimState<DIM>* state)->std::unique_ptr<LinearSolver<Scalar, DIM>>
         {
         auto solver = std::make_unique<DeflatedSolver<
             ConjugateGradient<SpMat, Lower|Upper,
+            DeflatedBlockJacobiPreconditioner<Scalar,DIM>>,
+            SystemMatrixPD<Scalar>, Scalar, DIM>>(state);
+        solver->eigen_solver().preconditioner().init(state);
+        return solver;
+      });
+
+    // Affine Body Dynamics initialized PCR
+    this->register_type(LinearSolverType::SOLVER_PCR_BJ, "pcr-bj",
+        [](SimState<DIM>* state)->std::unique_ptr<LinearSolver<Scalar, DIM>>
+        {
+        auto solver = std::make_unique<EigenIterativeSolver<
+            ConjugateResidual<SpMat,
+                BlockJacobiPreconditioner<Scalar,DIM>>,
+                SystemMatrixPD<Scalar>, Scalar, DIM>>(state);
+        solver->eigen_solver().preconditioner().init(state);
+        return solver;
+      });
+
+    // Affine Body Dynamics initialized PCR
+    this->register_type(LinearSolverType::SOLVER_PCR_BJ_ABD, "pcr-bj-abd",
+        [](SimState<DIM>* state)->std::unique_ptr<LinearSolver<Scalar, DIM>>
+        {
+        auto solver = std::make_unique<DeflatedSolver<
+            ConjugateResidual<SpMat,
             DeflatedBlockJacobiPreconditioner<Scalar,DIM>>,
             SystemMatrixPD<Scalar>, Scalar, DIM>>(state);
         solver->eigen_solver().preconditioner().init(state);

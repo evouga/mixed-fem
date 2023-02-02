@@ -149,26 +149,26 @@ struct PolyscopeTriApp : public PolyscopeApp<2> {
     }
   }
 
-  // void write_obj(int step) override {
+  void write_obj(int step) override {
 
-  //   meshV = mesh->vertices();
+    meshV = mesh->vertices();
 
-  //   // If in 2D, pad the matrix
-  //   Eigen::MatrixXd tmp(meshV.rows(), 3);
-  //   tmp.setZero();
-  //   tmp.col(0) = meshV.col(0);
-  //   tmp.col(1) = meshV.col(1);
+    // If in 2D, pad the matrix
+    Eigen::MatrixXd tmp(meshV.rows(), 3);
+    tmp.setZero();
+    tmp.col(0) = meshV.col(0);
+    tmp.col(1) = meshV.col(1);
     
-  //   size_t start = 0;
-  //   for (size_t i = 0; i < srfs.size(); ++i) {
-  //     char buffer [50];
-  //     int n = sprintf(buffer, "../output/obj/tri_%ld_%04d.obj", i, step); 
-  //     buffer[n] = 0;
-  //     size_t sz = meshes[i]->vertices().rows();
-  //     igl::writeOBJ(std::string(buffer),tmp.block(start,0,sz,3),meshes[i]->T_);
-  //     start += sz;
-  //   }
-  // }
+    size_t start = 0;
+    // Write out each mesh
+    for (size_t i = 0; i  < srfs.size(); ++i) {
+      size_t sz = meshes[i]->vertices().rows();
+      std::string name = "../output/obj/tri2d_mesh_" + std::to_string(i)
+          + "_" + std::to_string(step) + ".obj";
+      igl::writeOBJ(name, tmp.block(start,0,sz,3), meshes[i]->T_);
+      start += sz;
+    }
+  }
 
   void init(const std::string& filename) {
 
