@@ -6,7 +6,6 @@
   "time_integrator": "BDF1",
   "linear_solver": "cholmod",
   "enable_ccd": false,
-  "boundary_condition": "twist",
   "max_newton_iterations": 1,
   "max_linesearch_iterations": 20,
   "max_iterative_solver_iters": 100,

@@ -8,6 +8,7 @@
   "enable_ccd": true,
   "dhat": 0.001,
   "kappa": 1e10,
+  "boundary_condition": "hangends",
   "max_newton_iterations": 30,
   "inertia_blend_factor": 1.0,
   "max_linesearch_iterations": 20,
