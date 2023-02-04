@@ -37,6 +37,8 @@ namespace mfem {
       // double h = state->x_->integrator()->dt();
       // double fac = h*h*(1.0 - state->config_->inertia_blend_factor);
 
+      std::cout << "SystemMatrixPD residual: " << (lhs_ * dx - rhs_).norm() << std::endl;
+
       state->x_->delta() = dx;// + fac * state->mesh_->external_force();
 ;
       for (auto& var : state->mixed_vars_) {

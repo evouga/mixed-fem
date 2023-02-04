@@ -102,15 +102,15 @@ void LinearSolverFactory<DIM,STORAGE>::register_pd_solvers() {
           Scalar, DIM>>(state);});
     #endif
 
-    // Affine Body Dynamics initialized PCG with ARAP preconditioner
-  //   register_type(SolverType::SOLVER_AFFINE_PCG, "affine-pcg",
-  //       [](std::shared_ptr<Mesh> mesh, std::shared_ptr<SimConfig> config)
-  //       ->std::unique_ptr<LinearSolver<Scalar, RowMajor>>
-  //       {return std::make_unique<AffinePCG<Scalar, RowMajor>>(mesh, config);});
+      // Affine Body Dynamics initialized PCG with ARAP preconditioner
+    //   register_type(SolverType::SOLVER_AFFINE_PCG, "affine-pcg",
+    //       [](std::shared_ptr<Mesh> mesh, std::shared_ptr<SimConfig> config)
+    //       ->std::unique_ptr<LinearSolver<Scalar, RowMajor>>
+    //       {return std::make_unique<AffinePCG<Scalar, RowMajor>>(mesh, config);});
 
     // Eigen Conjugate gradient with diagonal preconditioner
     using EIGEN_CG_DIAG = ConjugateGradient<SpMat, Lower|Upper>;
-    this->register_type(LinearSolverType::SOLVER_EIGEN_CG_DIAG, "eigen-pcg-diag",
+    this->register_type(LinearSolverType::SOLVER_EIGEN_CG_DIAG, "pcg-diag",
         [](SimState<DIM>* state)
         ->std::unique_ptr<LinearSolver<Scalar, DIM>>
         { 
@@ -123,7 +123,7 @@ void LinearSolverFactory<DIM,STORAGE>::register_pd_solvers() {
     // Eigen Conjugate gradient with incomplete cholesky preconditioner
     using SOLVER_EIGEN_CG_IC = ConjugateGradient<SpMat, Lower|Upper,
         IncompleteCholesky<Scalar>>;
-    this->register_type(LinearSolverType::SOLVER_EIGEN_CG_IC, "eigen-pcg-IC",
+    this->register_type(LinearSolverType::SOLVER_EIGEN_CG_IC, "pcg-IC",
         [](SimState<DIM>* state)
         ->std::unique_ptr<LinearSolver<Scalar, DIM>>
         { 
@@ -134,39 +134,38 @@ void LinearSolverFactory<DIM,STORAGE>::register_pd_solvers() {
     );
 
     // Eigen Conjugate gradient with arap preconditioner
-    using SOLVER_EIGEN_CG_ARAP = ConjugateGradient<SpMat, Lower|Upper,
-        LaplacianPreconditioner<Scalar,DIM>>;
-    this->register_type(LinearSolverType::SOLVER_EIGEN_CG_LAPLACIAN,
-        "eigen-pcg-laplacian",
-        [](SimState<DIM>* state)->std::unique_ptr<LinearSolver<Scalar, DIM>> { 
-          auto solver = std::make_unique<EigenIterativeSolver<
-              SOLVER_EIGEN_CG_ARAP,
-              SystemMatrixPD<Scalar>, Scalar, DIM>>(state);
-          solver->eigen_solver().preconditioner().init(state);
-          return solver;
-        }
-    );
+    // using SOLVER_EIGEN_CG_ARAP = ConjugateGradient<SpMat, Lower|Upper,
+    //     LaplacianPreconditioner<Scalar,DIM>>;
+    // this->register_type(LinearSolverType::SOLVER_EIGEN_CG_LAPLACIAN,
+    //     "eigen-pcg-laplacian",
+    //     [](SimState<DIM>* state)->std::unique_ptr<LinearSolver<Scalar, DIM>> { 
+    //       auto solver = std::make_unique<EigenIterativeSolver<
+    //           SOLVER_EIGEN_CG_ARAP,
+    //           SystemMatrixPD<Scalar>, Scalar, DIM>>(state);
+    //       solver->eigen_solver().preconditioner().init(state);
+    //       return solver;
+    //     }
+    // );
 
-  // Eigen Conjugate gradient with DA preconditioner
-    using SOLVER_EIGEN_CG_DUAL_ASCENT = ConjugateGradient<SpMat, Lower|Upper,
-        DualAscentPreconditioner<Scalar,DIM>>;
-    this->register_type(LinearSolverType::SOLVER_EIGEN_CG_DUAL_ASCENT,
-        "eigen-pcg-dualascent",
-        [](SimState<DIM>* state)->std::unique_ptr<LinearSolver<Scalar, DIM>> { 
-          auto solver = std::make_unique<EigenIterativeSolver<
-              SOLVER_EIGEN_CG_DUAL_ASCENT,
-              SystemMatrixPD<Scalar>, Scalar, DIM>>(state);
-          solver->eigen_solver().preconditioner().init(state);
-          return solver;
-        }
-    );
-
+    // Eigen Conjugate gradient with DA preconditioner
+    // using SOLVER_EIGEN_CG_DUAL_ASCENT = ConjugateGradient<SpMat, Lower|Upper,
+    //     DualAscentPreconditioner<Scalar,DIM>>;
+    // this->register_type(LinearSolverType::SOLVER_EIGEN_CG_DUAL_ASCENT,
+    //     "eigen-pcg-dualascent",
+    //     [](SimState<DIM>* state)->std::unique_ptr<LinearSolver<Scalar, DIM>> { 
+    //       auto solver = std::make_unique<EigenIterativeSolver<
+    //           SOLVER_EIGEN_CG_DUAL_ASCENT,
+    //           SystemMatrixPD<Scalar>, Scalar, DIM>>(state);
+    //       solver->eigen_solver().preconditioner().init(state);
+    //       return solver;
+    //     }
+    // );
 
     // Eigen Conjugate gradient with block jacobi preconditioner
     using SOLVER_EIGEN_CG_BLOCK_JACOBI = ConjugateGradient<SpMat, Lower|Upper,
         BlockJacobiPreconditioner<Scalar,DIM>>;
     this->register_type(LinearSolverType::SOLVER_EIGEN_CG_BLOCK_JACOBI,
-        "eigen-pcg-block_jacobi",
+        "pcg-bj",
         [](SimState<DIM>* state)->std::unique_ptr<LinearSolver<Scalar, DIM>> { 
           auto solver = std::make_unique<EigenIterativeSolver<
               SOLVER_EIGEN_CG_BLOCK_JACOBI,
@@ -182,7 +181,7 @@ void LinearSolverFactory<DIM,STORAGE>::register_pd_solvers() {
     using SOLVER_EIGEN_BICG_BLOCK_JACOBI = BiCGSTAB<SpMat,
         BlockJacobiPreconditioner<Scalar,DIM>>;
     this->register_type(LinearSolverType::SOLVER_EIGEN_BICG_BLOCK_JACOBI,
-        "eigen-pbicg-block_jacobi",
+        "pbicg-bj",
         [](SimState<DIM>* state)->std::unique_ptr<LinearSolver<Scalar, DIM>> { 
           auto solver = std::make_unique<EigenIterativeSolver<
               SOLVER_EIGEN_BICG_BLOCK_JACOBI,
@@ -192,15 +191,25 @@ void LinearSolverFactory<DIM,STORAGE>::register_pd_solvers() {
         }
     );
 
-  // using SOLVER_MINRES_ID = MINRES<SpMat,Lower|Upper,
-  //       BlockJacobiPreconditioner<Scalar,DIM>>;
-  using SOLVER_MINRES_ID = GMRES<SpMat,
-        BlockJacobiPreconditioner<Scalar,DIM>>;
-  this->register_type(LinearSolverType::SOLVER_MINRES_ID,
-      "minres",
+  // GMRES with block jacobi preconditioner
+  using SOLVER_GMRES = GMRES<SpMat,BlockJacobiPreconditioner<Scalar,DIM>>;
+  this->register_type(LinearSolverType::SOLVER_GMRES_BJ,
+      "gmres-bj",
       [](SimState<DIM>* state)->std::unique_ptr<LinearSolver<Scalar, DIM>> { 
         auto solver = std::make_unique<EigenIterativeSolver<
-            SOLVER_MINRES_ID,
+            SOLVER_GMRES, SystemMatrixPD<Scalar>, Scalar, DIM>>(state);
+        solver->eigen_solver().preconditioner().init(state);
+        return solver;
+      }
+  );
+
+  // MINRES with block jacobi preconditioner
+  using SOLVER_MINRES = MINRES<SpMat,Lower|Upper,
+      BlockJacobiPreconditioner<Scalar,DIM>>;
+  this->register_type(LinearSolverType::SOLVER_MINRES_ID,
+      "minres-bj",
+      [](SimState<DIM>* state)->std::unique_ptr<LinearSolver<Scalar, DIM>> { 
+        auto solver = std::make_unique<EigenIterativeSolver<SOLVER_MINRES,
             SystemMatrixPD<Scalar>, Scalar, DIM>>(state);
         solver->eigen_solver().preconditioner().init(state);
         return solver;
@@ -208,22 +217,23 @@ void LinearSolverFactory<DIM,STORAGE>::register_pd_solvers() {
   );
 
 
+
     // using EIGEN_GS = GaussSeidelPreconditioner<double>;
     // using EIGEN_GS = SSORPreconditioner<double>;
     // using EIGEN_GS = ConjugateGradient<SpMat, Lower|Upper,
         // SSORPreconditioner<Scalar>>;
-    using EIGEN_GS = GMRES<SpMat,
-        GaussSeidelPreconditioner<double>>;
-    this->register_type(LinearSolverType::SOLVER_EIGEN_GS, "cg-gauss_seidel",
-        [](SimState<DIM>* state)->std::unique_ptr<LinearSolver<Scalar, DIM>>
-        { 
-          return std::make_unique<EigenIterativeSolver<
-            EIGEN_GS, SystemMatrixPD<Scalar>, Scalar, DIM>>(state);
-        }
-    );
+    // using EIGEN_GS = GMRES<SpMat,
+    //     GaussSeidelPreconditioner<double>>;
+    // this->register_type(LinearSolverType::SOLVER_EIGEN_GS, "cg-gauss_seidel",
+    //     [](SimState<DIM>* state)->std::unique_ptr<LinearSolver<Scalar, DIM>>
+    //     { 
+    //       return std::make_unique<EigenIterativeSolver<
+    //         EIGEN_GS, SystemMatrixPD<Scalar>, Scalar, DIM>>(state);
+    //     }
+    // );
 
     // Affine Body Dynamics initialized PCG
-    this->register_type(LinearSolverType::SOLVER_AFFINE_PCG, "affine-bj-pcg",
+    this->register_type(LinearSolverType::SOLVER_AFFINE_PCG, "pcg-bj-abd",
         [](SimState<DIM>* state)->std::unique_ptr<LinearSolver<Scalar, DIM>>
         {
         auto solver = std::make_unique<DeflatedSolver<

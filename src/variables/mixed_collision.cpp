@@ -4,6 +4,7 @@
 #include "config.h"
 #include <unsupported/Eigen/SparseExtra>
 #include <ipc/barrier/barrier.hpp>
+#include "utils/psd_fix.h"
 
 using namespace Eigen;
 using namespace mfem;
@@ -37,12 +38,15 @@ double MixedCollision<DIM>::energy(VectorXd& x, VectorXd& d) {
   #pragma omp parallel for reduction( + : e )
   for (size_t i = 0; i < constraints.size(); ++i) {
     double di = constraints.distance(i);
-    //e += config_->kappa * ipc::barrier(di, config_->dhat) / h2;
     if (di <= 0.0) {
       e += std::numeric_limits<double>::infinity();
     } else {
+      // V1: SQRT
       e += config_->kappa 
           * ipc::barrier(di*di, config_->dhat*config_->dhat) / h2;
+      // V2: SQR
+      // e += config_->kappa 
+      //     * ipc::barrier(di, config_->dhat*config_->dhat) / h2;
     }
   }
   OptimizerData::get().timer.stop("energy", "MixedCollision");
@@ -69,6 +73,8 @@ double MixedCollision<DIM>::constraint_value(const VectorXd& x,
   MatrixXd V_srf = ipc_mesh.vertices(V);
   double dhat = config_->dhat;
 
+  double h2 = dt_*dt_;
+
   // Only need to evaluate constraint value for existing frames.
   // New frames are initialized such that the mixed distance
   // equals the nodal distance, so the lagrange multipliers are zero.
@@ -76,6 +82,9 @@ double MixedCollision<DIM>::constraint_value(const VectorXd& x,
   for (size_t i = 0; i < constraints_.size(); ++i) {
     // Make sure constraint is still valid
     double D = constraints_[i].compute_distance(V_srf, E, F,
+        // V2: SQUARED
+        // ipc::DistanceMode::SQUARED);
+        // V1: SQRT 
         ipc::DistanceMode::SQRT);
     if (D <= dhat || d(i) <= dhat) {
       double mollifier = 1.0;
@@ -144,26 +153,32 @@ void MixedCollision<DIM>::update(Eigen::VectorXd& x, double dt) {
     }
     // TODO should be doing dtype based on config
     D_(i) = constraints_[i].compute_distance(V_srf, E, F,
+        // V1: SQRT
         ipc::DistanceMode::SQRT);
+        // V2: SQUARED
+        // ipc::DistanceMode::SQUARED);
 
-    double mollifier = 1.0; // constrain mollifier 
-
-    Gx_[i] = constraints_[i].compute_distance_gradient(V_srf, E, F,
-        ipc::DistanceMode::SQRT);
     Gd_(i) = -1;
+    Gx_[i] = constraints_[i].compute_distance_gradient(V_srf, E, F,
+        // V1: SQRT
+        ipc::DistanceMode::SQRT);
+        // V2: SQUARED
+        // ipc::DistanceMode::SQUARED);
+    
+    // double mollifier = 1.0; // constrain mollifier 
     // If edge-edge mollifier is active, modify the jacobians
-    if (constraints_.constraint_mollifier(i, V_srf, E, mollifier)) {
-      ipc::VectorMax12d mollifier_grad =
-          constraints_.constraint_mollifier_gradient(i, V_srf, E);
-      // Gd_(i) *= mollifier;
-      // Gx_[i] = mollifier*Gx_[i] + (D_(i) - d_(i))*mollifier_grad;
-      //  std::cout << "HEY MOLLIFIER IS ON :)" << mollifier << std::endl;
-      //  if (mollifier <1e-4) {
-      //     std::cout << "\t Gradient:\n" << mollifier_grad << std::endl;
-      //     std::cout << "\t Gradient:2\n" << Gx_[i] << std::endl;
-      //  }
-    }
+    // if (constraints_.constraint_mollifier(i, V_srf, E, mollifier)) {
+    //   ipc::VectorMax12d mollifier_grad =
+    //       constraints_.constraint_mollifier_gradient(i, V_srf, E);
+    //   Gd_(i) *= mollifier;
+    //   Gx_[i] = mollifier*Gx_[i] + (D_(i) - d_(i))*mollifier_grad;
+    // }
   }
+
+  // std::cout << "MC: " << num_frames << std::endl;
+  // std::cout << "D: " << D_.transpose() << std::endl;
+  // std::cout << "d: " << d_.transpose() << std::endl;
+  // std::cout << "la: " << la_.transpose() << std::endl;
 
   if (num_frames > 0) {
     double ratio = d_.minCoeff() / D_.minCoeff();
@@ -215,10 +230,12 @@ void MixedCollision<DIM>::update_derivatives(const MatrixXd& V, double dt) {
  
   #pragma omp parallel for
   for (size_t i = 0; i < constraints_.size(); ++i) {
+    // V2: SQUARED
     // Mixed barrier energy gradients and hessians
-    //g_[i] = config_->kappa * ipc::barrier_gradient(d_(i), dhat);
-    //H_[i] = config_->kappa * ipc::barrier_hessian(d_(i), dhat);
+    // g_[i] = config_->kappa * ipc::barrier_gradient(d_(i), dhat_sqr);
+    // H_[i] = config_->kappa * ipc::barrier_hessian(d_(i), dhat_sqr);
 
+    // V1: SQRT
     double d2 = d_(i) * d_(i);
     double g = ipc::barrier_gradient(d2, dhat_sqr);
     // dphi(d^2)/d = 2d g(d^2)
@@ -232,6 +249,12 @@ void MixedCollision<DIM>::update_derivatives(const MatrixXd& V, double dt) {
 
     double Gd_inv_sqr = 1.0 / (Gd_(i) * Gd_(i));
     Aloc[i] = Gd_inv_sqr * Gx_[i] * H_(i) * Gx_[i].transpose();
+
+    // Using squared distanced hessian!
+    // ipc::MatrixMax12d distance_hess = la_(i) * constraints_[i].compute_distance_hessian(V, E, F);
+    // double tol = 0.0;
+    // psd_fix(distance_hess, tol); 
+    // Aloc[i] += distance_hess;
 
     // Gradient with respect to x variable
     gloc[i] = Gx_[i] * la_(i);
@@ -313,10 +336,9 @@ void MixedCollision<DIM>::solve(VectorXd& dx) {
   }
   delta_ = (D_ - d_ + Gdx_);
   la_ = H_.array() * delta_.array() + g_.array();
-  std::cout << "DIFF: " << (D_ - d_).norm() << std::endl;
+  // std::cout << "DIFF: " << (D_ - d_).norm() << std::endl;
   // Update lagrange multipliers
   // la_ = gl_.array() + (H_.array() * Gdx_.array());
-
   // // Compute mixed variable descent direction
   // delta_ = -(g_.array() + Gd_.array()*la_.array()) / H_.array();
   if (delta_.hasNaN()) {
@@ -344,9 +366,6 @@ void MixedCollision<DIM>::solve(VectorXd& dx) {
     if (dx.hasNaN()) {
       std::cout << "dx has NaN" << std::endl;
     }
-    // std::cout << "ITS PROBABLY THE PRECONDITIONER" << std::endl;l
-    // std::cout << "D_: " << D_ << std::endl;
-    // std::cout << "d_: " << d_ << std::endl;
     exit(1);
   }
   OptimizerData::get().timer.stop("solve", "MixedCollision");
@@ -421,6 +440,7 @@ void MixedCollision<DIM>::reset() {
   grad_.resize(0);
   delta_.resize(0);
   grad_x_.resize(0);
+  constraints_.clear();
 }
 
 template<int DIM>

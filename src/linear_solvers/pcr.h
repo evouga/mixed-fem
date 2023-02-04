@@ -63,6 +63,7 @@ void conjugate_residual(const MatrixType& mat, const Rhs& rhs, Dest& x,
     residual -= alpha * tmp;
 
     residualNorm2 = residual.squaredNorm();
+    residualNorm2 = (mat*x -rhs).squaredNorm();
     if(residualNorm2 < threshold)
       break;
 

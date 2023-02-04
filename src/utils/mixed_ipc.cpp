@@ -263,6 +263,7 @@ namespace ipc {
               } else {
                 // Otherwise initialize the mixed distance
                 // to the true distance and set lambda to 0.
+                // constraint.distance = distance_sqr;
                 constraint.distance = std::sqrt(distance_sqr);
                 constraint.lambda = 0.0;
               }
@@ -372,21 +373,24 @@ namespace ipc {
     // true distance is greater than dhat, but the mixed still hasn't caught
     // up. In such a case, we need to NOT remove these constraints, and add them
     // to the new constraint set.
-    for (const auto& constraint : ee_set) {
-      if (constraint.distance < dhat) {
-        new_constraints.ee_constraints.emplace_back(constraint);
-      }
-    }
-    for (const auto& constraint : ev_set) {
-      if (constraint.distance < dhat) {
-        new_constraints.ev_constraints.emplace_back(constraint);
-      }
-    }
-    for (const auto& constraint : fv_set) {
-      if (constraint.distance < dhat) {
-        new_constraints.fv_constraints.emplace_back(constraint);
-      }
-    }
+    //
+    // NOTE: adding this in MURDERS convergence.
+    //
+    // for (const auto& constraint : ee_set) {
+    //   if (constraint.distance < dhat) {
+    //     new_constraints.ee_constraints.emplace_back(constraint);
+    //   }
+    // }
+    // for (const auto& constraint : ev_set) {
+    //   if (constraint.distance < dhat) {
+    //     new_constraints.ev_constraints.emplace_back(constraint);
+    //   }
+    // }
+    // for (const auto& constraint : fv_set) {
+    //   if (constraint.distance < dhat) {
+    //     new_constraints.fv_constraints.emplace_back(constraint);
+    //   }
+    // }
     constraint_set = new_constraints;
   }
 }

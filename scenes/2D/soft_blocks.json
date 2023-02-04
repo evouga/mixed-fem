@@ -1,7 +1,6 @@
 {
   "dt": 0.0333,
-  "body_force": [0.0, -9.8, 0.0],
-  "print_timing": true,
+  "print_timing": false,
   "print_stats": true,
   "optimizer": "newton",
   "time_integrator": "BDF1",
@@ -9,9 +8,12 @@
   "enable_ccd": true,
   "dhat": 0.001,
   "kappa": 1e10,
-  "boundary_condition": "hang",
   "max_newton_iterations": 40,
   "max_linesearch_iterations": 20,
+  "initial_state0": {
+    "x_path": "../output/sim_x0_0035.dmat",
+    "v_path": "../output/sim_v_0035.dmat"
+  },
   "objects": [
     {
       "path": "../models/obj/square_xy_145.obj",

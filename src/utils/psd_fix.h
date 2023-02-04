@@ -32,4 +32,24 @@ namespace mfem {
     Ainv = es.eigenvectors().real() * eval_inv.asDiagonal()
       * es.eigenvectors().real().transpose();
   }
+
+  // Positive-definite fix a matrix 
+  template<typename Derived, typename Scalar>
+  void psd_fix(Eigen::MatrixBase<Derived>& A, Scalar tol=1e-6) {
+  
+
+    Eigen::SelfAdjointEigenSolver<Derived> es(A);
+    bool is_fixed = false;
+    auto evals = es.eigenvalues().real();
+
+    for (int i = 0; i < evals.size(); ++i) {
+      if (evals(i) < tol) {
+        evals(i) = tol;
+        is_fixed = true;
+      }
+    }
+
+    A = es.eigenvectors().real() * evals.asDiagonal()
+        * es.eigenvectors().real().transpose();
+  }
 }

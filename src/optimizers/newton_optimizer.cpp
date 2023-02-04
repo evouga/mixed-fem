@@ -58,7 +58,7 @@ void NewtonOptimizer<DIM>::step() {
           state_.mesh_->collision_candidates(),
           state_.config_->dhat);
       if (alpha < 1.0) 
-        alpha *= 0.9;
+        alpha *= 0.95;
       OptimizerData::get().add("ACCD ", alpha);
       OptimizerData::get().timer.stop("ACCD");
     }
