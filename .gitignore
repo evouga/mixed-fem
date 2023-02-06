@@ -48,3 +48,7 @@ tags
 *.exe
 *.out
 *.app
+
+.ipynb_checkpoints/
+# plots
+*.eps 

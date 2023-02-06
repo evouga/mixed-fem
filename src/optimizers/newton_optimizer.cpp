@@ -35,7 +35,7 @@ void NewtonOptimizer<DIM>::step() {
   // we may end up missing collisions
 
   do {
-    Base::callback(state_);
+    // Base::callback(state_);
 
     // Update gradient and hessian
     update_system();
@@ -58,7 +58,7 @@ void NewtonOptimizer<DIM>::step() {
           state_.mesh_->collision_candidates(),
           state_.config_->dhat);
       if (alpha < 1.0) 
-        alpha *= 0.95;
+        alpha *= 0.9;//0.95;
       OptimizerData::get().add("ACCD ", alpha);
       OptimizerData::get().timer.stop("ACCD");
     }
@@ -101,7 +101,7 @@ void NewtonOptimizer<DIM>::step() {
     OptimizerData::get().add("Decrement", grad_norm);
     OptimizerData::get().add("alpha ", alpha);
     ++i;
-    //Base::callback(state_);
+    Base::callback(state_);
 
   } while (i < state_.config_->outer_steps
       && grad_norm > state_.config_->newton_tol

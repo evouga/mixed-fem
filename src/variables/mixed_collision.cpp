@@ -445,11 +445,11 @@ void MixedCollision<DIM>::reset() {
 
 template<int DIM>
 void MixedCollision<DIM>::post_solve() {
-  d_.resize(0);
-  la_.resize(0);
-  Gx_.clear();
-  Gd_.resize(0);
-  constraints_.clear();
+  // d_.resize(0);
+  // la_.resize(0);
+  // Gx_.clear();
+  // Gd_.resize(0);
+  // constraints_.clear();
 }
 
 template class mfem::MixedCollision<3>; // 3D

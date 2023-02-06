@@ -28,11 +28,27 @@ std::vector<MatrixXi> frame_faces;
 polyscope::SurfaceMesh* frame_srf = nullptr; // collision frame mesh
 polyscope::CurveNetwork* frame_crv = nullptr; // collision frame mesh
 
+struct VectorData {
+  std::vector<MatrixXd> dx;
+  std::vector<MatrixXd> x_grad;
+  std::vector<MatrixXd> s_grad;
+  std::vector<MatrixXd> c_grad;
+
+  void clear() {
+    dx.clear();
+    x_grad.clear();
+    s_grad.clear();
+    c_grad.clear();
+  }
+} vector_data;
+
 struct PolyscopeTriApp : public PolyscopeApp<2> {
 
   virtual void simulation_step() {
     vertices.clear();
     frame_faces.clear();
+    vector_data.clear();
+    vertices.push_back(mesh->vertices());
 
     optimizer->step();
     meshV = mesh->vertices();
@@ -56,17 +72,42 @@ struct PolyscopeTriApp : public PolyscopeApp<2> {
 
     assert(vertices.size() == frame_faces.size());
     if (show_frames && frame_faces.size() > 0) {
-      substep = std::clamp(substep, 0, int(vertices.size()-1));
+      substep = std::clamp(substep, 0, int(frame_faces.size()-1));
 
-      // Update frame mesh
+      // if frame srf already exists, delete it
+      if (frame_srf) {
+        polyscope::removeStructure(frame_srf);
+      }
       frame_srf = polyscope::registerSurfaceMesh2D("frames", vertices[substep],
           frame_faces[substep]);
 
       // Update regular meshes
+      MatrixXd rhs;
+      if (vector_data.dx.size() > 0) {
+        rhs = vector_data.x_grad[substep];
+        rhs += vector_data.s_grad[substep];
+        rhs += vector_data.c_grad[substep];
+      }
+
       size_t start = 0;
       for (size_t i = 0; i < srfs.size(); ++i) {
         size_t sz = meshes[i]->vertices().rows();
         srfs[i]->updateVertexPositions2D(vertices[substep].block(start,0,sz,2));
+
+        // Add vector quantities
+        if (vector_data.dx.size() > 0) {
+          srfs[i]->addVertexVectorQuantity2D("rhs",
+              rhs.block(start,0,sz,2));
+          srfs[i]->addVertexVectorQuantity2D("dx",
+              vector_data.dx[substep].block(start,0,sz,2));
+          srfs[i]->addVertexVectorQuantity2D("x_grad",
+              vector_data.x_grad[substep].block(start,0,sz,2));
+          srfs[i]->addVertexVectorQuantity2D("s_grad",
+              vector_data.s_grad[substep].block(start,0,sz,2));
+          srfs[i]->addVertexVectorQuantity2D("c_grad",
+              vector_data.c_grad[substep].block(start,0,sz,2));
+        }
+
         start += sz;
       }
 
@@ -125,7 +166,40 @@ struct PolyscopeTriApp : public PolyscopeApp<2> {
   }
 
   void collision_callback(const SimState<2>& state) {
+    VectorXd dq = state.x_->delta();
+    dq = state.mesh_->projection_matrix().transpose() * dq;
+    MatrixXd dx = Map<MatrixXd>(dq.data(), state.mesh_->V_.cols(),
+        state.mesh_->V_.rows());
+    dx.transposeInPlace();
+    vector_data.dx.push_back(dx);
+
+    // Add x gradient to vector data
+    VectorXd x_grad = state.x_->rhs();
+    x_grad = state.mesh_->projection_matrix().transpose() * x_grad;
+    MatrixXd x_grad_mat = Map<MatrixXd>(x_grad.data(), state.mesh_->V_.cols(),
+        state.mesh_->V_.rows());
+    x_grad_mat.transposeInPlace();
+    vector_data.x_grad.push_back(x_grad_mat);
+
     for (size_t i = 0; i < state.mixed_vars_.size(); ++i) {
+      // Add rhs to vector data
+      VectorXd grad = state.mixed_vars_[i]->rhs();
+      grad = state.mesh_->projection_matrix().transpose() * grad;
+      MatrixXd grad_mat = Map<MatrixXd>(grad.data(), state.mesh_->V_.cols(),
+          state.mesh_->V_.rows());
+      grad_mat.transposeInPlace();
+      const MixedStretch<2>* s = dynamic_cast<const MixedStretch<2>*>(
+          state.mixed_vars_[i].get());
+      if (s) {
+        vector_data.s_grad.push_back(grad_mat);
+      }
+      const MixedCollision<2>* c = dynamic_cast<const MixedCollision<2>*>(
+          state.mixed_vars_[i].get());
+      if (c) {
+        vector_data.c_grad.push_back(grad_mat);
+      }
+
+      // Add collision frames
       if (add_collision_frames<MixedCollision<2>>(state,
           state.mixed_vars_[i].get())) {
         return;

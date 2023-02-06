@@ -1,5 +1,5 @@
 {
-  "dt": 0.0333,
+  "dt": 0.01,
   "print_timing": true,
   "print_stats": true,
   "optimizer": "newton",

@@ -1,30 +1,66 @@
 {
     "dt": 0.0333,
-    "body_force": [
-        0.0,
-        -9.8,
-        0.0
-    ],
     "print_timing": false,
-    "print_stats": false,
+    "print_stats": true,
     "optimizer": "newton",
     "time_integrator": "BDF2",
     "linear_solver": "cholmod",
     "enable_ccd": true,
-    "dhat": 0.002,
-    "kappa": 4000000000.0,
-    "max_newton_iterations": 120,
+    "dhat": 0.001,
+    "kappa": 10000000000.0,
+    "max_newton_iterations": 1500,
     "max_linesearch_iterations": 20,
-    "initial_state": {
-        "x_path": "../scenes/2D/data/diving_board/sim_x0_0001.dmat",
-        "v_path": "../scenes/2D/data/diving_board/sim_v_0001.dmat"
-    },
     "objects": [
         {
             "path": "../models/obj/square_xy_145.obj",
             "offset": [
-                -3.0,
-                18.0,
+                0.0,
+                5.0,
+                0.0
+            ],
+            "material_index": 0
+        },
+        {
+            "path": "../models/obj/square_xy_145.obj",
+            "offset": [
+                -1,
+                9.0,
+                0.0
+            ],
+            "material_index": 0
+        },
+        {
+            "path": "../models/obj/square_xy_145.obj",
+            "offset": [
+                2.0,
+                8.0,
+                0.0
+            ],
+            "material_index": 0
+        },
+        {
+            "path": "../models/obj/square_xy_145.obj",
+            "offset": [
+                1.0,
+                2.5,
+                0.0
+            ],
+            "material_index": 0
+        },
+        {
+            "path": "../models/obj/square_xy_145.obj",
+            "offset": [
+                -2.5,
+                2.1,
+                0.0
+            ],
+            "material_index": 0
+        },
+        {
+            "path": "../models/obj/square_xy_145.obj",
+            "offset": [
+                -2.9,
+                6.5,
                 0.0
             ],
             "material_index": 0
@@ -39,22 +75,37 @@
             "material_index": 1,
             "boundary_condition": {
                 "type": "hangends",
-                "ratio": 0.1,
-                "axis": 0
+                "ratio": 0.5,
+                "axis": 1
             }
+        },
+        {
+            "path": "../models/obj/box_wide_145_thin_xy.obj",
+            "offset": [
+                0.0,
+                10.0,
+                0.0
+            ],
+            "material_index": 2
         }
     ],
     "material_models": [
         {
             "youngs_modulus": 1000000.0,
-            "poissons_ratio": 0.42,
-            "density": 10000.0,
+            "poissons_ratio": 0.49,
+            "density": 1000.0,
+            "energy": "FixedCorot"
+        },
+        {
+            "youngs_modulus": 100000000.0,
+            "poissons_ratio": 0.45,
+            "density": 1000.0,
             "energy": "Stable-Neohookean"
         },
         {
-            "youngs_modulus": 4000000000.0,
+            "youngs_modulus": 10000000.0,
             "poissons_ratio": 0.45,
-            "density": 1000.0,
+            "density": 10000.0,
             "energy": "Stable-Neohookean"
         }
     ],
@@ -62,6 +113,5 @@
         "mixed-stretch",
         "mixed-collision"
     ],
-    "variables": [],
-    "iterative_solver_tolerance": 1e-08
+    "variables": []
 }
