@@ -416,7 +416,6 @@ void SimState<DIM, STORAGE>::load_params(const nlohmann::json& args) {
   read_and_assign(args, "dhat", config_->dhat);
   read_and_assign(args, "kappa", config_->kappa);
   read_and_assign(args, "timesteps", config_->timesteps);
-  read_and_assign(args, "inertia_blend_factor", config_->inertia_blend_factor);
   read_and_assign(args, "max_newton_iterations", config_->outer_steps);
   read_and_assign(args, "max_linesearch_iterations", config_->ls_iters);
   read_and_assign(args, "max_iterative_solver_iters",
@@ -424,6 +423,8 @@ void SimState<DIM, STORAGE>::load_params(const nlohmann::json& args) {
   read_and_assign(args, "iterative_solver_tolerance", config_->itr_tol);
   read_and_assign(args, "spd_jacobi_tolerance", config_->spd_jacobi_tol);
   read_and_assign(args, "spd_jacobi_sweeps", config_->spd_jacobi_sweeps);
+  read_and_assign(args, "itr_explicit_guess", config_->itr_explicit_guess);
+  read_and_assign(args, "itr_guess_ccd", config_->itr_guess_ccd);
 }
 
 template class mfem::SimState<3, STORAGE_THRUST>; // 3D

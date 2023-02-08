@@ -69,7 +69,7 @@ VectorXd Displacement<DIM>::gradient() {
   const auto& P = mesh_->projection_matrix();
   VectorXd xt = P.transpose()*x_ + b_;
   VectorXd diff = xt - integrator_->x_tilde() 
-      - (h*h*config_->inertia_blend_factor) * mesh_->external_force();
+      - (h*h) * mesh_->external_force();
 
   const auto& PM = mesh_->template mass_matrix<MatrixType::PROJECT_ROWS>();
   grad_ = PM * diff;

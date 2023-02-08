@@ -146,7 +146,11 @@ namespace mfem {
     double constraint_tol = 1e-2;
     bool enable_ccd = false;
     double dhat = 1e-2;
-    double inertia_blend_factor = 1.0;
+
+    bool itr_explicit_guess = true; // use explicit guess for iterative solver
+    bool itr_guess_ccd = true;      // use CCD on explicit guess
+    bool itr_abd_guess = true;      // use ABD on explicit guess
+    bool itr_save_residuals = false; // save residuals for iterative solver
 
     // update kappa and lambda if residual below this tolerance
     double update_zone_tol = 1e-1; 

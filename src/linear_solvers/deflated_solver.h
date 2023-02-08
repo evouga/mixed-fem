@@ -13,12 +13,29 @@ namespace mfem {
     // typedef Eigen::LaplacianPreconditioner<Scalar, DIM> InitialGuesser;
     // typedef Eigen::DualAscentPreconditioner<Scalar, DIM> InitialGuesser;
 
+    // SFINAE residual test
+    template <typename T>
+    class has_residual
+    {
+        typedef char one;
+        struct two { char x[2]; };
+
+        template <typename C> static one test( decltype(&C::getResiduals) ) ;
+        template <typename C> static two test(...);    
+
+    public:
+        enum { value = sizeof(test<T>(0)) == sizeof(char) };
+    };
+
   public:
 
     DeflatedSolver(SimState<DIM>* state) : LinearSolver<Scalar,DIM>(state) {
       solver_.setMaxIterations(state->config_->max_iterative_solver_iters);
       solver_.setTolerance(state->config_->itr_tol);
       
+      if constexpr (has_residual<Solver>::value) {
+        solver_.setSaveResiduals(state->config_->itr_save_residuals);
+      }
       // guesser_.init(state);
     }
 
@@ -29,25 +46,33 @@ namespace mfem {
       // tmp_ = solver_.solve(system_matrix_.b());
       // std::cout << "Solver will crash on non PD systems!" << std::endl;
 
-      double h = Base::state_->x_->integrator()->dt();
-      const auto& P = Base::state_->mesh_->projection_matrix();
-      // tmp_ = -(Base::state_->x_->value() - P*Base::state_->x_->integrator()->x_tilde()) 
-      // + h*h*P*Base::state_->mesh_->external_force();  
+      if (Base::state_->config_->itr_explicit_guess) {
 
-      // Get current x position as well as its explicit euler guess
-      Eigen::VectorXd x1 = Base::state_->x_->value();
-      Base::state_->x_->unproject(x1);
-      Eigen::VectorXd p =  -(x1 - Base::state_->x_->integrator()->x_tilde())
-          + h*h*Base::state_->mesh_->external_force();
+        double h = Base::state_->x_->integrator()->dt();
+        const auto& P = Base::state_->mesh_->projection_matrix();
+        // tmp_ = -(Base::state_->x_->value() - P*Base::state_->x_->integrator()->x_tilde()) 
+        // + h*h*P*Base::state_->mesh_->external_force();  
 
-      // Perform CCD on this explicit euler guess
-      ipc::Candidates candidates;
-      double alpha = ipc::additive_ccd<DIM>(x1, p,
-          Base::state_->mesh_->collision_mesh(), candidates,
-          Base::state_->config_->dhat);
-      // std::cout << "ALPHA: " << alpha << std::endl;
-      tmp_ = alpha * P * p; 
+        // Get current x position as well as its explicit euler guess
+        Eigen::VectorXd x1 = Base::state_->x_->value();
+        Base::state_->x_->unproject(x1);
+        Eigen::VectorXd p =  -(x1 - Base::state_->x_->integrator()->x_tilde())
+            + h*h*Base::state_->mesh_->external_force();
 
+        // Perform CCD on this explicit euler guess
+        double alpha = 1.0;
+
+        if (Base::state_->config_->itr_guess_ccd) {
+          ipc::Candidates candidates;
+          alpha = ipc::additive_ccd<DIM>(x1, p,
+              Base::state_->mesh_->collision_mesh(), candidates,
+              Base::state_->config_->dhat);
+        }
+        tmp_ = alpha * P * p; 
+      } else {
+        tmp_.resizeLike(system_matrix_.b());
+        tmp_.setZero();
+      }
       double res_pre = (system_matrix_.A()*tmp_ - system_matrix_.b()).norm();
       solver_.preconditioner().guess(system_matrix_.b(), tmp_);
       double res_post = (system_matrix_.A()*tmp_ - system_matrix_.b()).norm();
@@ -70,6 +95,14 @@ namespace mfem {
 
     Solver& eigen_solver() {
       return solver_;
+    }
+
+    std::vector<double> residuals() override {
+      if constexpr (has_residual<Solver>::value) {
+        return solver_.getResiduals();
+      } else {
+        return std::vector<double>();
+      }
     }
 
   private:

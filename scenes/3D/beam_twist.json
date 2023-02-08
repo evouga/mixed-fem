@@ -7,6 +7,7 @@
   "linear_solver": "cholmod",
   "enable_ccd": false,
   "max_newton_iterations": 1,
+  "explicit_guess": true,
   "max_linesearch_iterations": 20,
   "max_iterative_solver_iters": 15,
   "objects": [

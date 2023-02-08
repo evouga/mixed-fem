@@ -251,9 +251,6 @@ target_link_libraries(convergence mixed_fem_lib)
 add_executable(convergence_iterative apps/convergence_iterative.cpp )
 target_link_libraries(convergence_iterative mixed_fem_lib)
 
-add_executable(convergence_collision apps/convergence_collision.cpp)
-target_link_libraries(convergence_collision mixed_fem_lib)
-
 add_executable(sim2d apps/sim2d.cpp)
 target_link_libraries(sim2d PUBLIC mixed_fem_lib)
 

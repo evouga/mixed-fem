@@ -4,14 +4,17 @@
   "print_stats": true,
   "optimizer": "newton",
   "time_integrator": "BDF1",
-  "linear_solver": "cholmod",
+  "linear_solver": "pcr-bj-abd",
   "enable_ccd": true,
-  "itr_explicit_guess": false,
+  "explicit_guess": true,
   "dhat": 0.001,
   "kappa": 1e10,
-  "max_newton_iterations": 30,
-  "inertia_blend_factor": 1.0,
+  "max_newton_iterations": 1,
   "max_linesearch_iterations": 20,
+  "initial_state": {
+    "x_path": "../output/sim_x0_0017.dmat",
+    "v_path": "../output/sim_v_0017.dmat"
+  },
   "objects": [
     {
       "path": "../models/mesh/cube_14.mesh",

@@ -102,12 +102,6 @@ void LinearSolverFactory<DIM,STORAGE>::register_pd_solvers() {
           Scalar, DIM>>(state);});
     #endif
 
-      // Affine Body Dynamics initialized PCG with ARAP preconditioner
-    //   register_type(SolverType::SOLVER_AFFINE_PCG, "affine-pcg",
-    //       [](std::shared_ptr<Mesh> mesh, std::shared_ptr<SimConfig> config)
-    //       ->std::unique_ptr<LinearSolver<Scalar, RowMajor>>
-    //       {return std::make_unique<AffinePCG<Scalar, RowMajor>>(mesh, config);});
-
     // Eigen Conjugate gradient with diagonal preconditioner
     using EIGEN_CG_DIAG = ConjugateGradient<SpMat, Lower|Upper>;
     this->register_type(LinearSolverType::SOLVER_EIGEN_CG_DIAG, "pcg-diag",
@@ -162,7 +156,7 @@ void LinearSolverFactory<DIM,STORAGE>::register_pd_solvers() {
     // );
 
     // Eigen Conjugate gradient with block jacobi preconditioner
-    using SOLVER_EIGEN_CG_BLOCK_JACOBI = ConjugateGradient<SpMat, Lower|Upper,
+    using SOLVER_EIGEN_CG_BLOCK_JACOBI = ConjugateGradient2<SpMat, Lower|Upper,
         BlockJacobiPreconditioner<Scalar,DIM>>;
     this->register_type(LinearSolverType::SOLVER_EIGEN_CG_BLOCK_JACOBI,
         "pcg-bj",
@@ -237,7 +231,7 @@ void LinearSolverFactory<DIM,STORAGE>::register_pd_solvers() {
         [](SimState<DIM>* state)->std::unique_ptr<LinearSolver<Scalar, DIM>>
         {
         auto solver = std::make_unique<DeflatedSolver<
-            ConjugateGradient<SpMat, Lower|Upper,
+            ConjugateGradient2<SpMat, Lower|Upper,
             DeflatedBlockJacobiPreconditioner<Scalar,DIM>>,
             SystemMatrixPD<Scalar>, Scalar, DIM>>(state);
         solver->eigen_solver().preconditioner().init(state);

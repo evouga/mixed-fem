@@ -1,133 +1,171 @@
 #pragma once
 
-#include <EigenTypes.h>
-#include <Eigen/SVD>
-#include <Eigen/QR>
-#include <limits>
-#include "optimizers/optimizer_data.h"
+// Simple modification of Eigen PCG with support for recording relative
+// residuals during the solve.
 
-// Utility for workin with corotational
-//preconditioned conjugate gradient
-template<typename PreconditionerSolver, typename Scalar, int Ordering>
-inline int pcg(Eigen::VectorXx<Scalar>& x,
-    const Eigen::SparseMatrix<Scalar, Ordering> &A,
-    const Eigen::VectorXx<Scalar> &b, Eigen::VectorXx<Scalar> &r,
-    Eigen::VectorXx<Scalar> &z, Eigen::VectorXx<Scalar> &zm1, Eigen::VectorXx<Scalar> &p,
-    Eigen::VectorXx<Scalar> &Ap, PreconditionerSolver &pre,
-    Scalar tol = 1e-4, unsigned int num_itr = 500) {
+#include <Eigen/Core>
+#include <Eigen/IterativeLinearSolvers>
 
-    if(b.norm() < std::sqrt(std::numeric_limits<Scalar>::epsilon())) {
-      x.setZero();
-      return 0;
-    }
-  
-    r = b - A * x;
+namespace Eigen
+{
 
-   if (r.norm()/b.norm() < tol || (r.norm() < std::sqrt(std::numeric_limits<Scalar>::epsilon()))) {
-          return 0;
-    }
+  namespace internal
+  {
 
-  mfem::Timer t;
+    template <typename MatrixType, typename Rhs, typename Dest, typename Preconditioner>
+    void conjugate_gradient(const MatrixType &mat, const Rhs &rhs, Dest &x,
+                            const Preconditioner &precond, Index &iters,
+                            typename Dest::RealScalar &tol_error,
+                            bool save_residual_history,
+                            std::vector<double>& residual_history) {
+      using std::abs;
+      using std::sqrt;
+      typedef typename Dest::RealScalar RealScalar;
+      typedef typename Dest::Scalar Scalar;
+      typedef Matrix<Scalar, Dynamic, 1> VectorType;
 
-  //t.start("setup");
-  z = pre.solve(r);
-  zm1 = z;
-  p = z;
-  Scalar rsold = r.dot(z);
-  Scalar rsnew = 0.;
-  Scalar alpha = 0.;
-  Scalar beta = 0.;
-  //t.stop("setup");
+      RealScalar tol = tol_error;
+      Index maxIters = iters;
 
-  //Eigen::VectorXd zm1;
+      Index n = mat.cols();
 
-  for(unsigned int i=0; i<num_itr; ++i) {
-    //t.start("Ap");
-    Ap = A * p;
-    //t.stop("Ap");
-    //t.start("rsnew");
-    alpha = rsold / (p.dot(Ap));
-    x = x + alpha * p;
-    r = r - alpha * Ap;
-    rsnew = r.dot(r);
-    //t.stop("rsnew");
-    
-    if (r.norm()/b.norm() < tol || (r.norm() < std::numeric_limits<Scalar>::epsilon())) {
-          return i;
-    }
-    
-    zm1 = z;
-    //t.start("precon");
-    z = pre.solve(r);
-    //t.stop("precon");
-    
-    //t.start("end");
-    rsnew = r.dot(z-zm1);
+      VectorType residual = rhs - mat * x; // initial residual
 
-    //HS beta
-    //beta = rsnew/p.dot(z-zm1);
-    //PRP
-    beta = rsnew/rsold;
-
-    //FR
-    //beta =  r.dot(z)/rsold;
-
-    p = z + beta * p;
-    rsold = r.dot(z);
-    //t.stop("end");
-  }
-  // t.print();
-  return num_itr;
-}
-
-template<typename PreconditionerSolver, typename Scalar, int Ordering>
-inline int pcr(Eigen::VectorXx<Scalar>& x,
-    const Eigen::SparseMatrix<Scalar, Ordering> &A,
-    const Eigen::VectorXx<Scalar> &b, Eigen::VectorXx<Scalar> &r,
-    Eigen::VectorXx<Scalar> &z, Eigen::VectorXx<Scalar> &p,
-    Eigen::VectorXx<Scalar> &Ap, PreconditionerSolver &pre,
-    Scalar tol = 1e-4, unsigned int num_itr = 500) {
-
-      Eigen::VectorXd Ar;
-      Eigen::VectorXd Api;
-
-      r = b-A*x;
-
-      if (r.dot(r) < tol) {
-        return 0; 
+      RealScalar rhsNorm2 = rhs.squaredNorm();
+      if (rhsNorm2 == 0)
+      {
+        x.setZero();
+        iters = 0;
+        tol_error = 0;
+        return;
       }
-      r = pre.solve(r);
-      p = r;
-      Ap = A*p;
-      Ar = A*r;
+      const RealScalar considerAsZero = (std::numeric_limits<RealScalar>::min)();
+      RealScalar threshold = numext::maxi(RealScalar(tol * tol * rhsNorm2), considerAsZero);
+      RealScalar residualNorm2 = residual.squaredNorm();
+      if (residualNorm2 < threshold)
+      {
+        iters = 0;
+        tol_error = sqrt(residualNorm2 / rhsNorm2);
+        return;
+      }
 
-      Scalar rold;
+      VectorType p(n);
+      p = precond.solve(residual); // initial search direction
 
-      for(unsigned int i=0; i<num_itr; ++i) {
+      VectorType z(n), tmp(n);
+      RealScalar absNew = numext::real(residual.dot(p)); // the square of the absolute value of r scaled by invM
+      Index i = 0;
+      while (i < maxIters)
+      {
+        tmp.noalias() = mat * p; // the bottleneck of the algorithm
 
-        rold = r.dot(Ar);
+        Scalar alpha = absNew / p.dot(tmp); // the amount we travel on dir
+        x += alpha * p;                     // update solution
+        residual -= alpha * tmp;            // update residual
 
-        Api = pre.solve(Ap);
-        Scalar alpha = rold/(Ap.dot(Api));
+        residualNorm2 = residual.squaredNorm();
 
-        x = x + alpha*p;
-
-        
-        r = r - alpha*Api;
-        
-        if (std::fabs((b-A*x).norm() - tol*b.norm()) < 1e-8) {
-          return i;
+        if (save_residual_history)
+        {
+          double res_norm = (mat * x - rhs).norm();
+          residual_history.push_back(res_norm / sqrt(rhsNorm2));
         }
 
-        Ar = A*r;
-        Scalar beta = r.dot(Ar)/rold;
+        if (residualNorm2 < threshold)
+          break;
 
-        p = r + beta*p;
-        
-        Ap = Ar + beta*Ap;
+        z = precond.solve(residual); // approximately solve for "A z = residual"
 
+        RealScalar absOld = absNew;
+        absNew = numext::real(residual.dot(z)); // update the absolute value of r
+        RealScalar beta = absNew / absOld;      // calculate the Gram-Schmidt value used to create the new search direction
+        p = z + beta * p;                       // update search direction
+        i++;
       }
+      tol_error = sqrt(residualNorm2 / rhsNorm2);
+      iters = i;
+    }
 
-}
-//TODO pcg.tpp for tempalte implementation
-//#include <pcg.cpp>
+  }
+
+  template <typename MatrixType_, int UpLo_ = Lower,
+            typename Preconditioner_ = DiagonalPreconditioner<typename MatrixType_::Scalar>>
+  class ConjugateGradient2;
+
+  namespace internal
+  {
+
+    template <typename MatrixType_, int UpLo_, typename Preconditioner_>
+    struct traits<ConjugateGradient2<MatrixType_, UpLo_, Preconditioner_>>
+    {
+      typedef MatrixType_ MatrixType;
+      typedef Preconditioner_ Preconditioner;
+    };
+
+  }
+
+  template <typename MatrixType_, int UpLo_, typename Preconditioner_>
+  class ConjugateGradient2 : public IterativeSolverBase<ConjugateGradient2<MatrixType_, UpLo_, Preconditioner_>>
+  {
+    typedef IterativeSolverBase<ConjugateGradient2> Base;
+    using Base::m_error;
+    using Base::m_info;
+    using Base::m_isInitialized;
+    using Base::m_iterations;
+    using Base::matrix;
+
+  public:
+    typedef MatrixType_ MatrixType;
+    typedef typename MatrixType::Scalar Scalar;
+    typedef typename MatrixType::RealScalar RealScalar;
+    typedef Preconditioner_ Preconditioner;
+
+    enum
+    {
+      UpLo = UpLo_
+    };
+
+  public:
+    ConjugateGradient2() : Base() {}
+
+    template <typename MatrixDerived>
+    explicit ConjugateGradient2(const EigenBase<MatrixDerived> &A) : Base(A.derived()) {}
+
+    ~ConjugateGradient2() {}
+
+
+    void setSaveResiduals(bool save_residual) { m_save_residual = save_residual; }
+    const std::vector<double>& getResiduals() const { return m_residuals; }
+
+    template <typename Rhs, typename Dest>
+    void _solve_vector_with_guess_impl(const Rhs &b, Dest &x) const
+    {
+      typedef typename Base::MatrixWrapper MatrixWrapper;
+      typedef typename Base::ActualMatrixType ActualMatrixType;
+      enum
+      {
+        TransposeInput = (!MatrixWrapper::MatrixFree) && (UpLo == (Lower | Upper)) && (!MatrixType::IsRowMajor) && (!NumTraits<Scalar>::IsComplex)
+      };
+      typedef std::conditional_t<TransposeInput, Transpose<const ActualMatrixType>, ActualMatrixType const &> RowMajorWrapper;
+      //EIGEN_STATIC_ASSERT(internal::check_implication(MatrixWrapper::MatrixFree, UpLo == (Lower | Upper)), MATRIX_FREE_CONJUGATE_GRADIENT_IS_COMPATIBLE_WITH_UPPER_UNION_LOWER_MODE_ONLY);
+      typedef std::conditional_t<UpLo == (Lower | Upper),
+                                 RowMajorWrapper,
+                                 typename MatrixWrapper::template ConstSelfAdjointViewReturnType<UpLo>::Type>
+          SelfAdjointWrapper;
+
+      m_iterations = Base::maxIterations();
+      m_error = Base::m_tolerance;
+
+      RowMajorWrapper row_mat(matrix());
+      internal::conjugate_gradient(SelfAdjointWrapper(row_mat), b, x,
+          Base::m_preconditioner, m_iterations, m_error,
+          m_save_residual, m_residuals);
+      m_info = m_error <= Base::m_tolerance ? Success : NoConvergence;
+    }
+
+  protected:
+    bool m_save_residual;
+    mutable std::vector<double> m_residuals;
+  };
+
+} // end namespace Eigen

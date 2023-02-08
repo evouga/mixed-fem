@@ -10,7 +10,9 @@ namespace internal {
 template<typename MatrixType, typename Rhs, typename Dest, typename Preconditioner>
 void conjugate_residual(const MatrixType& mat, const Rhs& rhs, Dest& x,
                         const Preconditioner& precond, Index& iters,
-                        typename Dest::RealScalar& tol_error) {
+                        typename Dest::RealScalar& tol_error,
+                        bool save_residual_history,
+                        std::vector<double>& residual_history) {
   using std::sqrt;
   using std::abs;
   typedef typename Dest::RealScalar RealScalar;
@@ -63,7 +65,11 @@ void conjugate_residual(const MatrixType& mat, const Rhs& rhs, Dest& x,
     residual -= alpha * tmp;
 
     residualNorm2 = residual.squaredNorm();
-    residualNorm2 = (mat*x -rhs).squaredNorm();
+
+    if (save_residual_history) {
+      double res_norm = (mat*x -rhs).norm();
+      residual_history.push_back(res_norm/sqrt(rhsNorm2));
+    }
     if(residualNorm2 < threshold)
       break;
 
@@ -123,15 +129,22 @@ public:
 
   ~ConjugateResidual() {}
 
+  void setSaveResiduals(bool save_residual) { m_save_residual = save_residual; }
+  const std::vector<double>& getResiduals() const { return m_residuals; }
+
   template<typename Rhs,typename Dest>
   void _solve_vector_with_guess_impl(const Rhs& b, Dest& x) const
   {
     m_iterations = Base::maxIterations();
     m_error = Base::m_tolerance;
 
-    internal::conjugate_residual(matrix(), b, x, Base::m_preconditioner, m_iterations, m_error);
+    internal::conjugate_residual(matrix(), b, x, Base::m_preconditioner,
+        m_iterations, m_error, m_save_residual, m_residuals);
     m_info = m_error <= Base::m_tolerance ? Success : NoConvergence;
   }
+protected:
+  bool m_save_residual;
+  mutable std::vector<double> m_residuals;
 
 };
 

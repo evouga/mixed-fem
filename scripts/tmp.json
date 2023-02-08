@@ -1,117 +1,125 @@
 {
-    "dt": 0.0333,
-    "print_timing": false,
+    "dt": 0.01,
+    "print_timing": true,
     "print_stats": true,
     "optimizer": "newton",
-    "time_integrator": "BDF2",
-    "linear_solver": "cholmod",
+    "time_integrator": "BDF1",
+    "linear_solver": "pcr-bj-abd",
     "enable_ccd": true,
-    "dhat": 0.001,
+    "dhat": 0.00025,
     "kappa": 10000000000.0,
-    "max_newton_iterations": 1500,
+    "max_newton_iterations": 1,
     "max_linesearch_iterations": 20,
+    "initial_state": {
+        "x_path": "../scenes/data/dragon_x0_0096.dmat",
+        "v_path": "../scenes/data/dragon_v_0096.dmat"
+    },
     "objects": [
         {
-            "path": "../models/obj/square_xy_145.obj",
+            "path": "../models/mesh/press/press_base.mesh",
+            "skinning_mesh": "../models/mesh/press/press_base.obj",
             "offset": [
                 0.0,
-                5.0,
+                0.0,
                 0.0
             ],
-            "material_index": 0
+            "material_index": 0,
+            "normalize": false,
+            "boundary_condition": {
+                "type": "hangends",
+                "ratio": 0.9,
+                "axis": 1
+            }
         },
         {
-            "path": "../models/obj/square_xy_145.obj",
+            "path": "../models/mesh/press/press_cage.mesh",
+            "skinning_mesh": "../models/mesh/press/press_cage.obj",
             "offset": [
-                -1,
-                9.0,
+                0.0,
+                0.5,
                 0.0
             ],
-            "material_index": 0
+            "material_index": 0,
+            "normalize": false,
+            "boundary_condition": {
+                "type": "hangends",
+                "ratio": 0.9,
+                "axis": 1
+            }
         },
         {
-            "path": "../models/obj/square_xy_145.obj",
+            "path": "../models/mesh/press/press_ram.mesh",
+            "skinning_mesh": "../models/mesh/press/press_ram.obj",
             "offset": [
-                2.0,
-                8.0,
+                0.0,
+                0.5,
                 0.0
             ],
-            "material_index": 0
+            "material_index": 2,
+            "normalize": false,
+            "external_force": {
+                "type": "press",
+                "force": [
+                    0.0,
+                    -10.0,
+                    0.0
+                ],
+                "axis": 1,
+                "ratio": 0.3,
+                "max_force": 1000,
+                "target_velocity": -0.1,
+                "max_displacement": 0.5,
+                "pause_duration": 0.5,
+                "flip": true
+            }
         },
         {
-            "path": "../models/obj/square_xy_145.obj",
-            "offset": [
-                1.0,
-                2.5,
-                0.0
-            ],
-            "material_index": 0
-        },
-        {
-            "path": "../models/obj/square_xy_145.obj",
-            "offset": [
-                -2.5,
-                2.1,
-                0.0
-            ],
-            "material_index": 0
-        },
-        {
-            "path": "../models/obj/square_xy_145.obj",
-            "offset": [
-                -2.9,
-                6.5,
-                0.0
-            ],
-            "material_index": 0
-        },
-        {
-            "path": "../models/obj/box_wide_145_thin_xy.obj",
+            "path": "../models/mesh/dragon.mesh",
             "offset": [
                 0.0,
                 0.0,
                 0.0
             ],
             "material_index": 1,
-            "boundary_condition": {
-                "type": "hangends",
-                "ratio": 0.5,
-                "axis": 1
-            }
-        },
-        {
-            "path": "../models/obj/box_wide_145_thin_xy.obj",
-            "offset": [
-                0.0,
-                10.0,
-                0.0
-            ],
-            "material_index": 2
+            "normalize": false,
+            "transformation": [
+                2.5,
+                0,
+                0,
+                0,
+                2.5,
+                0,
+                0,
+                0,
+                2.5
+            ]
         }
     ],
     "material_models": [
         {
-            "youngs_modulus": 1000000.0,
-            "poissons_ratio": 0.49,
+            "youngs_modulus": 1000000000.0,
+            "poissons_ratio": 0.45,
             "density": 1000.0,
             "energy": "FixedCorot"
         },
         {
-            "youngs_modulus": 100000000.0,
+            "youngs_modulus": 10000.0,
             "poissons_ratio": 0.45,
             "density": 1000.0,
-            "energy": "Stable-Neohookean"
+            "energy": "FixedCorot"
         },
         {
-            "youngs_modulus": 10000000.0,
+            "youngs_modulus": 1000000000.0,
             "poissons_ratio": 0.45,
-            "density": 10000.0,
-            "energy": "Stable-Neohookean"
+            "density": 4000.0,
+            "energy": "FixedCorot"
         }
     ],
     "mixed_variables": [
         "mixed-stretch",
         "mixed-collision"
     ],
-    "variables": []
+    "variables": [],
+    "itr_explicit_guess": true,
+    "itr_guess_ccd": false
 }

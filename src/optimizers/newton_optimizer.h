@@ -27,6 +27,11 @@ namespace mfem {
     void step() override;
     void reset() override;
 
+    // Get the linear solver instance
+    LinearSolver<double, DIM>* linear_solver() {
+      return linear_solver_.get();
+    }
+
   private:
 
     using Base::state_;

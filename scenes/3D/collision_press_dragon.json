@@ -10,9 +10,9 @@
   "kappa": 1e10,
   "max_newton_iterations": 5,
   "max_linesearch_iterations": 20,
-  "initial_state0": {
-    "x_path": "../output/sim_x0_0029.dmat",
-    "v_path": "../output/sim_v_0029.dmat"
+  "initial_state": {
+    "x_path": "../scenes/data/dragon_x0_0096.dmat",
+    "v_path": "../scenes/data/dragon_v_0096.dmat"
   },
   "objects": [
     {
