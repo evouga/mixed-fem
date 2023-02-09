@@ -5,6 +5,7 @@
 #include "variables/stretch.h"
 #include "variables/collision.h"
 #include "variables/friction.h"
+#include "variables/mixed_friction.h"
 #include "variables/displacement_gpu.h"
 #include "variables/mixed_collision_gpu.h"
 #include "mesh/mesh.h"
@@ -27,7 +28,14 @@ MixedVariableFactory<DIM,STORAGE>::MixedVariableFactory() {
         MixedCollision<DIM>::name(),
         [](std::shared_ptr<Mesh> mesh, std::shared_ptr<SimConfig> config)
         ->std::unique_ptr<MixedVariable<DIM>>
-        {return std::make_unique<MixedCollision<DIM>>(mesh, config);}); 
+        {return std::make_unique<MixedCollision<DIM>>(mesh, config);});
+
+    // IPC mixed friction
+    this->register_type(VariableType::VAR_MIXED_FRICTION,
+        MixedFriction<DIM>::name(),
+        [](std::shared_ptr<Mesh> mesh, std::shared_ptr<SimConfig> config)
+        ->std::unique_ptr<MixedVariable<DIM>>
+        {return std::make_unique<MixedFriction<DIM>>(mesh, config);});
   }
   // GPU versions only supported in 3D
   if constexpr (DIM == 3) {

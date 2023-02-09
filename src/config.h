@@ -44,7 +44,8 @@ namespace mfem {
     VAR_FRICTION,
     VAR_MIXED_STRETCH,
     VAR_MIXED_STRETCH_GPU,
-    VAR_MIXED_COLLISION
+    VAR_MIXED_COLLISION,
+    VAR_MIXED_FRICTION
   };
 
   enum OptimizerType {

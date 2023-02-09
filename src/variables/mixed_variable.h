@@ -23,8 +23,7 @@ namespace mfem {
     // Evaluate the energy associated with the variable
     // x - Nodal displacements 
     // y - Mixed variable
-    virtual double energy(VectorType& x,
-        VectorType& y) = 0;
+    virtual double energy(VectorType& x, VectorType& y) = 0;
 
     // Evaluate the energy associated with the mixed variable constraint
     // x - Nodal displacements 
@@ -64,9 +63,13 @@ namespace mfem {
     // Matrix vector product with hessian of variable and a vector, x
     // Output written to "out" vector
     virtual void product_jacobian_x(const Eigen::VectorXd& x,
-        Eigen::Ref<Eigen::VectorXd> out, bool transposed) const = 0;
+        Eigen::Ref<Eigen::VectorXd> out, bool transposed) const {
+      std::cout << "product_jacobian_x unimplemented!" << std::endl;
+    }
     virtual void product_jacobian_mixed(const Eigen::VectorXd& x,
-        Eigen::Ref<Eigen::VectorXd> out) const = 0;
+        Eigen::Ref<Eigen::VectorXd> out) const {
+      std::cout << "product_jacobian_mixed unimplemented!" << std::endl;
+    }
     virtual void product_hessian_inv(const Eigen::VectorXd& x,
         Eigen::Ref<Eigen::VectorXd> out) const {
       std::cout << "product_hessian_inv unimplemented!" << std::endl;
