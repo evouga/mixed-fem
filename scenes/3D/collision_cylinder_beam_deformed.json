@@ -11,10 +11,10 @@
   "max_newton_iterations": 5,
   "max_linesearch_iterations": 20,
   "max_iterative_solver_iters": 100,
-  "timesteps":23,
+  "timesteps":27,
   "initial_state": {
-    "x_path": "../scenes/data/beam_cylinder_x0_0024.dmat",
-    "v_path": "../scenes/data/beam_cylinder_v_0024.dmat"
+    "x_path": "../scenes/data/beam_cylinder_x0_0017.dmat",
+    "v_path": "../scenes/data/beam_cylinder_v_0017.dmat"
   },
   "objects": [
     {
@@ -33,7 +33,7 @@
     {
       "path": "../models/mesh/beams/beam_20k.mesh",
       "offset": [0, 1.0, 0.0],
-      "partitions0": "../models/mesh/beams/metis_beam_20k.npart.50",
+      "partitions0": "../models/mesh/beams/metis_beam_20k.npart.10",
       "material_index": 1
     }
   ],

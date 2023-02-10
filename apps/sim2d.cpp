@@ -6,8 +6,7 @@
 
 // libigl
 #include <igl/IO>
-#include <igl/remove_unreferenced.h>
-#include <igl/per_face_normals.h>
+#include <igl/unique.h>
 
 #include <sstream>
 #include <fstream>
@@ -27,9 +26,12 @@ std::vector<MatrixXd> vertices;
 std::vector<MatrixXi> frame_faces;
 polyscope::SurfaceMesh* frame_srf = nullptr; // collision frame mesh
 polyscope::CurveNetwork* frame_crv = nullptr; // collision frame mesh
+VectorXd is_boundary_vertex;
 
 struct VectorData {
   std::vector<MatrixXd> dx;
+  std::vector<MatrixXd> rhs;
+  std::vector<MatrixXd> rhs_scaled;
   std::vector<MatrixXd> x_grad;
   std::vector<MatrixXd> s_grad;
   std::vector<MatrixXd> c_grad;
@@ -39,6 +41,8 @@ struct VectorData {
     x_grad.clear();
     s_grad.clear();
     c_grad.clear();
+    rhs.clear();
+    rhs_scaled.clear();
   }
 } vector_data;
 
@@ -81,14 +85,6 @@ struct PolyscopeTriApp : public PolyscopeApp<2> {
       frame_srf = polyscope::registerSurfaceMesh2D("frames", vertices[substep],
           frame_faces[substep]);
 
-      // Update regular meshes
-      MatrixXd rhs;
-      if (vector_data.dx.size() > 0) {
-        rhs = vector_data.x_grad[substep];
-        rhs += vector_data.s_grad[substep];
-        rhs += vector_data.c_grad[substep];
-      }
-
       size_t start = 0;
       for (size_t i = 0; i < srfs.size(); ++i) {
         size_t sz = meshes[i]->vertices().rows();
@@ -97,20 +93,63 @@ struct PolyscopeTriApp : public PolyscopeApp<2> {
         // Add vector quantities
         if (vector_data.dx.size() > 0) {
           srfs[i]->addVertexVectorQuantity2D("rhs",
-              rhs.block(start,0,sz,2));
+              vector_data.rhs[substep].block(start,0,sz,2));     
+          srfs[i]->addVertexVectorQuantity2D("rhs_scaled",
+              vector_data.rhs_scaled[substep].block(start,0,sz,2));     
           srfs[i]->addVertexVectorQuantity2D("dx",
               vector_data.dx[substep].block(start,0,sz,2));
-          srfs[i]->addVertexVectorQuantity2D("x_grad",
-              vector_data.x_grad[substep].block(start,0,sz,2));
-          srfs[i]->addVertexVectorQuantity2D("s_grad",
-              vector_data.s_grad[substep].block(start,0,sz,2));
+          // srfs[i]->addVertexVectorQuantity2D("x_grad",
+          //     vector_data.x_grad[substep].block(start,0,sz,2));
+          // srfs[i]->addVertexVectorQuantity2D("s_grad",
+          //     vector_data.s_grad[substep].block(start,0,sz,2));
           srfs[i]->addVertexVectorQuantity2D("c_grad",
               vector_data.c_grad[substep].block(start,0,sz,2));
-        }
 
+          // Add angle betwee rhs and dx
+          MatrixXd rhs_i = vector_data.rhs[substep].block(start,0,sz,2)
+              .rowwise().normalized();
+
+          // Zero out rhs entries for entries whose c_grad is zero
+          // for (int j = 0; j < rhs_i.rows(); ++j) {
+          //   if (vector_data.c_grad[substep](j,0) == 0 &&
+          //       vector_data.c_grad[substep](j,1) == 0) {
+          //     rhs_i.row(j) = Vector2d::Zero();
+          //   }
+          // }
+          // Zo
+          Map<MatrixXd> rhs_s_mat = Map<MatrixXd>(
+            vector_data.rhs_scaled[substep].data(),
+            vector_data.rhs_scaled[substep].rows(), 2);
+
+          MatrixXd dx_i = vector_data.dx[substep].block(start,0,sz,2)
+              .rowwise().normalized();
+          VectorXd angles = (rhs_i.array() * dx_i.array()).rowwise().sum();
+          srfs[i]->addVertexScalarQuantity("dx_rhs_angle", angles);
+
+          // Remap angles from [-1, 1] to [2, 1]
+          // angles = (-angles.array() + 1) / 2 + 1;
+          // angles = (-angles.array() + 1) / 2; // [-1,1] -> [1, 0]
+          angles = -((angles.array() + 1) / 2).log()*2; // [-1,1] -> [inf, 0]
+
+          // Scale angles by magnitude of dx
+          VectorXd dx_mag = vector_data.dx[substep].block(start,0,sz,2)
+              .rowwise().norm();
+          // dx_mag = is_boundary_vertex.segment(start,sz).array() * dx_mag.array();
+          
+          MatrixXd rhs_c = vector_data.c_grad[substep].block(start,0,sz,2);
+          // dx_mag = ((rhs_c).col(0).array() == 0 && (rhs_c).col(1).array() == 0).select(0, dx_mag);
+
+          angles = angles.array() * dx_mag.array();
+          srfs[i]->addVertexScalarQuantity("criteria", angles)->setMapRange({0,1e-1});
+
+          // Scale by rhs_scaled magnitude as well
+          // VectorXd rhs_mag = rhs_s_mat.block(start,0,sz,2).rowwise().norm();
+          VectorXd rhs_mag = vector_data.rhs[substep].block(start,0,sz,2).rowwise().norm();
+          angles = angles.array() * rhs_mag.array();
+          srfs[i]->addVertexScalarQuantity("criteria_scaled", angles)->setMapRange({0,1e-1});
+        }
         start += sz;
       }
-
     } else if (frame_srf) {
       frame_srf->setEnabled(false);
     }
@@ -166,6 +205,36 @@ struct PolyscopeTriApp : public PolyscopeApp<2> {
   }
 
   void collision_callback(const SimState<2>& state) {
+    // Add LHS and RHS from each variable
+    SparseMatrixdRowMajor A = state.x_->lhs();
+    VectorXd b = state.x_->rhs();
+    for (auto& var : state.mixed_vars_) {
+      A += var->lhs();
+      b += var->rhs();
+    }
+    VectorXd bs = A.diagonal().cwiseInverse().asDiagonal() * b;
+
+    #pragma omp parallel for
+    for (int i = 0; i < A.rows()/2; ++i) {
+      Matrix<double,2,2> Aii = A.template block(i*2,i*2, 2,2);
+      const Matrix<double, 2, 1>& bi = b.template segment<2>(i*2);
+      Ref<Matrix<double, 2, 1>> xi = bs.template segment<2>(2*i);
+      xi = Aii.inverse() * bi;
+    }
+
+    bs = state.mesh_->projection_matrix().transpose() * bs;
+    b = state.mesh_->projection_matrix().transpose() * b;
+
+    MatrixXd b_mat = Map<MatrixXd>(b.data(), state.mesh_->V_.cols(),
+        state.mesh_->V_.rows());
+    b_mat.transposeInPlace();
+    vector_data.rhs.push_back(b_mat);
+
+    MatrixXd bs_mat = Map<MatrixXd>(bs.data(), state.mesh_->V_.cols(),
+        state.mesh_->V_.rows());
+    bs_mat.transposeInPlace();
+    vector_data.rhs_scaled.push_back(bs_mat);
+
     VectorXd dq = state.x_->delta();
     dq = state.mesh_->projection_matrix().transpose() * dq;
     MatrixXd dx = Map<MatrixXd>(dq.data(), state.mesh_->V_.cols(),
@@ -249,6 +318,12 @@ struct PolyscopeTriApp : public PolyscopeApp<2> {
     SimState<2> state;
     state.load(filename);
     meshF = state.mesh_->T_;
+
+    VectorXi meshE;
+    igl::unique(state.mesh_->F_, meshE);
+    is_boundary_vertex.resize(state.mesh_->V_.rows());
+    is_boundary_vertex.setZero();
+    is_boundary_vertex(meshE).setOnes();
 
     std::shared_ptr<Meshes> m = std::dynamic_pointer_cast<Meshes>(state.mesh_);
     meshes = m->meshes();

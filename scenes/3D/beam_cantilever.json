@@ -9,6 +9,10 @@
   "max_newton_iterations": 1,
   "max_linesearch_iterations": 20,
   "max_iterative_solver_iters": 100,
+  "initial_state": {
+    "x_path": "../scenes/data/beam_cantilever_x0_0015.dmat",
+    "v_path": "../scenes/data/beam_cantilever_v_0015.dmat"
+  },
   "objects": [
     {
       "path0": "../models/mesh/beams/beam.mesh",

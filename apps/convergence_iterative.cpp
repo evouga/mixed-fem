@@ -73,7 +73,7 @@ int main(int argc, char **argv) {
   SimState<DIM> state;
   state.load(args);
   state.config_->max_iterative_solver_iters = M;
-  state.config_->itr_tol = 0.0;
+  state.config_->itr_tol = 0;
   state.config_->itr_save_residuals = true;
   optimizer = std::make_unique<NewtonOptimizer<DIM>>(state);
   optimizer->reset();

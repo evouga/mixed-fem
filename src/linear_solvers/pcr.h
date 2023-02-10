@@ -39,6 +39,11 @@ void conjugate_residual(const MatrixType& mat, const Rhs& rhs, Dest& x,
   if (residualNorm2 < threshold) {
     iters = 0;
     tol_error = sqrt(residualNorm2 / rhsNorm2);
+    
+    if (save_residual_history) {
+      double res_norm = (mat*x -rhs).norm();
+      residual_history.push_back(res_norm/sqrt(rhsNorm2));
+    }
     return;
   }
   
@@ -131,7 +136,8 @@ public:
 
   void setSaveResiduals(bool save_residual) { m_save_residual = save_residual; }
   const std::vector<double>& getResiduals() const { return m_residuals; }
-
+  void clearResiduals() { m_residuals.clear(); }
+  
   template<typename Rhs,typename Dest>
   void _solve_vector_with_guess_impl(const Rhs& b, Dest& x) const
   {

@@ -6,7 +6,7 @@
   "time_integrator": "BDF1",
   "linear_solver": "pcr-bj",
   "enable_ccd": false,
-  "itr_explicit_guess": false,
+  "itr_explicit_guess": true,
   "max_newton_iterations": 5,
   "max_linesearch_iterations": 20,
   "inertia_blend_factor": 1.0,

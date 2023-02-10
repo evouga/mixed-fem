@@ -11,7 +11,7 @@
   "max_newton_iterations": 5,
   "max_linesearch_iterations": 20,
   "max_iterative_solver_iters": 100,
-  "timesteps":23,
+  "timesteps":27,
   "objects": [
     {
       "path": "../models/mesh/cylinder.mesh",
@@ -29,7 +29,7 @@
     {
       "path": "../models/mesh/beams/beam_20k.mesh",
       "offset": [0, 1.0, 0.0],
-      "partitions0": "../models/mesh/beams/metis_beam_20k.npart.50",
+      "partitions0": "../models/mesh/beams/metis_beam_20k.npart.10",
       "material_index": 1
     }
   ],

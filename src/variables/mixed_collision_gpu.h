@@ -8,4 +8,19 @@
 
 namespace mfem {
 
+
+  class SimConfig;
+
+  template<int DIM>
+  class MixedCollisionGpu : public MixedVariable<DIM> {
+
+    typedef MixedVariable<DIM> Base;
+
+  public:
+
+    // MixedCollisionGpu(std::shared_ptr<Mesh> mesh,
+    //     std::shared_ptr<SimConfig> config)
+    //     : MixedVariable<DIM>(mesh), config_(config)
+    // {}
+  };
 }

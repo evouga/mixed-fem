@@ -11,8 +11,8 @@
   "max_newton_iterations": 5,
   "max_linesearch_iterations": 20,
   "initial_state": {
-    "x_path": "../scenes/data/dragon_x0_0096.dmat",
-    "v_path": "../scenes/data/dragon_v_0096.dmat"
+    "x_path": "../scenes/data/dragon_x0_0145.dmat",
+    "v_path": "../scenes/data/dragon_v_0145.dmat"
   },
   "objects": [
     {

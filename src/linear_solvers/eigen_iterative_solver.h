@@ -76,6 +76,10 @@ namespace mfem {
         tmp_.setZero();
       }
 
+      if constexpr (has_residual<Solver>::value) {
+        solver_.clearResiduals();
+      }
+
       // guesser_.update_gradients();
       // tmp_ = guesser_.solve(system_matrix_.b());
       tmp_ = solver_.solveWithGuess(system_matrix_.b(), tmp_);

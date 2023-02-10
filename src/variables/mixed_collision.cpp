@@ -29,11 +29,15 @@ double MixedCollision<DIM>::energy(VectorXd& x, VectorXd& d) {
   // Computing collision constraints
   ipc::MixedConstraints constraints = constraints_;
   constraints.update_distances(d);
+    OptimizerData::get().timer.start("energyconstruct_constraint_set", "MixedCollision");
+
   ipc::construct_constraint_set(candidates, ipc_mesh, V_srf, config_->dhat,
       constraints);
+  OptimizerData::get().timer.stop("energyconstruct_constraint_set", "MixedCollision");
 
   double h2 = dt_*dt_;
   double e = 0;
+  // std::cout << " constriants size: " << constraints.size() << std::endl;
 
   #pragma omp parallel for reduction( + : e )
   for (size_t i = 0; i < constraints.size(); ++i) {
@@ -122,9 +126,13 @@ void MixedCollision<DIM>::update(Eigen::VectorXd& x, double dt) {
   // Computing new collision constraints
   // TODO - do I need to update the collision candidates? Or can I use the
   // existing ones?
+    OptimizerData::get().timer.start("construct_collision_candidates", "MixedCollision");
+
   ipc::Candidates candidates;
   ipc::construct_collision_candidates(
       ipc_mesh, V_srf, candidates, config_->dhat * 1.1);
+        OptimizerData::get().timer.stop("construct_collision_candidates", "MixedCollision");
+
   ipc::construct_constraint_set(candidates, ipc_mesh, V_srf,
       config_->dhat, constraints_);
 

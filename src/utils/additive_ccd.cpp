@@ -2,6 +2,7 @@
 #include <ipc/distance/edge_edge.hpp>
 #include <ipc/distance/point_edge.hpp>
 #include <ipc/distance/point_triangle.hpp>
+#include "optimizers/optimizer_data.h"
 
 using namespace Eigen;
 
@@ -96,9 +97,13 @@ double ipc::additive_ccd(const VectorXd& x, const VectorXd& p,
   MatrixXd P = V2-V1;
 
   candidates.clear();
-  ipc::construct_collision_candidates(mesh, V1, V2, candidates, dhat / 2.0);//,
-      //ipc::BroadPhaseMethod::SWEEP_AND_TINIEST_QUEUE);
+    mfem::OptimizerData::get().timer.start("additive_ccdbp");
+
+  ipc::construct_collision_candidates(mesh, V1, V2, candidates, dhat / 2.0,
+      ipc::BroadPhaseMethod::SWEEP_AND_TINIEST_QUEUE_GPU);
   // std::cout << "Construct collision candidates 2" << std::endl;
+
+  mfem::OptimizerData::get().timer.stop("additive_ccdbp");
 
 
   const Eigen::MatrixXi& E = mesh.edges();

@@ -136,6 +136,7 @@ namespace Eigen
 
     void setSaveResiduals(bool save_residual) { m_save_residual = save_residual; }
     const std::vector<double>& getResiduals() const { return m_residuals; }
+    void clearResiduals() { m_residuals.clear(); }
 
     template <typename Rhs, typename Dest>
     void _solve_vector_with_guess_impl(const Rhs &b, Dest &x) const

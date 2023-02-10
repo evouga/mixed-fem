@@ -79,6 +79,10 @@ namespace mfem {
       std::cout << "Residual before: " << res_pre << std::endl;
       std::cout << "Residual after: " << res_post << std::endl;
 
+      if constexpr (has_residual<Solver>::value) {
+        solver_.clearResiduals();
+      }
+
       // tmp_.setZero();
       // guesser_.update_gradients();
       // tmp_ = guesser_.solve(system_matrix_.b());
