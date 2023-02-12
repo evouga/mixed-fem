@@ -265,6 +265,7 @@ namespace mfem {
           ImGui::InputDouble("mu", &config->mu, 0,0,"%.5g");
           ImGui::InputDouble("espv", &config->espv, 0,0,"%.5g");
           ImGui::Checkbox("enable_ccd", &config->enable_ccd);
+          ImGui::TreePop();
         }
 
         // Optimizer parameters

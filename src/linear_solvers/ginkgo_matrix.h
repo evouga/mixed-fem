@@ -2,9 +2,11 @@
 
 #include <ginkgo/ginkgo.hpp>
 #include "variables/mixed_stretch_gpu.h"
+#include "variables/mixed_collision_gpu.h"
 #include "simulation_state.h"
 #include <thrust/device_vector.h>
 #include <thrust/sequence.h>
+#include "utils/block_csr_apply.h"
 // #include <thrust/execution_policy.h>
 
 namespace mfem {
@@ -75,8 +77,24 @@ namespace mfem {
 
           // Call apply on each mixed var
           for (auto& var : state->mixed_vars_) {
-            var->apply(tmp_ptr, b_ptr);
-            x->add_scaled(one, lend(x_tmp));
+            // var->apply(tmp_ptr, b_ptr);
+
+            auto stretch_var = dynamic_cast<MixedStretchGpu<DIM,STORAGE_THRUST>*>(
+                var.get());
+            if (stretch_var != nullptr) {
+              bcsr_apply<DIM>(exec, stretch_var->assembler(), tmp_ptr, b_ptr);
+              x->add_scaled(one, lend(x_tmp));
+            }
+
+            auto collision_var = dynamic_cast<
+                MixedCollisionGpu<DIM,STORAGE_THRUST>*>(var.get());
+            if (collision_var != nullptr) {
+              if (collision_var->size() > 0) {
+                bcsr_apply<DIM>(exec, collision_var->assembler(), tmp_ptr,
+                    b_ptr);
+                x->add_scaled(one, lend(x_tmp));
+              }
+            }
           }
         }
         const vec* b;
@@ -164,13 +182,33 @@ namespace mfem {
 
       state_->x_->extract_diagonal(diag_ptr_);
 
-      // Cast mixed variable to stretch gpu variable
-      auto stretch_var = dynamic_cast<MixedStretchGpu<DIM,STORAGE_THRUST>*>(
-          state_->mixed_vars_[0].get());
-      if (stretch_var != nullptr) {
-        std::cout << "extracting stretch diagonal" << std::endl;
-        stretch_var->extract_diagonal(diag_ptr_);
+      for (auto& var : state_->mixed_vars_) {
+
+        auto stretch_var = dynamic_cast<MixedStretchGpu<DIM,STORAGE_THRUST>*>(
+            var.get());
+        if (stretch_var != nullptr) {
+          std::cout << "extracting stretch diagonal" << std::endl;
+          stretch_var->assembler()->extract_diagonal(diag_ptr_);
+        }
+
+        auto collision_var = dynamic_cast<
+            MixedCollisionGpu<DIM,STORAGE_THRUST>*>(var.get());
+        if (collision_var != nullptr) {
+          std::cout << "extracting collision diagonal" << std::endl;
+          if (collision_var->size() > 0) {
+            collision_var->assembler()->extract_diagonal(diag_ptr_);
+          }
+        }
+        //var->extract_diagonal(diag_ptr_);
       }
+      // Cast mixed variable to stretch gpu variable
+      // auto stretch_var = dynamic_cast<MixedStretchGpu<DIM,STORAGE_THRUST>*>(
+      //     state_->mixed_vars_[0].get());
+      // if (stretch_var != nullptr) {
+      //   std::cout << "extracting stretch diagonal" << std::endl;
+      //   // stretch_var->extract_diagonal(diag_ptr_);
+      //   stretch_var->assembler()->extract_diagonal(diag_ptr_);
+      // }
       compute_inv(diag_ptr_, nrows_);
 
       OptimizerData::get().timer.stop("preconditioner_update", "GKO");
@@ -182,26 +220,6 @@ namespace mfem {
     void apply_impl(const gko::LinOp* b, gko::LinOp* x) const override {
       auto dense_b = gko::as<vec>(b);
       auto dense_x = gko::as<vec>(x);
-
-      // functor to apply assembly free multiply
-      // struct multiply_operation : gko::Operation {
-      //   multiply_operation(const vec* b, vec* x, Scalar* diag)
-      //       : b{b}, x{x}, diag{diag}
-      //   {}
-      //   // TODO compute inv separately
-      //   void run(std::shared_ptr<const gko::CudaExecutor> exec) const override {
-      //     // Get device pointers for input and output
-      //     const Scalar* b_ptr = b->get_const_values();
-      //     Scalar* x_ptr = x->get_values();
-      //     apply_inv_diag(diag, b_ptr, x_ptr, b->get_size()[0] / DIM);
-      //   }
-      //   Scalar* diag;
-      //   const vec* b;
-      //   vec* x;
-      // };
-      // OptimizerData::get().timer.start("preconditioner", "GKO");
-      // this->get_executor()->run(multiply_operation(dense_b, dense_x, diag_ptr_));
-      // OptimizerData::get().timer.stop("preconditioner", "GKO");
 
       OptimizerData::get().timer.start("preconditioner", "GKO");
       matrix_->apply(lend(dense_b), lend(dense_x));

@@ -50,6 +50,16 @@ MixedVariableFactory<DIM,STORAGE>::MixedVariableFactory() {
         [](std::shared_ptr<Mesh> mesh, std::shared_ptr<SimConfig> config)
         ->std::unique_ptr<MixedVariable<DIM,STORAGE>>
         {return std::make_unique<MixedStretchGpu<DIM,STORAGE>>(mesh,config);});
+
+    name = MixedCollisionGpu<DIM,STORAGE>::name();
+    if constexpr (STORAGE == STORAGE_THRUST) {
+      name = MixedCollision<DIM>::name();
+    }
+    this->register_type(VariableType::VAR_MIXED_COLLISION_GPU, name,
+        [](std::shared_ptr<Mesh> mesh, std::shared_ptr<SimConfig> config)
+        ->std::unique_ptr<MixedVariable<DIM,STORAGE>>
+        {return std::make_unique<MixedCollisionGpu<DIM,STORAGE>>(mesh,config);}
+    );
   }
 
 

@@ -80,10 +80,6 @@ template <int DIM>
 double ipc::additive_ccd(const VectorXd& x, const VectorXd& p,
     const ipc::CollisionMesh& mesh, ipc::Candidates& candidates,
     double dhat) {
-    
-  double min_step = 1.0;
-  double s = 0.1; // scaling factor
-  double t_c = 1.0;
 
   MatrixXd V1 = Map<const MatrixXd>(x.data(), DIM, x.size() / DIM);
   V1.transposeInPlace();
@@ -94,13 +90,32 @@ double ipc::additive_ccd(const VectorXd& x, const VectorXd& p,
 
   V1 = mesh.vertices(V1);
   V2 = mesh.vertices(V2);
+  return additive_ccd<DIM>(V1, V2, mesh, candidates, dhat);
+}
+
+
+template <int DIM>
+double ipc::additive_ccd(const Eigen::MatrixXd& V1, const Eigen::MatrixXd& V2,
+    const ipc::CollisionMesh& mesh, ipc::Candidates& candidates,
+    double dhat) {
+    
+  double min_step = 1.0;
+  double s = 0.1; // scaling factor
+  double t_c = 1.0;
+
   MatrixXd P = V2-V1;
 
   candidates.clear();
     mfem::OptimizerData::get().timer.start("additive_ccdbp");
 
+  ipc::BroadPhaseMethod method = 
+      ipc::BroadPhaseMethod::SWEEP_AND_TINIEST_QUEUE_GPU;
+  if constexpr (DIM == 2) {
+    method = ipc::BroadPhaseMethod::SPATIAL_HASH;
+  }
+
   ipc::construct_collision_candidates(mesh, V1, V2, candidates, dhat / 2.0,
-      ipc::BroadPhaseMethod::SWEEP_AND_TINIEST_QUEUE_GPU);
+      method);
   // std::cout << "Construct collision candidates 2" << std::endl;
 
   mfem::OptimizerData::get().timer.stop("additive_ccdbp");
@@ -240,3 +255,10 @@ template double ipc::additive_ccd<3>(const VectorXd& x1,
 template double ipc::additive_ccd<2>(const VectorXd& x1,
         const VectorXd& x2, const ipc::CollisionMesh& mesh,
         ipc::Candidates& candidates, double dhat);        
+
+template double ipc::additive_ccd<3>(const MatrixXd& x1,
+        const MatrixXd& x2, const ipc::CollisionMesh& mesh,
+        ipc::Candidates& candidates, double dhat);
+template double ipc::additive_ccd<2>(const MatrixXd& x1,
+        const MatrixXd& x2, const ipc::CollisionMesh& mesh,
+        ipc::Candidates& candidates, double dhat);       

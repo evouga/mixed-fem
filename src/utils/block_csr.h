@@ -5,10 +5,15 @@
 
 namespace mfem {
 
-  // Each block is composed of NxN element matrices with each entry being a
-  // DIMxDIM block.
-  // Our block matrix needs to support duplicate entries which are sorted in
-  // block CSR format.
+  /// @brief Block Compressed sparse row matrix for FEM assembly. Each block is
+  /// DIMxDIM, and the matrix is N*DIM x N*DIM, where N is the number of nodes
+  ///
+  /// Useful for FEM stiffness matrices, where each element contributes
+  /// multiple DIMxDIM subblocks to the global matrix.
+  ///
+  /// @tparam Scalar {float, double}
+  /// @tparam DIM size of subblocks
+  /// @tparam N block size
   template <typename Scalar, int DIM, int N>
   class BlockMatrix {
 
@@ -16,18 +21,22 @@ namespace mfem {
 
   public:
 
-    // Initialize assembler / analyze sparsity of system
-    // None of this wonderfully optimized since we only have to do it once
-    // E        - elements nelem x 4 for tetrahedra
-    // free_map - |nnodes| maps node to its position in unpinned vector
-    //            equals -1 if node is pinned
+    /// @brief Initialize assembler / analyze sparsity of system
+    /// @param E - elements nelem x 4 for tetrahedra
+    /// @param free_map - |nnodes| maps node to its position in unpinned vector
     BlockMatrix(const Eigen::MatrixXi& E, const std::vector<int>& free_map);
 
     // Update entries of matrix using per-element blocks
     // blocks   - |nelem| N*DIM x N*DIM blocks to update assembly matrix
     void update_matrix(const thrust::device_vector<double>& blocks);
 
+    /// @brief Convert to Eigen CSR matrix
+    /// @return row major Eigen sparse matrix reference
     Eigen::SparseMatrix<Scalar, Eigen::RowMajor>& to_eigen_csr();
+
+    /// @brief Extract diagonal blocks from the matrix, adding the entries to diag
+    /// @param diag - |nnodes| x DIM x DIM diagonal blocks
+    void extract_diagonal(double* diag);
 
     struct update_functor {
 
@@ -87,6 +96,20 @@ namespace mfem {
       }
     };
 
+    struct extract_diagonal_functor {
+      double* diag;
+      const double* values;
+      const int* row_offsets;
+      const int* col_indices;
+
+      extract_diagonal_functor(double* _diag, const double* _values,
+          const int* _row_offsets, const int* _col_indices)
+        : diag(_diag), values(_values), row_offsets(_row_offsets),
+          col_indices(_col_indices) {}
+
+      void operator()(int i) const;
+    };
+
     const int* row_offsets() {
       return thrust::raw_pointer_cast(row_offsets_.data());
     }
@@ -119,28 +142,38 @@ namespace mfem {
     }
   protected:
 
+    /// @brief Eigen sparse matrix for conversion to CSR
     Eigen::SparseMatrix<Scalar, Eigen::RowMajor> A_;
 
-    // All DIMxDIM blocks, row major sorted.
+    /// @brief All DIMxDIM blocks, row major sorted.
     thrust::device_vector<MatD> blocks_with_duplicates_;
 
-    // Map from local hessian block to sorted block index in
-    // block_with_duplicates_ vector
+    /// @brief Map from local hessian block to sorted block index in
+    /// block_with_duplicates_ vector
     thrust::device_vector<int> block_indices_;
 
-    // Uncompressed row and col indices
+    /// @brief Row indices of each block
     thrust::device_vector<int> block_row_indices_;
+
+    /// @brief Column indices of each block
     thrust::device_vector<int> block_col_indices_;
 
-    // Block CSR data
+    /// @brief Column indices of each (unique) block
     thrust::device_vector<int> col_indices_;
+
+    /// @brief Row offsets of each (unique) block
     thrust::device_vector<int> row_offsets_;
-    // Compressed set of DIMxDIM blocks, corresponding to a reduction
-    // over the duplicate entries.
+
+    /// @brief Compressed set of DIMxDIM blocks, corresponding to a reduction
+    /// over the duplicate entries.
     thrust::device_vector<MatD> blocks_;
 
     thrust::device_vector<int> row_indices_tmp_;
+
+    /// @brief Number of elements
     int nelem_;
+
+    /// @brief Number of nodes (matrix has nnodes_ x nnodes_ blocks)
     int nnodes_;
   };
 }

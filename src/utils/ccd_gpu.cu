@@ -5,6 +5,7 @@
 #include "optimizers/optimizer_data.h"
 #include "stq/gpu/io.cuh"
 #include "stq/gpu/simulation.cuh"
+#include "utils/additive_ccd.h"
 
 using namespace Eigen;
 
@@ -162,8 +163,49 @@ Scalar ipc::accd_gpu(const thrust::device_vector<Scalar>& x1,
   return alpha;
 }
 
+template <int DIM>
+double ipc::additive_ccd(
+    const thrust::device_vector<double>& x1,
+    const thrust::device_vector<double>& x2,
+    const ipc::CollisionMesh& mesh,
+    ipc::Candidates& candidates,
+    double dhat) {
+
+  int rows = x1.size() / DIM;
+
+  MatrixXd V1(DIM, rows);
+  MatrixXd V2(DIM, rows);
+
+  // Copy x_full_ to V1 and x2_full_ to V2
+  cudaMemcpy(V1.data(), thrust::raw_pointer_cast(x1.data()), 
+      x1.size() * sizeof(double), cudaMemcpyDeviceToHost);
+  cudaMemcpy(V2.data(), thrust::raw_pointer_cast(x2.data()), 
+      x2.size() * sizeof(double), cudaMemcpyDeviceToHost);
+  V1.transposeInPlace();
+  V2.transposeInPlace();
+
+  V1 = mesh.vertices(V1);
+  V2 = mesh.vertices(V2);
+
+  double step_size = ipc::additive_ccd<DIM>(V1, V2, mesh, candidates, dhat);
+
+  double alpha = 1.0;
+  if (step_size < 1.0) {
+    alpha = 0.9 * step_size;
+  }
+    std::cout << " alpha "<< alpha << std::endl;
+
+  return alpha;
+}
+
 // Explicit instantiation        
 template double ipc::accd_gpu<double, 3>(
     const thrust::device_vector<double>& x1,
     const thrust::device_vector<double>& x2,
     const ipc::CollisionMesh& mesh, double dhat);
+
+template double ipc::additive_ccd<3>(
+    const thrust::device_vector<double>& x1,
+    const thrust::device_vector<double>& x2,
+    const ipc::CollisionMesh& mesh,
+    ipc::Candidates& candidates, double dhat);    

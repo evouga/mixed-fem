@@ -67,7 +67,7 @@ namespace mfem {
     // Matrix vector product with hessian of variable and a vector, x
     // Output written to "out" vector
     virtual void product_hessian(const Eigen::VectorXd& x,
-        Eigen::Ref<Eigen::VectorXd> out) const = 0;
+        Eigen::Ref<Eigen::VectorXd> out) const {}
     virtual void apply(double* x, const double* b) {}
     virtual void extract_diagonal(double* diag) {}
 

@@ -216,7 +216,7 @@ Matrix3d iARAP::rotation(const Matrix3d &F, bool compute_gradients,
   gJ.col(2) = F.col(0).cross(F.col(1));
   Matrix3d R = f1 * g1 + f2 * g2 + fJ * gJ;
   Matrix3d S = R.transpose() * F;
-std::cout << "S iarap: " << S << std::endl;
+// std::cout << "S iarap: " << S << std::endl;
   if (compute_gradients) {
     Vector3d V0, V1, V2;
 

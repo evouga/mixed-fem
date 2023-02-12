@@ -29,7 +29,7 @@ namespace mfem {
     // x - Nodal displacements 
     // y - Mixed variable
     virtual double constraint_value(const VectorType& x,
-        const VectorType& y) = 0;
+        const VectorType& y) { return 0.0; }
 
     // Update the state given a new set of displacements
     // x  - Nodal displacements

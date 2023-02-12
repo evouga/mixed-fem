@@ -7,8 +7,8 @@
 #include <thrust/transform_reduce.h>
 #include <thrust/functional.h>
 #include <thrust/host_vector.h>
-#include "energies/arap.cuh"
-// #include "energies/fixed_corotational.cuh"
+// #include "energies/arap.cuh"
+#include "energies/fixed_corotational.cuh"
 #include <thrust/inner_product.h>
 using namespace Eigen;
 using namespace mfem;
@@ -489,21 +489,11 @@ void MixedStretchGpu<DIM,STORAGE>::reset() {
   params_.lambda = lambda_h;
 
   // Init CPU assembler
-  assembler_ = std::make_shared<Assembler<double,DIM,-1>>(
-      mesh_->T_, mesh_->free_map_);
-
-  std::cout << "Assembler 2: " <<std::endl;
+  // assembler_ = std::make_shared<Assembler<double,DIM,-1>>(
+  //     mesh_->T_, mesh_->free_map_);
   assembler2_ = std::make_shared<BlockMatrix<double,DIM,4>>(
-      mesh_->T_, mesh_->free_map_);
-      std::cout << "Assembler 2 done" <<std::endl;
-  
+      mesh_->T_, mesh_->free_map_);  
 }
-
-// template<int DIM, StorageType STORAGE>
-// void MixedStretchGpu<DIM,STORAGE>::apply(double* x, double* y) {
-//   // Can't put ginkgo shit in here
-// }
-
 
 template<int DIM, StorageType STORAGE>
 MixedStretchGpu<DIM,STORAGE>::VectorType& MixedStretchGpu<DIM,STORAGE>::rhs()

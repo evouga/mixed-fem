@@ -105,6 +105,10 @@ void MixedCollision<DIM>::update(Eigen::VectorXd& x, double dt) {
   // Get collision frames
   dt_ = dt;
 
+  ipc::Candidates& candidates = mesh_->collision_candidates();
+  // if (candidates.size() == 0) {
+  //   return;
+  // }
   OptimizerData::get().timer.start("update-constraints", "MixedCollision");
 
   // Convert configuration vector to matrix form
@@ -126,12 +130,12 @@ void MixedCollision<DIM>::update(Eigen::VectorXd& x, double dt) {
   // Computing new collision constraints
   // TODO - do I need to update the collision candidates? Or can I use the
   // existing ones?
-    OptimizerData::get().timer.start("construct_collision_candidates", "MixedCollision");
+    // OptimizerData::get().timer.start("construct_collision_candidates", "MixedCollision");
 
-  ipc::Candidates candidates;
-  ipc::construct_collision_candidates(
-      ipc_mesh, V_srf, candidates, config_->dhat * 1.1);
-        OptimizerData::get().timer.stop("construct_collision_candidates", "MixedCollision");
+  // ipc::Candidates candidates;
+  // ipc::construct_collision_candidates(
+  //     ipc_mesh, V_srf, candidates, config_->dhat * 1.1);
+        // OptimizerData::get().timer.stop("construct_collision_candidates", "MixedCollision");
 
   ipc::construct_constraint_set(candidates, ipc_mesh, V_srf,
       config_->dhat, constraints_);
@@ -146,8 +150,9 @@ void MixedCollision<DIM>::update(Eigen::VectorXd& x, double dt) {
   // From new constraint set, get mixed variables
   d_ = constraints_.get_distances();
   la_ = constraints_.get_lambdas();
-
+std::cout << "la_ norm: " << la_.norm() << std::endl;
   // Rebuilding mixed variables for the new set of collision frames.
+  #pragma omp parallel for 
   for (int i = 0; i < num_frames; ++i) {
     // Getting collision frame, and computing squared distance.
     std::array<long, 4> ids = constraints_[i].vertex_indices(E, F);
@@ -187,7 +192,7 @@ void MixedCollision<DIM>::update(Eigen::VectorXd& x, double dt) {
   // std::cout << "D: " << D_.transpose() << std::endl;
   // std::cout << "d: " << d_.transpose() << std::endl;
   // std::cout << "la: " << la_.transpose() << std::endl;
-
+std::cout << "d diff : " << (d_ - D_).norm() << std::endl;
   if (num_frames > 0) {
     double ratio = d_.minCoeff() / D_.minCoeff();
     if (la_.minCoeff() > 1e7 || ratio > 1e3) {
@@ -345,6 +350,7 @@ void MixedCollision<DIM>::solve(VectorXd& dx) {
   delta_ = (D_ - d_ + Gdx_);
   la_ = H_.array() * delta_.array() + g_.array();
   // std::cout << "DIFF: " << (D_ - d_).norm() << std::endl;
+  std::cout << "solve - la: " << la_.norm() << std::endl;
   // Update lagrange multipliers
   // la_ = gl_.array() + (H_.array() * Gdx_.array());
   // // Compute mixed variable descent direction

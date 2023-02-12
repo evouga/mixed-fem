@@ -25,6 +25,26 @@ namespace {
   };
 }
 
+
+template<typename Scalar, int DIM, int N> __device__
+void BlockMatrix<Scalar,DIM,N>::extract_diagonal_functor
+    ::operator()(int i) const {
+  Map<MatD> diag_i(diag + DIM*DIM*i);
+
+  int row_beg = row_offsets[i];
+  int row_end = row_offsets[i+1];
+
+  for (int j = row_beg; j < row_end; j++) {
+    int col = col_indices[j];
+    if (col == i) {
+      Map<const MatD> values_diag_i(values + DIM*DIM*j);
+      diag_i += values_diag_i;
+      return;
+    }
+  }
+}
+
+
 template<typename Scalar, int DIM, int N> __device__
 void BlockMatrix<Scalar,DIM,N>::pairs_functor::operator()(int i) {
   for (int j = 0; j < N; ++j) {
@@ -259,12 +279,46 @@ BlockMatrix<Scalar,DIM,N>::BlockMatrix(const Eigen::MatrixXi& E,
   // }
 
   // Now compute the row offsets by doing a prefix sum
-  row_offsets_.resize(pair_end.second - row_offsets_.begin() + 1);
-  thrust::inclusive_scan(thrust::device, row_offsets_.begin(), pair_end.second, row_offsets_.begin()+1);
+
+  int nrows = pair_end.second - row_offsets_.begin();
+
+  // row_offsets_.resize(pair_end.second - row_offsets_.begin());
+  row_offsets_.resize(nnodes_ + 1);
+
+  thrust::device_vector<int> row_offsets_tmp(nnodes_ + 1, 0);
+
+  // If number of unique row offsets is less than actual number of rows
+  // in the matrix. Scatter the current row offsets 
+  if (nrows < nnodes_) {
+    // std::cout << "Scattering in assembler! " << std::endl;
+    // Get unique row_indices, to be used for scattering map
+    thrust::device_vector<int> row_indices_tmp = row_indices;
+    auto it2 = thrust::unique(row_indices_tmp.begin(), row_indices_tmp.end());
+    thrust::scatter(row_offsets_.begin(), row_offsets_.begin() + nrows,
+        row_indices_tmp.begin(), row_offsets_tmp.begin());
+    // for (int i = 0; i < row_indices.size(); ++i) {
+    //   std::cout << "i: "<< i << " (row,count): " << row_indices[i] << " " <<  row_offsets_[i] << std::endl;
+    // }
+    // for (int i = 0; i < row_offsets_tmp.size(); ++i) {
+    //   std::cout << "i: "<< i << " (row_offsets_tmp): " << row_offsets_tmp[i] << std::endl;
+    // }
+    row_offsets_ = row_offsets_tmp;
+
+  } else {
+
+  }
+  thrust::inclusive_scan(thrust::device, row_offsets_.begin(), 
+      row_offsets_.end() - 1, row_offsets_tmp.begin()+1);
+  row_offsets_ = row_offsets_tmp;
   row_offsets_[0] = 0;
+  
+
+
+  // thrust::inclusive_scan(thrust::device, row_offsets_.begin(), pair_end.second, row_offsets_.begin()+1);
+  // row_offsets_[0] = 0;
 
   // std::cout << "row offsets size " << row_offsets_.size() << std::endl;
-  // for (int i = 0; i < 8; ++i) {
+  // for (int i = 0; i <  row_offsets_.size(); ++i) {
   //   std::cout << "i: "<< i << " offset: " << row_offsets_[i] << std::endl;
   // }
 }
@@ -330,12 +384,13 @@ BlockMatrix<Scalar,DIM,N>::to_eigen_csr() {
   std::vector<Eigen::Triplet<Scalar>> triplets;
   // std::cout << "nnodes: " << nnodes_ << std::endl;
   for(int i=0; i<h_row_offsets.size()-1; ++i) {
-    // std::cout << "row: " << i << " offset: " << h_row_offsets[i] << std::endl;
+    // std::cout << "row: " << i << " offset: " << h_row_offsets[i] << " " << h_row_offsets[i+1] << std::endl;
     for(int j=h_row_offsets[i]; j<h_row_offsets[i+1]; ++j) {
       int row = i;
       int col = h_col_indices[j];
       // std::cout << "row: " << row << " col: " << col << std::endl;
       MatD block = h_blocks[j];
+      // std::cout << "block: \n" << block << std::endl;
       for(int k=0; k<DIM; k++) {
         for(int l=0; l<DIM; l++) {
           triplets.push_back(Eigen::Triplet<Scalar>(
@@ -345,7 +400,20 @@ BlockMatrix<Scalar,DIM,N>::to_eigen_csr() {
     }
   }
   A_.setFromTriplets(triplets.begin(), triplets.end());
+  // std::cout << "BCSR A_ " << A_ << std::endl;
   return A_;
+}
+
+template<typename Scalar, int DIM, int N>
+void BlockMatrix<Scalar,DIM,N>::extract_diagonal(double* diag) {
+  typedef Eigen::Matrix<Scalar, DIM, DIM> MatD;
+  MatD* diag_out = (MatD*)diag;
+
+  // Get DIM x DIM diagonals from block CSR matrix
+  thrust::for_each(thrust::counting_iterator<int>(0),
+      thrust::counting_iterator<int>(nnodes_),
+      extract_diagonal_functor(
+          diag, this->values(), this->row_offsets(), this->col_indices()));
 }
 
 template class mfem::BlockMatrix<double, 3, 4>;

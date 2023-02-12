@@ -11,4 +11,12 @@ namespace ipc {
       const thrust::device_vector<Scalar>& x2,
       const ipc::CollisionMesh& mesh,
       Scalar dhat);
+
+  template <int DIM>
+  double additive_ccd(
+      const thrust::device_vector<double>& x1,
+      const thrust::device_vector<double>& x2,
+      const ipc::CollisionMesh& mesh,
+      ipc::Candidates& candidates,
+      double dhat);        
 }

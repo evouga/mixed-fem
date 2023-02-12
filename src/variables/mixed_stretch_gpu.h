@@ -114,11 +114,15 @@ namespace mfem {
       return 0;//la_.size() * N();
     }
 
-    void apply(double* x, const double* b) override;
+    void apply(double* x, const double* b) override {}
     void extract_diagonal(double* diag) override;
 
     void set_executor(std::shared_ptr<const gko::Executor> exec) {
       exec_ = exec;
+    }
+    
+    std::shared_ptr<BlockMatrix<double,DIM,4>> assembler() {
+      return assembler2_;
     }
 
     void evaluate_constraint(const Eigen::VectorXd& x,

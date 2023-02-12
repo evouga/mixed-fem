@@ -38,9 +38,7 @@ void NewtonOptimizerGpu<DIM>::step() {
   // we may end up missing collisions
 
   std::vector<thrust::device_vector<double>> tmps(state_.mixed_vars_.size());
-  for (size_t i = 0; i < state_.mixed_vars_.size(); ++i) {
-    tmps[i].resize(state_.mixed_vars_[i]->size());
-  }
+
 
   // Compute z = x + a * y
   auto add_vec = [](const thrust::device_vector<double>& x, double a,
@@ -70,11 +68,16 @@ void NewtonOptimizerGpu<DIM>::step() {
       // Compute x2 = x + a * dx, and use this for CCD
       add_vec(state_.x_->value(), 1.0, state_.x_->delta(), x_);
       state_.x_->to_full(x_, x2_full_);
-      alpha = ipc::accd_gpu<double,DIM>(x_full_, x2_full_,
-          state_.mesh_->collision_mesh(), state_.config_->dhat);
+      alpha = ipc::additive_ccd<DIM>(x_full_, x2_full_,
+          state_.mesh_->collision_mesh(),
+          state_.mesh_->collision_candidates(),
+          state_.config_->dhat);
+      OptimizerData::get().add("CCD ", alpha);
       OptimizerData::get().timer.stop("CCD");
     }
-
+    for (size_t i = 0; i < state_.mixed_vars_.size(); ++i) {
+      tmps[i].resize(state_.mixed_vars_[i]->size());
+    }
     auto energy_func = [&](double a) {
       double h2 = std::pow(state_.x_->integrator()->dt(), 2);
       // x = x0 + a * p
