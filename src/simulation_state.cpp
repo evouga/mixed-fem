@@ -425,6 +425,7 @@ void SimState<DIM, STORAGE>::load_params(const nlohmann::json& args) {
   read_and_assign(args, "spd_jacobi_sweeps", config_->spd_jacobi_sweeps);
   read_and_assign(args, "itr_explicit_guess", config_->itr_explicit_guess);
   read_and_assign(args, "itr_guess_ccd", config_->itr_guess_ccd);
+  read_and_assign(args, "itr_abd_guess", config_->itr_abd_guess);
 }
 
 template class mfem::SimState<3, STORAGE_THRUST>; // 3D

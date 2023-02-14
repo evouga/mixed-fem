@@ -68,7 +68,13 @@ namespace mfem {
     // Output written to "out" vector
     virtual void product_hessian(const Eigen::VectorXd& x,
         Eigen::Ref<Eigen::VectorXd> out) const {}
-    virtual void apply(double* x, const double* b) {}
+
+    /// @brief Multiply LHS with dense matrix
+    /// @param x  - input dense matrix
+    /// @param b  - output dense matrix
+    /// @param cols  - number of columns in the dense matrix
+    virtual void apply(double* x, const double* b, int cols) {}
+    
     virtual void extract_diagonal(double* diag) {}
 
   protected:

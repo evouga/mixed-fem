@@ -97,7 +97,14 @@ namespace mfem {
       out += lhs_ * x;
     }
 
-    void apply(double* x, const double* b) override;
+    /// @brief Compute the explicit predictor equal to x - xtilde - h^2 fext
+    /// @param out - output vector (size equals x.size())
+    /// @param projected - if true, the output is projected to the free DOFs
+    void explicit_predictor(double* out, bool projected = false);
+
+
+    void apply(double* x, const double* b, int cols=1) override;
+
     void extract_diagonal(double* diag) override;
 
   private:

@@ -17,7 +17,7 @@
       "path": "../models/mesh/beams/beam_20k.mesh",
       "offset": [0.0, 0.0, 0.0],
       "material_index": 0,
-      "partitions": "../models/mesh/beams/metis_beam_20k.npart.10",
+      "partitions0": "../models/mesh/beams/metis_beam_20k.npart.10",
       "boundary_condition": {
         "type": "twist",
         "ratio": 0.01,

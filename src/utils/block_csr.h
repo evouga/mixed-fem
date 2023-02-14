@@ -132,7 +132,6 @@ namespace mfem {
       return blocks_.size() * DIM * DIM;
     }
 
-
     int num_blocks() const {
       return blocks_.size();
     }

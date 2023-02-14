@@ -9,8 +9,11 @@
   "dhat": 0.001,
   "kappa": 1e8,
   "max_newton_iterations": 5,
-  "max_linesearch_iterations": 20,
   "max_iterative_solver_iters": 100,
+  "max_linesearch_iterations": 5,
+  "spd_jacobi_tolerance": 0.001,
+  "spd_jacobi_sweeps": 5,
+  "itr_abd_guess": true,
   "timesteps":100,
   "objects": [
     {

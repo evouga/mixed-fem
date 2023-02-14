@@ -159,7 +159,7 @@ double MixedCollisionGpu<DIM,STORAGE>::energy(VectorType& x,
       constraints);
           OptimizerData::get().timer.stop("energyconstruct_constraint_set", "MixedCollisionGpu");
 
-  std::cout << "constraints: " << constraints.size() << std::endl;
+  // std::cout << "constraints: " << constraints.size() << std::endl;
   if (constraints.size() == 0) {
     return 0.0;
   }

@@ -6,6 +6,7 @@
 #include "ginkgo_matrix.h"
 
 #include "utils/block_csr.h"
+#include "ginkgo_affine_solver.h"
 
 namespace mfem {
 
@@ -51,6 +52,9 @@ namespace mfem {
       precond_ = GkoBlockJacobiPreconditioner<Scalar,DIM>::create(cuda_exec_,
           gko::dim<2>{size}, Base::state_);
 
+      fem_matrix_ = GkoFemMatrix<Scalar,DIM>::create(cuda_exec_,
+                gko::dim<2>{size}, Base::state_);
+
       solver_ = Solver::build()
           .with_criteria(
               residual_criterion_,
@@ -58,9 +62,11 @@ namespace mfem {
               .with_max_iters(state->config_->max_iterative_solver_iters)
               .on(cuda_exec_))
           .on(cuda_exec_)
-          ->generate(GkoFemMatrix<Scalar,DIM>::create(cuda_exec_,
-              gko::dim<2>{size}, Base::state_));
+          ->generate(fem_matrix_);
       solver_->set_preconditioner(precond_);
+
+      abd_ = AffineSolver<Scalar,DIM>::create(cuda_exec_,
+          gko::dim<2>{size}, Base::state_, fem_matrix_.get());
     }
 
     void solve() override {
@@ -76,6 +82,21 @@ namespace mfem {
       auto b = gko::matrix::Dense<double>::create_const(cuda_exec_,
           gko::dim<2>{size,1},
           gko::array<double>::const_view(cuda_exec_, size, b_ptr), 1);
+
+      // Apply explicit predictor guess
+      if (Base::state_->config_->itr_explicit_guess) {
+        Base::state_->x_->explicit_predictor(x_ptr, true);
+        auto neg_one = gko::initialize<vec>({-gko::one<double>()}, cuda_exec_);
+        x_->scale(lend(neg_one));
+      }
+
+      if (Base::state_->config_->itr_abd_guess) {
+        OptimizerData::get().timer.start("ABD", "GKO");
+        // Base::state_->x_->abd_predictor(x_ptr, true);
+        abd_->apply(lend(b), lend(x_));
+        OptimizerData::get().timer.stop("ABD", "GKO");
+
+      }
       
       // Solve for x
       solver_->apply(lend(b), lend(x_));
@@ -115,6 +136,8 @@ namespace mfem {
     std::shared_ptr<vec> x_;
     std::shared_ptr<Solver> solver_;
     std::shared_ptr<bj> precond_;
+    std::shared_ptr<AffineSolver<Scalar,DIM>> abd_;
+    std::shared_ptr<GkoFemMatrix<Scalar,DIM>> fem_matrix_;
 
   };
 

@@ -4,12 +4,14 @@
   "print_stats": true,
   "optimizer": "newton",
   "time_integrator": "BDF1",
-  "linear_solver": "cholmod",
+  "linear_solver": "cg-block-jacobi",
   "enable_ccd": true,
   "dhat": 0.00025,
   "kappa": 1e10,
   "max_newton_iterations": 5,
   "max_linesearch_iterations": 20,
+  "spd_jacobi_tolerance": 0.001,
+  "spd_jacobi_sweeps": 5,
   "initial_state": {
     "x_path": "../scenes/data/dragon_x0_0145.dmat",
     "v_path": "../scenes/data/dragon_v_0145.dmat"

@@ -68,12 +68,18 @@ namespace mfem {
           const Scalar* b_ptr = b->get_const_values();
           Scalar* x_ptr = x->get_values();
 
+          // Get the number of columns of b
+          int b_cols = b->get_size()[1];
+          // std::cout << "b_cols: " << b_cols << std::endl;
+          // std::cout << " x size: " << x->get_size()[0] << " " << x->get_size()[1] << std::endl;
+          // std::cout << " b size: " << b->get_size()[0] << " " << b->get_size()[1] << std::endl;
+
           // TODO don't make this clone on every multiplication WTF!!@!KL!@J:!L@KJE:#OIJR
           Scalar* tmp_ptr = x_tmp->get_values();
 
           // First call apply on the position variable
           // which is just M * x
-          state->x_->apply(x_ptr, b_ptr);
+          state->x_->apply(x_ptr, b_ptr, b_cols);
 
           // Call apply on each mixed var
           for (auto& var : state->mixed_vars_) {
@@ -82,7 +88,8 @@ namespace mfem {
             auto stretch_var = dynamic_cast<MixedStretchGpu<DIM,STORAGE_THRUST>*>(
                 var.get());
             if (stretch_var != nullptr) {
-              bcsr_apply<DIM>(exec, stretch_var->assembler(), tmp_ptr, b_ptr);
+              bcsr_apply<DIM>(exec, stretch_var->assembler(), tmp_ptr, b_ptr,
+                  b_cols);
               x->add_scaled(one, lend(x_tmp));
             }
 
@@ -91,7 +98,7 @@ namespace mfem {
             if (collision_var != nullptr) {
               if (collision_var->size() > 0) {
                 bcsr_apply<DIM>(exec, collision_var->assembler(), tmp_ptr,
-                    b_ptr);
+                    b_ptr, b_cols);
                 x->add_scaled(one, lend(x_tmp));
               }
             }
@@ -103,9 +110,19 @@ namespace mfem {
         vec* x_tmp;
         State* state;
       }; 
+
+      std::shared_ptr<vec> tmp = x_tmp_;
+      
+      // If tmp size is not the same as x, assign new vec to tmp
+      // with the proper sizes.
+      if (tmp->get_size()[0] != x->get_size()[0] ||
+          tmp->get_size()[1] != x->get_size()[1]) {
+        tmp = vec::create(this->get_executor(), x->get_size());
+      }
+
       OptimizerData::get().timer.start("linsolv apply", "GKO");
       this->get_executor()->run(multiply_operation(dense_b, dense_x,
-          one_.get(), x_tmp_.get(), state_));
+          one_.get(), tmp.get(), state_));
       OptimizerData::get().timer.stop("linsolv apply", "GKO");
     }
 
@@ -187,28 +204,20 @@ namespace mfem {
         auto stretch_var = dynamic_cast<MixedStretchGpu<DIM,STORAGE_THRUST>*>(
             var.get());
         if (stretch_var != nullptr) {
-          std::cout << "extracting stretch diagonal" << std::endl;
+          // std::cout << "extracting stretch diagonal" << std::endl;
           stretch_var->assembler()->extract_diagonal(diag_ptr_);
         }
 
         auto collision_var = dynamic_cast<
             MixedCollisionGpu<DIM,STORAGE_THRUST>*>(var.get());
         if (collision_var != nullptr) {
-          std::cout << "extracting collision diagonal" << std::endl;
+          // std::cout << "extracting collision diagonal" << std::endl;
           if (collision_var->size() > 0) {
             collision_var->assembler()->extract_diagonal(diag_ptr_);
           }
         }
         //var->extract_diagonal(diag_ptr_);
       }
-      // Cast mixed variable to stretch gpu variable
-      // auto stretch_var = dynamic_cast<MixedStretchGpu<DIM,STORAGE_THRUST>*>(
-      //     state_->mixed_vars_[0].get());
-      // if (stretch_var != nullptr) {
-      //   std::cout << "extracting stretch diagonal" << std::endl;
-      //   // stretch_var->extract_diagonal(diag_ptr_);
-      //   stretch_var->assembler()->extract_diagonal(diag_ptr_);
-      // }
       compute_inv(diag_ptr_, nrows_);
 
       OptimizerData::get().timer.stop("preconditioner_update", "GKO");

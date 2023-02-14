@@ -39,6 +39,7 @@ void NewtonOptimizerGpu<DIM>::step() {
 
   std::vector<thrust::device_vector<double>> tmps(state_.mixed_vars_.size());
 
+  // spdlog::set_level(spdlog::level::trace);
 
   // Compute z = x + a * y
   auto add_vec = [](const thrust::device_vector<double>& x, double a,

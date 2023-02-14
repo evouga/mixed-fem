@@ -114,7 +114,7 @@ namespace mfem {
       return 0;//la_.size() * N();
     }
 
-    void apply(double* x, const double* b) override {}
+    void apply(double* x, const double* b, int cols) override {}
     void extract_diagonal(double* diag) override;
 
     void set_executor(std::shared_ptr<const gko::Executor> exec) {

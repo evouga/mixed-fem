@@ -193,7 +193,7 @@ double ipc::additive_ccd(
   if (step_size < 1.0) {
     alpha = 0.9 * step_size;
   }
-    std::cout << " alpha "<< alpha << std::endl;
+    // std::cout << " alpha "<< alpha << std::endl;
 
   return alpha;
 }

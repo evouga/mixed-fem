@@ -139,6 +139,7 @@ namespace Eigen {
         #pragma omp parallel for
         for (int i = 0; i < num_partitions_; ++i) {
           Matrix12 WKW = W_[i].transpose() * A_ * W_[i];
+          std::cout <<  WKW << std::endl;
           Winv_[i] = WKW.inverse();
         }
         for (int i = 0; i < num_partitions1_; ++i) {
@@ -157,6 +158,7 @@ namespace Eigen {
           // Matrix12 WKW = W1_[i].transpose() * A_ * W1_[i];
           // x0 += W1_[i] * (WKW.lu().solve((W1_[i].transpose() * (f - Au))));
         }
+        std::cout << "x norm: " << x0.norm() << std::endl;
         // Update Au
         Au = A_ * x0;
 

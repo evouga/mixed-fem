@@ -145,6 +145,32 @@ void SparseMatrixGpu::product(const double* dx, double** y) {
   *y = d_y;
 }
 
+void SparseMatrixGpu::product_mat(const double* B, double* C, int ncols) {
+  cusparseConstDnMatDescr_t matB;
+  cusparseDnMatDescr_t matC;
+  cusparseCreateConstDnMat(&matB, rows_, ncols, ncols, B, CUDA_R_64F, CUSPARSE_ORDER_ROW);
+  cusparseCreateDnMat(&matC, rows_, ncols, ncols, C, CUDA_R_64F, CUSPARSE_ORDER_ROW);
+
+  void* buffer = NULL;
+
+  // allocate an external buffer if needed
+  cusparseSpMM_bufferSize(handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
+                          CUSPARSE_OPERATION_NON_TRANSPOSE,
+                          &alpha, matA, matB, &beta, matC,
+                          CUDA_R_64F, CUSPARSE_SPMM_ALG_DEFAULT, &bufferSize);
+  cudaMalloc(&buffer, bufferSize);
+
+  // execute SpMM
+  cusparseSpMM(handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
+              CUSPARSE_OPERATION_NON_TRANSPOSE,
+              &alpha, matA, matB, &beta, matC,
+              CUDA_R_64F, CUSPARSE_SPMM_ALG_DEFAULT, buffer);
+
+  cusparseDestroyDnMat(matB);
+  cusparseDestroyDnMat(matC);
+  cudaFree(buffer);
+}
+
 template<int N>
 MatrixBatchInverseGpu<N>::MatrixBatchInverseGpu(int batch_size, double solver_tol,
     int max_sweeps) 

@@ -18,6 +18,7 @@ namespace mfem {
 
     void product(double* dx, double** y);
     void product(const double* dx, double** y);
+    void product_mat(const double* B, double* C, int ncols);
 
     ~SparseMatrixGpu() {
       // destroy matrix/vector descriptors

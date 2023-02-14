@@ -276,15 +276,21 @@ void LinearSolverFactory<DIM,STORAGE>::register_pd_solvers() {
 
     using GINKGO_CG = GinkgoSolver<gko::solver::Cg<Scalar>, Scalar, DIM, STORAGE>;
     this->register_type(LinearSolverType::SOLVER_EIGEN_CG_BLOCK_JACOBI,
-        "cg-block-jacobi", [](SimState<DIM,STORAGE>* state)
+        "pcg-bj", [](SimState<DIM,STORAGE>* state)
         ->std::unique_ptr<LinearSolver<Scalar,DIM,STORAGE>>
         {return std::make_unique<GINKGO_CG>(state);});
 
     using GINKGO_MINRES = GinkgoSolver<gko::solver::Minres<Scalar>, Scalar, DIM, STORAGE>;
     this->register_type(LinearSolverType::SOLVER_MINRES_ID,
-        "minres-block-jacobi", [](SimState<DIM,STORAGE>* state)
+        "minres-bj", [](SimState<DIM,STORAGE>* state)
         ->std::unique_ptr<LinearSolver<Scalar,DIM,STORAGE>>
         {return std::make_unique<GINKGO_MINRES>(state);});
+
+    using GINKGO_PCR = GinkgoSolver<gko::solver::Cr<Scalar>, Scalar, DIM, STORAGE>;
+    this->register_type(LinearSolverType::SOLVER_PCR_BJ,
+        "pcr-bj", [](SimState<DIM,STORAGE>* state)
+        ->std::unique_ptr<LinearSolver<Scalar,DIM,STORAGE>>
+        {return std::make_unique<GINKGO_PCR>(state);});
   }
 }
 

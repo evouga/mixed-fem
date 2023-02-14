@@ -4,14 +4,14 @@
   "print_stats": true,
   "optimizer": "newton",
   "time_integrator": "BDF1",
-  "linear_solver": "cg-block-jacobi",
+  "linear_solver": "pcr-bj",
   "enable_ccd": false,
   "max_newton_iterations": 3,
   "max_linesearch_iterations": 20,
   "iterative_solver_tolerance": 0.001,
   "max_iterative_solver_iters": 100,
   "spd_jacobi_tolerance": 0.001,
-  "spd_jacobi_sweeps": 5,
+  "spd_jacobi_sweeps": 1,
   "objects": [
     {
       "path": "../models/mesh/dragon.mesh",
@@ -30,7 +30,7 @@
       "youngs_modulus": 1e4,
       "poissons_ratio": 0.45,
       "density": 1e3,
-      "energy": "ARAP"
+      "energy": "FixedCorot"
     }
   ],
   "mixed_variables": ["mixed-stretch"],

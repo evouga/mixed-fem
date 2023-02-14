@@ -45,12 +45,6 @@ double DisplacementGpu<DIM>::energy(VectorType& x_full) {
 
   double h2 = integrator_->dt() * integrator_->dt();
 
-  // Project to full space and add Dirichlet BCs
-  // NOTE: using data from to_full(), which is safe
-  // double* x_full_ptr = to_full(x, ProjectionType::WITH_DIRICHLET);
-  // thrust::device_ptr<double> x_full(x_full_ptr);
-  // double* x_full_ptr = thrust::raw_pointer_cast(x_full.data());
-
   // Compute x_full - x_tilde, storing result in x_full
   thrust::transform(x_full.begin(), x_full.end(), x_tilde_.begin(),
       tmp_.begin(), thrust::minus<double>());
@@ -92,6 +86,12 @@ void DisplacementGpu<DIM>::post_solve() {
   double* x_tilde_ptr = thrust::raw_pointer_cast(x_tilde_.data());
   cudaMemcpy(x_tilde_ptr, x_tilde, full_size_*sizeof(double),
       cudaMemcpyDeviceToDevice);
+
+  // Copy mesh external force to f_ext_
+  const VectorXd& f_ext = mesh_->external_force();
+  double* f_ext_ptr = thrust::raw_pointer_cast(f_ext_.data());
+  cudaMemcpy(f_ext_ptr, f_ext.data(), f_ext.size()*sizeof(double),
+      cudaMemcpyHostToDevice);
 
   // Copy x to CPU and write to mesh->V_
   MatrixXd V(mesh_->V_.cols(), mesh_->V_.rows());
@@ -242,13 +242,52 @@ void DisplacementGpu<DIM>::reset() {
 }
 
 template<int DIM>
-void DisplacementGpu<DIM>::apply(double* x, const double* b) {
+void DisplacementGpu<DIM>::apply(double* x, const double* b, int cols) {
   // Multiply rhs (b) against the mass matrix with Dirichlet BCs projected out
-  double* out;
-  PMP_gpu_.product(b, &out);
+  if (cols == 1) {
+    double* out;
+    PMP_gpu_.product(b, &out);
 
-  // Copy result of product to x
-  cudaMemcpy(x, out, reduced_size_*sizeof(double), cudaMemcpyDeviceToDevice);
+    // Copy result of product to x
+    cudaMemcpy(x, out, reduced_size_*sizeof(double), cudaMemcpyDeviceToDevice);
+  } else {
+    // Sparse matrix - dense matrix multiplication
+    PMP_gpu_.product_mat(b, x, cols);
+  }
+
+  
+}
+
+template<int DIM>
+void DisplacementGpu<DIM>::explicit_predictor(double* out, bool projected) {
+
+  double h2 = integrator_->dt() * integrator_->dt();
+
+  // Project to full space and add Dirichlet BCs
+  // NOTE: using data from to_full(), which is safe
+  double* x_full_ptr = to_full(x_, ProjectionType::WITH_DIRICHLET);
+  thrust::device_ptr<double> x_full(x_full_ptr);
+
+  // Compute x_full - x_tilde, storing result in x_full
+  thrust::transform(x_full, x_full + x_tilde_.size(), x_tilde_.begin(),
+      x_full, thrust::minus<double>());
+
+  // - h^2 fext_
+  thrust::transform(x_full, x_full + f_ext_.size(), f_ext_.begin(),
+      x_full, _1 - h2 * _2);
+
+  if (projected) {
+    // Project to reduced space
+    double* x_reduce_ptr;
+    P_gpu_.product(x_full_ptr, &x_reduce_ptr);
+    // Copy result of product to out
+    cudaMemcpy(out, x_reduce_ptr, x_.size()*sizeof(double),
+        cudaMemcpyDeviceToDevice);
+  } else {
+    // Copy result of product to out
+    cudaMemcpy(out, x_full_ptr, x_tilde_.size()*sizeof(double),
+        cudaMemcpyDeviceToDevice);
+  }
 }
 
 template class mfem::DisplacementGpu<3>; // 3D

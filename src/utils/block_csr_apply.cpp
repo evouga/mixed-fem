@@ -5,7 +5,7 @@ using namespace mfem;
 template<int N> 
 void mfem::bcsr_apply(std::shared_ptr<const gko::Executor> exec,
     std::shared_ptr<BlockMatrix<double,N,4>> matrix,
-    double* x, const double* b) {
+    double* x, const double* b, int ncols) {
 
   if (exec == nullptr) {
     std::cout << "Executor is null" << std::endl;
@@ -19,11 +19,11 @@ void mfem::bcsr_apply(std::shared_ptr<const gko::Executor> exec,
 
   // Create gko vectors for x and b
   auto x_gko = gko::matrix::Dense<double>::create(exec,
-      gko::dim<2>{size, 1},
-      gko::array<double>::view(exec, size, x), 1);
+      gko::dim<2>{size, ncols},
+      gko::array<double>::view(exec, size*ncols, x), ncols);
   auto b_gko = gko::matrix::Dense<double>::create_const(exec,
-      gko::dim<2>{size, 1},
-      gko::array<double>::const_view(exec, size, b), 1);
+      gko::dim<2>{size, ncols},
+      gko::array<double>::const_view(exec, size*ncols, b), ncols);
 
   // Create gko fbcsr matrix
   auto hessian = gko::matrix::Fbcsr<double,int>::create_const(exec,
@@ -40,4 +40,4 @@ void mfem::bcsr_apply(std::shared_ptr<const gko::Executor> exec,
 template void mfem::bcsr_apply<3>(
     std::shared_ptr<const gko::Executor>,
     std::shared_ptr<BlockMatrix<double,3,4>>,
-    double*, const double*);
+    double*, const double*, int);
