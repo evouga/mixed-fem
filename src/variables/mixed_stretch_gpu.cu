@@ -319,6 +319,24 @@ void MixedStretchGpu<DIM,STORAGE>::update(VectorType& x, double dt) {
   OptimizerData::get().timer.start("assemble", "MixedStretchGpu");
   assembler2_->update_matrix(Aloc_);
   OptimizerData::get().timer.stop("assemble", "MixedStretchGpu");
+  OptimizerData::get().timer.start("csr", "MixedStretchGpu");
+  if (exec_) {
+    if (!A_) {
+      A_ = gko::matrix::Csr<double,int>::create(exec_);
+    }
+    // Create gko fbcsr matrix
+    auto hessian = gko::matrix::Fbcsr<double,int>::create_const(exec_,
+      gko::dim<2>{assembler2_->size()}, DIM, 
+      gko::array<double>::const_view(exec_, assembler2_->num_values(),
+          assembler2_->values()),
+      gko::array<int>::const_view(exec_, assembler2_->num_col_indices(),
+          assembler2_->col_indices()),
+      gko::array<int>::const_view(exec_, assembler2_->num_row_blocks(),
+          assembler2_->row_offsets()));
+    hessian->convert_to(A_.get());
+  }
+
+  OptimizerData::get().timer.stop("csr", "MixedStretchGpu");
 
   // std::cout << "Top left1 : \n" << assembler_->A.block(0,0,10,10) << std::endl;
   // std::cout << "Top left2: \n" << assembler2_->to_eigen_csr().block(0,0,10,10) << std::endl;
@@ -328,6 +346,23 @@ void MixedStretchGpu<DIM,STORAGE>::update(VectorType& x, double dt) {
     cudaFree(d_x);
   }
 }
+
+template<int DIM, StorageType STORAGE>
+void MixedStretchGpu<DIM,STORAGE>::apply_submatrix(double* x, const double* b,
+    int cols, int start, int end) {
+  if (exec_ && A_) {
+    auto sub_A = A_->create_submatrix({start,end},{start,end});
+    int nrows = end - start;
+    auto x_gko = gko::matrix::Dense<double>::create(exec_,
+      gko::dim<2>{nrows, cols},
+      gko::array<double>::view(exec_, nrows*cols, x), cols);
+    auto b_gko = gko::matrix::Dense<double>::create_const(exec_,
+      gko::dim<2>{nrows, cols},
+      gko::array<double>::const_view(exec_, nrows*cols, b), cols);
+    sub_A->apply(b_gko.get(), x_gko.get());
+  }
+}
+
 
 template<int DIM, StorageType STORAGE>
 void MixedStretchGpu<DIM,STORAGE>::solve(VectorType& dx) {

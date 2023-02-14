@@ -65,6 +65,8 @@ namespace mfem {
     VectorType& lambda() override;
     void solve(VectorType& dx) override;
 
+    void apply_submatrix(double* x, const double* b, int cols, int start, int end);
+
     Eigen::VectorXd gradient_mixed() override { return dummy_; }
     Eigen::VectorXd gradient_dual() override { return dummy_; }
     
@@ -165,5 +167,7 @@ namespace mfem {
     ipc::MixedConstraints constraints_;
     std::shared_ptr<BlockMatrix<double,DIM,4>> assembler_;
     std::shared_ptr<const gko::Executor> exec_; // ginkgo executor
+    std::shared_ptr<gko::matrix::Csr<double, int>> A_;  // ginkgo matrix
+   
   };
 }

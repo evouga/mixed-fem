@@ -360,9 +360,45 @@ void MixedCollisionGpu<DIM,STORAGE>::update(VectorType& x, double dt) {
       ));
   OptimizerData::get().timer.stop("rhs", "MixedCollisionGpu");
 
-  OptimizerData::get().timer.start("assemble", "MixedStretchGpu");
+  OptimizerData::get().timer.start("assemble", "MixedCollisionGpu");
   assembler_->update_matrix(Aloc_);
-  OptimizerData::get().timer.stop("assemble", "MixedStretchGpu");
+  OptimizerData::get().timer.stop("assemble", "MixedCollisionGpu");
+
+  OptimizerData::get().timer.start("csr", "MixedCollisionGpu");
+  if (exec_) {
+    if (!A_) {
+      A_ = gko::matrix::Csr<double,int>::create(exec_);
+    }
+    // Create gko fbcsr matrix
+    auto hessian = gko::matrix::Fbcsr<double,int>::create_const(exec_,
+      gko::dim<2>{assembler_->size()}, DIM, 
+      gko::array<double>::const_view(exec_, assembler_->num_values(),
+          assembler_->values()),
+      gko::array<int>::const_view(exec_, assembler_->num_col_indices(),
+          assembler_->col_indices()),
+      gko::array<int>::const_view(exec_, assembler_->num_row_blocks(),
+          assembler_->row_offsets()));
+    hessian->convert_to(A_.get());
+  } else {
+    std::cout << "No exec!" << std::endl;
+  }
+  OptimizerData::get().timer.stop("csr", "MixedCollisionGpu");
+}
+
+template<int DIM, StorageType STORAGE>
+void MixedCollisionGpu<DIM,STORAGE>::apply_submatrix(double* x, const double* b,
+    int cols, int start, int end) {
+  if (exec_ && A_ && constraints_.size() > 0) {
+    auto sub_A = A_->create_submatrix({start,end},{start,end});
+    int nrows = end - start;
+    auto x_gko = gko::matrix::Dense<double>::create(exec_,
+      gko::dim<2>{nrows, cols},
+      gko::array<double>::view(exec_, nrows*cols, x), cols);
+    auto b_gko = gko::matrix::Dense<double>::create_const(exec_,
+      gko::dim<2>{nrows, cols},
+      gko::array<double>::const_view(exec_, nrows*cols, b), cols);
+    sub_A->apply(b_gko.get(), x_gko.get());
+  }
 }
 
 

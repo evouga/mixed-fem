@@ -30,12 +30,21 @@ namespace mfem {
         x_tmp_ = vec::create(exec, gko::dim<2>{size[0], 1});
         x_tmp2_ = vec::create(exec, gko::dim<2>{size[0], 1});
 
-        // Cast mixed variable to stretch gpu variable
-        auto stretch_var = dynamic_cast<MixedStretchGpu<DIM,STORAGE_THRUST>*>(
-            state->mixed_vars_[0].get());
-        if (stretch_var != nullptr) {
-          stretch_var->set_executor(exec);
+        // Call apply on each mixed var
+        for (auto& var : state->mixed_vars_) {
+          auto stretch_var = dynamic_cast<MixedStretchGpu<DIM,STORAGE_THRUST>*>(
+              var.get());
+          if (stretch_var != nullptr) {
+            stretch_var->set_executor(exec);
+          }
+
+          auto collision_var = dynamic_cast<
+              MixedCollisionGpu<DIM,STORAGE_THRUST>*>(var.get());
+          if (collision_var != nullptr) {
+            collision_var->set_executor(exec);
+          }
         }
+
       }
     }
 

@@ -1,10 +1,10 @@
 {
-  "dt": 0.034,
+  "dt": 0.0333,
   "print_timing": true,
   "print_stats": true,
   "optimizer": "newton",
   "time_integrator": "BDF1",
-  "linear_solver": "cholmod",
+  "linear_solver": "pcr-bj",
   "enable_ccd": false,
   "max_newton_iterations": 1,
   "max_linesearch_iterations": 20,
@@ -20,7 +20,7 @@
       "path": "../models/mesh/beams/beam_20k.mesh",
       "offset": [0.0, 0.0, 0.0],
       "material_index": 0,
-      "partitions": "../models/mesh/beams/metis_beam_20k.npart.10",
+      "partitions0": "../models/mesh/beams/metis_beam_20k.npart.10",
       "boundary_condition": {
         "type": "hangends",
         "ratio": 0.01,
@@ -34,7 +34,7 @@
       "youngs_modulus": 1e6,
       "poissons_ratio": 0.45,
       "density": 1e3,
-      "energy": "Neohookean"
+      "energy": "FixedCorot"
     }
   ],
   "mixed_variables": ["mixed-stretch"],

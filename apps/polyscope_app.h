@@ -296,9 +296,10 @@ namespace mfem {
             || config->solver_type == LinearSolverType::SOLVER_AMGCL) {
           ImGui::InputInt("Max CG Iters", &config->max_iterative_solver_iters);
           ImGui::InputDouble("CG Tol", &config->itr_tol,0,0,"%.5g");
-        }
+          ImGui::Checkbox("Explicit Guess", &config->itr_explicit_guess);
+          ImGui::SameLine();
+          ImGui::Checkbox("ABD Guess", &config->itr_abd_guess);
 
-        if (ImGui::InputFloat3("Body Force", config->ext, 3)) {
         }
 
         ImGui::InputDouble("kappa", &config->kappa,0,0,"%.5g");

@@ -92,7 +92,6 @@ namespace mfem {
 
       if (Base::state_->config_->itr_abd_guess) {
         OptimizerData::get().timer.start("ABD", "GKO");
-        // Base::state_->x_->abd_predictor(x_ptr, true);
         abd_->apply(lend(b), lend(x_));
         OptimizerData::get().timer.stop("ABD", "GKO");
 

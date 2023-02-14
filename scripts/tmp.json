@@ -1,123 +1,47 @@
 {
-    "dt": 0.01,
+    "dt": 0.034,
     "print_timing": true,
     "print_stats": true,
     "optimizer": "newton",
     "time_integrator": "BDF1",
     "linear_solver": "pcr-bj-abd",
-    "enable_ccd": true,
-    "dhat": 0.00025,
-    "kappa": 10000000000.0,
+    "enable_ccd": false,
     "max_newton_iterations": 1,
     "max_linesearch_iterations": 20,
+    "max_iterative_solver_iters": 100,
     "initial_state": {
-        "x_path": "../scenes/data/dragon_x0_0096.dmat",
-        "v_path": "../scenes/data/dragon_v_0096.dmat"
+        "x_path": "../scenes/data/beam_cantilever_x0_0015.dmat",
+        "v_path": "../scenes/data/beam_cantilever_v_0015.dmat"
     },
     "objects": [
         {
-            "path": "../models/mesh/press/press_base.mesh",
-            "skinning_mesh": "../models/mesh/press/press_base.obj",
+            "path0": "../models/mesh/beams/beam_5k.mesh",
+            "path": "../models/mesh/beams/beam_20k.mesh",
             "offset": [
                 0.0,
                 0.0,
                 0.0
             ],
             "material_index": 0,
-            "normalize": false,
+            "partitions": "../models/mesh/beams/metis_beam_20k.npart.10",
             "boundary_condition": {
                 "type": "hangends",
-                "ratio": 0.9,
-                "axis": 1
+                "ratio": 0.01,
+                "velocity": -0.1,
+                "axis": 0
             }
-        },
-        {
-            "path": "../models/mesh/press/press_cage.mesh",
-            "skinning_mesh": "../models/mesh/press/press_cage.obj",
-            "offset": [
-                0.0,
-                0.5,
-                0.0
-            ],
-            "material_index": 0,
-            "normalize": false,
-            "boundary_condition": {
-                "type": "hangends",
-                "ratio": 0.9,
-                "axis": 1
-            }
-        },
-        {
-            "path": "../models/mesh/press/press_ram.mesh",
-            "skinning_mesh": "../models/mesh/press/press_ram.obj",
-            "offset": [
-                0.0,
-                0.5,
-                0.0
-            ],
-            "material_index": 2,
-            "normalize": false,
-            "external_force": {
-                "type": "press",
-                "force": [
-                    0.0,
-                    -10.0,
-                    0.0
-                ],
-                "axis": 1,
-                "ratio": 0.3,
-                "max_force": 1000,
-                "target_velocity": -0.1,
-                "max_displacement": 0.5,
-                "pause_duration": 0.5,
-                "flip": true
-            }
-        },
-        {
-            "path": "../models/mesh/dragon.mesh",
-            "offset": [
-                0.0,
-                0.0,
-                0.0
-            ],
-            "material_index": 1,
-            "normalize": false,
-            "transformation": [
-                2.5,
-                0,
-                0,
-                0,
-                2.5,
-                0,
-                0,
-                0,
-                2.5
-            ]
         }
     ],
     "material_models": [
         {
-            "youngs_modulus": 1000000000.0,
+            "youngs_modulus": 1000000.0,
             "poissons_ratio": 0.45,
             "density": 1000.0,
-            "energy": "FixedCorot"
-        },
-        {
-            "youngs_modulus": 10000.0,
-            "poissons_ratio": 0.45,
-            "density": 1000.0,
-            "energy": "FixedCorot"
-        },
-        {
-            "youngs_modulus": 1000000000.0,
-            "poissons_ratio": 0.45,
-            "density": 4000.0,
-            "energy": "FixedCorot"
+            "energy": "Neohookean"
         }
     ],
     "mixed_variables": [
-        "mixed-stretch",
-        "mixed-collision"
+        "mixed-stretch"
     ],
     "variables": [],
     "itr_explicit_guess": true,

@@ -115,6 +115,12 @@ namespace mfem {
     }
 
     void apply(double* x, const double* b, int cols) override {}
+    void apply_submatrix(double* x, const double* b, int cols, int start, int end);
+    void free_matrix() {
+      if (exec_ != nullptr)
+        A_ = gko::matrix::Csr<double,int>::create(exec_);
+    }
+
     void extract_diagonal(double* diag) override;
 
     void set_executor(std::shared_ptr<const gko::Executor> exec) {
@@ -293,5 +299,6 @@ namespace mfem {
     std::shared_ptr<BlockMatrix<double,DIM,4>> assembler2_;
 
     std::shared_ptr<const gko::Executor> exec_; // ginkgo executor
+    std::shared_ptr<gko::matrix::Csr<double, int>> A_;  // ginkgo matrix
   };
 }

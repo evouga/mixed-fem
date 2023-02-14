@@ -1,4 +1,5 @@
 #include "block_csr_apply.h"
+#include "optimizers/optimizer_data.h"
 
 using namespace mfem;
 
