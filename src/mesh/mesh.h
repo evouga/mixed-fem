@@ -4,6 +4,7 @@
 #include <EigenTypes.h>
 #include <memory>
 #include "ipc/ipc.hpp"
+#include "utils/mixed_ipc.h"
 #include "boundary_conditions/boundary_condition.h"
 #include "boundary_conditions/external_force.h"
 
@@ -135,6 +136,11 @@ namespace mfem {
       return ipc_candidates_;
     }
 
+    ipc::MixedConstraints& collision_constraints() {
+      return constraints_;
+    }
+
+
     const Eigen::VectorXd& external_force() const {
       return external_force_;
     }
@@ -185,6 +191,7 @@ namespace mfem {
     std::vector<Eigen::MatrixXd> Jloc_;
     ipc::CollisionMesh ipc_mesh_;
     ipc::Candidates ipc_candidates_;
+    ipc::MixedConstraints constraints_;
 
   };
 }

@@ -7,13 +7,14 @@
 #include "utils/block_csr.h"
 #include "utils/sparse_utils.h"
 #include <ginkgo/ginkgo.hpp>
+#include "ipc/friction/friction.hpp"
 
 namespace mfem {
 
   class SimConfig;
 
   template<int DIM, StorageType STORAGE>
-  class MixedCollisionGpu : public MixedVariable<DIM,STORAGE> {
+  class MixedFrictionGpu : public MixedVariable<DIM,STORAGE> {
 
     typedef MixedVariable<DIM,STORAGE> Base;
 
@@ -28,23 +29,23 @@ namespace mfem {
   public:
     using typename Base::VectorType;
 
-    MixedCollisionGpu(std::shared_ptr<Mesh> mesh,
+    MixedFrictionGpu(std::shared_ptr<Mesh> mesh,
         std::shared_ptr<SimConfig> config);
 
     static std::string name() {
-      return "mixed-collision-gpu";
+      return "mixed-friction-gpu";
     }
 
     int size() const override {
-      return mesh_->collision_constraints().size();
+      return constraints_.size();
     }
 
     int size_dual() const override {
-      return mesh_->collision_constraints().size();
+      return constraints_.size();
     }
 
     const Eigen::SparseMatrix<double, Eigen::RowMajor>& lhs() override {
-      if (mesh_->collision_constraints().size() == 0) {
+      if (constraints_.size() == 0) {
         dummy_A_ = Eigen::SparseMatrix<double, Eigen::RowMajor>();
         dummy_A_.resize(mesh_->jacobian().rows(),mesh_->jacobian().rows());
         return dummy_A_;
@@ -56,6 +57,8 @@ namespace mfem {
     double energy(VectorType& x, VectorType& d) override;
 
     void update(VectorType& x, double dt) override;
+
+    void pre_solve() override;
 
     void reset() override;
     VectorType& rhs() override;
@@ -80,18 +83,14 @@ namespace mfem {
 
     struct derivative_functor {
 
-      derivative_functor(double* _d, double* _g, double* _H, double* _Gx,
-          double* _Aloc, double* _params)
-          : d(_d), g(_g), H(_H), Gx(_Gx), Aloc(_Aloc), params(_params) {}
+      derivative_functor(double* _H, double* _Gx, double* _Aloc)
+          : H(_H), Gx(_Gx), Aloc(_Aloc) {}
       
       void operator()(int i) const;
 
-      double* d;
-      double* g;
       double* H;
       double* Gx;
       double* Aloc;
-      double* params;
     };
 
     struct rhs_functor {
@@ -145,26 +144,30 @@ namespace mfem {
     Eigen::VectorXd dummy_;
     Eigen::VectorXd rhs_h_;
     Eigen::VectorXd delta_h_;
-    Eigen::VectorXd d_h_;
-    Eigen::VectorXd D_h_;
+    Eigen::VectorXd z_h_;
+    Eigen::VectorXd Z_h_;
     Eigen::VectorXd la_h_;
     Eigen::MatrixXi T_h_;  // element map |E| x 4
     Eigen::VectorXd Gx_h_; // constraint jacobian w.r.t x
+    Eigen::VectorXd g_h_;     // gradients                   |E| x 1
+    Eigen::VectorXd H_h_;     // hessians                    |E| x 1
 
     // Device data
-    vector<double> d_;     // deformation variable        |E| x 1
-    vector<double> D_;     // deformation variable        |E| x 1
+    vector<double> z_;     // deformation variable        |E| x 1
+    vector<double> Z_;     // deformation variable        |E| x 1
     vector<double> delta_; // deformation variable deltas |E| x 1
     vector<double> la_;    // lagrange multipliers        |E| x 1
     vector<double> g_;     // gradients                   |E| x 1
     vector<double> H_;     // hessians                    |E| x 1
     vector<double> rhs_; // RHS for primal condensation system
-    vector<double>  Gx_; // constraint jacobian w.r.t x
+    vector<double> Gx_; // constraint jacobian w.r.t x
     vector<double> Aloc_;  // local stiffness matrices
     vector<int> T_;   // element map |E| x 4
     vector<int> free_map_;
 
-    // ipc::MixedConstraints constraints_;
+    Eigen::MatrixXd V0_;    // Vertex positions at beginning of lagged step
+
+    ipc::FrictionConstraints constraints_;
     std::shared_ptr<BlockMatrix<double,DIM,4>> assembler_;
     std::shared_ptr<const gko::Executor> exec_; // ginkgo executor
     std::shared_ptr<gko::matrix::Csr<double, int>> A_;  // ginkgo matrix

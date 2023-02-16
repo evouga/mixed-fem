@@ -3,6 +3,7 @@
 #include <ginkgo/ginkgo.hpp>
 #include "variables/mixed_stretch_gpu.h"
 #include "variables/mixed_collision_gpu.h"
+#include "variables/mixed_friction_gpu.h"
 #include "simulation_state.h"
 #include <thrust/device_vector.h>
 #include <thrust/sequence.h>
@@ -42,6 +43,12 @@ namespace mfem {
               MixedCollisionGpu<DIM,STORAGE_THRUST>*>(var.get());
           if (collision_var != nullptr) {
             collision_var->set_executor(exec);
+          }
+
+          auto friction_var = dynamic_cast<
+              MixedFrictionGpu<DIM,STORAGE_THRUST>*>(var.get());
+          if (friction_var != nullptr) {
+            friction_var->set_executor(exec);
           }
         }
 
@@ -110,6 +117,16 @@ namespace mfem {
                     b_ptr, b_cols);
                 x->add_scaled(one, lend(x_tmp));
               }
+            }
+
+            auto friction_var = dynamic_cast<
+                MixedFrictionGpu<DIM,STORAGE_THRUST>*>(var.get());
+            if (friction_var != nullptr) {
+              if (friction_var->size() > 0) {
+                bcsr_apply<DIM>(exec, friction_var->assembler(), tmp_ptr,
+                    b_ptr, b_cols);
+                x->add_scaled(one, lend(x_tmp));
+              }        
             }
           }
         }
@@ -224,6 +241,15 @@ namespace mfem {
           if (collision_var->size() > 0) {
             collision_var->assembler()->extract_diagonal(diag_ptr_);
           }
+        }
+
+
+        auto friction_var = dynamic_cast<
+            MixedFrictionGpu<DIM,STORAGE_THRUST>*>(var.get());
+        if (friction_var != nullptr) {
+          if (friction_var->size() > 0) {
+            friction_var->assembler()->extract_diagonal(diag_ptr_);
+          }        
         }
         //var->extract_diagonal(diag_ptr_);
       }

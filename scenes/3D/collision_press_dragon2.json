@@ -63,13 +63,24 @@
     },
     {
       "path": "../models/mesh/dragon.mesh",
-      "offset": [0.0, 0.1, 0.0],
+      "offset": [0.0, 0.1, -0.1],
       "material_index": 1,
       "normalize": false,
       "transformation": [
-        2.5,0,0,
-        0,2.5,0,
-        0,0,2.5
+        2,0,0,
+        0,2,0,
+        0,0,2
+      ]
+    },
+    {
+      "path": "../models/mesh/dragon.mesh",
+      "offset": [0.0, 0.1, 0.1],
+      "material_index": 1,
+      "normalize": false,
+      "transformation": [
+        2,0,0,
+        0,2,0,
+        0,0,2
       ]
     }
   ],

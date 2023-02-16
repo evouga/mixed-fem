@@ -71,7 +71,7 @@ struct PolyscopTetApp : public PolyscopeApp<3, STORAGE_THRUST> {
 
   void write_obj(int step) override {
     meshV = mesh->vertices();
-    // Hack to export heterogeneous objects right now
+    // // Hack to export heterogeneous objects right now
     // if (het_faces.size() > 0) {
 
     //   for (size_t i = 0; i < het_faces.size(); ++i) {
@@ -125,22 +125,32 @@ struct PolyscopTetApp : public PolyscopeApp<3, STORAGE_THRUST> {
     material_config = std::make_shared<MaterialConfig>();
 
     // Add export meshes for heterogeneous materials
+    // std::cout << "MAT IDS: " << mesh->mat_ids_ << std::endl;
     if (mesh->mat_ids_.size() > 0) {
       int i = 0;
+      int n = mesh->mat_ids_.maxCoeff() + 1;
       while(true) {
-        MatrixXi T = igl::slice_mask(mesh->T_, mesh->mat_ids_.array() == i, 1);
+        MatrixXi T;
+        // If there is more than one material, then assume the first
+        // two are for the heterogenous mesh
+        if (i == 0 && n > 1) {
+          T = igl::slice_mask(mesh->T_, 
+              mesh->mat_ids_.array() == 0 || mesh->mat_ids_.array() == 1, 1);
+        } else {
+          T = igl::slice_mask(mesh->T_, mesh->mat_ids_.array() == i, 1);
+        } 
         if (T.size() == 0) break;
         // Expect the first material ID to be for the surface mesh
-        if (i == 0) {
-          T = mesh->T_;
-        }
+        // if (i == 0) {
+        //   T = mesh->T_;
+        // }
         MatrixXi F;
         igl::boundary_facets(T,F);
         het_faces.push_back(F);
         ++i;
       }
-    }
 
+    }
     optimizer = optimizer_factory.create(config->optimizer, state);
     optimizer->reset();
     // optimizer->callback = std::bind(&PolyscopTetApp::collision_callback, this,

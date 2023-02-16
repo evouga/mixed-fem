@@ -20,6 +20,7 @@ void NewtonOptimizerGpu<DIM>::step() {
   OptimizerData::get().clear();
 
   // Pre solve operations for variables
+  OptimizerData::get().timer.start("pre_solve");
   state_.x_->pre_solve();
   for (auto& var : state_.mixed_vars_) {
     var->pre_solve();
@@ -27,6 +28,8 @@ void NewtonOptimizerGpu<DIM>::step() {
   for (auto& var : state_.vars_) {
     var->pre_solve();
   }
+  OptimizerData::get().timer.stop("pre_solve");
+
 
   int i = 0;
   double grad_norm;
@@ -112,7 +115,7 @@ void NewtonOptimizerGpu<DIM>::step() {
     auto status = linesearch_backtracking2(state_, alpha, energy_func, 0.0,0.5);
     OptimizerData::get().timer.stop("LS");
 
-    if (status == SolverExitStatus::CONVERGED) {
+    if (true || status == SolverExitStatus::CONVERGED) {
       // x += alpha * dx
       add_vec(state_.x_->value(), alpha, state_.x_->delta(),
                 state_.x_->value());

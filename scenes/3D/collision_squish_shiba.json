@@ -1,15 +1,21 @@
 {
-  "dt": 0.0333,
+  "dt": 0.01,
   "print_timing": false,
   "print_stats": true,
   "optimizer": "newton",
   "time_integrator": "BDF1",
-  "linear_solver": "cholmod",
+  "linear_solver": "pcr-bj",
   "enable_ccd": true,
   "dhat": 0.001,
-  "kappa": 1e10,
-  "max_newton_iterations": 10,
-  "max_linesearch_iterations": 20,
+  "kappa": 1e8,
+  "espv": 0.1,
+  "max_newton_iterations": 15,
+  "newton_tol": 2e-3,
+  "max_iterative_solver_iters": 150,
+  "iterative_solver_tolerance": 0.0,
+  "max_linesearch_iterations": 5,
+  "spd_jacobi_tolerance": 0.001,
+  "spd_jacobi_sweeps": 15,
   "objects": [
     {
       "path": "../models/mesh/cube_14.mesh",
@@ -26,7 +32,6 @@
       "offset": [-0.0, 2.0, 0.0],
       "material_index": 1,
       "skinning_mesh": "../models/mesh/shiba/shiba.obj",
-      "partitions0": "../models/mesh/spot/metis_spot.mesh.npart.10",
       "transformation": [1.6, 0, 0, 0, 1.6, 0, 0, 0, 1.6]
     },
     {
@@ -51,10 +56,10 @@
     {
       "youngs_modulus": 1e9,
       "poissons_ratio": 0.45,
-      "density": 1e4,
+      "density": 6e3,
       "energy": "FixedCorot"
     }
   ],
-  "mixed_variables": ["mixed-stretch", "mixed-collision"],
+  "mixed_variables": ["mixed-stretch", "mixed-collision","mixed-friction"],
   "variables": []
 }

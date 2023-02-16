@@ -67,7 +67,7 @@ namespace Eigen {
             W1_[i].template block<3,3>(3*(j+sz_V), 6) = Matrix3d::Identity()*(mesh->Vref_(j,2) - c(2));
             W1_[i].template block<3,3>(3*(j+sz_V), 9) = Matrix3d::Identity();
           }
-          std::cout << "c : " << c.transpose() << std::endl;
+          // std::cout << "c : " << c.transpose() << std::endl;
           sz_V += mesh->Vref_.rows();
         }
 
@@ -75,7 +75,7 @@ namespace Eigen {
         for (int i = 0; i < W1_.size(); ++i) {
           W1_[i] = state->mesh_->projection_matrix() * W1_[i];
         }
-        std::cout << "num partitions 1" << std::endl;
+        // std::cout << "num partitions 1" << std::endl;
 
         //---------------------------------------------------------------------
 
@@ -139,7 +139,7 @@ namespace Eigen {
         #pragma omp parallel for
         for (int i = 0; i < num_partitions_; ++i) {
           Matrix12 WKW = W_[i].transpose() * A_ * W_[i];
-          std::cout <<  WKW << std::endl;
+          // std::cout <<  WKW << std::endl;
           Winv_[i] = WKW.inverse();
         }
         for (int i = 0; i < num_partitions1_; ++i) {
@@ -158,7 +158,7 @@ namespace Eigen {
           // Matrix12 WKW = W1_[i].transpose() * A_ * W1_[i];
           // x0 += W1_[i] * (WKW.lu().solve((W1_[i].transpose() * (f - Au))));
         }
-        std::cout << "x norm: " << x0.norm() << std::endl;
+        // std::cout << "x norm: " << x0.norm() << std::endl;
         // Update Au
         Au = A_ * x0;
 

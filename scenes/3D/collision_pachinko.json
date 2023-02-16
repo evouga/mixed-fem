@@ -1,18 +1,20 @@
 {
-  "dt": 0.0333,
+  "dt": 0.01,
   "print_timing": false,
   "print_stats": true,
   "optimizer": "newton",
   "time_integrator": "BDF1",
-  "linear_solver": "minres-bj",
+  "linear_solver": "pcr-bj",
   "enable_ccd": true,
-  "dhat": 0.001,
-  "kappa": 1e8,
-  "max_newton_iterations": 5,
-  "max_iterative_solver_iters": 100,
+  "dhat": 0.0005,
+  "kappa": 1e7,
+  "max_newton_iterations": 8,
+  "newton_tol": 1e-3,
+  "max_iterative_solver_iters": 150,
+  "iterative_solver_tolerance": 0.0,
   "max_linesearch_iterations": 5,
   "spd_jacobi_tolerance": 0.001,
-  "spd_jacobi_sweeps": 5,
+  "spd_jacobi_sweeps": 3,
   "itr_abd_guess": true,
   "timesteps":100,
   "objects": [
@@ -29,7 +31,55 @@
     },
     {
       "path": "../models/mesh/cylinder.mesh",
-      "offset": [0.1, 0.3, 0.5],
+      "offset": [-0.15, 0.3, 0.5],
+      "material_index": 0,
+      "boundary_condition": {
+        "type": "stretch",
+        "ratio": 0.02,
+        "axis":2,
+        "velocity": -0.0
+      },
+      "transformation": [0.5, 0, 0, 0, 0.5, 0, 0, 0, 0.9]
+    },
+    {
+      "path": "../models/mesh/cylinder.mesh",
+      "offset": [0.45, 0.3, 0.5],
+      "material_index": 0,
+      "boundary_condition": {
+        "type": "stretch",
+        "ratio": 0.02,
+        "axis":2,
+        "velocity": -0.0
+      },
+      "transformation": [0.5, 0, 0, 0, 0.5, 0, 0, 0, 0.9]
+    },
+    {
+      "path": "../models/mesh/cylinder.mesh",
+      "offset": [-0.75, 0.3, 0.5],
+      "material_index": 0,
+      "boundary_condition": {
+        "type": "stretch",
+        "ratio": 0.02,
+        "axis":2,
+        "velocity": -0.0
+      },
+      "transformation": [0.5, 0, 0, 0, 0.5, 0, 0, 0, 0.9]
+    },
+    {
+      "path": "../models/mesh/cylinder.mesh",
+      "offset": [-0.45, -0.2, 0.5],
+      "material_index": 0,
+      "boundary_condition": {
+        "type": "stretch",
+        "ratio": 0.02,
+        "axis":2,
+        "velocity": -0.0
+      },
+      "transformation": [0.5, 0, 0, 0, 0.5, 0, 0, 0, 0.9]
+    },
+    {
+      "path": "../models/mesh/cylinder.mesh",
+      "offset": [0.15, -0.2, 0.5],
       "material_index": 0,
       "boundary_condition": {
         "type": "stretch",
@@ -45,7 +95,7 @@
       "skinning_mesh": "../models/mesh/ducks/bull.obj",
       "offset": [-0.6, 1.25, 0.15],
       "material_index": 1,
-      "transformation": [0, 0, 0.30, 0, 0.30, 0, -0.30, 0, 0]
+      "transformation": [0, 0, 0.25, 0, 0.25, 0, -0.25, 0, 0]
     },
     {
       "note": "duck_2",
@@ -53,7 +103,7 @@
       "skinning_mesh": "../models/mesh/ducks/bunny.obj",
       "offset": [0.1, 1.55, 0.40],
       "material_index": 1,
-      "transformation": [0, 0, 0.30, 0, 0.30, 0, -0.30, 0, 0]
+      "transformation": [0, 0, 0.25, 0, 0.25, 0, -0.25, 0, 0]
     },
     {
       "note": "duck_3",
@@ -61,7 +111,7 @@
       "skinning_mesh": "../models/mesh/ducks/cat.obj",
       "offset": [-0.45, 1.25, 0.85],
       "material_index": 1,
-      "transformation": [0, 0, 0.30, 0, 0.30, 0, -0.30, 0, 0]
+      "transformation": [0, 0, 0.25, 0, 0.25, 0, -0.25, 0, 0]
     },
     {
       "note": "duck_4",
@@ -69,7 +119,7 @@
       "skinning_mesh": "../models/mesh/ducks/deer.obj",
       "offset": [0.0, 1.1, 0.75],
       "material_index": 1,
-      "transformation": [0, 0, 0.30, 0, 0.30, 0, -0.30, 0, 0]
+      "transformation": [0, 0, 0.25, 0, 0.25, 0, -0.25, 0, 0]
     },
     {
       "note": "duck_5",
@@ -77,7 +127,7 @@
       "skinning_mesh": "../models/mesh/ducks/dog.obj",
       "offset": [-0.1, 1.25, 0.00],
       "material_index": 1,
-      "transformation": [0, 0, 0.30, 0, 0.30, 0, -0.30, 0, 0]
+      "transformation": [0, 0, 0.25, 0, 0.25, 0, -0.25, 0, 0]
     },
     {
       "note": "duck_6",
@@ -85,7 +135,7 @@
       "skinning_mesh": "../models/mesh/ducks/duck.obj",
       "offset": [0.3, 1.75, 0.25],
       "material_index": 1,
-      "transformation": [0, 0, 0.30, 0, 0.30, 0, -0.30, 0, 0]
+      "transformation": [0, 0, 0.25, 0, 0.25, 0, -0.25, 0, 0]
     },
     {
       "note": "duck_7",
@@ -93,7 +143,7 @@
       "skinning_mesh": "../models/mesh/ducks/fox.obj",
       "offset": [0.5, 1.25, 0.95],
       "material_index": 1,
-      "transformation": [0, 0, 0.30, 0, 0.30, 0, -0.30, 0, 0]
+      "transformation": [0, 0, 0.25, 0, 0.25, 0, -0.25, 0, 0]
     },
     {
       "note": "duck_8",
@@ -101,7 +151,7 @@
       "skinning_mesh": "../models/mesh/ducks/horse.obj",
       "offset": [-0.25, 1.3, 1.15],
       "material_index": 1,
-      "transformation": [0, 0, 0.30, 0, 0.30, 0, -0.30, 0, 0]
+      "transformation": [0, 0, 0.25, 0, 0.25, 0, -0.25, 0, 0]
     }
   ],
   "material_models": [
@@ -114,14 +164,14 @@
     },
     {
       "note": "cylinder material",
-      "youngs_modulus": 5e4,
+      "youngs_modulus": 1e4,
       "poissons_ratio": 0.45,
       "density": 1e3,
       "energy": "FixedCorot"
     },
     {
       "note": "duck material",
-      "youngs_modulus": 5e4,
+      "youngs_modulus": 2e4,
       "poissons_ratio": 0.45,
       "density": 1e3,
       "energy": "FixedCorot"

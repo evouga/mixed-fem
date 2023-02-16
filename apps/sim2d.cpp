@@ -129,7 +129,7 @@ struct PolyscopeTriApp : public PolyscopeApp<2> {
           // Remap angles from [-1, 1] to [2, 1]
           // angles = (-angles.array() + 1) / 2 + 1;
           // angles = (-angles.array() + 1) / 2; // [-1,1] -> [1, 0]
-          angles = -((angles.array() + 1) / 2).log()*2; // [-1,1] -> [inf, 0]
+          angles = -((angles.array() + 1) / 2).log()*1e2; // [-1,1] -> [inf, 0]
 
           // Scale angles by magnitude of dx
           VectorXd dx_mag = vector_data.dx[substep].block(start,0,sz,2)

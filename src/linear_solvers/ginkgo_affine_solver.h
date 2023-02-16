@@ -93,10 +93,10 @@ namespace mfem {
           }
           min_idx = 3*min_idx;
           max_idx = 3*(max_idx+1);
-          std::cout << "R2_h size: " << R2_h_[i].rows() << " x " << R2_h_[i].cols() << std::endl;
-          std::cout << " curr: " << curr << std::endl;
-          std::cout << " min_idx: " << min_idx << std::endl;
-          std::cout << " max_idx: " << max_idx << std::endl;
+          // std::cout << "R2_h size: " << R2_h_[i].rows() << " x " << R2_h_[i].cols() << std::endl;
+          // std::cout << " curr: " << curr << std::endl;
+          // std::cout << " min_idx: " << min_idx << std::endl;
+          // std::cout << " max_idx: " << max_idx << std::endl;
           partition_bounds_.push_back(std::make_pair(min_idx, max_idx));
           sz_V += mesh->Vref_.rows();
         }
@@ -184,6 +184,19 @@ namespace mfem {
               tmp_i->add_scaled(lend(one_), lend(tmp_c));
             }
           }
+
+          auto friction_var = dynamic_cast<
+              MixedFrictionGpu<DIM,STORAGE_THRUST>*>(var.get());
+          if (friction_var != nullptr) {
+            if (friction_var->size() > 0) {
+              auto tmp_c = vec::create(this->get_executor(), gko::dim<2>{sz, 12});
+              friction_var->apply_submatrix(
+                  tmp_c->get_values(), 
+                  R2_[i]->get_values(), 12,
+                  partition_bounds_[i].first, partition_bounds_[i].second);
+              tmp_i->add_scaled(lend(one_), lend(tmp_c));
+            }
+          }
         }
         // A_->apply(lend(R_[i]), lend(tmp));
 
@@ -258,10 +271,10 @@ namespace mfem {
       }
 
 
-      // get dense x norm
-      auto norm = gko::initialize<vec>({1.0}, this->get_executor());
-      dense_x->compute_norm2(lend(norm));
-      std::cout << "x norm : " << this->get_executor()->copy_val_to_host(norm->get_const_values()) << std::endl;
+      // // get dense x norm
+      // auto norm = gko::initialize<vec>({1.0}, this->get_executor());
+      // dense_x->compute_norm2(lend(norm));
+      // std::cout << "x norm : " << this->get_executor()->copy_val_to_host(norm->get_const_values()) << std::endl;
     }
 
     void apply_impl(const gko::LinOp* alpha, const gko::LinOp* b,

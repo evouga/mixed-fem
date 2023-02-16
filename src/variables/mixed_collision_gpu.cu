@@ -151,8 +151,11 @@ double MixedCollisionGpu<DIM,STORAGE>::energy(VectorType& x,
   MatrixXd V_srf = ipc_mesh.vertices(V); // surface vertex set
 
   // Computing collision constraints
-  ipc::MixedConstraints constraints = constraints_;
+  // std::cout << "lambda size: " << la_h_.size() << std::endl;
+  // std::cout << "distance size: " << d_h.size() << std::endl;
+  ipc::MixedConstraints constraints = mesh_->collision_constraints();
   constraints.update_distances(d_h);
+  constraints.update_lambdas(la_h_);
       OptimizerData::get().timer.start("energyconstruct_constraint_set", "MixedCollisionGpu");
 
   ipc::construct_constraint_set(candidates, ipc_mesh, V_srf, config_->dhat,
@@ -181,6 +184,19 @@ double MixedCollisionGpu<DIM,STORAGE>::energy(VectorType& x,
       e_vec(i) += la * (D - di);
     }
   }
+
+  // ipc::MixedConstraints& constraints0 = mesh_->collision_constraints();
+  // #pragma omp parallel for
+  // for (size_t i = 0; i < constraints0.size(); ++i) {
+  //   // Make sure constraint is still valid
+  //   double D = constraints0[i].compute_distance(V_srf, E, F,
+  //       ipc::DistanceMode::SQRT);
+  //   if (D <= config_->dhat || d_h(i) <= config_->dhat) {
+  //     e_vec(i) +=  la_h_(i) * (D - d_h(i));
+  //   }
+  // }
+
+
   double e = e_vec.sum() / dt_ / dt_;
   OptimizerData::get().timer.stop("energy", "MixedCollisionGpu");
   return e;
@@ -231,15 +247,17 @@ void MixedCollisionGpu<DIM,STORAGE>::update(VectorType& x, double dt) {
   }
    
   // Update mixed variables for current constraint set
-  constraints_.update_distances(d_h_);
-  constraints_.update_lambdas(la_h_);
+  ipc::MixedConstraints& constraints = mesh_->collision_constraints();
+
+  constraints.update_distances(d_h_);
+  constraints.update_lambdas(la_h_);
 
   // Computing new collision constraints
   ipc::construct_constraint_set(candidates, ipc_mesh, V_srf,
-      config_->dhat, constraints_);
+      config_->dhat, constraints);
 
   // Initializing new variables
-  int num_frames = constraints_.size();
+  int num_frames = constraints.size();
   T_h_.resize(num_frames, 4);
   D_h_.resize(num_frames);
   Gx_h_.resize(num_frames*12);
@@ -250,14 +268,14 @@ void MixedCollisionGpu<DIM,STORAGE>::update(VectorType& x, double dt) {
   std::cout << "Num frames: " << num_frames << std::endl;
 
   // From new constraint set, get mixed variables
-  d_h_ = constraints_.get_distances();
-  la_h_ = constraints_.get_lambdas();
+  d_h_ = constraints.get_distances();
+  la_h_ = constraints.get_lambdas();
   std::cout << "LA norm" << la_h_.norm() << std::endl;
   // Rebuilding mixed variables for the new set of collision frames.
   #pragma omp parallel for
   for (int i = 0; i < num_frames; ++i) {
     // Getting collision frame, and computing squared distance.
-    std::array<long, 4> ids = constraints_[i].vertex_indices(E, F);
+    std::array<long, 4> ids = constraints[i].vertex_indices(E, F);
 
     // Add entry in element matrix. Used for assembly.
     for (int j = 0; j < 4; ++j) {
@@ -267,10 +285,10 @@ void MixedCollisionGpu<DIM,STORAGE>::update(VectorType& x, double dt) {
       }
     }
     // TODO should be doing dtype based on config
-    D_h_(i) = constraints_[i].compute_distance(V_srf, E, F,
+    D_h_(i) = constraints[i].compute_distance(V_srf, E, F,
         ipc::DistanceMode::SQRT);
 
-    ipc::VectorMax12d grad = constraints_[i].compute_distance_gradient(
+    ipc::VectorMax12d grad = constraints[i].compute_distance_gradient(
         V_srf, E, F, ipc::DistanceMode::SQRT);
     Gx_h_.segment(12*i, grad.size()) = grad;
   }
@@ -388,7 +406,7 @@ void MixedCollisionGpu<DIM,STORAGE>::update(VectorType& x, double dt) {
 template<int DIM, StorageType STORAGE>
 void MixedCollisionGpu<DIM,STORAGE>::apply_submatrix(double* x, const double* b,
     int cols, int start, int end) {
-  if (exec_ && A_ && constraints_.size() > 0) {
+  if (exec_ && A_ && mesh_->collision_constraints().size() > 0) {
     auto sub_A = A_->create_submatrix({start,end},{start,end});
     int nrows = end - start;
     auto x_gko = gko::matrix::Dense<double>::create(exec_,
@@ -404,7 +422,9 @@ void MixedCollisionGpu<DIM,STORAGE>::apply_submatrix(double* x, const double* b,
 
 template<int DIM, StorageType STORAGE>
 void MixedCollisionGpu<DIM,STORAGE>::solve(VectorType& dx) {
-  if (constraints_.empty()) {
+  int num_frames = mesh_->collision_constraints().size();
+
+  if (num_frames == 0) {
     return;
   }
   OptimizerData::get().timer.start("solve", "MixedCollisionGpu");
@@ -417,7 +437,6 @@ void MixedCollisionGpu<DIM,STORAGE>::solve(VectorType& dx) {
   } else {
     d_dx = thrust::raw_pointer_cast(dx.data());
   }
-  int num_frames = constraints_.size();
   thrust::for_each(thrust::counting_iterator(0),
       thrust::counting_iterator(num_frames),
       solve_functor(
@@ -431,12 +450,15 @@ void MixedCollisionGpu<DIM,STORAGE>::solve(VectorType& dx) {
         thrust::raw_pointer_cast(la_.data()),
         thrust::raw_pointer_cast(delta_.data()), d_dx
       ));
+  // Copy la to la_h_
+  cudaMemcpy(la_h_.data(),  thrust::raw_pointer_cast(la_.data()),
+      la_.size()*sizeof(double), cudaMemcpyDeviceToHost);
   OptimizerData::get().timer.stop("solve", "MixedCollisionGpu");
 }
 
 template<int DIM, StorageType STORAGE>
 void MixedCollisionGpu<DIM,STORAGE>::reset() {
-  constraints_.clear();
+  // constraints_.clear();
   d_.resize(0);
   d_h_.resize(0);
   D_.resize(0);
@@ -456,6 +478,7 @@ void MixedCollisionGpu<DIM,STORAGE>::reset() {
   thrust::copy(mesh_->free_map_.begin(), mesh_->free_map_.end(),
                free_map_.begin());
 
+  mesh_->collision_constraints().clear();
 }
 
 template<int DIM, StorageType STORAGE>

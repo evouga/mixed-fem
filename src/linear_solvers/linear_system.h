@@ -27,6 +27,8 @@ namespace mfem {
       }
 
       // std::cout << "LHS DIFF: " << (state->mixed_vars_[0]->lhs()-state->mixed_vars_[1]->lhs()).norm() << std::endl;
+      // std::cout << "LHS 2 : " << state->mixed_vars_[0]->lhs() << std::endl;
+      // std::cout << "LHS 3 : " << state->mixed_vars_[1]->lhs() << std::endl;
       for (auto& var : state->mixed_vars_) {
         lhs_ += var->lhs();
         rhs_ += var->rhs();

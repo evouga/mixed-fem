@@ -89,8 +89,9 @@ void MixedFriction<DIM>::update_derivatives(const MatrixXd& U, double dt) {
 
   double epsv_h = config_->espv * dt_ * dt_;
 
+
   // Hessian and gradient with respect to x
-  // #pragma omp parallel for
+  #pragma omp parallel for
   for (size_t i = 0; i < num_frames; ++i) {
     Z_(i) = constraints_[i].u_norm(U, E, F);
     Gx_[i] = constraints_[i].u_norm_gradient(U, E, F);
@@ -104,19 +105,15 @@ void MixedFriction<DIM>::update_derivatives(const MatrixXd& U, double dt) {
     gloc[i] = -Gx_[i] * gl;
   }
 
+  std::cout << "Z: " << Z_.transpose() << std::endl;
+  std::cout << "z: " << z_.transpose() << std::endl;
+
   // Assemble hessian
   assembler_->update_matrix(Aloc);
   A_ = assembler_->A;
 
   // Assemble right hand side
   vec_assembler_->assemble(gloc, rhs_);
-  // std::cout << "Z: " << Z_.transpose() << std::endl;
-  // std::cout << "z: " << z_.transpose() << std::endl;
-  // std::cout << "g: " << g_.transpose() << std::endl;
-  // std::cout << "H: " << H_.transpose() << std::endl;
-  // std::cout << "Gz: " << Gz_.transpose() << std::endl;
-  // std::cout << "Gx: " << Gx_[0] << std::endl;
-  // std::cout << "rhs: " << rhs_.transpose() << std::endl;
 }
 
 template<int DIM>

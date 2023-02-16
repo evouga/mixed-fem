@@ -8,6 +8,7 @@
 #include "variables/mixed_friction.h"
 #include "variables/displacement_gpu.h"
 #include "variables/mixed_collision_gpu.h"
+#include "variables/mixed_friction_gpu.h"
 #include "mesh/mesh.h"
 
 using namespace mfem;
@@ -59,6 +60,16 @@ MixedVariableFactory<DIM,STORAGE>::MixedVariableFactory() {
         [](std::shared_ptr<Mesh> mesh, std::shared_ptr<SimConfig> config)
         ->std::unique_ptr<MixedVariable<DIM,STORAGE>>
         {return std::make_unique<MixedCollisionGpu<DIM,STORAGE>>(mesh,config);}
+    );
+
+    name = MixedFrictionGpu<DIM,STORAGE>::name();
+    if constexpr (STORAGE == STORAGE_THRUST) {
+      name = MixedFriction<DIM>::name();
+    }
+    this->register_type(VariableType::VAR_MIXED_FRICTION_GPU, name,
+        [](std::shared_ptr<Mesh> mesh, std::shared_ptr<SimConfig> config)
+        ->std::unique_ptr<MixedVariable<DIM,STORAGE>>
+        {return std::make_unique<MixedFrictionGpu<DIM,STORAGE>>(mesh,config);}
     );
   }
 

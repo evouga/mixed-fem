@@ -7,6 +7,7 @@
 #include "utils/additive_ccd.h"
 #include "ipc/ipc.hpp"
 #include "igl/edges.h"
+#include "variables/mixed_collision.h"
 
 using namespace mfem;
 using namespace Eigen;
@@ -44,6 +45,39 @@ void NewtonOptimizer<DIM>::step() {
     substep(grad_norm);
 
     double alpha = 1.0;
+    double angle_criterion = 0.0;
+
+    // Compute angle based decrement
+    VectorXd rhs_grad;
+    bool have_collisions = 0;
+    for (const auto& var : state_.mixed_vars_) {
+      const MixedCollision<DIM>* mc = 
+          dynamic_cast<const MixedCollision<DIM>*>(var.get());
+      if (mc != nullptr) {
+        have_collisions = 1;
+        rhs_grad = var->rhs();
+        
+        VectorXd criteria(rhs_grad.size() / DIM);
+        #pragma omp parallel for
+        for (int i = 0; i < rhs_grad.size() / DIM; ++i) {
+          using VecD = Eigen::Matrix<double, DIM, 1>;
+          const VecD& grad = rhs_grad.template segment<DIM>(i * DIM);
+          const VecD& delta = state_.x_->delta().segment(i * DIM, DIM);
+          double angle = grad.normalized().dot(delta.normalized());
+          angle = -1e3 * std::log((angle + 1) / 2); // [-1,1] -> [inf, 0]
+          if (grad.norm() > 0.0) {
+            criteria(i) = angle * delta.norm();// * grad.norm();
+          } else {
+            criteria(i) = 0.0;
+          }
+        }
+        angle_criterion = criteria.maxCoeff();
+        break;
+      }
+    }
+
+
+
 
     // If collisions enabled, perform CCD
     // TODO enable_ccd in simulate_state initialization
@@ -99,6 +133,7 @@ void NewtonOptimizer<DIM>::step() {
     OptimizerData::get().add("Energy", E);
     OptimizerData::get().add("Energy res", res);
     OptimizerData::get().add("Decrement", grad_norm);
+    OptimizerData::get().add("Angle-Dec", angle_criterion);
     OptimizerData::get().add("alpha ", alpha);
     ++i;
     Base::callback(state_);

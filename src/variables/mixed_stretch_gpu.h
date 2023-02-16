@@ -150,11 +150,13 @@ namespace mfem {
     struct energy_functor {
 
       energy_functor(double* _s, double* _F, double* _la, 
-          double* _vols, double* _mu, double* _lambda)
-        : s(_s), F(_F), la(_la), vols(_vols), mu(_mu), lambda(_lambda) {}
+          double* _vols, double* _mu, double* _lambda, double _h2)
+        : s(_s), F(_F), la(_la), vols(_vols), mu(_mu), lambda(_lambda),
+        h2(_h2) {}
         
       double operator()(int i) const;
 
+      const double h2;
       double* s;
       double* F;
       double* la;
@@ -182,12 +184,13 @@ namespace mfem {
 
       derivative_functor(double* _s, double* _g, double* _H,
           double* _dSdF, double* _Jloc, double* _Aloc, double* _vols,
-          double* _mu, double* _lambda)
+          double* _mu, double* _lambda, double _h2)
         : s(_s), g(_g), H(_H), dSdF(_dSdF), Jloc(_Jloc),
-          Aloc(_Aloc), vols(_vols), mu(_mu), lambda(_lambda) {}
+          Aloc(_Aloc), vols(_vols), mu(_mu), lambda(_lambda), h2(_h2) {}
       
       void operator()(int i) const;
 
+      const double h2;
       double* s;
       double* g;
       double* H;
@@ -288,7 +291,7 @@ namespace mfem {
     Eigen::VectorXd la_h_;
     Eigen::VectorXd s_h_;
     vector<double> energy_tmp_;
-
+    double dt_; // time step size
     SparseMatrixGpu J_gpu_;
     SparseMatrixGpu JW_gpu_; // projected, weighted jacobian
 

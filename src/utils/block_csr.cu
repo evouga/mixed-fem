@@ -56,6 +56,12 @@ void BlockMatrix<Scalar,DIM,N>::pairs_functor::operator()(int i) {
       int row = E_d[i * N + j];
       int col = E_d[i * N + k];
 
+      if (row < 0 || col < 0) {
+        block_row_indices[block_index] = -1;
+        block_col_indices[block_index] = -1;
+        continue;
+      }
+
       // Check if the row and column are free
       int row_is_free = free_map_d[row] >= 0;
       int col_is_free = free_map_d[col] >= 0;
@@ -64,8 +70,15 @@ void BlockMatrix<Scalar,DIM,N>::pairs_functor::operator()(int i) {
       block_is_free[block_index] = row_is_free && col_is_free;
 
       // Set the row and column indices
-      block_row_indices[block_index] = free_map_d[row];
-      block_col_indices[block_index] = free_map_d[col];
+      if (row_is_free && col_is_free) {
+        block_row_indices[block_index] = free_map_d[row];
+        block_col_indices[block_index] = free_map_d[col];
+      } else {
+        block_row_indices[block_index] = -1;
+        block_col_indices[block_index] = -1;
+      }
+      // block_row_indices[block_index] = free_map_d[row];
+      // block_col_indices[block_index] = free_map_d[col];
     }
   }
 }
@@ -146,7 +159,7 @@ BlockMatrix<Scalar,DIM,N>::BlockMatrix(const Eigen::MatrixXi& E,
   block_row_indices_.resize(E.rows() * N * N);
   block_col_indices_.resize(E.rows() * N * N);
   thrust::device_vector<int> block_is_free(E.rows() * N * N);
-
+  
   // ----------------------------------------------------------------------- //
   // 1. Create row, col index values for each DIMxDIM block in the matrix
   // ----------------------------------------------------------------------- //
@@ -189,17 +202,18 @@ BlockMatrix<Scalar,DIM,N>::BlockMatrix(const Eigen::MatrixXi& E,
               block_col_indices_.end(),
               sorted_block_map.end())), is_not_free());
 
-  // for (int i = 0; i < 120; ++i) {
-  //   std::cout << "i: "<< i << " (r,c,map): " << block_row_indices_[i] << " " << block_col_indices_[i] << " "
-  //     << sorted_block_map[i] <<  std::endl; 
-  // }
-
   // Erase the removed elements using new_end
   auto Tend =  new_end.get_iterator_tuple();;
   block_row_indices_.erase(thrust::get<0>(Tend), block_row_indices_.end());
   block_col_indices_.erase(thrust::get<1>(Tend), block_col_indices_.end());
   sorted_block_map.erase(thrust::get<2>(Tend), sorted_block_map.end());
   blocks_with_duplicates_.resize(block_row_indices_.size());
+
+  // for (int i = 0; i < block_row_indices_.size(); ++i) {
+  //   std::cout << "i: "<< i << " (r,c,map,block_indices): " << block_row_indices_[i] << " " << block_col_indices_[i] << " "
+  //     << sorted_block_map[i] << std::endl;
+  // }
+
 
   // ----------------------------------------------------------------------- //
   // 2. Row major sort block indices and block map
@@ -229,7 +243,7 @@ BlockMatrix<Scalar,DIM,N>::BlockMatrix(const Eigen::MatrixXi& E,
       thrust::make_counting_iterator(0) + sorted_block_map.size(),
       sorted_block_map.begin(), block_indices_.begin());
 
-  // for (int i = 0; i < 10; ++i) {
+  // for (int i = 0; i < block_row_indices_.size(); ++i) {
   //   std::cout << "i: "<< i << " (r,c,map,block_indices): " << block_row_indices_[i] << " " << block_col_indices_[i] << " "
   //     << sorted_block_map[i] << " " << block_indices_[sorted_block_map[i]] << std::endl;
   // }
@@ -260,13 +274,10 @@ BlockMatrix<Scalar,DIM,N>::BlockMatrix(const Eigen::MatrixXi& E,
   blocks_.resize(row_indices.size());
 
   // std::cout << "size 1 " << row_indices.size() << std::endl;
-  // for (int i = 0; i < 50; ++i) {
+  // for (int i = 0; i < row_indices.size(); ++i) {
   //   std::cout << "i: "<< i << " (r,c): " << row_indices[i] << " " << col_indices_[i] << std::endl;
   // }
   // Now count the number of occurrences of each row value
-  // TODO this will not work if num of offsets is not equal to matrix rows
-  // Need to do a prefix sum on the row_offsets to get the final offsets
-  // Do a scatter to the full size row offsets, then prefix sum over that
   row_offsets_.resize(row_indices.size());
 
   // Count the number of matching row indices and write to row_offsets
@@ -274,7 +285,7 @@ BlockMatrix<Scalar,DIM,N>::BlockMatrix(const Eigen::MatrixXi& E,
   auto pair_end = thrust::reduce_by_key(row_indices.begin(), row_indices.end(),
       thrust::constant_iterator<int>(1), row_indices.begin(), row_offsets_.begin());
 
-  // for (int i = 0; i < 8; ++i) {
+  // for (int i = 0; i < row_indices.size(); ++i) {
   //   std::cout << "i: "<< i << " (row,count): " << row_indices[i] << " " <<  row_offsets_[i] << std::endl;
   // }
 
@@ -294,6 +305,7 @@ BlockMatrix<Scalar,DIM,N>::BlockMatrix(const Eigen::MatrixXi& E,
     // Get unique row_indices, to be used for scattering map
     thrust::device_vector<int> row_indices_tmp = row_indices;
     auto it2 = thrust::unique(row_indices_tmp.begin(), row_indices_tmp.end());
+
     thrust::scatter(row_offsets_.begin(), row_offsets_.begin() + nrows,
         row_indices_tmp.begin(), row_offsets_tmp.begin());
     // for (int i = 0; i < row_indices.size(); ++i) {

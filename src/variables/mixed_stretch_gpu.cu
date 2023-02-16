@@ -23,7 +23,7 @@ double MixedStretchGpu<DIM,STORAGE>::energy_functor::operator()(int i) const {
   // double mu = 10344.8;
   double mui = mu[i];
   double lambdai = lambda[i];
-  double h2 = 0.0333 * 0.0333;
+  // double h2 = 0.0333 * 0.0333;
 
   double e = 0.0;
   if constexpr (DIM == 3) {
@@ -73,7 +73,7 @@ rotation_functor<COMPUTE_GRADIENTS>::operator()(int i) const {
     Matrix3f Rf;
     Matrix<float, 6, 9> dSdFf;
     // svd_polar(Fi, Rf);
-    svd_deriv_S(Fi, Rf, dSdFf);
+    svd_deriv_S2(Fi, Rf, dSdFf);
     Ri = Rf.cast<double>();
 
     MatD S3D = Ri.transpose() * Fi;
@@ -101,7 +101,7 @@ void MixedStretchGpu<DIM,STORAGE>::derivative_functor::operator()(int i)
   
   // TODO better selection
   // Look at how AMGCL or GINKGO does runtime selection of GPU stuff...
-  double h2 = 0.0333 * 0.0333; // TODO use constant memory?
+  // double h2 = 0.0333 * 0.0333; // TODO use constant memory?
   Hi = h2 * local_hessian<double>(si, mui, lambdai);
   gi = h2 * local_gradient<double>(si, mui, lambdai);
   Aloci = vol * Jloci.transpose() * (dSdFi * Hi * dSdFi.transpose()) * Jloci;
@@ -195,7 +195,7 @@ double MixedStretchGpu<DIM,STORAGE>::energy(VectorType& x,
         thrust::raw_pointer_cast(la_.data()), 
         thrust::raw_pointer_cast(vols_.data()),
         thrust::raw_pointer_cast(params_.mu.data()),
-        thrust::raw_pointer_cast(params_.lambda.data())),
+        thrust::raw_pointer_cast(params_.lambda.data()), dt_*dt_),
         0.0, thrust::plus<double>());
   OptimizerData::get().timer.stop("energy", "MixedStretchGpu");
   if constexpr (STORAGE == STORAGE_EIGEN) {
@@ -207,7 +207,7 @@ double MixedStretchGpu<DIM,STORAGE>::energy(VectorType& x,
 
 template<int DIM, StorageType STORAGE>
 void MixedStretchGpu<DIM,STORAGE>::update(VectorType& x, double dt) {
-
+  dt_ = dt;
   vector<double> h2(1, dt*dt);
   double* d_x; // device x vector
 
@@ -265,7 +265,7 @@ void MixedStretchGpu<DIM,STORAGE>::update(VectorType& x, double dt) {
           thrust::raw_pointer_cast(Aloc_.data()),
           thrust::raw_pointer_cast(vols_.data()),
           thrust::raw_pointer_cast(params_.mu.data()),
-          thrust::raw_pointer_cast(params_.lambda.data())));
+          thrust::raw_pointer_cast(params_.lambda.data()), dt*dt));
   OptimizerData::get().timer.stop("gradients", "MixedStretchGpu");
 
   // for (int i = 0; i < 50; ++i) {
@@ -404,10 +404,7 @@ void MixedStretchGpu<DIM,STORAGE>::solve(VectorType& dx) {
     la_h_.resize(la_.size());
     cudaMemcpy(la_h_.data(), thrust::raw_pointer_cast(la_.data()),
         la_.size()*sizeof(double), cudaMemcpyDeviceToHost);
-
-    std::cout << "ds norm: " << ds_h_.norm() << " la norm: " << la_h_.norm() << std::endl;
     cudaFree(d_dx);
-    std::cout << "LHS A matrix not being assembled on CPU version!" << std::endl;
   }
 }
 
@@ -451,7 +448,6 @@ MixedStretchGpu<DIM,STORAGE>::MixedStretchGpu(std::shared_ptr<Mesh> mesh,
 
 template<int DIM, StorageType STORAGE>
 void MixedStretchGpu<DIM,STORAGE>::reset() {
-
   // Init s_h_ to identity
   s_h_.resize(N()*nelem_);
   for (int i = 0; i < nelem_; i++) {
@@ -468,7 +464,6 @@ void MixedStretchGpu<DIM,STORAGE>::reset() {
       s_h_[N()*i + 5] = 0;
     }
   }
-
   // Initialize mixed stretch variables to identity
   double* si_data = thrust::raw_pointer_cast(s_.data());
   thrust::for_each(thrust::counting_iterator<int>(0),

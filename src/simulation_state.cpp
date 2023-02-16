@@ -414,9 +414,11 @@ void SimState<DIM, STORAGE>::load_params(const nlohmann::json& args) {
   read_and_assign(args, "print_stats", config_->show_data);
   read_and_assign(args, "enable_ccd", config_->enable_ccd);
   read_and_assign(args, "dhat", config_->dhat);
+  read_and_assign(args, "espv", config_->espv);
   read_and_assign(args, "kappa", config_->kappa);
   read_and_assign(args, "timesteps", config_->timesteps);
   read_and_assign(args, "max_newton_iterations", config_->outer_steps);
+  read_and_assign(args, "newton_tol", config_->newton_tol);
   read_and_assign(args, "max_linesearch_iterations", config_->ls_iters);
   read_and_assign(args, "max_iterative_solver_iters",
       config_->max_iterative_solver_iters);
