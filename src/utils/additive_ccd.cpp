@@ -106,7 +106,7 @@ double ipc::additive_ccd(const Eigen::MatrixXd& V1, const Eigen::MatrixXd& V2,
   MatrixXd P = V2-V1;
 
   candidates.clear();
-    mfem::OptimizerData::get().timer.start("additive_ccdbp");
+    // mfem::OptimizerData::get().timer.start("additive_ccdbp");
 
   ipc::BroadPhaseMethod method = 
       ipc::BroadPhaseMethod::SWEEP_AND_TINIEST_QUEUE_GPU;
@@ -118,7 +118,7 @@ double ipc::additive_ccd(const Eigen::MatrixXd& V1, const Eigen::MatrixXd& V2,
       method);
   // std::cout << "Construct collision candidates 2" << std::endl;
 
-  mfem::OptimizerData::get().timer.stop("additive_ccdbp");
+  // mfem::OptimizerData::get().timer.stop("additive_ccdbp");
 
 
   const Eigen::MatrixXi& E = mesh.edges();

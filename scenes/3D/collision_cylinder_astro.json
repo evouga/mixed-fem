@@ -11,6 +11,7 @@
   "max_newton_iterations": 8,
   "max_linesearch_iterations": 5,
   "max_iterative_solver_iters": 500,
+  "newton_tol": 1e-4,
   "timesteps":250,
   "objects": [
     {

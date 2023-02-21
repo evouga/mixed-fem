@@ -85,20 +85,23 @@ namespace mfem {
 
       // Apply explicit predictor guess
       if (Base::state_->config_->itr_explicit_guess) {
+        OptimizerData::get().timer.start("Explicit", "LinSolve");
         Base::state_->x_->explicit_predictor(x_ptr, true);
         auto neg_one = gko::initialize<vec>({-gko::one<double>()}, cuda_exec_);
         x_->scale(lend(neg_one));
+        OptimizerData::get().timer.stop("Explicit", "LinSolve");
       }
 
       if (Base::state_->config_->itr_abd_guess) {
-        OptimizerData::get().timer.start("ABD", "GKO");
+        OptimizerData::get().timer.start("ABD", "LinSolve");
         abd_->apply(lend(b), lend(x_));
-        OptimizerData::get().timer.stop("ABD", "GKO");
-
+        OptimizerData::get().timer.stop("ABD", "LinSolve");
       }
       
       // Solve for x
+      OptimizerData::get().timer.start("global", "LinSolve");
       solver_->apply(lend(b), lend(x_));
+      OptimizerData::get().timer.stop("global", "LinSolve");
 
       // dx l2 norm
       auto res = gko::initialize<vec>({0.0}, cuda_exec_);
@@ -121,8 +124,10 @@ namespace mfem {
       // residual_d->compute_norm2(lend(res));
       // std::cout << "residual_d norm:\n";
       // write(std::cout, lend(res));
-
+      OptimizerData::get().timer.start("local", "LinSolve");
       system_matrix_.post_solve(Base::state_, x_ptr);
+      OptimizerData::get().timer.stop("local", "LinSolve");
+
     }
 
   private:

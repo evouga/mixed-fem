@@ -339,6 +339,7 @@ namespace mfem {
         simulation_step();
 
         if (export_timing) {
+          OptimizerData::get().write_csv(step);
           OptimizerData::get().timer.write_csv(step);
         }
         

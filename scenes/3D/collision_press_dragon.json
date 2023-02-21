@@ -41,7 +41,12 @@
         "type": "hangends",
         "ratio": 0.9,
         "axis": 1
-      }
+      },
+      "transformation": [
+        0.94,0,0,
+        0,1.0,0,
+        0,0,0.94
+      ]
     },
     {
       "path": "../models/mesh/press/press_ram.mesh",

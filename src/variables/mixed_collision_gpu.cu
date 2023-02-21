@@ -156,11 +156,8 @@ double MixedCollisionGpu<DIM,STORAGE>::energy(VectorType& x,
   ipc::MixedConstraints constraints = mesh_->collision_constraints();
   constraints.update_distances(d_h);
   constraints.update_lambdas(la_h_);
-      OptimizerData::get().timer.start("energyconstruct_constraint_set", "MixedCollisionGpu");
-
   ipc::construct_constraint_set(candidates, ipc_mesh, V_srf, config_->dhat,
       constraints);
-          OptimizerData::get().timer.stop("energyconstruct_constraint_set", "MixedCollisionGpu");
 
   // std::cout << "constraints: " << constraints.size() << std::endl;
   if (constraints.size() == 0) {
@@ -209,6 +206,7 @@ void MixedCollisionGpu<DIM,STORAGE>::update(VectorType& x, double dt) {
 
   ipc::Candidates& candidates = mesh_->collision_candidates();
   if (candidates.size() == 0) {
+    OptimizerData::get().add("collision_frames", 0);
     return;
   }
 
@@ -266,11 +264,14 @@ void MixedCollisionGpu<DIM,STORAGE>::update(VectorType& x, double dt) {
   H_.resize(num_frames);
 
   std::cout << "Num frames: " << num_frames << std::endl;
+  // Add frame count to optimizer data
+  OptimizerData::get().add("collision_frames", num_frames);
+
 
   // From new constraint set, get mixed variables
   d_h_ = constraints.get_distances();
   la_h_ = constraints.get_lambdas();
-  std::cout << "LA norm" << la_h_.norm() << std::endl;
+  // std::cout << "LA norm" << la_h_.norm() << std::endl;
   // Rebuilding mixed variables for the new set of collision frames.
   #pragma omp parallel for
   for (int i = 0; i < num_frames; ++i) {
@@ -327,13 +328,6 @@ void MixedCollisionGpu<DIM,STORAGE>::update(VectorType& x, double dt) {
   // std::cout << "la: " << la_h_.transpose() << std::endl;
   OptimizerData::get().timer.stop("update-constraints", "MixedCollisionGpu");
 
-  // Create new assembler, since collision frame set changes.
-  OptimizerData::get().timer.start("assembler-init", "MixedCollisionGpu");
-  assembler_ = std::make_shared<BlockMatrix<double,DIM,4>>(T_h_,
-      mesh_->free_map_);
-
-  OptimizerData::get().timer.stop("assembler-init", "MixedCollisionGpu");
-
   thrust::host_vector<double> params_h(2);
   params_h[0] = config_->kappa;
   params_h[1] = config_->dhat * config_->dhat;
@@ -378,7 +372,10 @@ void MixedCollisionGpu<DIM,STORAGE>::update(VectorType& x, double dt) {
       ));
   OptimizerData::get().timer.stop("rhs", "MixedCollisionGpu");
 
+  // Create new assembler, since collision frame set changes.
   OptimizerData::get().timer.start("assemble", "MixedCollisionGpu");
+  assembler_ = std::make_shared<BlockMatrix<double,DIM,4>>(T_h_,
+      mesh_->free_map_);
   assembler_->update_matrix(Aloc_);
   OptimizerData::get().timer.stop("assemble", "MixedCollisionGpu");
 

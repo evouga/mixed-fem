@@ -221,15 +221,12 @@ namespace ipc {
       return distance_sqr < offset_sqr;
     };
 
-      mfem::OptimizerData::get().timer.start("mipc-set", "MixedCollisionGpu");
-
     unordered_set<EdgeVertexMixedConstraint> ev_set;
     unordered_set<EdgeEdgeMixedConstraint> ee_set;
     unordered_set<FaceVertexMixedConstraint> fv_set;
     create_constraint_set(constraint_set.ev_constraints, ev_set);
     create_constraint_set(constraint_set.ee_constraints, ee_set);
     create_constraint_set(constraint_set.fv_constraints, fv_set); 
-      mfem::OptimizerData::get().timer.stop("mipc-set", "MixedCollisionGpu");
 
     std::mutex vv_mutex, ev_mutex, ee_mutex, fv_mutex;
 

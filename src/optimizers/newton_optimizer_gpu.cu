@@ -19,6 +19,15 @@ void NewtonOptimizerGpu<DIM>::step() {
   
   OptimizerData::get().clear();
 
+  spdlog::set_level(spdlog::level::err);
+  std::vector<thrust::device_vector<double>> tmps(state_.mixed_vars_.size());
+
+  int i = 0;
+  double grad_norm;
+  double E = 0, E_prev = 0, res = 0;
+
+  OptimizerData::get().timer.start("solve", "Optimizer");
+
   // Pre solve operations for variables
   OptimizerData::get().timer.start("pre_solve");
   state_.x_->pre_solve();
@@ -29,20 +38,6 @@ void NewtonOptimizerGpu<DIM>::step() {
     var->pre_solve();
   }
   OptimizerData::get().timer.stop("pre_solve");
-
-
-  int i = 0;
-  double grad_norm;
-  double E = 0, E_prev = 0, res = 0;
-
-  // TODO 
-  // Need to construct collision candidates if it's
-  // not been run yet. Happens for first timestep, so
-  // we may end up missing collisions
-
-  std::vector<thrust::device_vector<double>> tmps(state_.mixed_vars_.size());
-
-  // spdlog::set_level(spdlog::level::trace);
 
   // Compute z = x + a * y
   auto add_vec = [](const thrust::device_vector<double>& x, double a,
@@ -106,16 +101,16 @@ void NewtonOptimizerGpu<DIM>::step() {
     };
 
     // // Record initial energies
-    E = energy_func(0.0);
-    res = std::abs((E - E_prev) / (E+1e-6));
-    E_prev = E;
+    // E = energy_func(0.0);
+    // res = std::abs((E - E_prev) / (E+1e-6));
+    // E_prev = E;
 
     // // Linesearch on descent direction
     OptimizerData::get().timer.start("LS");
     auto status = linesearch_backtracking2(state_, alpha, energy_func, 0.0,0.5);
     OptimizerData::get().timer.stop("LS");
 
-    if (true || status == SolverExitStatus::CONVERGED) {
+    if (status == SolverExitStatus::CONVERGED) {
       // x += alpha * dx
       add_vec(state_.x_->value(), alpha, state_.x_->delta(),
                 state_.x_->value());
@@ -124,21 +119,21 @@ void NewtonOptimizerGpu<DIM>::step() {
         add_vec(var->value(), alpha, var->delta(), var->value());
       }
     } else {
-      // ls_done = true;
+      ls_done = true;
     }
 
     // check for error
-    cudaDeviceSynchronize();
-    cudaError_t error = cudaGetLastError();
-    if(error != cudaSuccess) {
-      printf("CUDA error: %s\n", cudaGetErrorString(error));
-      exit(-1);
-    }
+    // cudaDeviceSynchronize();
+    // cudaError_t error = cudaGetLastError();
+    // if(error != cudaSuccess) {
+    //   printf("CUDA error: %s\n", cudaGetErrorString(error));
+    //   exit(-1);
+    // }
 
     // Record some data
     OptimizerData::get().add(" Iteration", i+1);
-    OptimizerData::get().add("Energy", E);
-    OptimizerData::get().add("Energy res", res);
+    // OptimizerData::get().add("Energy", E);
+    // OptimizerData::get().add("Energy res", res);
     OptimizerData::get().add("Decrement", grad_norm);
     OptimizerData::get().add("alpha ", alpha);
     ++i;
@@ -146,12 +141,10 @@ void NewtonOptimizerGpu<DIM>::step() {
 
   } while (i < state_.config_->outer_steps
       && grad_norm > state_.config_->newton_tol
-      && (res > 1e-12)
+      // && (res > 1e-12)
       && !ls_done); 
 
-  if (state_.config_->show_data) {
-    OptimizerData::get().print_data(state_.config_->show_timing);
-  }
+  OptimizerData::get().timer.start("post_solve");
 
   // Update dirichlet boundary conditions
   state_.mesh_->update_bcs(state_.config_->h);
@@ -163,6 +156,12 @@ void NewtonOptimizerGpu<DIM>::step() {
   }
   for (auto& var : state_.vars_) {
     var->post_solve();
+  }
+  OptimizerData::get().timer.stop("post_solve");
+  OptimizerData::get().timer.stop("solve", "Optimizer");
+
+  if (state_.config_->show_data) {
+    OptimizerData::get().print_data(state_.config_->show_timing);
   }
 }
 

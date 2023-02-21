@@ -33,7 +33,12 @@
         "type": "hangends",
         "ratio": 0.9,
         "axis": 1
-      }
+      },
+      "transformation": [
+        0.98,0,0,
+        0,1.0,0,
+        0,0,0.98
+      ]
     },
     {
       "path": "../models/mesh/press/press_ram.mesh",
@@ -56,19 +61,19 @@
   ],
   "material_models": [
     {
-      "youngs_modulus": 1e5,
+      "youngs_modulus": 1e8,
       "poissons_ratio": 0.45,
       "density": 1e3,
       "energy": "Stable-Neohookean"
     },
     {
-      "youngs_modulus": 1e5,
+      "youngs_modulus": 1e8,
       "poissons_ratio": 0.45,
       "density": 1e3,
       "energy": "Stable-Neohookean"
     },
     {
-      "youngs_modulus": 1e5,
+      "youngs_modulus": 1e8,
       "poissons_ratio": 0.45,
       "density": 4e3,
       "energy": "Stable-Neohookean"

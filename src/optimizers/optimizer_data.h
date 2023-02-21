@@ -5,13 +5,14 @@
 #include <unordered_map>
 
 namespace mfem {
-
+  
+  /// @brief A simple timer class
   class Timer {
 
     using Time = std::chrono::high_resolution_clock;
     
-    // For each key, store the clock, total time, and # of measurements
-    using T = std::tuple<std::chrono::time_point<Time>, double, int>;
+    // For each key, store the clock, total time, max time,  # of measurements
+    using T = std::tuple<std::chrono::time_point<Time>, double, double, int>;
 
     using KeyMap = std::unordered_map<std::string, T>;
 
@@ -35,7 +36,6 @@ namespace mfem {
     void print() const;
 
     void reset() {
-      // times_.clear();
       timers_.clear();
     }
 
@@ -60,14 +60,14 @@ namespace mfem {
         : output_filename_(output_filename) {
     }
 
-    OptimizerData() : output_filename_("../data/output/results.mat") {
+    OptimizerData() : output_filename_("optimizer_data.csv") {
     }
 
     OptimizerData(OptimizerData const&) = delete;
     void operator=(OptimizerData const&) = delete;
 
     virtual void clear();
-    virtual void write() const;
+    virtual void write_csv(int step) const;
     virtual void print_data(bool print_timing = true) const;
     void add(const std::string& key, double value);
 

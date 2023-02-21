@@ -13,7 +13,52 @@ void OptimizerData::clear() {
   map_.clear();
 }
 
-void OptimizerData::write() const {
+void OptimizerData::write_csv(int step) const {
+  // Write optimizer data to CSV format
+  // Open output file in append mode if step > 0 
+  std::ios_base::openmode mode = std::ios_base::out;
+  if (step != 0) {
+    mode |= std::ios_base::app;
+  }
+
+  std::ofstream file(output_filename_, mode);
+  if (!file.is_open()) {
+    std::cerr << "Could not open file: " << output_filename_ << std::endl;
+    return;
+  }
+
+  // Write data for each entry in the vector
+  std::vector<std::string> keys;
+  std::vector<std::vector<double>> values;
+  for (auto it = map_.begin(); it != map_.end(); ++it) {
+    keys.push_back(it->first);
+    values.push_back(it->second);
+  }
+
+  // Write keys
+  auto is_empty = (std::filesystem::file_size(output_filename_) == 0);
+  if (step == 0 || is_empty) {
+    file << "Step,";
+    for (size_t i = 0; i < keys.size(); ++i) {
+      file << keys[i];
+      if (i == keys.size() - 1)
+        file << "\n";
+      else
+        file << ",";
+    }
+  }
+
+  // Write values
+  for (size_t i = 0; i < values[0].size(); ++i) {
+    file << step << ",";
+    for (size_t j = 0; j < keys.size(); ++j) {
+      file << values[j][i];
+      if (j == keys.size() - 1)
+        file << "\n";
+      else
+        file << ",";
+    }
+  }
 }
 
 void OptimizerData::add(const std::string& key, double value) {
@@ -134,7 +179,7 @@ void Timer::start(const std::string& key, const std::string& tag) {
   KeyMap& key_map = timers_[tag];
   auto it2 = key_map.find(key);
   if (it2 == key_map.end()) {
-    key_map[key] = std::make_tuple(Time::now(), 0.0, 0);
+    key_map[key] = std::make_tuple(Time::now(), 0.0, 0.0, 0);
   } else {
     T& tup = key_map[key];
     std::get<0>(tup) = Time::now();
@@ -155,7 +200,9 @@ void Timer::stop(const std::string& key, const std::string& tag) {
       T& tup = it2->second;
       std::chrono::duration<double, std::milli> fp_ms = end - std::get<0>(tup);
       std::get<1>(tup) += fp_ms.count(); // add to total time
-      std::get<2>(tup) += 1;             // increment measurement count
+      std::get<2>(tup) = std::max(std::get<2>(tup), fp_ms.count()); // max time
+      std::get<3>(tup) += 1;             // increment measurement count
+      // std::get<2>(tup) += 1;             // increment measurement count
     }
   }
 }
@@ -180,7 +227,7 @@ double Timer::average(const std::string& key, const std::string& tag) const {
     auto it2 = key_map.find(key);
     if (it2 != key_map.end()) {
       const T& tup = it2->second;
-      return std::get<1>(tup) / std::get<2>(tup);
+      return std::get<1>(tup) / std::get<3>(tup);
     }
   }
   return 0;
@@ -209,7 +256,7 @@ void Timer::print() const {
       std::string key = it2->first;
       const T& tup = it2->second;
       double t = std::get<1>(tup);
-      int n = std::get<2>(tup);
+      int n = std::get<3>(tup);
 
       std::cout << "    [" << std::setw(max_len) << key << "] "
           << std::fixed << " Avg: " << std::setw(10) << t/((double) n)
@@ -237,7 +284,7 @@ void Timer::write_csv(int step) const {
   auto is_empty = (std::filesystem::file_size(output_filename_) == 0);
 
   if (step == 0 || is_empty) {
-    file << "Step,Tag,Key,Total,Average,Num Measurements" << std::endl;
+    file << "Step,Tag,Key,Total,Average,Max,Num Measurements" << std::endl;
   }
 
   // Write data
@@ -248,8 +295,8 @@ void Timer::write_csv(int step) const {
       const std::string& key = key_pair.first;
       const T& tup = key_pair.second;
       file << step << "," << tag << "," << key << "," << std::get<1>(tup) << ","
-          << std::get<1>(tup) / std::get<2>(tup) << "," << std::get<2>(tup)
-          << std::endl;
+          << std::get<1>(tup) / std::get<3>(tup) << "," << std::get<2>(tup)
+          << "," << std::get<3>(tup) << std::endl;
     }
   }
   file.close();

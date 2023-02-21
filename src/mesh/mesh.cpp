@@ -84,6 +84,11 @@ void Mesh::init() {
     igl::boundary_facets(T_, F);
     igl::edges(F, E);
   }
+  std::cout << "Loading mesh with" << std::endl;
+  std::cout << "  " << V_.rows() << " vertices" << std::endl;
+  std::cout << "  " << T_.rows() << " elements" << std::endl;
+  std::cout << "  " << E.rows() << " surface edges" << std::endl;
+  std::cout << "  " << F.rows() << " surface faces" << std::endl;
   ipc_mesh_ = ipc::CollisionMesh::build_from_full_mesh(V_, E, F);
 }
 

@@ -7,9 +7,10 @@
   "linear_solver": "cholmod",
   "enable_ccd": true,
   "dhat": 0.001,
-  "kappa": 1e10,
+  "kappa": 1e8,
+  "newton_tol": 1e-4,
   "max_newton_iterations": 30,
-  "max_linesearch_iterations": 20,
+  "max_linesearch_iterations": 5,
   "objects": [
     {
       "path": "../models/mesh/slab.mesh",

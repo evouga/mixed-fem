@@ -74,6 +74,7 @@ rotation_functor<COMPUTE_GRADIENTS>::operator()(int i) const {
     Matrix<float, 6, 9> dSdFf;
     // svd_polar(Fi, Rf);
     svd_deriv_S2(Fi, Rf, dSdFf);
+    // svd_deriv_S2(Fi, Rf, dSdFf);
     Ri = Rf.cast<double>();
 
     MatD S3D = Ri.transpose() * Fi;
@@ -215,21 +216,16 @@ void MixedStretchGpu<DIM,STORAGE>::update(VectorType& x, double dt) {
   if constexpr (STORAGE == STORAGE_EIGEN) {
     cudaMemcpy(thrust::raw_pointer_cast(s_.data()), s_h_.data(), sizeof(double) * s_.size(),
         cudaMemcpyHostToDevice);
-
-    OptimizerData::get().timer.start("def_grad_transfer", "MixedStretchGpu");
     cudaMalloc((void**)&d_x, sizeof(double) * x.size());
     cudaMemcpy(d_x, x.data(), sizeof(double) * x.size(),
         cudaMemcpyHostToDevice);
-    OptimizerData::get().timer.stop("def_grad_transfer", "MixedStretchGpu");
   } else {
     d_x = thrust::raw_pointer_cast(x.data());
   }
 
   // First compute the deformation gradient
-  OptimizerData::get().timer.start("def_grad", "MixedStretchGpu");
   double* F;
   J_gpu_.product(d_x, &F);
-  OptimizerData::get().timer.stop("def_grad", "MixedStretchGpu");
 
   // make the host block until the device is finished with foo
   // check for error
@@ -242,7 +238,8 @@ void MixedStretchGpu<DIM,STORAGE>::update(VectorType& x, double dt) {
   // }
 
   // Compute rotations and rotation derivatives (dSdF)
-  OptimizerData::get().timer.start("rotations", "MixedStretchGpu");
+  OptimizerData::get().timer.start("gradients", "MixedStretchGpu");
+  // OptimizerData::get().timer.start("rotations", "MixedStretchGpu");
   thrust::for_each(thrust::counting_iterator<int>(0),
       thrust::counting_iterator<int>(nelem_),
       rotation_functor<true>(F,
@@ -250,8 +247,8 @@ void MixedStretchGpu<DIM,STORAGE>::update(VectorType& x, double dt) {
           thrust::raw_pointer_cast(S_.data()), 
           thrust::raw_pointer_cast(dSdF_.data())
       ));
-  OptimizerData::get().timer.stop("rotations", "MixedStretchGpu");
-  OptimizerData::get().timer.start("gradients", "MixedStretchGpu");
+  // OptimizerData::get().timer.stop("rotations", "MixedStretchGpu");
+  // OptimizerData::get().timer.start("gradients", "MixedStretchGpu");
 
   // Compute local hessians and gradients
   thrust::for_each(thrust::counting_iterator<int>(0),
