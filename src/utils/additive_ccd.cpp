@@ -2,6 +2,7 @@
 #include <ipc/distance/edge_edge.hpp>
 #include <ipc/distance/point_edge.hpp>
 #include <ipc/distance/point_triangle.hpp>
+#include "optimizers/optimizer_data.h"
 
 using namespace Eigen;
 
@@ -96,10 +97,11 @@ double ipc::additive_ccd(const VectorXd& x, const VectorXd& p,
   MatrixXd P = V2-V1;
 
   candidates.clear();
-  ipc::construct_collision_candidates(mesh, V1, V2, candidates, dhat / 2.0);//,
-      //ipc::BroadPhaseMethod::SWEEP_AND_TINIEST_QUEUE);
-  // std::cout << "Construct collision candidates 2" << std::endl;
 
+  // Time the BroadPhase
+  mfem::OptimizerData::get().timer.start("broadphase", "CCD");
+  ipc::construct_collision_candidates(mesh, V1, V2, candidates, dhat / 2.0);
+  mfem::OptimizerData::get().timer.stop("broadphase", "CCD");
 
   const Eigen::MatrixXi& E = mesh.edges();
   const Eigen::MatrixXi& F = mesh.faces();
@@ -110,10 +112,12 @@ double ipc::additive_ccd(const VectorXd& x, const VectorXd& p,
   // std::cout << "EV candidates: " << candidates.ev_candidates.size() << std::endl;
   // std::cout << "FV candidates: " << candidates.fv_candidates.size() << std::endl;
 
+  mfem::OptimizerData::get().timer.start("narrowphase", "CCD");
   // Edge-vertex distance checks
   if constexpr (DIM == 2) {
 
-    #pragma omp parallel for reduction(min : min_step)
+    VectorXd min_tmp(candidates.ev_candidates.size());
+    //#pragma omp parallel for 
     for (size_t i = 0; i < candidates.ev_candidates.size(); ++i) {
       const auto& ev_candidate = candidates.ev_candidates[i];
       const auto& [ei, vi] = ev_candidate;
@@ -144,15 +148,20 @@ double ipc::additive_ccd(const VectorXd& x, const VectorXd& p,
       double t;
 
       if (accd_primitive(x_a, x_b, p_a, p_b, dist, t)) {
-        min_step = std::min(min_step,t);
+        min_tmp(i) = t;
+      } else {
+        min_tmp(i) = 1.0;
       }
+    }
+    if (min_tmp.size() > 0) {
+      min_step = std::min(min_tmp.minCoeff(), min_step);
     }
 
   } else {
-
-    // std::cout << "EDGE EDGE " << std::endl;
     // Edge-edge distance checks
-    #pragma omp parallel for reduction(min : min_step)
+    //
+    VectorXd min_tmp_ee(candidates.ee_candidates.size());
+    #pragma omp parallel for 
     for (size_t i = 0; i < candidates.ee_candidates.size(); ++i) {
       const auto& ee_candidate = candidates.ee_candidates[i];
       const auto& [eai, ebi] = ee_candidate;
@@ -182,13 +191,19 @@ double ipc::additive_ccd(const VectorXd& x, const VectorXd& p,
       p_b.row(1) = P.row(eb1i);
       double t;
       if (accd_primitive(x_a, x_b, p_a, p_b, dist, t)) {
-        min_step = std::min(min_step,t);
+        min_tmp_ee(i) = t;
+      } else {
+        min_tmp_ee(i) = 1.0;
       }
+    }
+    if (min_tmp_ee.size() > 0) {
+      min_step = min_tmp_ee.minCoeff();
     }
 
     // std::cout << "Face Vertex" << std::endl;
     // Face-vertex distance checks
-    #pragma omp parallel for reduction(min : min_step)
+    VectorXd min_tmp_fv(candidates.fv_candidates.size());
+    #pragma omp parallel for
     for (size_t i = 0; i < candidates.fv_candidates.size(); ++i) {
       const auto& fv_candidate = candidates.fv_candidates[i];
       const auto& [fi, vi] = fv_candidate;
@@ -220,11 +235,16 @@ double ipc::additive_ccd(const VectorXd& x, const VectorXd& p,
       p_b.row(2) = P.row(f2i);
       double t;
       if (accd_primitive(x_a, x_b, p_a, p_b, dist, t)) {
-        min_step = std::min(min_step,t);
+        min_tmp_fv(i) = t;
+      } else {
+        min_tmp_fv(i) = 1.0;
       }
     }
+    if (min_tmp_fv.size() > 0) {
+      min_step = std::min(min_step, min_tmp_fv.minCoeff());
+    }
   }
-  
+  mfem::OptimizerData::get().timer.stop("narrowphase", "CCD");
   return min_step;
 }
 
