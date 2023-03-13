@@ -135,7 +135,7 @@ static inline double ImConstrainLog(double val) { return val <= 0 ? 0.001f : val
 // Turns numbers less than 0 to zero
 static inline double ImConstrainTime(double val) { return val < IMPLOT_MIN_TIME ? IMPLOT_MIN_TIME : (val > IMPLOT_MAX_TIME ? IMPLOT_MAX_TIME : val); }
 // True if two numbers are approximately equal using units in the last place.
-static inline bool ImAlmostEqual(double v1, double v2, int ulp = 2) { return abs(v1-v2) < DBL_EPSILON * abs(v1+v2) * ulp || abs(v1-v2) < DBL_MIN; }
+static inline bool ImAlmostEqual(double v1, double v2, int ulp = 2) { return fabs(v1-v2) < DBL_EPSILON * fabs(v1+v2) * ulp || fabs(v1-v2) < DBL_MIN; }
 // Finds min value in an unsorted array
 template <typename T>
 static inline T ImMinArray(const T* values, int count) { T m = values[0]; for (int i = 1; i < count; ++i) { if (values[i] < m) { m = values[i]; } } return m; }
@@ -781,7 +781,7 @@ struct ImPlotAxis
             SetRange(Range.Min - delta, Range.Max + delta);
     }
 
-    inline float PixelSize() const { return abs(PixelMax - PixelMin); }
+    inline float PixelSize() const { return fabs(PixelMax - PixelMin); }
 
     inline double GetAspect() const { return Range.Size() / PixelSize(); }
 

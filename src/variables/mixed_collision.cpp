@@ -35,7 +35,7 @@ double MixedCollision<DIM>::energy(const VectorXd& x, const VectorXd& d) {
   double e = 0;
 
   #pragma omp parallel for reduction( + : e )
-  for (size_t i = 0; i < constraints.size(); ++i) {
+  for (int i = 0; i < constraints.size(); ++i) {
     double di = constraints.distance(i);
     //e += config_->kappa * ipc::barrier(di, config_->dhat) / h2;
     if (di <= 0.0) {
@@ -73,7 +73,7 @@ double MixedCollision<DIM>::constraint_value(const VectorXd& x,
   // New frames are initialized such that the mixed distance
   // equals the nodal distance, so the lagrange multipliers are zero.
   #pragma omp parallel for reduction( + : e )
-  for (size_t i = 0; i < constraints_.size(); ++i) {
+  for (int i = 0; i < constraints_.size(); ++i) {
     // Make sure constraint is still valid
     double D = constraints_[i].compute_distance(V_srf, E, F,
         ipc::DistanceMode::SQRT);
@@ -214,7 +214,7 @@ void MixedCollision<DIM>::update_derivatives(const MatrixXd& V, double dt) {
   // double h2 = dt_*dt_;
  
   #pragma omp parallel for
-  for (size_t i = 0; i < constraints_.size(); ++i) {
+  for (int i = 0; i < constraints_.size(); ++i) {
     // Mixed barrier energy gradients and hessians
     //g_[i] = config_->kappa * ipc::barrier_gradient(d_(i), dhat);
     //H_[i] = config_->kappa * ipc::barrier_hessian(d_(i), dhat);
@@ -260,7 +260,7 @@ VectorXd MixedCollision<DIM>::rhs() {
   // Computing schur-complement system right-hand-side
   std::vector<VectorXd> g(constraints_.size());
   #pragma omp parallel for
-  for (size_t i = 0; i < constraints_.size(); ++i) {
+  for (int i = 0; i < constraints_.size(); ++i) {
     double Gd_inv_sqr = 1.0 / (Gd_(i) * Gd_(i));
     gl_(i) = Gd_inv_sqr * H_(i) * (D_(i) - d_(i)) 
            - g_(i) / Gd_(i);
@@ -297,7 +297,7 @@ void MixedCollision<DIM>::solve(const VectorXd& dx) {
   Gdx_.resize(d_.size());
 
   #pragma omp parallel for
-  for (size_t i = 0; i < constraints_.size(); ++i) {
+  for (int i = 0; i < constraints_.size(); ++i) {
     // Get frame configuration vector
     VectorXd qi(Gx_[i].size());
     for (int j = 0; j < 4; ++j) {
@@ -354,7 +354,7 @@ void MixedCollision<DIM>::product_jacobian_x(const VectorXd& x,
     assert(x.size() == constraints_.size());
     std::vector<VectorXd> gloc(constraints_.size()); 
     #pragma omp parallel for
-    for (size_t i = 0; i < constraints_.size(); ++i) {
+    for (int i = 0; i < constraints_.size(); ++i) {
       gloc[i] = Gx_[i] * x(i);
     }
     VectorXd prod;
@@ -365,7 +365,7 @@ void MixedCollision<DIM>::product_jacobian_x(const VectorXd& x,
 
     VectorXd q = mesh_->projection_matrix().transpose() * x;
     #pragma omp parallel for
-    for (size_t i = 0; i < constraints_.size(); ++i) {
+    for (int i = 0; i < constraints_.size(); ++i) {
       // Get frame configuration vector
       ipc::VectorMax12d qi(Gx_[i].size());
       for (int j = 0; j < 4; ++j) {

@@ -66,7 +66,7 @@ void Friction<DIM>::update_derivatives(const MatrixXd& U, double dt) {
   // Hessian and gradient with respect to x
   data_.timer.start("g-H");
   #pragma omp parallel for
-  for (size_t i = 0; i < num_frames; ++i) {
+  for (int i = 0; i < num_frames; ++i) {
     Aloc[i] = constraints_[i].compute_potential_hessian(
         U, E, F, epsv_h, true);
     gloc[i] = constraints_[i].compute_potential_gradient(

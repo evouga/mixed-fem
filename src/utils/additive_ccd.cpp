@@ -114,7 +114,7 @@ double ipc::additive_ccd(const VectorXd& x, const VectorXd& p,
   if constexpr (DIM == 2) {
 
     #pragma omp parallel for reduction(min : min_step)
-    for (size_t i = 0; i < candidates.ev_candidates.size(); ++i) {
+    for (int i = 0; i < candidates.ev_candidates.size(); ++i) {
       const auto& ev_candidate = candidates.ev_candidates[i];
       const auto& [ei, vi] = ev_candidate;
       long e0i = E(ei, 0), e1i = E(ei, 1);
@@ -153,7 +153,7 @@ double ipc::additive_ccd(const VectorXd& x, const VectorXd& p,
     // std::cout << "EDGE EDGE " << std::endl;
     // Edge-edge distance checks
     #pragma omp parallel for reduction(min : min_step)
-    for (size_t i = 0; i < candidates.ee_candidates.size(); ++i) {
+    for (int i = 0; i < candidates.ee_candidates.size(); ++i) {
       const auto& ee_candidate = candidates.ee_candidates[i];
       const auto& [eai, ebi] = ee_candidate;
       long ea0i = E(eai, 0), ea1i = E(eai, 1);
@@ -189,7 +189,7 @@ double ipc::additive_ccd(const VectorXd& x, const VectorXd& p,
     // std::cout << "Face Vertex" << std::endl;
     // Face-vertex distance checks
     #pragma omp parallel for reduction(min : min_step)
-    for (size_t i = 0; i < candidates.fv_candidates.size(); ++i) {
+    for (int i = 0; i < candidates.fv_candidates.size(); ++i) {
       const auto& fv_candidate = candidates.fv_candidates[i];
       const auto& [fi, vi] = fv_candidate;
       long f0i = F(fi, 0), f1i = F(fi, 1), f2i = F(fi, 2);
