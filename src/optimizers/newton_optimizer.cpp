@@ -25,13 +25,8 @@ template <int DIM> void NewtonOptimizer<DIM>::step() {
   }
 
   int i = 0;
-  double grad_norm;
+  double decrement_norm;
   double E = 0, E_prev = 0, res = 0;
-
-  // TODO 
-  // Need to construct collision candidates if it's
-  // not been run yet. Happens for first timestep, so
-  // we may end up missing collisions
 
   do {
     Base::callback(state_);
@@ -40,18 +35,20 @@ template <int DIM> void NewtonOptimizer<DIM>::step() {
     update_system();
 
     // Solve linear system
-    substep(grad_norm);
+    substep(decrement_norm);
 
     double alpha = 1.0;
 
     // If collisions enabled, perform CCD
-    // TODO enable_ccd in simulate_state initialization
+    // NOTE: this is the chunk we want to delete :) 
     if (state_.config_->enable_ccd) {
       OptimizerData::get().timer.start("ACCD");
       VectorXd x1 = state_.x_->value();
       state_.x_->unproject(x1);
       VectorXd p = state_.mesh_->projection_matrix().transpose() 
           * state_.x_->delta();
+      
+      // Conservative CCD (scale result by 0.9)
       alpha = 0.9 * ipc::additive_ccd<DIM>(x1, p,
           state_.mesh_->collision_mesh(),
           state_.mesh_->collision_candidates(),
@@ -62,7 +59,6 @@ template <int DIM> void NewtonOptimizer<DIM>::step() {
 
     auto energy_func = [&state = state_](double a) {
       double h2 = std::pow(state.x_->integrator()->dt(), 2);
-      //TODO bunch of unneccessary copies
       Eigen::VectorXd x0 = state.x_->value() + a * state.x_->delta();
       double val = state.x_->energy(x0);
       state.x_->unproject(x0);
@@ -91,13 +87,12 @@ template <int DIM> void NewtonOptimizer<DIM>::step() {
     OptimizerData::get().add(" Iteration", i+1);
     OptimizerData::get().add("Energy", E);
     OptimizerData::get().add("Energy res", res);
-    OptimizerData::get().add("Decrement", grad_norm);
+    OptimizerData::get().add("Decrement", decrement_norm);
     OptimizerData::get().add("alpha ", alpha);
     ++i;
-    //Base::callback(state_);
 
   } while (i < state_.config_->outer_steps
-      && grad_norm > state_.config_->newton_tol
+      && decrement_norm > state_.config_->newton_tol
       && (res > 1e-12)); 
 
   if (state_.config_->show_data) {
@@ -121,16 +116,12 @@ template <int DIM>
 void NewtonOptimizer<DIM>::update_system() {
   OptimizerData::get().timer.start("update");
 
-  // Get full configuration vector
+  // Get full-space configuration
   VectorXd x = state_.x_->value();
   state_.x_->unproject(x);
-  //std::cout << std::setprecision(10) << std::endl;
-  //std::cout << "x norm: " << x.norm() << std::endl;
 
-  if (!state_.mesh_->fixed_jacobian()) {
-    state_.mesh_->update_jacobian(x);
-  }
-
+  // Update derivatives, and assemble hessians
+  // and gradients
   for (auto& var : state_.vars_) {
     var->update(x, state_.x_->integrator()->dt());
   }
@@ -138,22 +129,6 @@ void NewtonOptimizer<DIM>::update_system() {
     var->update(x, state_.x_->integrator()->dt());
   }
   OptimizerData::get().timer.stop("update");
-
-  // TODO bullshit exporting
-  // saveMarket(state_.x_->lhs(), "lhs_M.mkt");
-  // saveMarket(state_.x_->rhs(), "rhs_x.mkt");
-  //SparseMatrix<double> A, B, C;
-  //VectorXd gs,gl;
-  //state_.mixed_vars_[0]->hessian(A);
-  //state_.mixed_vars_[0]->jacobian_x(B);
-  //state_.mixed_vars_[0]->jacobian_mixed(C);
-  //gs = state_.mixed_vars_[0]->gradient_mixed();
-  //state_.mixed_vars_[0]->evaluate_constraint(x, gl);
-  //saveMarket(A, "lhs_K.mkt");
-  //saveMarket(B, "lhs_Gx.mkt");
-  //saveMarket(C, "lhs_Gs.mkt");
-  //saveMarket(-gs, "rhs_gs.mkt");
-  //saveMarket(-gl, "rhs_gl.mkt");
 }
 
 template <int DIM>

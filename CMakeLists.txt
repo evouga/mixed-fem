@@ -124,6 +124,7 @@ add_subdirectory("deps/polyscope")
 add_subdirectory("deps/amgcl")
 
 file(GLOB SOURCES 
+    ${PROJECT_SOURCE_DIR}/deps/implot/*.cpp 
     ${PROJECT_SOURCE_DIR}/src/*.cpp 
     ${PROJECT_SOURCE_DIR}/src/svd/*.cpp 
     ${PROJECT_SOURCE_DIR}/src/boundary_conditions/*.cpp 
@@ -136,6 +137,7 @@ file(GLOB SOURCES
     ${PROJECT_SOURCE_DIR}/src/utils/*.cpp
     ${PROJECT_SOURCE_DIR}/src/utils/collision/*.cpp
     ${PROJECT_SOURCE_DIR}/src/mesh/*.cpp)
+
 
 # message("SOURCES" ${SOURCES})
 add_library(mixed_fem_lib SHARED ${SOURCES})
@@ -223,6 +225,7 @@ target_include_directories(mixed_fem_lib SYSTEM PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}/src"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/Bartels/include"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/libigl/include" 
+  "${CMAKE_CURRENT_SOURCE_DIR}/deps/implot" 
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope/deps/args"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope/deps/json/include")
 
@@ -233,15 +236,12 @@ target_link_libraries(mixed_fem_lib polyscope Eigen3::Eigen amgcl::amgcl)
 add_executable(convergence apps/convergence.cpp ${SOURCES})
 target_link_libraries(convergence mixed_fem_lib)
 
-add_executable(convergence_iterative apps/convergence_iterative.cpp ${SOURCES})
-target_link_libraries(convergence_iterative mixed_fem_lib)
-
-add_executable(convergence_collision apps/convergence_collision.cpp ${SOURCES})
-target_link_libraries(convergence_collision mixed_fem_lib)
-
 add_executable(sim2d apps/sim2d.cpp ${SOURCES})
 target_link_libraries(sim2d mixed_fem_lib)
 
 add_executable(sim3d apps/sim3d.cpp ${SOURCES})
 target_link_libraries(sim3d mixed_fem_lib)
+
+add_executable(kill_ccd apps/kill_ccd.cpp ${SOURCES})
+target_link_libraries(kill_ccd mixed_fem_lib)
 #add_subdirectory(tests)

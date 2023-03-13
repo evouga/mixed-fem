@@ -254,7 +254,6 @@ namespace mfem {
         ImGui::TreePop();
       }
 
-      ImGui::SetNextItemOpen(true, ImGuiCond_Once);
       if (ImGui::TreeNode("Sim Params")) {
 
         ImGui::InputDouble("Timestep", &config->h, 0,0,"%.5f");

@@ -9,11 +9,6 @@ using namespace mfem;
 template<int DIM>
 double Collision<DIM>::energy(const VectorXd& x) {
 
-  ipc::Candidates& candidates = mesh_->collision_candidates();
-  if (candidates.size() == 0) {
-    return 0.0;
-  }
-
   // Convert configuration vector to matrix form
   MatrixXd V = Map<const MatrixXd>(x.data(), DIM, mesh_->V_.rows());
   V.transposeInPlace();
@@ -23,6 +18,13 @@ double Collision<DIM>::energy(const VectorXd& x) {
   const Eigen::MatrixXi& E = ipc_mesh.edges();
   const Eigen::MatrixXi& F = ipc_mesh.faces();
   V = ipc_mesh.vertices(V);
+
+  ipc::Candidates candidates;
+  ipc::construct_collision_candidates(
+      ipc_mesh, V, candidates, config_->dhat * 1.1);
+  if (candidates.size() == 0) {
+    return 0.0;
+  }
 
   // Computing collision constraints
   ipc::Constraints constraints;
