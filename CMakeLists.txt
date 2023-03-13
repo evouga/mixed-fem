@@ -233,8 +233,8 @@ target_include_directories(mixed_fem_lib SYSTEM PUBLIC
 target_link_libraries(mixed_fem_lib polyscope Eigen3::Eigen amgcl::amgcl)
 
 # Create an executable
-add_executable(convergence apps/convergence.cpp ${SOURCES})
-target_link_libraries(convergence mixed_fem_lib)
+#add_executable(convergence apps/convergence.cpp ${SOURCES})
+#target_link_libraries(convergence mixed_fem_lib)
 
 add_executable(sim2d apps/sim2d.cpp ${SOURCES})
 target_link_libraries(sim2d mixed_fem_lib)
