@@ -62,7 +62,6 @@ struct PolyscopeTriApp : public PolyscopeApp<2> {
       var->update(x, dt);
     }
 
-    // TODO record energy
     // Compute energy
     double h2 = std::pow(dt, 2);
     double val = 0.0;

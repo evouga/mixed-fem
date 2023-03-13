@@ -19,6 +19,8 @@
 #include "variables/collision.h"
 #include "variables/stretch.h"
 #include "variables/displacement.h"
+#include "optimizers/optimizer_data.h"
+#include "implot.h"
 
 using namespace Eigen;
 using namespace mfem;
@@ -28,6 +30,11 @@ std::vector<MatrixXi> frame_faces;
 polyscope::SurfaceMesh* frame_srf = nullptr; // collision frame mesh
 polyscope::CurveNetwork* frame_crv = nullptr; // collision frame mesh
 
+std::vector<double> steps;
+std::vector<double> broadphase_times;
+std::vector<double> narrowphase_times;
+int curr_timestep = 0;
+
 struct PolyscopeTriApp : public PolyscopeApp<2> {
 
   virtual void simulation_step() {
@@ -35,6 +42,13 @@ struct PolyscopeTriApp : public PolyscopeApp<2> {
     frame_faces.clear();
 
     optimizer->step();
+
+    steps.push_back(curr_timestep);
+    broadphase_times.push_back(
+        OptimizerData::get().timer.total("broadphase","CCD"));
+    narrowphase_times.push_back(
+        OptimizerData::get().timer.total("narrowphase","CCD"));
+
     meshV = mesh->vertices();
     size_t start = 0;
     for (size_t i = 0; i < srfs.size(); ++i) {
@@ -42,6 +56,8 @@ struct PolyscopeTriApp : public PolyscopeApp<2> {
       srfs[i]->updateVertexPositions2D(meshV.block(start,0,sz,2));
       start += sz;
     }
+
+    ++curr_timestep;
   }
 
   void collision_gui() {
@@ -49,6 +65,16 @@ struct PolyscopeTriApp : public PolyscopeApp<2> {
     static bool show_substeps = false;
     static int substep = 0;
     static bool show_frames = true;
+
+    if (ImPlot::BeginPlot("Total CCD Times (ms) per Timestep")) {
+      ImPlot::SetupAxesLimits(0,config->timesteps,0,1);
+      ImPlot::PlotLine("Broadphase", steps.data(),
+          broadphase_times.data(), broadphase_times.size());
+      ImPlot::PlotLine("Narrowphase", steps.data(),
+          narrowphase_times.data(), narrowphase_times.size());
+      ImPlot::EndPlot();
+    }
+
     ImGui::Checkbox("Show Substeps",&show_substeps);
 
     if(!show_substeps) return;
@@ -147,28 +173,11 @@ struct PolyscopeTriApp : public PolyscopeApp<2> {
       removeStructure(frame_srf);
       frame_srf = nullptr;
     }
+    curr_timestep = 0;
+    steps.clear();
+    broadphase_times.clear();
+    narrowphase_times.clear();
   }
-
-  // void write_obj(int step) override {
-
-  //   meshV = mesh->vertices();
-
-  //   // If in 2D, pad the matrix
-  //   Eigen::MatrixXd tmp(meshV.rows(), 3);
-  //   tmp.setZero();
-  //   tmp.col(0) = meshV.col(0);
-  //   tmp.col(1) = meshV.col(1);
-    
-  //   size_t start = 0;
-  //   for (size_t i = 0; i < srfs.size(); ++i) {
-  //     char buffer [50];
-  //     int n = sprintf(buffer, "../output/obj/tri_%ld_%04d.obj", i, step); 
-  //     buffer[n] = 0;
-  //     size_t sz = meshes[i]->vertices().rows();
-  //     igl::writeOBJ(std::string(buffer),tmp.block(start,0,sz,3),meshes[i]->T_);
-  //     start += sz;
-  //   }
-  // }
 
   void init(const std::string& filename) {
 
@@ -226,6 +235,8 @@ int main(int argc, char **argv) {
 
   // Initialize polyscope
   polyscope::init();
+
+  ImPlot::CreateContext();
 
   std::string filename = args::get(inFile);
 

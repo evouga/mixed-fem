@@ -197,7 +197,7 @@ double ipc::additive_ccd(const VectorXd& x, const VectorXd& p,
       }
     }
     if (min_tmp_ee.size() > 0) {
-      min_step = min_tmp_ee.minCoeff();
+      min_step = std::min(min_step, min_tmp_ee.minCoeff());
     }
 
     // std::cout << "Face Vertex" << std::endl;
