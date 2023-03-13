@@ -124,7 +124,7 @@ add_subdirectory("deps/polyscope")
 add_subdirectory("deps/amgcl")
 
 file(GLOB SOURCES 
-    ${PROJECT_SOURCE_DIR}/deps/implot/*.cpp 
+    ${PROJECT_SOURCE_DIR}/implot/*.cpp 
     ${PROJECT_SOURCE_DIR}/src/*.cpp 
     ${PROJECT_SOURCE_DIR}/src/svd/*.cpp 
     ${PROJECT_SOURCE_DIR}/src/boundary_conditions/*.cpp 
@@ -225,7 +225,7 @@ target_include_directories(mixed_fem_lib SYSTEM PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}/src"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/Bartels/include"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/libigl/include" 
-  "${CMAKE_CURRENT_SOURCE_DIR}/deps/implot" 
+  "${CMAKE_CURRENT_SOURCE_DIR}/implot" 
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope/deps/args"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope/deps/json/include")
 
