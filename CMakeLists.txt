@@ -140,7 +140,7 @@ file(GLOB SOURCES
 
 
 # message("SOURCES" ${SOURCES})
-add_library(mixed_fem_lib SHARED ${SOURCES})
+add_library(mixed_fem_lib STATIC ${SOURCES})
 
 include(FetchContent)
 FetchContent_Declare(

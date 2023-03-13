@@ -49,7 +49,7 @@ namespace Eigen {
 
         #pragma omp parallel for
         for (int i = 0; i < N; i++) {
-          Matrix<Scalar,DIM,DIM> Aii = A_.template block(i*DIM,i*DIM, DIM,DIM);
+          Matrix<Scalar,DIM,DIM> Aii = A_.block(i*DIM,i*DIM, DIM,DIM);
           const Matrix<Scalar, DIM, 1>& bi = b.template segment<DIM>(i*DIM);
           Ref<Matrix<Scalar, DIM, 1>> xi = x.template segment<DIM>(DIM*i);
           xi = Aii.inverse() * bi;

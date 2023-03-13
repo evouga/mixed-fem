@@ -36,7 +36,7 @@ double Collision<DIM>::energy(const VectorXd& x) {
   double e = 0;
   // Computing barrier potential for all collision frames
   #pragma omp parallel for reduction( + : e )
-  for (size_t i = 0; i < constraints.size(); ++i) {
+  for (int i = 0; i < constraints.size(); ++i) {
     double d = constraints[i].compute_distance(V, E, F);
     //e += config_->kappa * ipc::barrier(d, dhat_sqr) / h2;
     if (d <= 0.0) {
@@ -122,7 +122,7 @@ void Collision<DIM>::update_derivatives(const MatrixXd& V, double dt) {
   // Hessian and gradient with respect to x
   data_.timer.start("g-H");
   #pragma omp parallel for
-  for (size_t i = 0; i < num_frames; ++i) {
+  for (int i = 0; i < num_frames; ++i) {
     Aloc[i] = config_->kappa * constraints_[i].compute_potential_hessian(
         V, E, F, config_->dhat, true);
     gloc[i] = config_->kappa * constraints_[i].compute_potential_gradient(

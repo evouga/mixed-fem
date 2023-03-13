@@ -726,8 +726,8 @@ void Locator_Default(ImPlotTicker& ticker, const ImPlotRange& range, float pixel
 bool CalcLogarithmicExponents(const ImPlotRange& range, float pix, bool vertical, int& exp_min, int& exp_max, int& exp_step) {
     if (range.Min * range.Max > 0) {
         const int nMajor = vertical ? ImMax(2, (int)IM_ROUND(pix * 0.02f)) : ImMax(2, (int)IM_ROUND(pix * 0.01f)); // TODO: magic numbers
-        double log_min = ImLog10(abs(range.Min));
-        double log_max = ImLog10(abs(range.Max));
+        double log_min = ImLog10(fabs(range.Min));
+        double log_max = ImLog10(fabs(range.Max));
         double log_a = ImMin(log_min,log_max);
         double log_b = ImMax(log_min,log_max);
         exp_step  = ImMax(1,(int)(log_b - log_a) / nMajor);
@@ -791,8 +791,8 @@ void Locator_SymLog(ImPlotTicker& ticker, const ImPlotRange& range, float pixels
         const float pix_n1  = CalcSymLogPixel(-1, range, pixels);
         int exp_min_p, exp_max_p, exp_step_p;
         int exp_min_n, exp_max_n, exp_step_n;
-        CalcLogarithmicExponents(ImPlotRange(1,range.Max), abs(pix_max-pix_p1),vertical,exp_min_p,exp_max_p,exp_step_p);
-        CalcLogarithmicExponents(ImPlotRange(range.Min,-1),abs(pix_n1-pix_min),vertical,exp_min_n,exp_max_n,exp_step_n);
+        CalcLogarithmicExponents(ImPlotRange(1,range.Max), fabs(pix_max-pix_p1),vertical,exp_min_p,exp_max_p,exp_step_p);
+        CalcLogarithmicExponents(ImPlotRange(range.Min,-1),fabs(pix_n1-pix_min),vertical,exp_min_n,exp_max_n,exp_step_n);
         int exp_step = ImMax(exp_step_n, exp_step_p);
         ticker.AddTick(0,true,0,true,formatter,formatter_data);
         AddTicksLogarithmic(ImPlotRange(1,range.Max), exp_min_p,exp_max_p,exp_step,ticker,formatter,formatter_data);
