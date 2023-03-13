@@ -122,7 +122,7 @@ void Assembler<Scalar,DIM,N>::update_matrix(const std::vector<MatM>& blocks)
 {
   // Iterate over M rows at a time
   #pragma omp parallel for
-  for (size_t ii = 0; ii < row_offsets.size() - 1; ++ii) {
+  for (int ii = 0; ii < row_offsets.size() - 1; ++ii) {
     int row_beg = row_offsets[ii];
     int row_end = row_offsets[ii+1];
 
@@ -254,7 +254,7 @@ void VecAssembler<Scalar,DIM,N>::assemble(
 
   // Iterate over M rows at a time
   #pragma omp parallel for
-  for (size_t ii = 0; ii < row_offsets.size() - 1; ++ii) {
+  for (int ii = 0; ii < row_offsets.size() - 1; ++ii) {
     int row_beg = row_offsets[ii];
     int row_end = row_offsets[ii+1];
 

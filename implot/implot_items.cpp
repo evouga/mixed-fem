@@ -997,7 +997,7 @@ struct RendererBarsFillV : RendererBase {
         p2.x -= HalfWidth;
         ImVec2 P1 = this->Transformer(p1);
         ImVec2 P2 = this->Transformer(p2);
-        float width_px = abs(P1.x-P2.x);
+        float width_px = fabs(P1.x-P2.x);
         if (width_px < 1.0f) {
             P1.x += P1.x > P2.x ? (1-width_px) / 2 : (width_px-1) / 2;
             P2.x += P2.x > P1.x ? (1-width_px) / 2 : (width_px-1) / 2;
@@ -1035,7 +1035,7 @@ struct RendererBarsFillH : RendererBase {
         p2.y -= HalfHeight;
         ImVec2 P1 = this->Transformer(p1);
         ImVec2 P2 = this->Transformer(p2);
-        float height_px = abs(P1.y-P2.y);
+        float height_px = fabs(P1.y-P2.y);
         if (height_px < 1.0f) {
             P1.y += P1.y > P2.y ? (1-height_px) / 2 : (height_px-1) / 2;
             P2.y += P2.y > P1.y ? (1-height_px) / 2 : (height_px-1) / 2;
@@ -1074,7 +1074,7 @@ struct RendererBarsLineV : RendererBase {
         p2.x -= HalfWidth;
         ImVec2 P1 = this->Transformer(p1);
         ImVec2 P2 = this->Transformer(p2);
-        float width_px = abs(P1.x-P2.x);
+        float width_px = fabs(P1.x-P2.x);
         if (width_px < 1.0f) {
             P1.x += P1.x > P2.x ? (1-width_px) / 2 : (width_px-1) / 2;
             P2.x += P2.x > P1.x ? (1-width_px) / 2 : (width_px-1) / 2;
@@ -1114,7 +1114,7 @@ struct RendererBarsLineH : RendererBase {
         p2.y -= HalfHeight;
         ImVec2 P1 = this->Transformer(p1);
         ImVec2 P2 = this->Transformer(p2);
-        float height_px = abs(P1.y-P2.y);
+        float height_px = fabs(P1.y-P2.y);
         if (height_px < 1.0f) {
             P1.y += P1.y > P2.y ? (1-height_px) / 2 : (height_px-1) / 2;
             P2.y += P2.y > P1.y ? (1-height_px) / 2 : (height_px-1) / 2;

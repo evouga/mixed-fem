@@ -146,7 +146,7 @@ bool SimState<DIM>::load(const nlohmann::json& args) {
       std::vector<double> offset = {0.0, 0.0, 0.0};
       std::vector<double> transformation;
       std::vector<double> initial_velocity;
-      uint idx = 0;
+      uint32_t idx = 0;
       VectorXi material_ids;
       bool has_material_ids = false;
       bool normalize_vertices = true;
@@ -184,7 +184,7 @@ bool SimState<DIM>::load(const nlohmann::json& args) {
         // If no per-tetrahedron material ids, look for material index for entire
         // mesh
         if (const auto& it = obj.find("material_index"); it != obj.end()) {
-          idx = it->get<uint>();
+          idx = it->get<uint32_t>();
           assert(idx < mat_configs.size());
         }
       }
