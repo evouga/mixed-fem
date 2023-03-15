@@ -16,16 +16,6 @@
       "path": "../models/obj/square_xy_145.obj",
       "offset": [-3.0, 18.0, 0.0],
       "material_index": 0
-    },
-    {
-      "path": "../models/obj/box_wide_145_thin_xy.obj",
-      "offset": [0.0, 0.0, 0.0],
-      "material_index": 1,
-      "boundary_condition": {
-        "type": "hangends",
-        "ratio": 0.1,
-        "axis": 0
-      }
     }
   ],
   "material_models": [
@@ -42,6 +32,6 @@
       "energy": "FixedCorot"
     }
   ],
-  "mixed_variables": [],
-  "variables": ["stretch","collision"]
+  "mixed_variables": ["mixed-stretch","mixed-collision"],
+  "variables": []
 }
