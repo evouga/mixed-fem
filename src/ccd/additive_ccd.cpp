@@ -105,7 +105,7 @@ double ipc::additive_ccd(const VectorXd& x, const VectorXd& p,
   //ipc::construct_collision_candidates(mesh, V1, V2, candidates, dhat / 2.0);
   AABBBroadPhase<DIM>(mesh, V1, V2, dhat / 2.0, candidates);
   mfem::OptimizerData::get().timer.stop("broadphase", "CCD");
-  std::cout << "Num candidates with spatial broadphase"
+  std::cout << "Num candidates with spatial broadphase: "
             << candidates.size() << std::endl;
 
   // Uncomment to use spacetime broadphase

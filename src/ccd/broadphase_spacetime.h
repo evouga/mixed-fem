@@ -53,8 +53,10 @@ private:
   void make_polyhedron(const AABB& b_t0, const AABB& b_t1,
       ConvexPolyhedron<double>& p) const;
 
+  // Use separating planes for space-time intersection tests
+  // between AABBs from t0 to t1
   template <typename Candidate>
-  void detect_candidates(
+  void detect_candidates_separating_planes(
       const std::vector<AABB>& boxes0_t0,
       const std::vector<AABB>& boxes0_t1,
       const std::vector<AABB>& boxes1_t0,

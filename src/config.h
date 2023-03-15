@@ -104,7 +104,8 @@ namespace mfem {
   enum CCDType {
       CCD_NONE,
       CCD_ADDITIVE,
-      CCD_CLASSICAL
+      CCD_CLASSICAL,
+      CCD_QUADPROG_BS,
   };
   
   // Global parameters for the simulation

@@ -9,6 +9,10 @@
 #include "igl/edges.h"
 #include "baseline/ClassicCCD.h"
 
+#ifdef SIM_USE_MOSEK
+#include "ccd/quadprog_ccd.h"
+#endif
+
 using namespace mfem;
 using namespace Eigen;
 
@@ -74,7 +78,23 @@ template <int DIM> void NewtonOptimizer<DIM>::step() {
         V2 = state_.mesh_->collision_mesh().vertices(V2);
 
         alpha = ClassicCCD<DIM>(state_.mesh_->collision_mesh(), V1, V2);
+    } 
+    #ifdef SIM_USE_MOSEK
+    else if (state_.config_->ccd_type == CCD_QUADPROG_BS)
+    {
+        MatrixXd V1 = Map<const MatrixXd>(x1.data(), DIM, x1.size() / DIM);
+        V1.transposeInPlace();
+
+        VectorXd x2 = x1 + p;
+        MatrixXd V2 = Map<const MatrixXd>(x2.data(), DIM, x1.size() / DIM);
+        V2.transposeInPlace();
+
+        V1 = state_.mesh_->collision_mesh().vertices(V1);
+        V2 = state_.mesh_->collision_mesh().vertices(V2);
+
+        alpha = quadprog_ccd<DIM>(state_.mesh_->collision_mesh(), V1, V2);
     }
+    #endif
 
     alpha *= 0.9;
 
