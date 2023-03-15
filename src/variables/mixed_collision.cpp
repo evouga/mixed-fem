@@ -11,10 +11,7 @@ using namespace mfem;
 template<int DIM>
 double MixedCollision<DIM>::energy(const VectorXd& x, const VectorXd& d) {
 
-  ipc::Candidates& candidates = mesh_->collision_candidates();
-  if (candidates.size() == 0) {
-    return 0.0;
-  }
+  //ipc::Candidates& candidates = mesh_->collision_candidates();
   OptimizerData::get().timer.start("energy", "MixedCollision");
 
   // Convert configuration vector to matrix form
@@ -24,6 +21,13 @@ double MixedCollision<DIM>::energy(const VectorXd& x, const VectorXd& d) {
   // Get IPC mesh and face/edge/vertex data
   const auto& ipc_mesh = mesh_->collision_mesh();
   MatrixXd V_srf = ipc_mesh.vertices(V); // surface vertex set
+                                         //
+  ipc::Candidates candidates;
+  ipc::construct_collision_candidates(
+      ipc_mesh, V_srf, candidates, config_->dhat * 1.1);
+  if (candidates.size() == 0) {
+    return 0.0;
+  }
 
   // Computing collision constraints
   ipc::MixedConstraints constraints = constraints_;
