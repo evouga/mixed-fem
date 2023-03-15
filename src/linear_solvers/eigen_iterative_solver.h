@@ -3,7 +3,7 @@
 #include "linear_solver.h"
 #include "linear_solvers/preconditioners/laplacian_preconditioner.h"
 #include "linear_solvers/preconditioners/dual_ascent_preconditioner.h"
-#include "utils/additive_ccd.h"
+#include "ccd/additive_ccd.h"
 
 namespace mfem {
 

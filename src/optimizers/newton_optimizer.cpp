@@ -4,9 +4,7 @@
 #include "mesh/mesh.h"
 #include "factories/linear_solver_factory.h"
 #include <unsupported/Eigen/SparseExtra>
-#include "utils/additive_ccd.h"
-#include "ipc/ipc.hpp"
-#include "igl/edges.h"
+#include "ccd/additive_ccd.h"
 
 using namespace mfem;
 using namespace Eigen;
@@ -55,6 +53,7 @@ template <int DIM> void NewtonOptimizer<DIM>::step() {
           state_.config_->dhat);
       OptimizerData::get().add("ACCD ", alpha);
       OptimizerData::get().timer.stop("ACCD");
+
     }
 
     auto energy_func = [&state = state_](double a) {

@@ -13,9 +13,19 @@
   "max_linesearch_iterations": 20,
   "objects": [
     {
-      "path": "../models/obj/square_xy_145.obj",
-      "offset": [-3.0, 18.0, 0.0],
+      "path": "../models/obj/square_xz.obj",
+      "offset": [-3.0, 3.0, 0.0],
       "material_index": 0
+    },
+    {
+      "path": "../models/obj/square_xz.obj",
+      "offset": [-3.0, 0.0, 0.0],
+      "material_index": 0,
+      "boundary_condition": {
+        "type": "hang",
+        "ratio": 0.1,
+        "axis": 0
+      }
     }
   ],
   "material_models": [

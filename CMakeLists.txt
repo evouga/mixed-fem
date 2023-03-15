@@ -102,6 +102,7 @@ find_package(BLAS)
 find_package(LAPACK)
 find_package(CHOLMOD)
 find_package(SuiteSparse)
+#find_package(MOSEK REQUIRED)
 
 # Add polyscope
 message("\n\n == CMAKE recursively building Polyscope\n")
@@ -127,6 +128,7 @@ file(GLOB SOURCES
     ${PROJECT_SOURCE_DIR}/implot/*.cpp 
     ${PROJECT_SOURCE_DIR}/src/*.cpp 
     ${PROJECT_SOURCE_DIR}/src/svd/*.cpp 
+    ${PROJECT_SOURCE_DIR}/src/ccd/*.cpp 
     ${PROJECT_SOURCE_DIR}/src/boundary_conditions/*.cpp 
     ${PROJECT_SOURCE_DIR}/src/energies/*.cpp
     ${PROJECT_SOURCE_DIR}/src/optimizers/*.cpp
