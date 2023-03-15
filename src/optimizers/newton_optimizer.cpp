@@ -5,6 +5,9 @@
 #include "factories/linear_solver_factory.h"
 #include <unsupported/Eigen/SparseExtra>
 #include "ccd/additive_ccd.h"
+#include "ipc/ipc.hpp"
+#include "igl/edges.h"
+#include "baseline/ClassicCCD.h"
 
 using namespace mfem;
 using namespace Eigen;
@@ -39,22 +42,41 @@ template <int DIM> void NewtonOptimizer<DIM>::step() {
 
     // If collisions enabled, perform CCD
     // NOTE: this is the chunk we want to delete :) 
-    if (state_.config_->enable_ccd) {
-      OptimizerData::get().timer.start("ACCD");
-      VectorXd x1 = state_.x_->value();
-      state_.x_->unproject(x1);
-      VectorXd p = state_.mesh_->projection_matrix().transpose() 
-          * state_.x_->delta();
-      
-      // Conservative CCD (scale result by 0.9)
-      alpha = 0.9 * ipc::additive_ccd<DIM>(x1, p,
-          state_.mesh_->collision_mesh(),
-          state_.mesh_->collision_candidates(),
-          state_.config_->dhat);
-      OptimizerData::get().add("ACCD ", alpha);
-      OptimizerData::get().timer.stop("ACCD");
+    VectorXd x1 = state_.x_->value();
+    state_.x_->unproject(x1);
+    VectorXd p = state_.mesh_->projection_matrix().transpose()
+        * state_.x_->delta();
 
+    if (state_.config_->ccd_type == CCD_ADDITIVE) {
+        double eps = 1e-6;
+        OptimizerData::get().timer.start("ACCD");
+
+        ipc::Candidates dummy;
+
+        // Conservative CCD (scale result by 0.9)
+        alpha = ipc::additive_ccd<DIM>(x1, p,
+            state_.mesh_->collision_mesh(),
+            dummy,
+            eps);
+        OptimizerData::get().add("ACCD ", alpha);
+        OptimizerData::get().timer.stop("ACCD");
     }
+    else if(state_.config_->ccd_type == CCD_CLASSICAL)
+    {
+        MatrixXd V1 = Map<const MatrixXd>(x1.data(), DIM, x1.size() / DIM);
+        V1.transposeInPlace();
+
+        VectorXd x2 = x1 + p;
+        MatrixXd V2 = Map<const MatrixXd>(x2.data(), DIM, x1.size() / DIM);
+        V2.transposeInPlace();
+
+        V1 = state_.mesh_->collision_mesh().vertices(V1);
+        V2 = state_.mesh_->collision_mesh().vertices(V2);
+
+        alpha = ClassicCCD<DIM>(state_.mesh_->collision_mesh(), V1, V2);
+    }
+
+    alpha *= 0.9;
 
     auto energy_func = [&state = state_](double a) {
       double h2 = std::pow(state.x_->integrator()->dt(), 2);

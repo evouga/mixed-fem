@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.0.0)
 
-project("libIGL polyscope example project")
+project("Mixed-FEM")
 
 if (NOT CMAKE_BUILD_TYPE)
   message (STATUS "No build type selected, default to Release")
@@ -66,7 +66,7 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
   add_definitions(/D "_CRT_SECURE_NO_WARNINGS")
   add_definitions(-DNOMINMAX)
   add_definitions(-D_USE_MATH_DEFINES)
-
+  add_definitions(-DEIGEN_STRONG_INLINE=inline)
 else()
   # unrecognized
   message( FATAL_ERROR "Unrecognized compiler [${CMAKE_CXX_COMPILER_ID}]" )
@@ -137,6 +137,7 @@ file(GLOB SOURCES
     ${PROJECT_SOURCE_DIR}/src/time_integrators/*.cpp
     ${PROJECT_SOURCE_DIR}/src/factories/*.cpp
     ${PROJECT_SOURCE_DIR}/src/utils/*.cpp
+    ${PROJECT_SOURCE_DIR}/src/baseline/*.cpp
     ${PROJECT_SOURCE_DIR}/src/utils/collision/*.cpp
     ${PROJECT_SOURCE_DIR}/src/mesh/*.cpp)
 

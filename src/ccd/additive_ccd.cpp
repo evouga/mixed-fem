@@ -3,8 +3,8 @@
 #include <ipc/distance/point_edge.hpp>
 #include <ipc/distance/point_triangle.hpp>
 #include "optimizers/optimizer_data.h"
-#include "ConvexPolyhedron.h"
 #include "broadphase_spacetime.h"
+#include "baseline/AABB.h"
 
 using namespace Eigen;
 
@@ -102,11 +102,15 @@ double ipc::additive_ccd(const VectorXd& x, const VectorXd& p,
   // Time the BroadPhase
   int dim = V1.cols();
   mfem::OptimizerData::get().timer.start("broadphase", "CCD");
-  ipc::construct_collision_candidates(mesh, V1, V2, candidates, dhat / 2.0);
+  //ipc::construct_collision_candidates(mesh, V1, V2, candidates, dhat / 2.0);
+  AABBBroadPhase<DIM>(mesh, V1, V2, dhat / 2.0, candidates);
   mfem::OptimizerData::get().timer.stop("broadphase", "CCD");
   std::cout << "Num candidates with spatial broadphase"
             << candidates.size() << std::endl;
 
+  // Uncomment to use spacetime broadphase
+  // Currently brute force checking all space-time polyhedra using separating
+  // planes. Only works in 2D
   //candidates.clear();
   //std::unique_ptr<BroadPhase> broad_phase =
   //    std::make_unique<BroadPhaseSpacetime>();

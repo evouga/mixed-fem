@@ -392,7 +392,11 @@ void SimState<DIM>::load_params(const nlohmann::json& args) {
   read_and_assign(args, "dt", config_->h);
   read_and_assign(args, "print_timing", config_->show_timing);
   read_and_assign(args, "print_stats", config_->show_data);
-  read_and_assign(args, "enable_ccd", config_->enable_ccd);
+  
+  bool enable_ccd;
+  read_and_assign(args, "enable_ccd", enable_ccd);
+  config_->ccd_type = (enable_ccd ? CCD_ADDITIVE : CCD_NONE);
+
   read_and_assign(args, "dhat", config_->dhat);
   read_and_assign(args, "kappa", config_->kappa);
   read_and_assign(args, "timesteps", config_->timesteps);
