@@ -69,7 +69,7 @@ public:
                               double eta,
                               double &t);
 
-    static bool vertexEdgeExactCTCD2D(const Eigen::Vector3d& q0start,
+    static bool vertexEdgeExactCTCD2D(const Eigen::Vector2d& q0start,
         const Eigen::Vector2d& q1start,
         const Eigen::Vector2d& q2start,
         const Eigen::Vector2d& q0end,
@@ -101,6 +101,9 @@ private:
     // If positive, and pos is true, or if negative, and pos is false, clamps the interval to [0,1] and adds it to
     // intervals.
     static void checkInterval(double t1, double t2, double * op, int degree, std::vector<TimeInterval> &intervals, bool pos);
+
+    static bool findRoots(double* op, int n, std::vector<double> &rootsIn01);
+
 
     // Computes the intervals of x in [0,1] where the polynomial of degree n, with coefficients in op
     // (given in "natural," descending order of power of x) is positive (when pos = true) or negative (if pos = false).

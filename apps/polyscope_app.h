@@ -270,6 +270,8 @@ namespace mfem {
           int ccd_type = config->ccd_type;
           if (ImGui::Combo("CCD", &ccd_type, "None\0Additive\0Classical"))
               config->ccd_type = (CCDType)ccd_type;
+
+          ImGui::TreePop();
         }
 
         // Optimizer parameters

@@ -5,7 +5,7 @@
 #include "ipc/collision_mesh.hpp"
 
 template<int dim>
-double ClassicalCCD(
+double ClassicCCD(
     const ipc::CollisionMesh& mesh,
     const Eigen::MatrixXd& V0,
     const Eigen::MatrixXd& V1);

@@ -93,7 +93,71 @@ bool CTCD::couldHaveRoots(double *op, int degree, bool pos) {
     return !((pos && result < 0) || (!pos && result > 0));
 }
 
+bool CTCD::findRoots(double* op, int n, std::vector<double> &rootsIn01)
+{
+    int roots = 0;
 
+    int reducedDegree = n;
+    double time[6];
+    // We don't care one bit about these imaginary roots
+    double zeroi[6];
+
+    // normalize
+    double maxval = 0;
+    for (int i = 0; i <= n; i++)
+        maxval = std::max(maxval, fabs(op[i]));
+    if (maxval != 0)
+        for (int i = 0; i <= n; i++)
+            op[i] /= maxval;
+
+    for (int i = 0; i < n; i++)
+    {
+        if (op[i] == 0)
+            reducedDegree--;
+        else
+            break;
+    }
+
+    if (reducedDegree < n)
+    {
+        for (int i = 0; i <= reducedDegree; i++)
+            op[i] = op[i + n - reducedDegree];
+    }
+
+    if (reducedDegree > 2) {
+        RootFinder rf;
+
+        roots = rf.rpoly(op, reducedDegree, time, zeroi);
+    }
+    else if (reducedDegree == 2)
+    {
+        roots = getQuadRoots(op[0], op[1], op[2], time[0], time[1]);
+    }
+    else if (reducedDegree == 1)
+    {
+        time[0] = -op[1] / op[0];
+        roots = 1;
+    }
+    else
+    {
+        // both points stationary -- check if colliding at t=0
+        if (op[0] == 0)
+            rootsIn01.push_back(0);
+        return true;
+    }
+
+    std::sort(time, time + roots);
+
+    for (int i = 0; i < roots; i++)
+    {
+        if (time[i] >= 0 && time[i] <= 1.0)
+        {
+            rootsIn01.push_back(time[i]);            
+        }
+    }
+
+    return !rootsIn01.empty();
+}
 
 void CTCD::findIntervals(double *op, int n, vector<TimeInterval> & intervals, bool pos)
 {
@@ -504,6 +568,55 @@ bool CTCD::vertexFaceCTCD(const Vector3d &q0start,
         t = mint;
         return true;
     }
+    return false;
+}
+
+double cross2D(const Vector2d& v1, const Vector2d& v2)
+{
+    return v1[0] * v2[1] - v1[1] * v2[0];
+}
+
+bool CTCD::vertexEdgeExactCTCD2D(const Vector2d& q0start,
+                              const Vector2d& q1start,
+                              const Vector2d& q2start,
+                              const Vector2d& q0end,
+                              const Vector2d& q1end,
+                              const Vector2d& q2end,
+                              double& t)
+                          {
+    double op[3];
+    Vector2d v0 = q0end - q0start;
+    Vector2d v1 = q1end - q1start;
+    Vector2d v2 = q2end - q2start;
+
+    Vector2d ab = q2start - q1start;
+    Vector2d ac = q0start - q1start;
+    Vector2d cb = q2start - q0start;
+    Vector2d vab = v2 - v1;
+    Vector2d vac = v0 - v1;
+    Vector2d vcb = v2 - v0;
+
+    op[0] = cross2D(vab, vac);
+    op[1] = cross2D(vab, ac) + cross2D(ab, vac);
+    op[2] = cross2D(ab, ac);
+
+    std::vector<double> roots;
+    if (findRoots(op, 2, roots))
+    {
+        for (auto r : roots)
+        {
+            Vector2d q0t = (1 - r) * q0start + r * q0end;
+            Vector2d q1t = (1 - r) * q1start + r * q1end;
+            Vector2d q2t = (1 - r) * q2start + r * q2end;
+            double alpha  = (q0t - q1t).dot(q2t - q1t);
+            if (alpha >= 0 && alpha <= (q2t - q1t).squaredNorm())
+            {
+                t = r;
+                return true;
+            }
+        }       
+    }        
+
     return false;
 }
 
