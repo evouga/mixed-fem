@@ -8,7 +8,6 @@ template<int dim>
 double ClassicalCCD(
     const ipc::CollisionMesh& mesh,
     const Eigen::MatrixXd& V0,
-    const Eigen::MatrixXd& V1,
-    double inflation_radius);
+    const Eigen::MatrixXd& V1);
 
 #endif

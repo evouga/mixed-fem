@@ -69,6 +69,14 @@ public:
                               double eta,
                               double &t);
 
+    static bool vertexEdgeExactCTCD2D(const Eigen::Vector3d& q0start,
+        const Eigen::Vector2d& q1start,
+        const Eigen::Vector2d& q2start,
+        const Eigen::Vector2d& q0end,
+        const Eigen::Vector2d& q1end,
+        const Eigen::Vector2d& q2end,
+        double& t);
+
     // Looks for the degenerate case of collisions between the vertices q1start and q2start, as they move towards
     // q1end and q2end. Returns true if the vertices ever come closer than a distane of eta to each other, and stores
     // the earliest time (in the interval [0,1]) at which they do so in t.
