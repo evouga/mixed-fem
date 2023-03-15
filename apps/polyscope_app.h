@@ -263,7 +263,13 @@ namespace mfem {
           ImGui::InputDouble("dhat", &config->dhat, 0,0,"%.5g");
           ImGui::InputDouble("mu", &config->mu, 0,0,"%.5g");
           ImGui::InputDouble("espv", &config->espv, 0,0,"%.5g");
-          ImGui::Checkbox("enable_ccd", &config->enable_ccd);
+          if (FactoryCombo<IntegratorFactory, TimeIntegratorType>(
+              "Integrator", config->ti_type)) {
+              optimizer->reset();
+          }
+          int ccd_type = config->ccd_type;
+          if (ImGui::Combo("CCD", &ccd_type, "None\0Additive\0Classical"))
+              config->ccd_type = (CCDType)ccd_type;
         }
 
         // Optimizer parameters

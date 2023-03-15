@@ -3,6 +3,7 @@
 #include <ipc/distance/point_edge.hpp>
 #include <ipc/distance/point_triangle.hpp>
 #include "optimizers/optimizer_data.h"
+#include "baseline/AABB.h"
 
 using namespace Eigen;
 
@@ -100,7 +101,8 @@ double ipc::additive_ccd(const VectorXd& x, const VectorXd& p,
 
   // Time the BroadPhase
   mfem::OptimizerData::get().timer.start("broadphase", "CCD");
-  ipc::construct_collision_candidates(mesh, V1, V2, candidates, dhat / 2.0);
+  //ipc::construct_collision_candidates(mesh, V1, V2, candidates, dhat / 2.0);
+  AABBBroadPhase<DIM>(mesh, V1, V2, dhat / 2.0, candidates);
   mfem::OptimizerData::get().timer.stop("broadphase", "CCD");
 
   const Eigen::MatrixXi& E = mesh.edges();

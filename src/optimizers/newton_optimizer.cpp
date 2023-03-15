@@ -7,6 +7,7 @@
 #include "utils/additive_ccd.h"
 #include "ipc/ipc.hpp"
 #include "igl/edges.h"
+#include "baseline/ClassicCCD.h"
 
 using namespace mfem;
 using namespace Eigen;
@@ -41,12 +42,13 @@ template <int DIM> void NewtonOptimizer<DIM>::step() {
 
     // If collisions enabled, perform CCD
     // NOTE: this is the chunk we want to delete :) 
-    if (state_.config_->enable_ccd) {
+    VectorXd x1 = state_.x_->value();
+    state_.x_->unproject(x1);
+    VectorXd p = state_.mesh_->projection_matrix().transpose()
+        * state_.x_->delta();
+
+    if (state_.config_->ccd_type == CCD_ADDITIVE) {
       OptimizerData::get().timer.start("ACCD");
-      VectorXd x1 = state_.x_->value();
-      state_.x_->unproject(x1);
-      VectorXd p = state_.mesh_->projection_matrix().transpose() 
-          * state_.x_->delta();
       
       // Conservative CCD (scale result by 0.9)
       alpha = 0.9 * ipc::additive_ccd<DIM>(x1, p,
@@ -55,6 +57,10 @@ template <int DIM> void NewtonOptimizer<DIM>::step() {
           state_.config_->dhat);
       OptimizerData::get().add("ACCD ", alpha);
       OptimizerData::get().timer.stop("ACCD");
+    }
+    else if(state_.config_->ccd_type == CCD_CLASSICAL)
+    {
+
     }
 
     auto energy_func = [&state = state_](double a) {

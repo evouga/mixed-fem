@@ -100,6 +100,12 @@ namespace mfem {
     EXT_BEND,
     EXT_TWIST
   };
+
+  enum CCDType {
+      CCD_NONE,
+      CCD_ADDITIVE,
+      CCD_CLASSICAL
+  };
   
   // Global parameters for the simulation
   struct SimConfig {
@@ -117,7 +123,7 @@ namespace mfem {
     double kappa = 10.0;
     double max_kappa = 1e6;
     double constraint_tol = 1e-2;
-    bool enable_ccd = false;
+    CCDType ccd_type = CCD_NONE;
     double dhat = 1e-2;
     double inertia_blend_factor = 1.0;
 
