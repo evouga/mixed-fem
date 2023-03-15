@@ -48,15 +48,18 @@ template <int DIM> void NewtonOptimizer<DIM>::step() {
         * state_.x_->delta();
 
     if (state_.config_->ccd_type == CCD_ADDITIVE) {
-      OptimizerData::get().timer.start("ACCD");
-      
-      // Conservative CCD (scale result by 0.9)
-      alpha = 0.9 * ipc::additive_ccd<DIM>(x1, p,
-          state_.mesh_->collision_mesh(),
-          state_.mesh_->collision_candidates(),
-          state_.config_->dhat);
-      OptimizerData::get().add("ACCD ", alpha);
-      OptimizerData::get().timer.stop("ACCD");
+        double eps = 1e-6;
+        OptimizerData::get().timer.start("ACCD");
+
+        ipc::Candidates dummy;
+
+        // Conservative CCD (scale result by 0.9)
+        alpha = 0.9 * ipc::additive_ccd<DIM>(x1, p,
+            state_.mesh_->collision_mesh(),
+            dummy,
+            eps);
+        OptimizerData::get().add("ACCD ", alpha);
+        OptimizerData::get().timer.stop("ACCD");
     }
     else if(state_.config_->ccd_type == CCD_CLASSICAL)
     {
