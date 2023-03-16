@@ -395,7 +395,8 @@ void SimState<DIM>::load_params(const nlohmann::json& args) {
   
   bool enable_ccd;
   read_and_assign(args, "enable_ccd", enable_ccd);
-  config_->ccd_type = (enable_ccd ? CCD_ADDITIVE : CCD_NONE);
+  config_->bp_type = (enable_ccd ? BP_SWEEP : BP_NONE);
+  config_->np_type = (enable_ccd ? NP_ADDITIVE : NP_NONE);
 
   read_and_assign(args, "dhat", config_->dhat);
   read_and_assign(args, "kappa", config_->kappa);

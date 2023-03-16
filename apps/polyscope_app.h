@@ -267,9 +267,13 @@ namespace mfem {
               "Integrator", config->ti_type)) {
               optimizer->reset();
           }
-          int ccd_type = config->ccd_type;
-          if (ImGui::Combo("CCD", &ccd_type, "None\0Additive\0Classical"))
-              config->ccd_type = (CCDType)ccd_type;
+          int bp_type = config->bp_type;
+          if (ImGui::Combo("Broad Phase", &bp_type, "None\0Sweep\0AABB\0Prism\0Hull"))
+              config->bp_type = (BroadPhaseType)bp_type;
+
+          int np_type = config->np_type;
+          if (ImGui::Combo("Narrow Phase", &np_type, "None\0Additive\0Classic"))
+              config->np_type = (NarrowPhaseType)np_type;
 
           ImGui::TreePop();
         }

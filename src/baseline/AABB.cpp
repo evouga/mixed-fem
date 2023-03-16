@@ -180,6 +180,42 @@ void intersect(const AABB<dim>* node1, const AABB<dim>* node2, const ipc::Collis
 }
 
 template<int dim>
+void TrivialBroadPhase(
+    const ipc::CollisionMesh& mesh,
+    double inflation_radius,
+    ipc::Candidates& collisionCandidates)
+{
+    for (int i = 0; i < mesh.num_vertices(); i++)
+    {
+        if (dim == 2)
+        {
+            for (int j = 0; j < mesh.edges().size(); j++)
+            {
+                resolveLeafLeaf<dim>(mesh, LT_VERTEX, i, LT_EDGE, j, collisionCandidates);
+            }
+        }
+        else if (dim == 3)
+        {
+            for (int j = 0; j < mesh.faces().size(); j++)
+            {
+                resolveLeafLeaf<dim>(mesh, LT_VERTEX, i, LT_FACE, j, collisionCandidates);
+            }
+        }
+    }
+    if (dim == 3)
+    {
+        for (int i = 0; i < mesh.edges().size(); i++)
+        {
+            for (int j = i + 1; j < mesh.edges().size(); j++)
+            {
+                resolveLeafLeaf<dim>(mesh, LT_EDGE, i, LT_EDGE, j, collisionCandidates);
+            }
+        }
+    }
+}
+
+
+template<int dim>
 void AABBBroadPhase(
     const ipc::CollisionMesh& mesh,
     const Eigen::MatrixXd& V0,
@@ -274,5 +310,15 @@ template void AABBBroadPhase<3>(
     const ipc::CollisionMesh& mesh,
     const Eigen::MatrixXd& V0,
     const Eigen::MatrixXd& V1,
+    double inflation_radius,
+    ipc::Candidates& collisionCandidates);
+
+template void TrivialBroadPhase<2>(
+    const ipc::CollisionMesh& mesh,
+    double inflation_radius,
+    ipc::Candidates& collisionCandidates);
+
+template void TrivialBroadPhase<3>(
+    const ipc::CollisionMesh& mesh,
     double inflation_radius,
     ipc::Candidates& collisionCandidates);

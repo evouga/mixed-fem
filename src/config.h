@@ -101,10 +101,18 @@ namespace mfem {
     EXT_TWIST
   };
 
-  enum CCDType {
-      CCD_NONE,
-      CCD_ADDITIVE,
-      CCD_CLASSICAL
+  enum BroadPhaseType {
+      BP_NONE,
+      BP_SWEEP,
+      BP_AABB,
+      BP_PRISM,
+      BP_HULL
+  };
+
+  enum NarrowPhaseType {
+      NP_NONE,
+      NP_ADDITIVE,
+      NP_CLASSIC,
   };
   
   // Global parameters for the simulation
@@ -123,7 +131,8 @@ namespace mfem {
     double kappa = 10.0;
     double max_kappa = 1e6;
     double constraint_tol = 1e-2;
-    CCDType ccd_type = CCD_NONE;
+    BroadPhaseType bp_type = BP_SWEEP;
+    NarrowPhaseType np_type = NP_ADDITIVE;
     double dhat = 1e-2;
     double inertia_blend_factor = 1.0;
 

@@ -8,6 +8,7 @@
 #include "ipc/ipc.hpp"
 #include "igl/edges.h"
 #include "baseline/ClassicCCD.h"
+#include "baseline/AABB.h"
 
 using namespace mfem;
 using namespace Eigen;
@@ -46,34 +47,52 @@ template <int DIM> void NewtonOptimizer<DIM>::step() {
     state_.x_->unproject(x1);
     VectorXd p = state_.mesh_->projection_matrix().transpose()
         * state_.x_->delta();
+    MatrixXd V1 = Map<const MatrixXd>(x1.data(), DIM, x1.size() / DIM);
+    V1.transposeInPlace();
 
-    if (state_.config_->ccd_type == CCD_ADDITIVE) {
-        double eps = 1e-6;
-        OptimizerData::get().timer.start("ACCD");
+    VectorXd x2 = x1 + p;
+    MatrixXd V2 = Map<const MatrixXd>(x2.data(), DIM, x1.size() / DIM);
+    V2.transposeInPlace();
 
-        ipc::Candidates dummy;
+    V1 = state_.mesh_->collision_mesh().vertices(V1);
+    V2 = state_.mesh_->collision_mesh().vertices(V2);
 
-        // Conservative CCD (scale result by 0.9)
-        alpha = ipc::additive_ccd<DIM>(x1, p,
-            state_.mesh_->collision_mesh(),
-            dummy,
-            eps);
-        OptimizerData::get().add("ACCD ", alpha);
-        OptimizerData::get().timer.stop("ACCD");
-    }
-    else if(state_.config_->ccd_type == CCD_CLASSICAL)
+
+    ipc::Candidates candidates;
+
+    if (state_.config_->bp_type == BP_NONE)
     {
-        MatrixXd V1 = Map<const MatrixXd>(x1.data(), DIM, x1.size() / DIM);
-        V1.transposeInPlace();
+        if (state_.config_->np_type != NP_NONE)
+        {
+            TrivialBroadPhase<DIM>(state_.mesh_->collision_mesh(), 0.0, candidates);
+        }
+    }
+    else if (state_.config_->bp_type == BP_SWEEP)
+    {
+        ipc::construct_collision_candidates(state_.mesh_->collision_mesh(), V1, V2, candidates, 0.0);
+    }
+    else if (state_.config_->bp_type == BP_AABB)
+    {
+        AABBBroadPhase<DIM>(state_.mesh_->collision_mesh(), V1, V2, 0.0, candidates);
+    }
+    else
+    {
+        std::cout << "Not implemented" << std::endl;
+        exit(0);
+    }
 
-        VectorXd x2 = x1 + p;
-        MatrixXd V2 = Map<const MatrixXd>(x2.data(), DIM, x1.size() / DIM);
-        V2.transposeInPlace();
+    std::cout << "Num candidates with broadphase"
+        << candidates.size() << std::endl;
 
-        V1 = state_.mesh_->collision_mesh().vertices(V1);
-        V2 = state_.mesh_->collision_mesh().vertices(V2);
 
-        alpha = ClassicCCD<DIM>(state_.mesh_->collision_mesh(), V1, V2);
+    if (state_.config_->np_type == NP_ADDITIVE) {
+        alpha = ipc::additive_ccd_narrowonly<DIM>(x1, p,
+            state_.mesh_->collision_mesh(),
+            candidates);
+    }
+    else if(state_.config_->np_type == NP_CLASSIC)
+    {
+        alpha = CCDNarrowPhase<DIM>(state_.mesh_->collision_mesh(), V1, V2, candidates);
     }
 
     alpha *= 0.9;

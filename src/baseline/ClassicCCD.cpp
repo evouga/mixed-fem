@@ -2,7 +2,7 @@
 #include "AABB.h"
 #include "CTCD.h"
 
-template<int dim> double narrowPhase(const ipc::CollisionMesh& mesh,
+template<int dim> double CCDNarrowPhase(const ipc::CollisionMesh& mesh,
     const Eigen::MatrixXd& V0,
     const Eigen::MatrixXd& V1,
     const ipc::Candidates& candidates)
@@ -12,7 +12,7 @@ template<int dim> double narrowPhase(const ipc::CollisionMesh& mesh,
 }
 
 template<>
-double narrowPhase<2>(const ipc::CollisionMesh& mesh,
+double CCDNarrowPhase<2>(const ipc::CollisionMesh& mesh,
     const Eigen::MatrixXd& V0,
     const Eigen::MatrixXd& V1,
     const ipc::Candidates& candidates)
@@ -37,19 +37,7 @@ double narrowPhase<2>(const ipc::CollisionMesh& mesh,
     return endtime;
 }
 
-
-
-template<int dim>
-double ClassicCCD(
-    const ipc::CollisionMesh& mesh,
+template double CCDNarrowPhase<3>(const ipc::CollisionMesh& mesh,
     const Eigen::MatrixXd& V0,
-    const Eigen::MatrixXd& V1)
-{
-    ipc::Candidates candidates;
-    AABBBroadPhase<dim>(mesh, V0, V1, 0.0, candidates);
-
-    return narrowPhase<dim>(mesh, V0, V1, candidates);
-}
-
-template double ClassicCCD<2>(const ipc::CollisionMesh& mesh, const Eigen::MatrixXd& V0, const Eigen::MatrixXd& V1);
-template double ClassicCCD<3>(const ipc::CollisionMesh& mesh, const Eigen::MatrixXd& V0, const Eigen::MatrixXd& V1);
+    const Eigen::MatrixXd& V1,
+    const ipc::Candidates& candidates);

@@ -12,4 +12,10 @@ void AABBBroadPhase(
     double inflation_radius,
     ipc::Candidates& collisionCandidates);
 
+template<int dim>
+void TrivialBroadPhase(
+    const ipc::CollisionMesh& mesh,
+    double inflation_radius,
+    ipc::Candidates& collisionCandidates);
+
 #endif
