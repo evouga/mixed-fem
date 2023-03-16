@@ -268,7 +268,7 @@ namespace mfem {
               optimizer->reset();
           }
           int bp_type = config->bp_type;
-          if (ImGui::Combo("Broad Phase", &bp_type, "None\0Sweep\0AABB\0Prism\0Hull"))
+          if (ImGui::Combo("Broad Phase", &bp_type, "None\0Sweep\0AABB\0Prism"))
               config->bp_type = (BroadPhaseType)bp_type;
 
           int np_type = config->np_type;

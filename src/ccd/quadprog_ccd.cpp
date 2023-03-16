@@ -14,7 +14,7 @@ namespace mfem {
 template<int DIM>
 bool evaluate_certificate(const SpacetimeAABB& b0,
     const SpacetimeAABB& b1) {
-
+    return false;
 }
 
 
@@ -24,7 +24,7 @@ double quadprog_ccd(
     const Eigen::MatrixXd& V0,
     const Eigen::MatrixXd& V1) {
 
-
+    return 0;
 }
 
 }
