@@ -50,21 +50,10 @@ void BroadPhaseSpacetime::make_polyhedron(const AABB& b_t0,
 
   //p.SetInitialELabel(0);
   p.Create(points, indices);
-
-  //if (p.ValidateHalfSpaceProperty(-1e-8)) {
-  //} else {
-  //    std::cout << "polyhedron aint manifold" << std::endl;
-  //    std::cout << "b0 min: " << b0_min_t0[0] << ", " << b0_min_t0[1] << std::endl;
-  //    std::cout << "b0 max: " << b0_max_t0[0] << ", " << b0_max_t0[1] << std::endl;
-  //    std::cout << "b1 min: " << b1_min_t1[0] << ", " << b1_min_t1[1] << std::endl;
-  //    std::cout << "b1 max: " << b1_max_t1[0] << ", " << b1_max_t1[1] << std::endl;
-  //    p.Print("polyhedron.txt");
-  //    exit(1);
-  //}
 }
 
 template <typename Candidate>
-void BroadPhaseSpacetime::detect_candidates(
+void BroadPhaseSpacetime::detect_candidates_separating_planes(
     const std::vector<AABB>& boxes0_t0,
     const std::vector<AABB>& boxes0_t1,
     const std::vector<AABB>& boxes1_t0,
@@ -134,7 +123,7 @@ void BroadPhaseSpacetime::clear()
 void BroadPhaseSpacetime::detect_edge_vertex_candidates(
     std::vector<EdgeVertexCandidate>& candidates) const
 {
-  detect_candidates(
+  detect_candidates_separating_planes(
       edge_boxes, edge_boxes_t1, vertex_boxes, vertex_boxes_t1,
       [&](size_t ei, size_t vi) { return can_edge_vertex_collide(ei, vi); },
       candidates);

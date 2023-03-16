@@ -102,7 +102,7 @@ find_package(BLAS)
 find_package(LAPACK)
 find_package(CHOLMOD)
 find_package(SuiteSparse)
-#find_package(MOSEK REQUIRED)
+find_package(MOSEK)
 
 # Add polyscope
 message("\n\n == CMAKE recursively building Polyscope\n")
@@ -231,6 +231,15 @@ target_include_directories(mixed_fem_lib SYSTEM PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}/implot" 
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope/deps/args"
   "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope/deps/json/include")
+
+# If MOSEK is found, add it to include directory and set a DEFINE
+if(MOSEK_FOUND)
+  include_directories(${MOSEK_INCLUDE_DIR})
+  #target_link_libraries(mixed_fem_lib ${MOSEK_LIBRARIES})
+  target_compile_definitions(mixed_fem_lib PUBLIC -DSIM_USE_MOSEK)
+
+
+endif()
 
 # Link settings
 target_link_libraries(mixed_fem_lib polyscope Eigen3::Eigen amgcl::amgcl)

@@ -106,7 +106,6 @@ namespace mfem {
       BP_SWEEP,
       BP_AABB,
       BP_PRISM,
-      BP_HULL
   };
 
   enum NarrowPhaseType {
